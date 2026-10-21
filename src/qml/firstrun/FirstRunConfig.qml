@@ -364,16 +364,19 @@ FlatMesh {
         config.state = "TIMEZONE_REGION"
     }
 
-    // Local time now, from the GPS clock, in the time zone picked so far.
-    function gpsLocalNow() {
-        if (!gpsApplied || config.currentTz === "")
+    // Local time now in the time zone picked so far: from the GPS clock after
+    // a fix, else from the system clock. The time and date pages are filled
+    // in when they are shown, not when the wizard was loaded.
+    function localNow() {
+        if (config.currentTz === "")
             return null
-        var local = firstRun.localDateTime(config.currentTz, Math.round(Date.now() / 1000 + gpsClockOffset))
+        var offset = gpsApplied ? gpsClockOffset : 0
+        var local = firstRun.localDateTime(config.currentTz, Math.round(Date.now() / 1000 + offset))
         return local.hour === undefined ? null : local
     }
 
     function prefillTime() {
-        var local = gpsLocalNow()
+        var local = localNow()
         if (!local)
             return
         var hour = local.hour
@@ -386,7 +389,7 @@ FlatMesh {
     }
 
     function prefillDate() {
-        var local = gpsLocalNow()
+        var local = localNow()
         if (!local)
             return
         dayLV.currentIndex = local.day - 1
@@ -555,6 +558,7 @@ FlatMesh {
                 case "TIMEZONE_REGION":
                     var selectedEntry = regionModel.get(regionLV.currentIndex)
                     if (selectedEntry.isLeaf) {
+                        config.currentTz = selectedEntry.fullPath
                         timedateDbus.typedCall("SetTimezone", [
                             { "type": "s", "value": selectedEntry.fullPath },
                             { "type": "b", "value": false }
@@ -576,6 +580,7 @@ FlatMesh {
                     break;
                 case "TIMEZONE_CITY":
                     var tzName = cityModel.get(cityLV.currentIndex).fullPath
+                    config.currentTz = tzName
                     timedateDbus.typedCall("SetTimezone", [
                         { "type": "s", "value": tzName },
                         { "type": "b", "value": false }
