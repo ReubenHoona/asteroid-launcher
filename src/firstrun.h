@@ -32,6 +32,7 @@
 
 #include <QObject>
 #include <QDBusInterface>
+#include <QVariantMap>
 #include <MDConfItem>
 
 class FirstRun : public QObject
@@ -43,6 +44,14 @@ public:
     Q_INVOKABLE bool isFirstRun();
     Q_INVOKABLE void startFirstRun();
     Q_INVOKABLE void stopFirstRun();
+
+    // Time zone whose reference location (tzdata zone1970.tab) is nearest to
+    // the given position, e.g. "Pacific/Auckland"; empty if none is known.
+    Q_INVOKABLE QString timezoneForPosition(double latitude, double longitude) const;
+    // Local date and time in timeZone for a UTC time in seconds since the
+    // epoch: { year, month (1-12), day, hour, minute }; empty if timeZone is
+    // unknown.
+    Q_INVOKABLE QVariantMap localDateTime(const QString &timeZone, qint64 utcSeconds) const;
 
 private:
     QDBusInterface *m_mceDbus;
