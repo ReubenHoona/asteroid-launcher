@@ -42,7 +42,12 @@ FlatMesh {
     centerColor: "#222222"
     outerColor: "#000000"
 
-    Component.onCompleted: firstRun.startFirstRun()
+    Component.onCompleted: {
+        firstRun.startFirstRun()
+        // search from the first page, so a fix may be ready by the time the
+        // location page is reached
+        config.startGps()
+    }
     Component.onDestruction: config.stopGps()
 
     ConfigurationValue {
@@ -309,13 +314,35 @@ FlatMesh {
         return qsTrId("id-gps-no-fix", satellites) + localeManager.changesObserver
     }
 
+    function gpsSearchingState() {
+        return config.state === "LANGUAGE" || config.state === "LOCATION_SOURCE"
+    }
+
+    // The provider checks the GNSS HAL once, when it starts. If it was asked
+    // before the HAL was up it stays in error, so let it go (it exits after
+    // 30 s without clients) and ask a fresh one.
+    Timer {
+        id: gpsRetry
+        interval: 35000
+        onTriggered: {
+            if (config.gpsSearchingState())
+                config.startGps()
+        }
+    }
+
     Timer {
         interval: 1000
         repeat: true
         triggeredOnStart: true
-        running: config.state === "LOCATION_SOURCE" && config.gpsReferenced
+        running: config.gpsSearchingState() && config.gpsReferenced
         onTriggered: {
-            gpsProvider.call("GetStatus", undefined, function(status) { config.gpsStatus = status })
+            gpsProvider.call("GetStatus", undefined, function(status) {
+                config.gpsStatus = status
+                if (status === 0 && config.gpsReferenced) {
+                    config.stopGps()
+                    gpsRetry.restart()
+                }
+            })
             firstRun.requestGpsSatellites()
             gpsPositionDbus.call("GetPosition", undefined,
                                  function(fields, timestamp, latitude, longitude) {
@@ -552,8 +579,6 @@ FlatMesh {
                     title.text = qsTrId("id-location-page") + localeManager.changesObserver
 
                     config.state = "LOCATION_SOURCE";
-                    // start searching now, so the GPS option shows live status
-                    config.startGps();
                     break;
                 case "TIMEZONE_REGION":
                     var selectedEntry = regionModel.get(regionLV.currentIndex)
