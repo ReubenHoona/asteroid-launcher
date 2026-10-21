@@ -277,8 +277,7 @@ FlatMesh {
         if (gpsReferenced)
             return
         gpsReferenced = true
-        gpsProvider.call("AddReference", undefined,
-                         function() { console.log("FirstRunConfig: GPS started") },
+        gpsProvider.call("AddReference", undefined, undefined,
                          function(error, message) {
                              console.log("FirstRunConfig: GPS unavailable:", error, message)
                              config.gpsReferenced = false
@@ -346,7 +345,6 @@ FlatMesh {
             return
         }
         gpsApplied = true
-        console.log("FirstRunConfig: GPS position maps to time zone", tz)
         config.currentTz = tz
         timedateDbus.typedCall("SetTimezone", [
             { "type": "s", "value": tz },
