@@ -302,7 +302,7 @@ FlatMesh {
             //% "Fix · %1 satellites"
             return qsTrId("id-gps-fix").arg(satellites) + localeManager.changesObserver
         if (gpsWaitingForFix)
-            //% "Waiting for fix · %1 satellites"
+            //% "Searching · %1 satellites"
             return qsTrId("id-gps-waiting").arg(satellites) + localeManager.changesObserver
         //% "No fix · %1 satellites"
         return qsTrId("id-gps-no-fix").arg(satellites) + localeManager.changesObserver
@@ -466,18 +466,23 @@ FlatMesh {
                 left: optionIcon.right
                 leftMargin: Dims.w(4)
                 right: parent.right
-                rightMargin: DeviceSpecs.hasRoundScreen ? Dims.w(12) : Dims.w(6)
+                // the rows sit near the middle, where a round screen is widest
+                rightMargin: DeviceSpecs.hasRoundScreen ? Dims.w(8) : Dims.w(6)
             }
             Label {
                 id: optionTitle
                 width: parent.width
                 font.pixelSize: Dims.l(8)
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Dims.l(6)
                 elide: Text.ElideRight
             }
             Label {
                 id: optionSubtitle
                 width: parent.width
                 font.pixelSize: Dims.l(5)
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Dims.l(4)
                 opacity: 0.75
                 elide: Text.ElideRight
             }
