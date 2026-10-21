@@ -115,20 +115,44 @@
         <source>Not available</source>
         <translation type="unfinished"></translation>
     </message>
-    <message id="id-gps-fix">
-        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="303"/>
-        <source>Fix · %1 satellites</source>
-        <translation type="unfinished"></translation>
+    <message id="id-gps-fix" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="302"/>
+        <source>Fix · %n satellite(s)</source>
+        <oldsource>Fix · %1 satellites</oldsource>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
-    <message id="id-gps-waiting">
-        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="306"/>
-        <source>Searching · %1 satellites</source>
-        <translation type="unfinished"></translation>
+    <message id="id-gps-waiting" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="305"/>
+        <source>Searching · %n satellite(s)</source>
+        <oldsource>Searching · %1 satellites</oldsource>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
-    <message id="id-gps-no-fix">
-        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="308"/>
-        <source>No fix · %1 satellites</source>
-        <translation type="unfinished"></translation>
+    <message id="id-gps-no-fix" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="307"/>
+        <source>No fix · %n satellite(s)</source>
+        <oldsource>No fix · %1 satellites</oldsource>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
     </message>
     <message id="id-gps">
         <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="506"/>

@@ -52,6 +52,15 @@ public:
     // epoch: { year, month (1-12), day, hour, minute }; empty if timeZone is
     // unknown.
     Q_INVOKABLE QVariantMap localDateTime(const QString &timeZone, qint64 utcSeconds) const;
+    // Ask the GeoClue hybris provider for its satellites; the answer comes
+    // as gpsSatellitesChanged(). QML cannot read the provider's satellite
+    // structs, so they are counted here.
+    Q_INVOKABLE void requestGpsSatellites();
+
+signals:
+    // used: satellites in the current fix; heard: satellites with a signal
+    // (the provider's visible count also includes ones it only predicts)
+    void gpsSatellitesChanged(int used, int heard);
 
 private:
     QDBusInterface *m_mceDbus;

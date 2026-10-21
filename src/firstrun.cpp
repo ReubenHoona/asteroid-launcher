@@ -31,7 +31,11 @@
 
 #include <QDateTime>
 #include <QDebug>
+#include <QDBusArgument>
+#include <QDBusConnection>
+#include <QDBusMessage>
 #include <QDBusPendingCall>
+#include <QDBusPendingCallWatcher>
 #include <QDBusVariant>
 #include <QFile>
 #include <QRegularExpression>
@@ -146,5 +150,38 @@ QVariantMap FirstRun::localDateTime(const QString &timeZone, qint64 utcSeconds) 
         { QStringLiteral("hour"), local.time().hour() },
         { QStringLiteral("minute"), local.time().minute() },
     };
+}
+
+void FirstRun::requestGpsSatellites()
+{
+    const QDBusMessage call = QDBusMessage::createMethodCall(
+                QStringLiteral("org.freedesktop.Geoclue.Providers.Hybris"),
+                QStringLiteral("/org/freedesktop/Geoclue/Providers/Hybris"),
+                QStringLiteral("org.freedesktop.Geoclue.Satellite"),
+                QStringLiteral("GetSatellite"));
+    QDBusPendingCallWatcher *watcher =
+            new QDBusPendingCallWatcher(QDBusConnection::sessionBus().asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *finished) {
+        finished->deleteLater();
+        // (timestamp, used, visible, used PRNs, [(prn, elevation, azimuth, snr)])
+        const QDBusMessage reply = finished->reply();
+        const QVariantList args = reply.arguments();
+        if (reply.type() != QDBusMessage::ReplyMessage || args.size() < 5)
+            return;
+
+        int heard = 0;
+        const QDBusArgument satellites = args.at(4).value<QDBusArgument>();
+        satellites.beginArray();
+        while (!satellites.atEnd()) {
+            int prn, elevation, azimuth, snr;
+            satellites.beginStructure();
+            satellites >> prn >> elevation >> azimuth >> snr;
+            satellites.endStructure();
+            if (snr > 0)
+                heard++;
+        }
+        satellites.endArray();
+        emit gpsSatellitesChanged(args.at(1).toInt(), heard);
+    });
 }
 

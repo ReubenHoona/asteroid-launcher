@@ -63,21 +63,33 @@
         <source>GPS</source>
         <translation>GPS</translation>
     </message>
-    <message id="id-gps-fix">
-        <source>Fix · %1 satellites</source>
-        <translation>Fix · %1 satellites</translation>
+    <message id="id-gps-fix" numerus="yes">
+        <source>Fix · %n satellite(s)</source>
+        <oldsource>Fix · %1 satellites</oldsource>
+        <translation>
+            <numerusform>Fix · %n satellite</numerusform>
+            <numerusform>Fix · %n satellites</numerusform>
+        </translation>
     </message>
-    <message id="id-gps-no-fix">
-        <source>No fix · %1 satellites</source>
-        <translation>No fix · %1 satellites</translation>
+    <message id="id-gps-no-fix" numerus="yes">
+        <source>No fix · %n satellite(s)</source>
+        <oldsource>No fix · %1 satellites</oldsource>
+        <translation>
+            <numerusform>No fix · %n satellite</numerusform>
+            <numerusform>No fix · %n satellites</numerusform>
+        </translation>
     </message>
     <message id="id-gps-unavailable">
         <source>Not available</source>
         <translation>Not available</translation>
     </message>
-    <message id="id-gps-waiting">
-        <source>Searching · %1 satellites</source>
-        <translation>Searching · %1 satellites</translation>
+    <message id="id-gps-waiting" numerus="yes">
+        <source>Searching · %n satellite(s)</source>
+        <oldsource>Searching · %1 satellites</oldsource>
+        <translation>
+            <numerusform>Searching · %n satellite</numerusform>
+            <numerusform>Searching · %n satellites</numerusform>
+        </translation>
     </message>
     <message id="id-hour-abbrev">
         <source>h</source>

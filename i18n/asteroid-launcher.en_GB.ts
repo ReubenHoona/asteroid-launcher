@@ -115,20 +115,32 @@
         <source>Not available</source>
         <translation>Not available</translation>
     </message>
-    <message id="id-gps-fix">
-        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="303"/>
-        <source>Fix · %1 satellites</source>
-        <translation>Fix · %1 satellites</translation>
+    <message id="id-gps-fix" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="302"/>
+        <source>Fix · %n satellite(s)</source>
+        <oldsource>Fix · %1 satellites</oldsource>
+        <translation>
+            <numerusform>Fix · %n satellite</numerusform>
+            <numerusform>Fix · %n satellites</numerusform>
+        </translation>
     </message>
-    <message id="id-gps-waiting">
-        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="306"/>
-        <source>Searching · %1 satellites</source>
-        <translation>Searching · %1 satellites</translation>
+    <message id="id-gps-waiting" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="305"/>
+        <source>Searching · %n satellite(s)</source>
+        <oldsource>Searching · %1 satellites</oldsource>
+        <translation>
+            <numerusform>Searching · %n satellite</numerusform>
+            <numerusform>Searching · %n satellites</numerusform>
+        </translation>
     </message>
-    <message id="id-gps-no-fix">
-        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="308"/>
-        <source>No fix · %1 satellites</source>
-        <translation>No fix · %1 satellites</translation>
+    <message id="id-gps-no-fix" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="307"/>
+        <source>No fix · %n satellite(s)</source>
+        <oldsource>No fix · %1 satellites</oldsource>
+        <translation>
+            <numerusform>No fix · %n satellite</numerusform>
+            <numerusform>No fix · %n satellites</numerusform>
+        </translation>
     </message>
     <message id="id-gps">
         <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="506"/>

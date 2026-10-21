@@ -246,7 +246,7 @@ FlatMesh {
     property bool gpsAvailable: true      // false once the provider failed to answer
     property int gpsStatus: 1             // GeoClue: 0 error, 1 unavailable, 2 acquiring, 3 available
     property int gpsSatellitesUsed: 0
-    property int gpsSatellitesVisible: 0
+    property int gpsSatellitesVisible: 0  // satellites with a signal
     property bool gpsFix: false
     property real gpsLatitude: 0
     property real gpsLongitude: 0
@@ -266,11 +266,13 @@ FlatMesh {
         path: config.gpsPath
         iface: "org.freedesktop.Geoclue.Position"
     }
-    DBusInterface {
-        id: gpsSatelliteDbus
-        service: config.gpsService
-        path: config.gpsPath
-        iface: "org.freedesktop.Geoclue.Satellite"
+    // Satellite counts; the provider's satellite structs are read in C++
+    Connections {
+        target: firstRun
+        function onGpsSatellitesChanged(used, heard) {
+            config.gpsSatellitesUsed = used
+            config.gpsSatellitesVisible = heard
+        }
     }
 
     function startGps() {
@@ -298,13 +300,13 @@ FlatMesh {
             return qsTrId("id-gps-unavailable") + localeManager.changesObserver
         var satellites = gpsFix && gpsSatellitesUsed > 0 ? gpsSatellitesUsed : gpsSatellitesVisible
         if (gpsFix)
-            //% "Fix · %1 satellites"
-            return qsTrId("id-gps-fix").arg(satellites) + localeManager.changesObserver
+            //% "Fix · %n satellite(s)"
+            return qsTrId("id-gps-fix", satellites) + localeManager.changesObserver
         if (gpsWaitingForFix)
-            //% "Searching · %1 satellites"
-            return qsTrId("id-gps-waiting").arg(satellites) + localeManager.changesObserver
-        //% "No fix · %1 satellites"
-        return qsTrId("id-gps-no-fix").arg(satellites) + localeManager.changesObserver
+            //% "Searching · %n satellite(s)"
+            return qsTrId("id-gps-waiting", satellites) + localeManager.changesObserver
+        //% "No fix · %n satellite(s)"
+        return qsTrId("id-gps-no-fix", satellites) + localeManager.changesObserver
     }
 
     Timer {
@@ -314,11 +316,7 @@ FlatMesh {
         running: config.state === "LOCATION_SOURCE" && config.gpsReferenced
         onTriggered: {
             gpsProvider.call("GetStatus", undefined, function(status) { config.gpsStatus = status })
-            gpsSatelliteDbus.call("GetSatellite", undefined,
-                                  function(timestamp, used, visible) {
-                                      config.gpsSatellitesUsed = used
-                                      config.gpsSatellitesVisible = visible
-                                  })
+            firstRun.requestGpsSatellites()
             gpsPositionDbus.call("GetPosition", undefined,
                                  function(fields, timestamp, latitude, longitude) {
                                      // fields: bit 0 latitude, bit 1 longitude
