@@ -106,6 +106,13 @@ Item {
         }
     }
 
+    // The position of the notification the user is on (its view or its
+    // actions), or -1 outside the notifications
+    function viewedPosition() {
+        var c = panelsGrid.currentHorizontalPos
+        return c < 0 ? -c - 1 : -1
+    }
+
     function destroyPosition(pos) {
         panelsGrid.removePanel(colOf(pos), -1)
         if (pos === 0) {
@@ -117,8 +124,9 @@ Item {
 
     NotificationListModel {
         id: notifModel
-        onItemAdded: {
+        onItemAdded: function (item) {
             var index = notifModel.indexOf(item)
+            var viewed = viewedPosition()
 
             // Shift everything from `index` outward one position to make room.
             // Outermost first so we never move into an occupied cell.
@@ -131,12 +139,19 @@ Item {
             else
                 makeGridView(index, item)
 
+            // The user stays on the notification they were on (reading it,
+            // or writing a reply on its actions panel) instead of the new one
+            // taking its place; the new one shows as a preview anyway
+            if (viewed >= index && viewed < notifModel.itemCount - 1)
+                panelsGrid.followTo(colOf(viewed + 1), panelsGrid.currentVerticalPos)
+
             panelsGrid.changeAllowedDirections()
         }
 
-        onRowsRemoved: {
+        onRowsRemoved: function (parent, first, last) {
             var removed = last - first + 1
             var oldCount = notifModel.itemCount + removed
+            var viewed = viewedPosition()
 
             for (var p = first; p <= last; p++)
                 destroyPosition(p)
@@ -147,10 +162,49 @@ Item {
             for (var p = last + 1; p < oldCount; p++)
                 movePosition(p, p - removed)
 
-            if (first === 0 && notifModel.itemCount > 0)
+            // Outside the notifications (e.g. on the watchface while the phone
+            // removes one) the user stays where they are; on another
+            // notification they stay on it
+            if (viewed < 0 || viewed >= oldCount)
+                panelsGrid.changeAllowedDirections()
+            else if (viewed < first || viewed > last)
+                panelsGrid.followTo(colOf(viewed > last ? viewed - removed : viewed),
+                                    panelsGrid.currentVerticalPos)
+            else if (first === 0 && notifModel.itemCount > 0)
                 panelsGrid.moveTo(-1, 0)
             else
                 panelsGrid.moveTo(-first, 0)
+        }
+
+        // An updated notification moves to its new place (newest first): its
+        // panels move with it, and the user stays on what they were on
+        onRowsMoved: function (parent, start, end, destination, row) {
+            var to = row > start ? row - 1 : row
+            if (to === start)
+                return
+            var viewed = viewedPosition()
+            var park = notifModel.itemCount + 1     // a free position
+            movePosition(start, park)
+            if (to < start) {
+                for (var p = start - 1; p >= to; p--)
+                    movePosition(p, p + 1)
+            } else {
+                for (var q = start + 1; q <= to; q++)
+                    movePosition(q, q - 1)
+            }
+            movePosition(park, to)
+
+            var now = viewed
+            if (viewed === start)
+                now = to
+            else if (to < start && viewed >= to && viewed < start)
+                now = viewed + 1
+            else if (to > start && viewed > start && viewed <= to)
+                now = viewed - 1
+            if (viewed >= 0 && viewed < notifModel.itemCount && now !== viewed)
+                panelsGrid.followTo(colOf(now), panelsGrid.currentVerticalPos)
+            else
+                panelsGrid.changeAllowedDirections()
         }
     }
 
