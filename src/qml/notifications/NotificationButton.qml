@@ -43,6 +43,10 @@ MouseArea {
         id: content
         font.pixelSize: Dims.l(8)
         anchors.centerIn: parent
+        width: parent.width - parent.height / 2
+        horizontalAlignment: Text.AlignHCenter
+        fontSizeMode: Text.HorizontalFit
+        minimumPixelSize: Dims.l(5)
     }
 }
 

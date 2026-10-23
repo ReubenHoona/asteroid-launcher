@@ -30,6 +30,7 @@
 import QtQuick
 import Nemo.Configuration
 import Nemo.DBus
+import QtQuick.VirtualKeyboard
 import org.asteroid.controls
 import org.asteroid.launcher
 
@@ -260,6 +261,7 @@ Item {
 
         Item {
             property var pop
+            property int depth
 
             Column {
                 anchors.centerIn: parent
@@ -310,6 +312,7 @@ Item {
 
         Item {
             property var pop
+            property int depth
 
             PageHeader {
                 id: replyTitle
@@ -323,17 +326,45 @@ Item {
                 anchors.bottomMargin: Dims.h(10)
                 clip: true
                 model: ["\u0001write"].concat(cannedReplies.value)
-                delegate: ListItem {
+                delegate: MouseArea {
+                    id: replyItem
+                    readonly property bool isWrite: modelData === "\u0001write"
                     width: ListView.view.width
                     height: Dims.h(18)
-                    //% "Write…"
-                    title: modelData === "\u0001write" ? qsTrId("id-reply-write") : modelData
-                    iconName: modelData === "\u0001write" ? "ios-create-outline" : "ios-text-outline"
                     onClicked: {
-                        if (modelData === "\u0001write")
+                        if (isWrite)
                             layerStack.push(writeLayer)
                         else
                             actions.sendReply(modelData)
+                    }
+
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#33ffffff"
+                        visible: replyItem.pressed
+                    }
+
+                    Icon {
+                        id: replyIcon
+                        name: replyItem.isWrite ? "ios-create-outline" : "ios-text-outline"
+                        width: Dims.h(12)
+                        height: width
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: parent.left
+                        anchors.leftMargin: Dims.w(18)
+                    }
+
+                    Label {
+                        //% "Write…"
+                        text: replyItem.isWrite ? qsTrId("id-reply-write") : modelData
+                        elide: Text.ElideRight
+                        anchors.verticalCenter: parent.verticalCenter
+                        anchors.left: replyIcon.right
+                        anchors.leftMargin: Dims.w(6)
+                        anchors.right: parent.right
+                        anchors.rightMargin: Dims.w(12)
+                        font.pixelSize: Dims.l(9)
+                        font.styleName: "SemiCondensed Light"
                     }
                 }
             }
@@ -345,9 +376,18 @@ Item {
 
         Item {
             property var pop
+            property int depth
 
-            HandWritingKeyboard {
-                anchors.fill: parent
+            // Qt 6 Virtual Keyboard ships no free handwriting engine (the
+            // HandWritingKeyboard panel stays empty without one): use its
+            // keyboard, narrow enough for the round screen
+            InputPanel {
+                id: keyboard
+                z: 99
+                width: Dims.w(82)
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Dims.h(40)
+                visible: active
             }
 
             TextField {
@@ -373,6 +413,15 @@ Item {
                 onClicked: actions.sendReply(replyField.text)
             }
 
+            // The keyboard's Enter key sends
+            Connections {
+                target: replyField.editor
+                function onAccepted() {
+                    if (replyField.text.trim().length > 0)
+                        actions.sendReply(replyField.text)
+                }
+            }
+
             Component.onCompleted: if (replyField.editor) replyField.editor.forceActiveFocus()
         }
     }
@@ -396,6 +445,7 @@ Item {
         Item {
             id: snoozeLayerContent
             property var pop
+            property int depth
 
             PageHeader {
                 id: title
@@ -457,6 +507,7 @@ Item {
     }
 
     Row {
+        visible: layerStack.layers.length === 0
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Dims.h(3)
         anchors.horizontalCenter: parent.horizontalCenter
