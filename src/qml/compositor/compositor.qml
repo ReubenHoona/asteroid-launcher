@@ -228,6 +228,22 @@ Item {
         onDisplayOff: delayTimer.start()
         onDisplayAboutToBeOn: delayTimer.stop()
 
+        // An application that comes to the front while the display is off or
+        // in low power mode asks for the unlock above when mce refuses it
+        // (mce only unlocks with the display on or dimmed) and puts the lock
+        // back. The application then sits under mce's lockscreen policy: it
+        // blanks 10 s after the display comes on, and delayTimer closes the
+        // application 5 s later. Ask again once the display is on, and give
+        // the application back the focus lipstick did not restore while
+        // locked.
+        onDisplayOn: {
+            if (appActive && lipstickSettings.lockscreenVisible) {
+                lipstickSettings.lockscreenVisible = false
+                if (topmostWindow && topmostWindow.window)
+                    topmostWindow.window.takeFocus()
+            }
+        }
+
         onWindowAdded: (window) => {
             // The launcher's own UI (home screen + overlays) are plain items,
             // so every window here is a Wayland client application.
