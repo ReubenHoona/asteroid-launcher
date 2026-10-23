@@ -56,7 +56,7 @@ Item {
             id: homeLoader
             anchors.fill: parent
             source: "MainScreen.qml"
-            onLoaded: item.aboutToOpen = Qt.binding(function() { return !comp.homeActive && !appLayer.ready })
+            onLoaded: item.aboutToOpen = Qt.binding(function() { return comp ? !comp.homeActive && !appLayer.ready : false })
         }
     }
 

@@ -35,6 +35,14 @@
         <source>PIN Code:</source>
         <translation>PIN Code:</translation>
     </message>
+    <message id="id-country-selection">
+        <source>Country selection</source>
+        <translation>Country selection</translation>
+    </message>
+    <message id="id-country-selection-hint">
+        <source>Choose your time zone</source>
+        <translation>Choose your time zone</translation>
+    </message>
     <message id="id-date-page">
         <source>Date</source>
         <translation>Date</translation>
@@ -51,6 +59,38 @@
         <source>Dismiss all</source>
         <translation>Dismiss all</translation>
     </message>
+    <message id="id-gps">
+        <source>GPS</source>
+        <translation>GPS</translation>
+    </message>
+    <message id="id-gps-fix" numerus="yes">
+        <source>Fix · %n satellite(s)</source>
+        <oldsource>Fix · %1 satellites</oldsource>
+        <translation>
+            <numerusform>Fix · %n satellite</numerusform>
+            <numerusform>Fix · %n satellites</numerusform>
+        </translation>
+    </message>
+    <message id="id-gps-no-fix" numerus="yes">
+        <source>No fix · %n satellite(s)</source>
+        <oldsource>No fix · %1 satellites</oldsource>
+        <translation>
+            <numerusform>No fix · %n satellite</numerusform>
+            <numerusform>No fix · %n satellites</numerusform>
+        </translation>
+    </message>
+    <message id="id-gps-unavailable">
+        <source>Not available</source>
+        <translation>Not available</translation>
+    </message>
+    <message id="id-gps-waiting" numerus="yes">
+        <source>Searching · %n satellite(s)</source>
+        <oldsource>Searching · %1 satellites</oldsource>
+        <translation>
+            <numerusform>Searching · %n satellite</numerusform>
+            <numerusform>Searching · %n satellites</numerusform>
+        </translation>
+    </message>
     <message id="id-hour-abbrev">
         <source>h</source>
         <translation>h</translation>
@@ -58,6 +98,10 @@
     <message id="id-language-page">
         <source>Language</source>
         <translation>Language</translation>
+    </message>
+    <message id="id-location-page">
+        <source>Location</source>
+        <translation>Location</translation>
     </message>
     <message id="id-minute-abbrev">
         <source>m</source>

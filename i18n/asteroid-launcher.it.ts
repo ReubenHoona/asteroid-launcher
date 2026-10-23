@@ -110,10 +110,62 @@
         <source>Time</source>
         <translation>Ora</translation>
     </message>
+    <message id="id-gps-unavailable">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="299"/>
+        <source>Not available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="id-gps-fix" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="302"/>
+        <source>Fix · %n satellite(s)</source>
+        <oldsource>Fix · %1 satellites</oldsource>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message id="id-gps-waiting" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="305"/>
+        <source>Searching · %n satellite(s)</source>
+        <oldsource>Searching · %1 satellites</oldsource>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message id="id-gps-no-fix" numerus="yes">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="307"/>
+        <source>No fix · %n satellite(s)</source>
+        <oldsource>No fix · %1 satellites</oldsource>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message id="id-gps">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="506"/>
+        <source>GPS</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="id-country-selection">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="523"/>
+        <source>Country selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message id="id-country-selection-hint">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="525"/>
+        <source>Choose your time zone</source>
+        <translation type="unfinished"></translation>
+    </message>
     <message id="id-language-page">
         <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="255"/>
         <source>Language</source>
         <translation>Lingua</translation>
+    </message>
+    <message id="id-location-page">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="553"/>
+        <source>Location</source>
+        <translation type="unfinished"></translation>
     </message>
     <message id="id-time-page">
         <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="289"/>

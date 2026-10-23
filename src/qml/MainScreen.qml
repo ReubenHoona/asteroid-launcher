@@ -125,6 +125,9 @@ Item {
         Item {
             anchors.fill: parent
             z: 8
+            // An ambient display keeps showing its last frame, which would be
+            // a frozen-looking wizard: show the ambient watchface below instead
+            visible: !Lipstick.compositor.displayAmbient
             Tutorial { }
             FirstRunConfig { }
         }
