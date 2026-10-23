@@ -136,7 +136,8 @@ Item {
     Connections {
         target: panelsGrid
         function onCurrentHorizontalPosChanged() {
-            if(forbidBottom)
+            // Not when the panels were only renumbered around this one
+            if(forbidBottom && !panelsGrid.following)
                 layerStack.pop(layerStack.currentLayer)
             updateTimestamp()
         }
