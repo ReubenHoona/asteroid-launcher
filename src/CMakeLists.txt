@@ -34,6 +34,7 @@ set(QML_FILES
 	qml/notifications/NotificationView.qml
 	qml/notifications/NotificationsPanel.qml
 	qml/notifications/NotificationPreview.qml
+	qml/notifications/IncomingCall.qml
 	qml/quickpanel/QuickPanel.qml
 	qml/quickpanel/QuickPanelToggle.qml
 	qml/firstrun/FakeAlarmclock.qml
@@ -58,6 +59,7 @@ set_source_files_properties(qml/notifications/NotificationIndicator.qml PROPERTI
 set_source_files_properties(qml/notifications/NotificationView.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationView.qml)
 set_source_files_properties(qml/notifications/NotificationsPanel.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationsPanel.qml)
 set_source_files_properties(qml/notifications/NotificationPreview.qml   PROPERTIES QT_RESOURCE_ALIAS notifications/NotificationPreview.qml)
+set_source_files_properties(qml/notifications/IncomingCall.qml          PROPERTIES QT_RESOURCE_ALIAS IncomingCall.qml)
 set_source_files_properties(qml/quickpanel/QuickPanel.qml            PROPERTIES QT_RESOURCE_ALIAS QuickPanel.qml)
 set_source_files_properties(qml/quickpanel/QuickPanelToggle.qml      PROPERTIES QT_RESOURCE_ALIAS QuickPanelToggle.qml)
 set_source_files_properties(qml/firstrun/FakeAlarmclock.qml          PROPERTIES QT_RESOURCE_ALIAS FakeAlarmclock.qml)

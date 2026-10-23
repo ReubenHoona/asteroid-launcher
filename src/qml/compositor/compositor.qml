@@ -86,6 +86,13 @@ Item {
         source: "notifications/NotificationPreview.qml"
     }
 
+    // A call ringing on the phone: full screen, above the preview
+    Loader {
+        z: 3
+        anchors.fill: parent
+        source: "IncomingCall.qml"
+    }
+
     Loader {
         z: 3
         anchors.fill: parent

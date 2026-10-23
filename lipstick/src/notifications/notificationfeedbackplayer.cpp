@@ -37,6 +37,8 @@ NotificationFeedbackPlayer::NotificationFeedbackPlayer(QObject *parent) :
     minimumPriority_(0)
 {
     connect(NotificationManager::instance(), SIGNAL(notificationRemoved(uint)), this, SLOT(removeNotification(uint)));
+    connect(NotificationManager::instance(), SIGNAL(notificationModified(uint)), this, SLOT(updateNotification(uint)));
+    connect(NotificationManager::instance(), SIGNAL(notificationsModified(const QList<uint> &)), this, SLOT(updateNotifications(const QList<uint> &)));
 
     QTimer::singleShot(0, this, SLOT(init()));
 }
@@ -94,6 +96,21 @@ void NotificationFeedbackPlayer::removeNotification(uint id)
             it = idToEventId.erase(it);
         }
     }
+}
+
+void NotificationFeedbackPlayer::updateNotification(uint id)
+{
+    LipstickNotification *notification = NotificationManager::instance()->notification(id);
+    if (notification != 0 && notification->hints().value(NotificationManager::HINT_FEEDBACK_SUPPRESSED).toBool()) {
+        // An update only suppresses feedback: it never starts any
+        removeNotification(id);
+    }
+}
+
+void NotificationFeedbackPlayer::updateNotifications(const QList<uint> &ids)
+{
+    foreach (uint id, ids)
+        updateNotification(id);
 }
 
 bool NotificationFeedbackPlayer::isEnabled(LipstickNotification *notification)
