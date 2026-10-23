@@ -36,26 +36,26 @@
         <translation>Enter PIN Code</translation>
     </message>
     <message id="id-snooze">
-        <location filename="../src/qml/notifications/NotificationActions.qml" line="+211"/>
-        <location line="+69"/>
-        <location line="+123"/>
+        <location filename="../src/qml/notifications/NotificationActions.qml" line="+237"/>
+        <location line="+70"/>
+        <location line="+171"/>
         <source>Snooze</source>
         <translation>Snooze</translation>
     </message>
     <message id="id-dismiss-all">
-        <location line="-183"/>
-        <location line="+77"/>
+        <location line="-232"/>
+        <location line="+78"/>
         <source>Dismiss all</source>
         <translation>Dismiss all</translation>
     </message>
     <message id="id-dismiss">
-        <location line="-68"/>
+        <location line="-69"/>
         <location filename="../src/qml/notifications/NotificationView.qml" line="+161"/>
         <source>Dismiss</source>
         <translation>Dismiss</translation>
     </message>
     <message id="id-now">
-        <location line="-114"/>
+        <location line="-133"/>
         <location filename="../src/qml/notifications/NotificationView.qml" line="-98"/>
         <source>Now</source>
         <translation>Now</translation>
@@ -92,65 +92,88 @@
     </message>
     <message id="id-minute-abbrev">
         <location line="+19"/>
-        <location line="+294"/>
+        <location line="+362"/>
         <location line="+11"/>
         <location filename="../src/qml/notifications/NotificationView.qml" line="+5"/>
         <source>m</source>
         <translation>m</translation>
     </message>
     <message id="id-hour-abbrev">
-        <location line="-300"/>
-        <location line="+311"/>
+        <location line="-368"/>
+        <location line="+379"/>
         <location line="+11"/>
         <location filename="../src/qml/notifications/NotificationView.qml" line="+5"/>
         <source>h</source>
         <translation>h</translation>
     </message>
     <message id="id-day-abbrev">
-        <location line="-318"/>
+        <location line="-386"/>
         <location filename="../src/qml/notifications/NotificationView.qml" line="+4"/>
         <source>d</source>
         <translation>d</translation>
     </message>
+    <message id="id-call-end">
+        <location line="+47"/>
+        <source>End call</source>
+        <translation>End call</translation>
+    </message>
+    <message id="id-call-silenced">
+        <location filename="../src/qml/notifications/IncomingCall.qml" line="+248"/>
+        <source>Silenced</source>
+        <translation>Silenced</translation>
+    </message>
+    <message id="id-call-incoming">
+        <location line="+2"/>
+        <source>Incoming call</source>
+        <translation>Incoming call</translation>
+    </message>
     <message id="id-call-answer">
-        <location line="+46"/>
+        <location line="+59"/>
+        <location filename="../src/qml/notifications/NotificationActions.qml" line="+9"/>
         <source>Answer</source>
         <translation>Answer</translation>
     </message>
+    <message id="id-call-silence">
+        <location line="+8"/>
+        <location filename="../src/qml/notifications/NotificationActions.qml" line="+18"/>
+        <source>Silence</source>
+        <translation>Silence</translation>
+    </message>
     <message id="id-call-decline">
-        <location line="+9"/>
+        <location line="-17"/>
+        <location filename="../src/qml/notifications/NotificationActions.qml" line="-9"/>
         <source>Decline</source>
         <translation>Decline</translation>
     </message>
     <message id="id-reply">
-        <location line="+9"/>
-        <location line="+124"/>
+        <location filename="../src/qml/notifications/NotificationActions.qml" line="+18"/>
+        <location line="+126"/>
         <source>Reply</source>
         <translation>Reply</translation>
     </message>
     <message id="id-open-on-phone">
-        <location line="-115"/>
-        <location line="+69"/>
+        <location line="-117"/>
+        <location line="+70"/>
         <source>Open on phone</source>
         <translation>Open on phone</translation>
     </message>
     <message id="id-more">
-        <location line="-33"/>
+        <location line="-34"/>
         <source>More</source>
         <translation>More</translation>
     </message>
     <message id="id-mute-app">
-        <location line="+50"/>
+        <location line="+51"/>
         <source>Mute app</source>
         <translation>Mute app</translation>
     </message>
     <message id="id-reply-write">
-        <location line="+42"/>
+        <location line="+69"/>
         <source>Write…</source>
         <translation>Write…</translation>
     </message>
     <message id="id-reply-preview">
-        <location line="+31"/>
+        <location line="+42"/>
         <source>Your reply</source>
         <translation>Your reply</translation>
     </message>
@@ -160,12 +183,12 @@
         <translation>Send</translation>
     </message>
     <message id="id-reply-failed">
-        <location line="+17"/>
+        <location line="+26"/>
         <source>Not sent: phone not connected</source>
         <translation>Not sent: phone not connected</translation>
     </message>
     <message id="id-no-notifications">
-        <location filename="../src/qml/notifications/NotificationsPanel.qml" line="+185"/>
+        <location filename="../src/qml/notifications/NotificationsPanel.qml" line="+239"/>
         <source>No notifications</source>
         <translation>No notifications</translation>
     </message>

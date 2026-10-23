@@ -67,6 +67,12 @@ Item {
         notification.actionInvoked(key)
     }
 
+    // A ringing call: stop the watch vibrating (and the phone ringing when
+    // the phone offers it); the call keeps ringing until answered or declined
+    function silenceCall() {
+        btsyncd.typedCall("Silence", [{ "type": "u", "value": notification.replacesId }])
+    }
+
     function sendReply(text) {
         if (text.trim().length === 0)
             return
@@ -173,6 +179,15 @@ Item {
                 property bool isCall: actions.hasPhoneAction("answer") || actions.hasPhoneAction("reject")
 
                 NotificationButton {
+                    //% "End call"
+                    text: qsTrId("id-call-end") + localeManager.changesObserver
+                    width: parent.width
+                    height: Dims.h(20)
+                    visible: actions.hasPhoneAction("end")
+                    onClicked: actions.invokePhoneAction("end")
+                }
+
+                NotificationButton {
                     //% "Answer"
                     text: qsTrId("id-call-answer") + localeManager.changesObserver
                     width: parent.width
@@ -188,6 +203,15 @@ Item {
                     height: Dims.h(20)
                     visible: actions.hasPhoneAction("reject")
                     onClicked: actions.invokePhoneAction("reject")
+                }
+
+                NotificationButton {
+                    //% "Silence"
+                    text: qsTrId("id-call-silence") + localeManager.changesObserver
+                    width: parent.width
+                    height: Dims.h(20)
+                    visible: column.isCall
+                    onClicked: actions.silenceCall()
                 }
 
                 NotificationButton {
@@ -240,7 +264,7 @@ Item {
                     text: qsTrId("id-more") + localeManager.changesObserver
                     width: parent.width
                     height: Dims.h(20)
-                    visible: actions.fromPhone
+                    visible: actions.fromPhone && !column.isCall && !actions.hasPhoneAction("end")
                     onClicked: layerStack.push(moreLayer)
                 }
             }

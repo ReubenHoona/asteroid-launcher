@@ -73,6 +73,15 @@ private slots:
      */
     void removeNotification(uint id);
 
+    /*!
+     * Stops the feedback of the notification with the given ID when it was
+     * updated to suppress feedback (e.g. a ringing call silenced).
+     *
+     * \param id the ID of the updated notification
+     */
+    void updateNotification(uint id);
+    void updateNotifications(const QList<uint> &ids);
+
 private:
     //! Check whether feedbacks should be enabled for the given notification
     bool isEnabled(LipstickNotification *notification);
