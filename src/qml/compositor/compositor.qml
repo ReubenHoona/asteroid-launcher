@@ -237,6 +237,10 @@ Item {
         // the application back the focus lipstick did not restore while
         // locked.
         onDisplayOn: {
+            // A wake through the low-power (AOD) path does not always emit
+            // displayAboutToBeOn: the close timer started at display off
+            // would close the application 5 s later with the display on.
+            delayTimer.stop()
             if (appActive && lipstickSettings.lockscreenVisible) {
                 lipstickSettings.lockscreenVisible = false
                 if (topmostWindow && topmostWindow.window)
