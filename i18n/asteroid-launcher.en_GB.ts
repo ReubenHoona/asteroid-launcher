@@ -122,6 +122,15 @@
         <source>Silenced</source>
         <translation>Silenced</translation>
     </message>
+    <message id="id-call-in-progress">
+        <source>In call %1</source>
+        <extracomment>%1 is the time in call, e.g. 1:23</extracomment>
+        <translation>In call %1</translation>
+    </message>
+    <message id="id-call-hide">
+        <source>Hide</source>
+        <translation>Hide</translation>
+    </message>
     <message id="id-call-incoming">
         <location line="+2"/>
         <source>Incoming call</source>
