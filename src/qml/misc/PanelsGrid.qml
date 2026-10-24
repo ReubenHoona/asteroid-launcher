@@ -113,6 +113,23 @@ GestureFilterArea {
         currentVerticalPos = posY
     }
 
+    /* True while followTo() runs: the panel under the user was renumbered,
+     * the user did not leave it (panels keep what they show, e.g. a reply
+     * being written). */
+    property bool following: false
+
+    /* Keep showing the panel the user is on after it moved to (posX, posY)
+     * because panels were added or removed before it. */
+    function followTo(posX, posY) {
+        following = true
+        moveTo(posX, posY)
+        var rec = cellAt(posX, posY)
+        if (rec !== undefined)
+            rec.item.visible = true
+        following = false
+        changeAllowedDirections()
+    }
+
     function hideOffscreen() {
         for(var rec of panels.values())
             if(rec.col !== currentHorizontalPos || rec.row !== currentVerticalPos)

@@ -56,7 +56,7 @@ Item {
             id: homeLoader
             anchors.fill: parent
             source: "MainScreen.qml"
-            onLoaded: item.aboutToOpen = Qt.binding(function() { return !comp.homeActive && !appLayer.ready })
+            onLoaded: item.aboutToOpen = Qt.binding(function() { return comp ? !comp.homeActive && !appLayer.ready : false })
         }
     }
 
@@ -234,6 +234,26 @@ Item {
 
         onDisplayOff: delayTimer.start()
         onDisplayAboutToBeOn: delayTimer.stop()
+
+        // An application that comes to the front while the display is off or
+        // in low power mode asks for the unlock above when mce refuses it
+        // (mce only unlocks with the display on or dimmed) and puts the lock
+        // back. The application then sits under mce's lockscreen policy: it
+        // blanks 10 s after the display comes on, and delayTimer closes the
+        // application 5 s later. Ask again once the display is on, and give
+        // the application back the focus lipstick did not restore while
+        // locked.
+        onDisplayOn: {
+            // A wake through the low-power (AOD) path does not always emit
+            // displayAboutToBeOn: the close timer started at display off
+            // would close the application 5 s later with the display on.
+            delayTimer.stop()
+            if (appActive && lipstickSettings.lockscreenVisible) {
+                lipstickSettings.lockscreenVisible = false
+                if (topmostWindow && topmostWindow.window)
+                    topmostWindow.window.takeFocus()
+            }
+        }
 
         onWindowAdded: (window) => {
             // The launcher's own UI (home screen + overlays) are plain items,
