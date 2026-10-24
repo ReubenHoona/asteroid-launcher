@@ -256,10 +256,13 @@ void LipstickCompositorWindow::wheelEvent(QWheelEvent *event)
     if (m_surface) {
         QWaylandSeat *inputDevice = m_surface->compositor()->seatFor(event);
         QWaylandView *v = view();
-        // Hover mouse above window to allow wheel events to arrive.
+        // Hover mouse above window to allow wheel events to arrive: in its
+        // middle (a corner is off a round screen) and with focus, as a touch.
         if (v != inputDevice->mouseFocus()) {
-            QPointF pos(0, 0);
-            inputDevice->sendMouseMoveEvent(v, pos, pos);
+            QPointF middle(width() / 2, height() / 2);
+            inputDevice->sendMouseMoveEvent(v, mapToSurface(middle), mapToScene(middle));
+            if (m_focusOnTouch && inputDevice->keyboardFocus() != m_surface)
+                takeFocus();
         }
         QPoint angle = event->angleDelta();
         inputDevice->sendMouseWheelEvent(Qt::Vertical, angle.y());
