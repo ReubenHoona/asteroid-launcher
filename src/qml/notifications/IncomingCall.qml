@@ -39,6 +39,11 @@ import org.nemomobile.lipstick
  * watch's vibration and, when the phone offers it, its ringer. The view keeps
  * the display on while the call rings and goes away when the phone removes
  * the notification (answered, declined, missed) or the user acts on it.
+ *
+ * A call in progress (a phone notification offering only `end`, which the
+ * phone sends once a call is answered) gets the same view without ringing:
+ * caller, time in call, End call and Hide. It neither turns the display on
+ * nor keeps it on; Hide leaves the notification in the list.
  * Everything else keeps the usual notification preview.
  */
 Item {
@@ -54,6 +59,10 @@ Item {
     property var handled: ({})
 
     readonly property var callActions: call ? phoneActions(call) : []
+    // The call shown is in progress (not ringing)
+    readonly property bool ongoing: call !== null && isOngoing(call)
+    // Time in call, refreshed every second while shown
+    property string elapsed: ""
 
     visible: call !== null
 
@@ -71,6 +80,35 @@ Item {
             return false
         var a = phoneActions(n)
         return a.indexOf("answer") >= 0 || a.indexOf("reject") >= 0
+    }
+
+    // A call in progress from the phone: it offers `end` and is not ringing.
+    // Calls last long, so a restored one up to four hours old still counts.
+    function isOngoing(n) {
+        if (n === null || n === undefined || handled[n.replacesId])
+            return false
+        if (new Date().getTime() - n.timestamp.getTime() > 4 * 3600000)
+            return false
+        var a = phoneActions(n)
+        return a.indexOf("end") >= 0 && a.indexOf("answer") < 0 && a.indexOf("reject") < 0
+    }
+
+    function showOngoing(n) {
+        giveUp.stop()
+        if (keepOn)
+            displayRelease()
+        call = n
+        silenced = true
+        updateElapsed()
+    }
+
+    function updateElapsed() {
+        if (call === null)
+            return
+        var s = Math.max(0, Math.floor((new Date().getTime() - call.timestamp.getTime()) / 1000))
+        var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60
+        s = s % 60
+        elapsed = (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s
     }
 
     function hasAction(key) {
@@ -152,6 +190,8 @@ Item {
         onItemAdded: function (item) {
             if (isRinging(item))
                 show(item)
+            else if (isOngoing(item) && (call === null || incomingCall.ongoing))
+                showOngoing(item)
         }
         onItemRemoved: function (item) {
             if (item === call)
@@ -186,6 +226,13 @@ Item {
         repeat: true
         running: incomingCall.visible && incomingCall.keepOn
         onTriggered: displayOn()
+    }
+
+    Timer {
+        interval: 1000
+        repeat: true
+        running: incomingCall.visible && incomingCall.ongoing
+        onTriggered: updateElapsed()
     }
 
     // A phone that never says the call is over must not leave this up
@@ -252,7 +299,11 @@ Item {
 
     Label {
         id: callState
-        text: (silenced ?
+        text: (ongoing ?
+               //% "In call %1"
+               //: %1 is the time in call, e.g. 1:23
+               qsTrId("id-call-in-progress").arg(elapsed) :
+               silenced ?
                //% "Silenced"
                qsTrId("id-call-silenced") :
                //% "Incoming call"
@@ -319,6 +370,15 @@ Item {
             visible: incomingCall.hasAction("answer")
             onClicked: incomingCall.act("answer")
         }
+
+        CallButton {
+            iconName: "ios-call"
+            fill: "#C62828"
+            //% "End call"
+            text: qsTrId("id-call-end") + localeManager.changesObserver
+            visible: incomingCall.ongoing && incomingCall.hasAction("end")
+            onClicked: incomingCall.act("end")
+        }
     }
 
     NotificationButton {
@@ -331,5 +391,17 @@ Item {
         anchors.bottomMargin: Dims.h(6)
         visible: !incomingCall.silenced
         onClicked: incomingCall.silence()
+    }
+
+    NotificationButton {
+        //% "Hide"
+        text: qsTrId("id-call-hide") + localeManager.changesObserver
+        width: Dims.w(40)
+        height: Dims.h(12)
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Dims.h(6)
+        visible: incomingCall.ongoing
+        onClicked: incomingCall.hide()
     }
 }
