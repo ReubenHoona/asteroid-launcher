@@ -701,7 +701,9 @@ void LipstickCompositor::scheduleAmbientUpdate()
     wakeupEvent.setAttribute(QLatin1String("type"), QLatin1String("wakeup"));
     wakeupEvent.setBootFlag();
     wakeupEvent.setKeepAliveFlag();
-    wakeupEvent.setReminderFlag();
+    // No reminder flag: timed hands reminders to the alarm presenter (voland),
+    // which then showed this per-minute ambient tick as an alarm at "00:00".
+    // The alarm flag alone still wakes the device for the ambient update.
     wakeupEvent.setAlarmFlag();
     wakeupEvent.setSingleShotFlag();
 
