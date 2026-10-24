@@ -177,9 +177,12 @@ void NotificationPreviewPresenter::setCurrentNotification(LipstickNotification *
             const bool notificationWasCritical = currentNotification->urgency() >= 2 ||
                                                  currentNotification->hints().value(NotificationManager::HINT_DISPLAY_ON).toBool();
             if (notificationWasCritical) {
-                // Release our screen wake for the previous notification
+                // Release our screen wake for the previous notification. mce
+                // turns the display on for the linger time: none when the
+                // display is off (the user turned it off with the power key)
+                const qint32 linger = displayState->state() == QMceDisplay::DisplayOff ? 0 : MCE_LINGER_DURATION;
                 QDBusMessage msg = QDBusMessage::createMethodCall(MCE_SERVICE, MCE_REQUEST_PATH, MCE_REQUEST_IF, MCE_NOTIFICATION_END);
-                msg.setArguments(QVariantList() << QString::number(currentNotification->replacesId()) << MCE_LINGER_DURATION);
+                msg.setArguments(QVariantList() << QString::number(currentNotification->replacesId()) << linger);
                 QDBusConnection::systemBus().asyncCall(msg);
             }
 
