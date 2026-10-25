@@ -117,7 +117,15 @@ Item {
                                 if (page.voiceState === "starting")
                                     page.voiceState = "listening"
                             } else if (page.voiceState !== "error") {
-                                page.voiceState = "error"
+                                // btsyncd says why in an Error signal, which the
+                                // page may have missed while connecting to it;
+                                // most often no phone is connected
+                                voice.typedCall("Available", [], function (available) {
+                                    if (page === voicePage && page.voiceState !== "error") {
+                                        page.voiceError = available ? "" : "no-phone"
+                                        page.voiceState = "error"
+                                    }
+                                })
                             }
                         },
                         function () {
@@ -141,33 +149,13 @@ Item {
         voicePage = null
     }
 
+    // Calls only; the voice page listens to the signals itself
     DBusInterface {
         id: voice
         bus: DBus.SessionBus
         service: "org.asteroidos.btsyncd"
         path: "/org/asteroidos/btsyncd/voice"
         iface: "org.asteroidos.btsyncd.Voice"
-        signalsEnabled: true
-
-        // Partial(s), Final(s), Error(s): "rc" + the signal name (Nemo.DBus)
-        function rcPartial(text) {
-            if (actions.voicePage !== null && (actions.voicePage.voiceState === "listening"
-                                               || actions.voicePage.voiceState === "recognising"
-                                               || actions.voicePage.voiceState === "starting"))
-                actions.voicePage.voiceText = text
-        }
-        function rcFinal(text) {
-            if (actions.voicePage !== null) {
-                actions.voicePage.voiceText = text
-                actions.voicePage.voiceState = "done"
-            }
-        }
-        function rcError(code) {
-            if (actions.voicePage !== null && actions.voicePage.voiceState !== "done") {
-                actions.voicePage.voiceError = code
-                actions.voicePage.voiceState = "error"
-            }
-        }
     }
 
     ConfigurationValue {
@@ -584,7 +572,7 @@ Item {
         id: voiceLayer
 
         Item {
-            id: voicePage
+            id: vpage
             property var pop
             property int depth
             // starting | listening | recognising | done | error
@@ -593,8 +581,39 @@ Item {
             property string voiceError: ""
             readonly property bool failed: voiceState === "error"
 
-            Component.onCompleted: actions.voiceStart(voicePage)
-            Component.onDestruction: if (actions.voicePage === voicePage) actions.voiceCancel()
+            Component.onCompleted: actions.voiceStart(vpage)
+            Component.onDestruction: if (actions.voicePage === vpage) actions.voiceCancel()
+
+            // btsyncd's Partial(s), Final(s) and Error(s), for this page only
+            // (one listener, not one per notification). Nemo.DBus calls
+            // "rc" + the signal name; the parameters must be typed: Qt 6
+            // cannot pass the signal's QString to an untyped (QVariant) one
+            DBusInterface {
+                bus: DBus.SessionBus
+                service: "org.asteroidos.btsyncd"
+                path: "/org/asteroidos/btsyncd/voice"
+                iface: "org.asteroidos.btsyncd.Voice"
+                signalsEnabled: true
+
+                function rcPartial(text: string) {
+                    if (actions.voicePage === vpage && (vpage.voiceState === "listening"
+                                                            || vpage.voiceState === "recognising"
+                                                            || vpage.voiceState === "starting"))
+                        vpage.voiceText = text
+                }
+                function rcFinal(text: string) {
+                    if (actions.voicePage === vpage) {
+                        vpage.voiceText = text
+                        vpage.voiceState = "done"
+                    }
+                }
+                function rcError(code: string) {
+                    if (actions.voicePage === vpage && vpage.voiceState !== "done") {
+                        vpage.voiceError = code
+                        vpage.voiceState = "error"
+                    }
+                }
+            }
 
             PageHeader {
                 //% "Speak"
@@ -603,16 +622,16 @@ Item {
 
             Icon {
                 id: micIcon
-                name: voicePage.failed ? "ios-mic-off-outline" : "ios-mic"
+                name: vpage.failed ? "ios-mic-off-outline" : "ios-mic"
                 width: Dims.w(14)
                 height: width
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: Dims.h(21)
-                color: voicePage.failed ? "#ff6060" : "#ffffff"
+                color: vpage.failed ? "#ff6060" : "#ffffff"
 
                 SequentialAnimation on opacity {
-                    running: voicePage.voiceState === "listening"
+                    running: vpage.voiceState === "listening"
                     loops: Animation.Infinite
                     alwaysRunToEnd: true
                     NumberAnimation { to: 0.35; duration: 600; easing.type: Easing.InOutQuad }
@@ -628,9 +647,9 @@ Item {
                 width: Dims.w(70)
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                color: voicePage.failed ? "#ff6060" : "#b0b0b0"
+                color: vpage.failed ? "#ff6060" : "#b0b0b0"
                 font.pixelSize: Dims.l(6)
-                text: actions.voiceStatus(voicePage.voiceState, voicePage.voiceError) + localeManager.changesObserver
+                text: actions.voiceStatus(vpage.voiceState, vpage.voiceError) + localeManager.changesObserver
             }
 
             Label {
@@ -644,9 +663,9 @@ Item {
                 maximumLineCount: 4
                 elide: Text.ElideRight
                 font.pixelSize: Dims.l(8)
-                font.styleName: voicePage.voiceState === "done" ? "SemiCondensed" : "SemiCondensed Light"
-                opacity: voicePage.voiceState === "done" ? 1.0 : 0.75
-                text: voicePage.voiceText
+                font.styleName: vpage.voiceState === "done" ? "SemiCondensed" : "SemiCondensed Light"
+                opacity: vpage.voiceState === "done" ? 1.0 : 0.75
+                text: vpage.voiceText
             }
 
             Row {
@@ -657,23 +676,23 @@ Item {
 
                 // Done while listening, Send when the text is in, Retry after an error
                 NotificationButton {
-                    text: (voicePage.voiceState === "done"
+                    text: (vpage.voiceState === "done"
                            ? qsTrId("id-reply-send")
-                           : voicePage.failed
+                           : vpage.failed
                              //% "Retry"
                              ? qsTrId("id-voice-retry")
                              //% "Done"
                              : qsTrId("id-voice-stop")) + localeManager.changesObserver
                     width: Dims.w(30)
                     height: Dims.h(15)
-                    visible: voicePage.voiceState === "listening" || voicePage.voiceState === "done" || voicePage.failed
+                    visible: vpage.voiceState === "listening" || vpage.voiceState === "done" || vpage.failed
                     onClicked: {
-                        if (voicePage.voiceState === "listening")
+                        if (vpage.voiceState === "listening")
                             actions.voiceStop()
-                        else if (voicePage.voiceState === "done")
-                            actions.sendReply(voicePage.voiceText)
+                        else if (vpage.voiceState === "done")
+                            actions.sendReply(vpage.voiceText)
                         else
-                            actions.voiceStart(voicePage)
+                            actions.voiceStart(vpage)
                     }
                 }
 
