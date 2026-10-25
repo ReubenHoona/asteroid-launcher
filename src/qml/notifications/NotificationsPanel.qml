@@ -122,6 +122,11 @@ Item {
         }
     }
 
+    // Positions that have their panels. Not the model's itemCount: lipstick
+    // restores the notifications at startup in one batch (addItems), with
+    // itemCount already at the total when the first itemAdded arrives
+    property int builtCount: 0
+
     NotificationListModel {
         id: notifModel
         onItemAdded: function (item) {
@@ -130,8 +135,9 @@ Item {
 
             // Shift everything from `index` outward one position to make room.
             // Outermost first so we never move into an occupied cell.
-            for (var p = notifModel.itemCount - 2; p >= index; p--)
+            for (var p = builtCount - 1; p >= index; p--)
                 movePosition(p, p + 1)
+            builtCount++
 
             makeActions(index, item)
             if (index === 0)
@@ -142,7 +148,7 @@ Item {
             // The user stays on the notification they were on (reading it,
             // or writing a reply on its actions panel) instead of the new one
             // taking its place; the new one shows as a preview anyway
-            if (viewed >= index && viewed < notifModel.itemCount - 1)
+            if (viewed >= index && viewed < builtCount - 1)
                 panelsGrid.followTo(colOf(viewed + 1), panelsGrid.currentVerticalPos)
 
             panelsGrid.changeAllowedDirections()
@@ -150,11 +156,12 @@ Item {
 
         onRowsRemoved: function (parent, first, last) {
             var removed = last - first + 1
-            var oldCount = notifModel.itemCount + removed
+            var oldCount = builtCount
             var viewed = viewedPosition()
 
             for (var p = first; p <= last; p++)
                 destroyPosition(p)
+            builtCount = oldCount - removed
 
             // Close the gap: survivors above the removed block move inward by
             // `removed`. Innermost (lowest destination) first so we never move
