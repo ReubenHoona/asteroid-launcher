@@ -221,6 +221,23 @@ Item {
         onTriggered: Lipstick.compositor.setAmbientUpdatesEnabled(false)
     }
 
+    // The ambient face is only redrawn on request (the wall clock is off):
+    // ask for an update at every minute while it shows.
+    Timer {
+        id: ambientMinuteTimer
+        repeat: false
+        onTriggered: {
+            Lipstick.compositor.setAmbientUpdatesEnabled(true)
+            scheduleAmbientMinute()
+        }
+    }
+
+    function scheduleAmbientMinute() {
+        var now = new Date()
+        ambientMinuteTimer.interval = 60000 - now.getSeconds() * 1000 - now.getMilliseconds() + 100
+        ambientMinuteTimer.restart()
+    }
+
     LauncherModel {
         id: launcherModel
     }
@@ -237,11 +254,13 @@ Item {
         }
         function onDisplayAboutToBeOff() { wallClock.enabled = false }
         function onDisplayOn() {
+            ambientMinuteTimer.stop()
             grid.animateIndicators()
             ambientDarken = 0
             if (Lipstick.compositor.ambientEnabled) grid.moveTo(0, 0)
         }
         function onDisplayAmbientEntered() {
+            scheduleAmbientMinute()
             ambientDarken = 1
             grid.hideOffscreen();
         }
