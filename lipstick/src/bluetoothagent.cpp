@@ -125,7 +125,11 @@ void BluetoothAgent::setWindowVisible(bool visible)
 
     m_visible = visible;
     if (visible) {
-        // Keep the screen on and unlocked for the duration of the pairing
+        // Turn the screen on and keep it on and unlocked for the duration of
+        // the pairing. Pairing usually starts from the phone while the watch
+        // display is off: blank inhibition alone keeps an off display off, so
+        // the code was never shown and the off touchscreen ignored the buttons.
+        m_mceDbus->asyncCall("req_display_state_on");
         m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/display/inhibit_blank_mode").path(), QVariant::fromValue(QDBusVariant(3)));
         m_mceDbus->asyncCall("req_tklock_mode_change", "unlocked");
         m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/locks/tklock_blank_disable").path(), QVariant::fromValue(QDBusVariant(1)));
