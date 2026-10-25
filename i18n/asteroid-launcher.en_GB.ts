@@ -516,5 +516,77 @@
         <source>USB switched to host mode (OTG)</source>
         <translation type="vanished">USB switched to host mode (OTG)</translation>
     </message>
+    <message id="id-reply-speak">
+        <source>Speak…</source>
+        <translation>Speak…</translation>
+    </message>
+    <message id="id-voice-title">
+        <source>Speak</source>
+        <translation>Speak</translation>
+    </message>
+    <message id="id-voice-starting">
+        <source>Starting…</source>
+        <translation>Starting…</translation>
+    </message>
+    <message id="id-voice-listening">
+        <source>Listening…</source>
+        <translation>Listening…</translation>
+    </message>
+    <message id="id-voice-recognising">
+        <source>Recognising…</source>
+        <translation>Recognising…</translation>
+    </message>
+    <message id="id-voice-done">
+        <source>Send this reply?</source>
+        <translation>Send this reply?</translation>
+    </message>
+    <message id="id-voice-no-phone">
+        <source>Phone not connected</source>
+        <translation>Phone not connected</translation>
+    </message>
+    <message id="id-voice-no-recognizer">
+        <source>No speech recognition on the phone</source>
+        <translation>No speech recognition on the phone</translation>
+    </message>
+    <message id="id-voice-language">
+        <source>Speech language not installed on the phone</source>
+        <translation>Speech language not installed on the phone</translation>
+    </message>
+    <message id="id-voice-permission">
+        <source>Allow the microphone for Gadgetbridge on the phone</source>
+        <translation>Allow the microphone for Gadgetbridge on the phone</translation>
+    </message>
+    <message id="id-voice-no-match">
+        <source>Didn&apos;t catch that</source>
+        <translation>Didn&apos;t catch that</translation>
+    </message>
+    <message id="id-voice-busy">
+        <source>The phone is busy, try again</source>
+        <translation>The phone is busy, try again</translation>
+    </message>
+    <message id="id-voice-timeout">
+        <source>No answer from the phone</source>
+        <translation>No answer from the phone</translation>
+    </message>
+    <message id="id-voice-source">
+        <source>Microphone not available</source>
+        <translation>Microphone not available</translation>
+    </message>
+    <message id="id-voice-failed">
+        <source>Speech recognition failed</source>
+        <translation>Speech recognition failed</translation>
+    </message>
+    <message id="id-voice-retry">
+        <source>Retry</source>
+        <translation>Retry</translation>
+    </message>
+    <message id="id-voice-stop">
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message id="id-voice-cancel">
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
 </context>
 </TS>
