@@ -91,6 +91,85 @@ Item {
         iface: "org.asteroidos.btsyncd.Notifications"
     }
 
+    // Voice replies: asteroid-btsyncd streams the microphone to the phone,
+    // which sends the text back (Partial, Final and Error signals)
+    property bool voiceAvailable: false
+    property QtObject voicePage: null
+
+    function refreshVoice() {
+        voice.typedCall("Available", [], function (available) { actions.voiceAvailable = available },
+                        function () { actions.voiceAvailable = false })
+    }
+
+    function voiceStart(page) {
+        voicePage = page
+        page.voiceState = "starting"
+        page.voiceText = ""
+        page.voiceError = ""
+        // "" = btsyncd's configured source: the microphone, or a test WAV
+        voice.typedCall("Start",
+                        [{ "type": "u", "value": notification.replacesId },
+                         { "type": "s", "value": "" }],
+                        function (sid) {
+                            if (page !== voicePage)
+                                return
+                            if (sid > 0) {
+                                if (page.voiceState === "starting")
+                                    page.voiceState = "listening"
+                            } else if (page.voiceState !== "error") {
+                                page.voiceState = "error"
+                            }
+                        },
+                        function () {
+                            if (page === voicePage) {
+                                page.voiceError = "no-phone"
+                                page.voiceState = "error"
+                            }
+                        })
+    }
+
+    function voiceStop() {
+        if (voicePage !== null && voicePage.voiceState === "listening") {
+            voicePage.voiceState = "recognising"
+            voice.typedCall("Stop", [])
+        }
+    }
+
+    function voiceCancel() {
+        if (voicePage !== null && voicePage.voiceState !== "done" && voicePage.voiceState !== "error")
+            voice.typedCall("Cancel", [])
+        voicePage = null
+    }
+
+    DBusInterface {
+        id: voice
+        bus: DBus.SessionBus
+        service: "org.asteroidos.btsyncd"
+        path: "/org/asteroidos/btsyncd/voice"
+        iface: "org.asteroidos.btsyncd.Voice"
+        signalsEnabled: true
+
+        // Partial(s), Final(s), Error(s): "rc" + the signal name (Nemo.DBus)
+        function rcPartial(text) {
+            if (actions.voicePage !== null && (actions.voicePage.voiceState === "listening"
+                                               || actions.voicePage.voiceState === "recognising"
+                                               || actions.voicePage.voiceState === "starting"))
+                actions.voicePage.voiceText = text
+        }
+        function rcFinal(text) {
+            if (actions.voicePage !== null) {
+                actions.voicePage.voiceText = text
+                actions.voicePage.voiceState = "done"
+            }
+        }
+        function rcError(code) {
+            if (actions.voicePage !== null && actions.voicePage.voiceState !== "done") {
+                actions.voicePage.voiceError = code
+                actions.voicePage.voiceState = "error"
+            }
+        }
+    }
+
     ConfigurationValue {
         id: cannedReplies
         key: "/org/asteroidos/notifications/canned-replies"
@@ -345,19 +424,25 @@ Item {
                 text: qsTrId("id-reply")
             }
 
+            Component.onCompleted: actions.refreshVoice()
+
             ListView {
                 anchors.fill: parent
                 anchors.topMargin: Dims.h(20)
                 anchors.bottomMargin: Dims.h(10)
                 clip: true
-                model: ["\u0001write"].concat(cannedReplies.value)
+                // Speak only while a phone that recognises speech is connected
+                model: (actions.voiceAvailable ? ["\u0001speak"] : []).concat(["\u0001write"]).concat(cannedReplies.value)
                 delegate: MouseArea {
                     id: replyItem
                     readonly property bool isWrite: modelData === "\u0001write"
+                    readonly property bool isSpeak: modelData === "\u0001speak"
                     width: ListView.view.width
                     height: Dims.h(18)
                     onClicked: {
-                        if (isWrite)
+                        if (isSpeak)
+                            layerStack.push(voiceLayer)
+                        else if (isWrite)
                             layerStack.push(writeLayer)
                         else
                             actions.sendReply(modelData)
@@ -371,7 +456,7 @@ Item {
 
                     Icon {
                         id: replyIcon
-                        name: replyItem.isWrite ? "ios-create-outline" : "ios-text-outline"
+                        name: replyItem.isSpeak ? "ios-mic-outline" : replyItem.isWrite ? "ios-create-outline" : "ios-text-outline"
                         width: Dims.h(12)
                         height: width
                         anchors.verticalCenter: parent.verticalCenter
@@ -381,7 +466,9 @@ Item {
 
                     Label {
                         //% "Write…"
-                        text: replyItem.isWrite ? qsTrId("id-reply-write") : modelData
+                        text: replyItem.isWrite ? qsTrId("id-reply-write")
+                                                  //% "Speak…"
+                                                : replyItem.isSpeak ? qsTrId("id-reply-speak") : modelData
                         elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: replyIcon.right
@@ -448,6 +535,159 @@ Item {
             }
 
             Component.onCompleted: if (replyField.editor) replyField.editor.forceActiveFocus()
+        }
+    }
+
+    function voiceStatus(state, code) {
+        if (state === "starting")
+            //% "Starting…"
+            return qsTrId("id-voice-starting")
+        if (state === "listening")
+            //% "Listening…"
+            return qsTrId("id-voice-listening")
+        if (state === "recognising")
+            //% "Recognising…"
+            return qsTrId("id-voice-recognising")
+        if (state === "done")
+            //% "Send this reply?"
+            return qsTrId("id-voice-done")
+        if (code === "no-phone" || code === "disconnected")
+            //% "Phone not connected"
+            return qsTrId("id-voice-no-phone")
+        if (code === "no-recognizer")
+            //% "No speech recognition on the phone"
+            return qsTrId("id-voice-no-recognizer")
+        if (code === "language")
+            //% "Speech language not installed on the phone"
+            return qsTrId("id-voice-language")
+        if (code === "permission")
+            //% "Allow the microphone for Gadgetbridge on the phone"
+            return qsTrId("id-voice-permission")
+        if (code === "no-match")
+            //% "Didn't catch that"
+            return qsTrId("id-voice-no-match")
+        if (code === "busy")
+            //% "The phone is busy, try again"
+            return qsTrId("id-voice-busy")
+        if (code === "timeout")
+            //% "No answer from the phone"
+            return qsTrId("id-voice-timeout")
+        if (code === "source")
+            //% "Microphone not available"
+            return qsTrId("id-voice-source")
+        //% "Speech recognition failed"
+        return qsTrId("id-voice-failed")
+    }
+
+    // Speak a reply: live text while the phone recognises it, then send or cancel
+    Component {
+        id: voiceLayer
+
+        Item {
+            id: voicePage
+            property var pop
+            property int depth
+            // starting | listening | recognising | done | error
+            property string voiceState: "starting"
+            property string voiceText: ""
+            property string voiceError: ""
+            readonly property bool failed: voiceState === "error"
+
+            Component.onCompleted: actions.voiceStart(voicePage)
+            Component.onDestruction: if (actions.voicePage === voicePage) actions.voiceCancel()
+
+            PageHeader {
+                //% "Speak"
+                text: qsTrId("id-voice-title")
+            }
+
+            Icon {
+                id: micIcon
+                name: voicePage.failed ? "ios-mic-off-outline" : "ios-mic"
+                width: Dims.w(14)
+                height: width
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: Dims.h(21)
+                color: voicePage.failed ? "#ff6060" : "#ffffff"
+
+                SequentialAnimation on opacity {
+                    running: voicePage.voiceState === "listening"
+                    loops: Animation.Infinite
+                    alwaysRunToEnd: true
+                    NumberAnimation { to: 0.35; duration: 600; easing.type: Easing.InOutQuad }
+                    NumberAnimation { to: 1.0; duration: 600; easing.type: Easing.InOutQuad }
+                }
+            }
+
+            Label {
+                id: statusLabel
+                anchors.top: micIcon.bottom
+                anchors.topMargin: Dims.h(2)
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Dims.w(70)
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                color: voicePage.failed ? "#ff6060" : "#b0b0b0"
+                font.pixelSize: Dims.l(6)
+                text: actions.voiceStatus(voicePage.voiceState, voicePage.voiceError) + localeManager.changesObserver
+            }
+
+            Label {
+                id: voiceTextLabel
+                anchors.top: statusLabel.bottom
+                anchors.topMargin: Dims.h(3)
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Dims.w(76)
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                maximumLineCount: 4
+                elide: Text.ElideRight
+                font.pixelSize: Dims.l(8)
+                font.styleName: voicePage.voiceState === "done" ? "SemiCondensed" : "SemiCondensed Light"
+                opacity: voicePage.voiceState === "done" ? 1.0 : 0.75
+                text: voicePage.voiceText
+            }
+
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: Dims.h(13)
+                spacing: Dims.w(4)
+
+                // Done while listening, Send when the text is in, Retry after an error
+                NotificationButton {
+                    text: (voicePage.voiceState === "done"
+                           ? qsTrId("id-reply-send")
+                           : voicePage.failed
+                             //% "Retry"
+                             ? qsTrId("id-voice-retry")
+                             //% "Done"
+                             : qsTrId("id-voice-stop")) + localeManager.changesObserver
+                    width: Dims.w(30)
+                    height: Dims.h(15)
+                    visible: voicePage.voiceState === "listening" || voicePage.voiceState === "done" || voicePage.failed
+                    onClicked: {
+                        if (voicePage.voiceState === "listening")
+                            actions.voiceStop()
+                        else if (voicePage.voiceState === "done")
+                            actions.sendReply(voicePage.voiceText)
+                        else
+                            actions.voiceStart(voicePage)
+                    }
+                }
+
+                NotificationButton {
+                    //% "Cancel"
+                    text: qsTrId("id-voice-cancel") + localeManager.changesObserver
+                    width: Dims.w(30)
+                    height: Dims.h(15)
+                    onClicked: {
+                        actions.voiceCancel()
+                        layerStack.pop(layerStack.currentLayer)
+                    }
+                }
+            }
         }
     }
 
