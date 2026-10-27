@@ -33,6 +33,7 @@ import Nemo.DBus
 import QtQuick.VirtualKeyboard
 import org.asteroid.controls
 import org.asteroid.launcher
+import "desktop.js" as Desktop
 
 Item {
     id: actions
@@ -46,6 +47,13 @@ Item {
     property bool forbidBottom: false
 
     property string timestampStr: ""
+
+    // The notification stream's detail page: the whole text above the
+    // buttons (NotificationText), scrolling
+    property bool showText: false
+
+    // A reply went to the phone
+    signal replySent()
 
     // Actions the phone offers for a notification it sent (asteroid-btsyncd
     // puts them in this hint): reply, open, mute, answer, reject
@@ -105,7 +113,19 @@ Item {
         btsyncd.typedCall("Reply",
                           [{ "type": "u", "value": notification.replacesId },
                            { "type": "s", "value": text.trim() }],
-                          function (sent) { if (!sent) replyFailed.visible = true },
+                          function (sent) {
+                              if (!sent) {
+                                  replyFailed.visible = true
+                                  return
+                              }
+                              replyFailed.visible = false
+                              // Wear OS confirms a sent reply and goes back
+                              while (layerStack.layers.length > 0)
+                                  layerStack.pop(layerStack.currentLayer)
+                              //% "Sent"
+                              if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-reply-sent"))
+                              actions.replySent()
+                          },
                           function () { replyFailed.visible = true })
     }
 
@@ -261,10 +281,35 @@ Item {
         id: actionsComponent
 
         Item {
+            // In the notification stream the page shows the whole
+            // notification above its buttons, and scrolls (showText);
+            // otherwise the buttons sit in the middle as before
+            Flickable {
+                id: actionsFlick
+                anchors.fill: parent
+                contentHeight: Math.max(height, pageColumn.y + pageColumn.height + (actions.showText ? Dims.h(18) : 0))
+                interactive: contentHeight > height + 1
+                flickableDirection: Flickable.VerticalFlick
+                boundsBehavior: Flickable.DragOverBounds
+
+                Column {
+                    id: pageColumn
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: actions.showText ? Dims.h(14) : Math.max(0, (actionsFlick.height - height) / 2)
+                    width: actions.showText ? Dims.w(76) : column.width
+                    spacing: Dims.h(5)
+
+                    NotificationText {
+                        visible: actions.showText
+                        width: parent.width
+                        notification: actions.notification
+                        timestamp: actions.timestampStr
+                    }
+
             Column {
                 id: column
 
-                anchors.centerIn: parent
+                anchors.horizontalCenter: parent.horizontalCenter
                 width: Dims.w(55)
                 // Four buttons fit the round screen a little smaller
                 readonly property bool compact: actions.mainAppActions > 0 && !isCall
@@ -385,6 +430,8 @@ Item {
                     visible: actions.fromPhone && !column.isCall && !actions.hasPhoneAction("end")
                              && !actions.hasPhoneAction("found")
                     onClicked: layerStack.push(moreLayer)
+                }
+            }
                 }
             }
         }
@@ -874,7 +921,7 @@ Item {
     }
 
     Row {
-        visible: layerStack.layers.length === 0
+        visible: layerStack.layers.length === 0 && !actions.showText
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Dims.h(3)
         anchors.horizontalCenter: parent.horizontalCenter
