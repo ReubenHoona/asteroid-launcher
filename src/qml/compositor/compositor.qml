@@ -93,6 +93,13 @@ Item {
         source: "IncomingCall.qml"
     }
 
+    // An alarm or timer ringing on the phone: full screen, above the preview
+    Loader {
+        z: 3
+        anchors.fill: parent
+        source: "PhoneAlarm.qml"
+    }
+
     Loader {
         z: 3
         anchors.fill: parent
