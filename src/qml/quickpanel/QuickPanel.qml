@@ -191,7 +191,7 @@ Item {
     ConfigurationValue {
         id: sliderToggles
         key: "/desktop/asteroid/quickpanel/slider"
-        defaultValue: ["brightnessToggle", "bluetoothToggle", "hapticsToggle", "wifiToggle", "soundToggle", "cinemaToggle", "aodToggle", "findPhoneButton", "powerOffToggle", "rebootToggle", "musicButton", "flashlightButton"]
+        defaultValue: ["brightnessToggle", "bluetoothToggle", "hapticsToggle", "wifiToggle", "soundToggle", "cinemaToggle", "dndToggle", "aodToggle", "findPhoneButton", "powerOffToggle", "rebootToggle", "musicButton", "flashlightButton"]
     }
 
     ConfigurationValue {
@@ -211,7 +211,8 @@ Item {
             "rebootToggle": true,
             "musicButton": false,
             "flashlightButton": false,
-            "findPhoneButton": true
+            "findPhoneButton": true,
+            "dndToggle": true
         }
     }
 
@@ -372,7 +373,8 @@ Item {
             "rebootToggle": rebootToggleComponent,
             "musicButton": musicButtonComponent,
             "flashlightButton": flashlightButtonComponent,
-            "findPhoneButton": findPhoneButtonComponent
+            "findPhoneButton": findPhoneButtonComponent,
+            "dndToggle": dndToggleComponent
         };
 
         if (DeviceSpecs.hasWlan) {
@@ -386,7 +388,7 @@ Item {
         for (const key in map) {
             // Find phone is newer than the saved settings of most watches:
             // on unless switched off
-            if (toggleEnabled.value[key] || (key === "findPhoneButton" && toggleEnabled.value[key] === undefined)) {
+            if (toggleEnabled.value[key] || ((key === "findPhoneButton" || key === "dndToggle") && toggleEnabled.value[key] === undefined)) {
                 toggles[key] = map[key];
             }
         }
@@ -489,6 +491,9 @@ Item {
             var ids = sliderToggles.value.slice()
             if (ids.indexOf("findPhoneButton") < 0 && fixedToggles.value.indexOf("findPhoneButton") < 0)
                 ids.push("findPhoneButton")
+            // ...and Do Not Disturb
+            if (ids.indexOf("dndToggle") < 0 && fixedToggles.value.indexOf("dndToggle") < 0)
+                ids.push("dndToggle")
             return ids
                 .map(id => toggleRegistry[id])
                 .filter(Boolean)
@@ -958,6 +963,25 @@ Item {
         }
     }
 
+    // Do Not Disturb: phone notifications arrive without banner or vibration
+    // (alarms still ring); asteroid-btsyncd follows this key and syncs it with
+    // the phone's Do Not Disturb
+    ConfigurationValue {
+        id: doNotDisturb
+        key: "/org/asteroidos/notifications/do-not-disturb"
+        defaultValue: false
+    }
+
+    Component {
+        id: dndToggleComponent
+        QuickPanelToggle {
+            icon: checked ? "ios-moon" : "ios-moon-outline"
+            checkable: true
+            checked: doNotDisturb.value
+            onClicked: doNotDisturb.value = !checked
+        }
+    }
+
     // Find my phone: asteroid-btsyncd asks the phone (Gadgetbridge) to ring;
     // it stops when tapped again, when found on the phone, or after a while
     Item {
@@ -989,9 +1013,34 @@ Item {
             }
         }
 
-        Component.onCompleted: findPhoneDBus.typedCall("FindingPhone", [],
-                                                       function (r) { findPhone.ringing = r },
-                                                       function () { findPhone.ringing = false })
+        Component.onCompleted: {
+            findPhoneDBus.typedCall("FindingPhone", [],
+                                    function (r) { findPhone.ringing = r },
+                                    function () { findPhone.ringing = false })
+            phoneDBus.typedCall("Connected", [], function (c) { findPhone.connected = c })
+            phoneDBus.typedCall("BatteryLevel", [], function (l) { findPhone.battery = l })
+        }
+
+        // The phone's link and battery (asteroid-btsyncd's phone status),
+        // shown on the toggle
+        property bool connected: false
+        property int battery: -1
+
+        DBusInterface {
+            id: phoneDBus
+            bus: DBus.SessionBus
+            service: "org.asteroidos.btsyncd"
+            path: "/org/asteroidos/btsyncd/phone"
+            iface: "org.asteroidos.btsyncd.Phone"
+            signalsEnabled: true
+
+            function rcConnectedChanged(connected: bool) {
+                findPhone.connected = connected
+            }
+            function rcBatteryChanged(level: int, charging: bool) {
+                findPhone.battery = level
+            }
+        }
     }
 
     Label {
@@ -1023,6 +1072,27 @@ Item {
             checkable: true
             checked: findPhone.ringing
             onClicked: findPhone.toggle()
+
+            // The phone's battery, or a cross while it is not connected
+            Label {
+                visible: findPhone.connected && findPhone.battery >= 0
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: parent.height * 0.06
+                font.pixelSize: parent.height * 0.15
+                opacity: 0.8
+                text: findPhone.battery + "%"
+            }
+            Icon {
+                visible: !findPhone.connected
+                name: "ios-close-circle"
+                width: parent.width * 0.26
+                height: width
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: parent.width * 0.1
+                color: "#ff6060"
+            }
 
             // Ringing: the icon pulses, only while the panel is on screen
             SequentialAnimation on opacity {
