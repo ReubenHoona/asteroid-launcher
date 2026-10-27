@@ -588,5 +588,9 @@
         <source>Cancel</source>
         <translation>Cancel</translation>
     </message>
+    <message id="id-found-it">
+        <source>Found it</source>
+        <translation>Found it</translation>
+    </message>
 </context>
 </TS>

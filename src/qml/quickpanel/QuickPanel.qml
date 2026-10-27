@@ -191,7 +191,7 @@ Item {
     ConfigurationValue {
         id: sliderToggles
         key: "/desktop/asteroid/quickpanel/slider"
-        defaultValue: ["brightnessToggle", "bluetoothToggle", "hapticsToggle", "wifiToggle", "soundToggle", "cinemaToggle", "aodToggle", "powerOffToggle", "rebootToggle", "musicButton", "flashlightButton"]
+        defaultValue: ["brightnessToggle", "bluetoothToggle", "hapticsToggle", "wifiToggle", "soundToggle", "cinemaToggle", "aodToggle", "findPhoneButton", "powerOffToggle", "rebootToggle", "musicButton", "flashlightButton"]
     }
 
     ConfigurationValue {
@@ -210,7 +210,8 @@ Item {
             "powerOffToggle": true,
             "rebootToggle": true,
             "musicButton": false,
-            "flashlightButton": false
+            "flashlightButton": false,
+            "findPhoneButton": true
         }
     }
 
@@ -370,7 +371,8 @@ Item {
             "powerOffToggle": powerOffToggleComponent,
             "rebootToggle": rebootToggleComponent,
             "musicButton": musicButtonComponent,
-            "flashlightButton": flashlightButtonComponent
+            "flashlightButton": flashlightButtonComponent,
+            "findPhoneButton": findPhoneButtonComponent
         };
 
         if (DeviceSpecs.hasWlan) {
@@ -382,7 +384,9 @@ Item {
 
         const toggles = {};
         for (const key in map) {
-            if (toggleEnabled.value[key]) {
+            // Find phone is newer than the saved settings of most watches:
+            // on unless switched off
+            if (toggleEnabled.value[key] || (key === "findPhoneButton" && toggleEnabled.value[key] === undefined)) {
                 toggles[key] = map[key];
             }
         }
@@ -481,7 +485,11 @@ Item {
         }
 
         readonly property var allToggles: {
-            return sliderToggles.value
+            // A saved list from before find phone existed gets it at the end
+            var ids = sliderToggles.value.slice()
+            if (ids.indexOf("findPhoneButton") < 0 && fixedToggles.value.indexOf("findPhoneButton") < 0)
+                ids.push("findPhoneButton")
+            return ids
                 .map(id => toggleRegistry[id])
                 .filter(Boolean)
         }
@@ -947,6 +955,83 @@ Item {
         QuickPanelToggle {
             icon: "ios-musical-notes-outline"
             onClicked: appLauncher.launchApp("asteroid-music")
+        }
+    }
+
+    // Find my phone: asteroid-btsyncd asks the phone (Gadgetbridge) to ring;
+    // it stops when tapped again, when found on the phone, or after a while
+    Item {
+        id: findPhone
+        property bool ringing: false
+
+        function toggle() {
+            var start = !ringing
+            findPhoneDBus.typedCall("FindPhone", [{ "type": "b", "value": start }],
+                                    function (ok) {
+                                        if (start && !ok)
+                                            findPhoneNoPhone.show()
+                                        else
+                                            findPhone.ringing = start
+                                    },
+                                    function () { if (start) findPhoneNoPhone.show() })
+        }
+
+        DBusInterface {
+            id: findPhoneDBus
+            bus: DBus.SessionBus
+            service: "org.asteroidos.btsyncd"
+            path: "/org/asteroidos/btsyncd/notifications"
+            iface: "org.asteroidos.btsyncd.Notifications"
+            signalsEnabled: true
+
+            function rcFindPhoneChanged(ringing: bool) {
+                findPhone.ringing = ringing
+            }
+        }
+
+        Component.onCompleted: findPhoneDBus.typedCall("FindingPhone", [],
+                                                       function (r) { findPhone.ringing = r },
+                                                       function () { findPhone.ringing = false })
+    }
+
+    Label {
+        id: findPhoneNoPhone
+        function show() {
+            visible = true
+            findPhoneNoPhoneTimer.restart()
+        }
+        visible: false
+        z: 10
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: slidingRow.bottom
+        anchors.topMargin: Dims.l(2)
+        color: "#ff6060"
+        font.pixelSize: Dims.l(6)
+        // The voice reply page's string
+        text: qsTrId("id-voice-no-phone")
+        Timer {
+            id: findPhoneNoPhoneTimer
+            interval: 2500
+            onTriggered: findPhoneNoPhone.visible = false
+        }
+    }
+
+    Component {
+        id: findPhoneButtonComponent
+        QuickPanelToggle {
+            icon: "ios-phone-portrait"
+            checkable: true
+            checked: findPhone.ringing
+            onClicked: findPhone.toggle()
+
+            // Ringing: the icon pulses, only while the panel is on screen
+            SequentialAnimation on opacity {
+                running: findPhone.ringing && rootitem.visible
+                loops: Animation.Infinite
+                alwaysRunToEnd: true
+                NumberAnimation { to: 0.5; duration: 500; easing.type: Easing.InOutQuad }
+                NumberAnimation { to: 1.0; duration: 500; easing.type: Easing.InOutQuad }
+            }
         }
     }
 

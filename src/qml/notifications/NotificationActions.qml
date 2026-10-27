@@ -61,6 +61,32 @@ Item {
         return phoneActions.indexOf(key) >= 0
     }
 
+    // The phone app's own actions (Archive, Mark as read, Snooze...), by
+    // index: asteroid-btsyncd puts their labels in this hint and offers them
+    // as the actions "app-0", "app-1"...
+    readonly property var appActions: {
+        if (notification === undefined || notification === null)
+            return []
+        var a = notification.hints["x-asteroid-app-actions"]
+        return a ? String(a).split("\n").filter(function (l) { return l.length > 0 }) : []
+    }
+
+    // Android's suggested replies for this notification, shown first
+    readonly property var smartReplies: {
+        if (notification === undefined || notification === null)
+            return []
+        var r = notification.hints["x-asteroid-smart-replies"]
+        return r ? String(r).split("\n").filter(function (l) { return l.length > 0 }) : []
+    }
+
+    function invokeAppAction(index) {
+        notification.actionInvoked("app-" + index)
+    }
+
+    // How many of the app's actions the first page shows (the rest are
+    // under More): two without a reply button, else one
+    readonly property int mainAppActions: Math.min(appActions.length, hasPhoneAction("reply") ? 1 : 2)
+
     // Lipstick reports the press to asteroid-btsyncd, which tells the phone;
     // the notification then closes
     function invokePhoneAction(key) {
@@ -240,7 +266,11 @@ Item {
 
                 anchors.centerIn: parent
                 width: Dims.w(55)
-                spacing: Dims.h(8)
+                // Four buttons fit the round screen a little smaller
+                readonly property bool compact: actions.mainAppActions > 0 && !isCall
+                                                && (actions.hasPhoneAction("reply") || actions.mainAppActions > 1)
+                readonly property real buttonHeight: compact ? Dims.h(17) : Dims.h(20)
+                spacing: compact ? Dims.h(4) : Dims.h(8)
 
                 // A call from the phone: answer or decline it there
                 property bool isCall: actions.hasPhoneAction("answer") || actions.hasPhoneAction("reject")
@@ -281,21 +311,42 @@ Item {
                     onClicked: actions.silenceCall()
                 }
 
+                // The find-my-watch alert
+                NotificationButton {
+                    //% "Found it"
+                    text: qsTrId("id-found-it") + localeManager.changesObserver
+                    width: parent.width
+                    height: Dims.h(20)
+                    visible: actions.hasPhoneAction("found")
+                    onClicked: actions.invokePhoneAction("found")
+                }
+
                 NotificationButton {
                     //% "Reply"
                     text: qsTrId("id-reply") + localeManager.changesObserver
                     width: parent.width
-                    height: Dims.h(20)
+                    height: column.buttonHeight
                     visible: actions.hasPhoneAction("reply") && !column.isCall
                     onClicked: layerStack.push(replyLayer)
+                }
+
+                Repeater {
+                    model: column.isCall ? 0 : actions.mainAppActions
+                    delegate: NotificationButton {
+                        text: actions.appActions[index]
+                        width: column.width
+                        height: column.buttonHeight
+                        onClicked: actions.invokeAppAction(index)
+                    }
                 }
 
                 NotificationButton {
                     //% "Open on phone"
                     text: qsTrId("id-open-on-phone") + localeManager.changesObserver
                     width: parent.width
-                    height: Dims.h(20)
+                    height: column.buttonHeight
                     visible: actions.hasPhoneAction("open") && !actions.hasPhoneAction("reply") && !column.isCall
+                             && actions.mainAppActions === 0
                     onClicked: actions.invokePhoneAction("open")
                 }
 
@@ -321,7 +372,7 @@ Item {
                     //% "Dismiss"
                     text: qsTrId("id-dismiss") + localeManager.changesObserver
                     width: parent.width
-                    height: Dims.h(20)
+                    height: column.buttonHeight
                     visible: !column.isCall
                     onClicked: if (notification.userRemovable) notification.removeRequested()
                 }
@@ -330,8 +381,9 @@ Item {
                     //% "More"
                     text: qsTrId("id-more") + localeManager.changesObserver
                     width: parent.width
-                    height: Dims.h(20)
+                    height: column.buttonHeight
                     visible: actions.fromPhone && !column.isCall && !actions.hasPhoneAction("end")
+                             && !actions.hasPhoneAction("found")
                     onClicked: layerStack.push(moreLayer)
                 }
             }
@@ -355,17 +407,40 @@ Item {
             property var pop
             property int depth
 
+            // More than fits with the app's own actions: it scrolls
+            Flickable {
+                id: moreFlick
+                anchors.fill: parent
+                contentHeight: Math.max(height, moreColumn.height + Dims.h(30))
+                flickableDirection: Flickable.VerticalFlick
+                boundsBehavior: Flickable.StopAtBounds
+                interactive: contentHeight > height
+                clip: true
+
             Column {
-                anchors.centerIn: parent
+                id: moreColumn
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Math.max(Dims.h(15), (moreFlick.height - height) / 2)
                 width: Dims.w(55)
                 spacing: Dims.h(5)
+
+                Repeater {
+                    model: Math.max(0, actions.appActions.length - actions.mainAppActions)
+                    delegate: NotificationButton {
+                        text: actions.appActions[actions.mainAppActions + index]
+                        width: moreColumn.width
+                        height: Dims.h(17)
+                        onClicked: actions.invokeAppAction(actions.mainAppActions + index)
+                    }
+                }
 
                 NotificationButton {
                     //% "Open on phone"
                     text: qsTrId("id-open-on-phone") + localeManager.changesObserver
                     width: parent.width
                     height: Dims.h(17)
-                    visible: actions.hasPhoneAction("open") && actions.hasPhoneAction("reply")
+                    visible: actions.hasPhoneAction("open")
+                             && (actions.hasPhoneAction("reply") || actions.mainAppActions > 0)
                     onClicked: actions.invokePhoneAction("open")
                 }
 
@@ -394,6 +469,7 @@ Item {
                     onClicked: actions.dismissAll()
                 }
             }
+            }
         }
     }
 
@@ -419,12 +495,18 @@ Item {
                 anchors.topMargin: Dims.h(20)
                 anchors.bottomMargin: Dims.h(10)
                 clip: true
-                // Speak only while a phone that recognises speech is connected
-                model: (actions.voiceAvailable ? ["\u0001speak"] : []).concat(["\u0001write"]).concat(cannedReplies.value)
+                // The phone's suggested replies first (marked with \u0002),
+                // then Speak (only while a phone that recognises speech is
+                // connected), Write and the canned replies not suggested already
+                model: actions.smartReplies.map(function (r) { return "\u0002" + r })
+                       .concat(actions.voiceAvailable ? ["\u0001speak"] : []).concat(["\u0001write"])
+                       .concat(Array.prototype.filter.call(cannedReplies.value, function (r) { return actions.smartReplies.indexOf(r) < 0 }))
                 delegate: MouseArea {
                     id: replyItem
                     readonly property bool isWrite: modelData === "\u0001write"
                     readonly property bool isSpeak: modelData === "\u0001speak"
+                    readonly property bool isSmart: modelData.charAt(0) === "\u0002"
+                    readonly property string replyText: isSmart ? modelData.substring(1) : modelData
                     width: ListView.view.width
                     height: Dims.h(18)
                     onClicked: {
@@ -433,7 +515,7 @@ Item {
                         else if (isWrite)
                             layerStack.push(writeLayer)
                         else
-                            actions.sendReply(modelData)
+                            actions.sendReply(replyItem.replyText)
                     }
 
                     Rectangle {
@@ -444,7 +526,8 @@ Item {
 
                     Icon {
                         id: replyIcon
-                        name: replyItem.isSpeak ? "ios-mic-outline" : replyItem.isWrite ? "ios-create-outline" : "ios-text-outline"
+                        name: replyItem.isSpeak ? "ios-mic-outline" : replyItem.isWrite ? "ios-create-outline"
+                              : replyItem.isSmart ? "ios-flash-outline" : "ios-text-outline"
                         width: Dims.h(12)
                         height: width
                         anchors.verticalCenter: parent.verticalCenter
@@ -456,7 +539,7 @@ Item {
                         //% "Write…"
                         text: replyItem.isWrite ? qsTrId("id-reply-write")
                                                   //% "Speak…"
-                                                : replyItem.isSpeak ? qsTrId("id-reply-speak") : modelData
+                                                : replyItem.isSpeak ? qsTrId("id-reply-speak") : replyItem.replyText
                         elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: replyIcon.right
