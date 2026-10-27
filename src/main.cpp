@@ -46,6 +46,8 @@
 #include "notificationsnoozer.h"
 #include "applauncher.h"
 #include "watchfacereloader.h"
+#include "healthlog.h"
+#include "crownbutton.h"
 
 int main(int argc, char **argv)
 {
@@ -91,6 +93,11 @@ int main(int argc, char **argv)
     qmlRegisterType<GestureFilterArea>("org.asteroid.launcher", 1, 0, "GestureFilterArea");
     qmlRegisterType<NotificationSnoozer>("org.asteroid.launcher", 1, 0, "NotificationSnoozer");
     qmlRegisterType<AppLauncher>("org.asteroid.launcher", 1, 0, "AppLauncher");
+    qmlRegisterType<HealthLog>("org.asteroid.launcher", 1, 0, "HealthLog");
+
+    // The crown button as Wear OS uses it (mce sends power_button_trigger)
+    CrownButton *crownButton = new CrownButton();
+    app.engine()->rootContext()->setContextProperty("crownButton", crownButton);
 
     // Give these to the environment inside the launcher's wayland compositor
     // Fixes a bug where some applications wouldn't launch, eg. terminal or browser

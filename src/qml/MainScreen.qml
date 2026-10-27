@@ -38,6 +38,7 @@ import org.asteroid.controls
 import org.asteroid.utils
 import org.asteroid.launcher
 import "desktop.js" as Desktop
+import "tiles"
 
 Item {
     id: desktop
@@ -104,8 +105,142 @@ Item {
      */
     property alias nightstand: nightstandMode.active
 
-    onAboutToCloseChanged: grid.moveTo(0, 0)
-    onAboutToMinimizeChanged: grid.moveTo(0, 1)
+    onAboutToCloseChanged: {
+        grid.moveTo(0, 0)
+        if (aboutToClose)
+            closeOverlays()
+    }
+    onAboutToMinimizeChanged: {
+        if (!wearLayout) {
+            grid.moveTo(0, 1)
+            return
+        }
+        // Wear OS: back from an app opened from the app list is the list,
+        // from anywhere else the watchface
+        grid.moveTo(0, 0)
+        if (aboutToMinimize && launchedFromDrawer)
+            appDrawer.openNow()
+    }
+
+    /* The Wear OS home screen (dconf /org/asteroidos/ux/home-layout "wear",
+     * the default; "asteroid" for the AsteroidOS one; read at start):
+     * watchface in the middle, quick settings above, the notification
+     * stream below (swipe up), the tiles to the right (swipe left), the app
+     * list over it all on the crown button (or a swipe right) */
+    ConfigurationValue {
+        id: homeLayout
+        key: "/org/asteroidos/ux/home-layout"
+        defaultValue: "wear"
+    }
+    readonly property bool wearLayout: _wearLayout
+    property bool _wearLayout: true
+    property bool launchedFromDrawer: false
+
+    // the tiles: id -> file and name
+    readonly property var tileRegistry: ({
+        //% "Heart rate"
+        "heartrate": { file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-heart-rate") },
+        //% "Steps"
+        "steps": { file: "tiles/StepsTile.qml", name: qsTrId("id-tile-steps") },
+        //% "Weather"
+        "weather": { file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-weather") },
+        //% "Agenda"
+        "agenda": { file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-agenda") },
+        //% "Timer"
+        "timer": { file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer") },
+        //% "Media"
+        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media") }
+    })
+    ConfigurationValue {
+        id: tilesSetting
+        key: "/org/asteroidos/ux/tiles"
+        defaultValue: ["weather", "heartrate", "steps", "agenda", "timer", "media"]
+        onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
+    }
+    property var builtTiles: []
+    readonly property int tileCount: builtTiles.length
+
+    // the tiles from dconf, unknown ids left out, as panels (1..n, 0)
+    function buildTiles() {
+        var wanted = []
+        var list = tilesSetting.value || []
+        for (var i = 0; i < list.length; i++)
+            if (tileRegistry[list[i]] && wanted.indexOf(list[i]) < 0)
+                wanted.push(list[i])
+        if (JSON.stringify(wanted) === JSON.stringify(builtTiles))
+            return
+        var onTiles = grid.currentHorizontalPos > 0
+        for (var r = 1; r <= builtTiles.length; r++)
+            grid.removePanel(r, 0)
+        for (var t = 0; t < wanted.length; t++) {
+            var panel = grid.addPanel(t + 1, 0, tilePanel)
+            panel.tileFile = tileRegistry[wanted[t]].file
+            panel.visible = false
+        }
+        builtTiles = wanted
+        if (onTiles)
+            grid.moveTo(Math.min(grid.currentHorizontalPos, wanted.length), 0)
+        grid.changeAllowedDirections()
+    }
+
+    function openTilesEditor() {
+        var names = {}
+        for (var k in tileRegistry)
+            names[k] = tileRegistry[k].name
+        tilesEditor.names = names
+        tilesEditor.open(builtTiles)
+    }
+
+    function openFacePicker() {
+        facePicker.current = watchFaceSource.value
+        facePicker.open()
+    }
+
+    // the drawer, the face picker and the tiles editor go
+    function closeOverlays() {
+        appDrawer.closeNow()
+        if (facePicker.visible) facePicker.close()
+        if (tilesEditor.visible) tilesEditor.close(false)
+    }
+
+    /* The crown button on the home screen, as Wear OS: on the watchface it
+     * opens the app list; anywhere else (the app list, a tile, the
+     * notifications, quick settings) it goes back to the watchface */
+    function crownPressed() {
+        if (splash.visible)
+            return
+        if (facePicker.visible || tilesEditor.visible) {
+            closeOverlays()
+            return
+        }
+        if (appDrawer.isOpen) {
+            appDrawer.close()
+            return
+        }
+        if (grid.currentHorizontalPos !== 0 || grid.currentVerticalPos !== 0) {
+            grid.animateTo(0, 0)
+            return
+        }
+        if (wearLayout)
+            appDrawer.open()
+        else
+            grid.animateTo(0, 1)
+    }
+
+    /* Launch the app of /usr/share/applications/<name>.desktop the way the
+     * launcher does (lipstick's launcher item: booster, splash) */
+    function launchByName(name, fromItem) {
+        for (var i = 0; i < launcherModel.itemCount; i++) {
+            var it = launcherModel.get(i)
+            if (it && it.object)
+                it = it.object
+            if (it && it.filePath && it.filePath.split("/").pop() === name + ".desktop") {
+                launchApp(it, fromItem)
+                return true
+            }
+        }
+        return false
+    }
 
     /* Launch an application from the launcher. The launch splash grows out
      * of fromItem (the tapped icon; null: the middle of the screen) in the
@@ -113,6 +248,7 @@ Item {
      * shows up, as Wear OS does. The app launchers call this as
      * desktop.launchApp(model.object, circle). */
     function launchApp(launcherItem, fromItem) {
+        launchedFromDrawer = appDrawer.isOpen
         if (Desktop.launchSplash && !launcherItem.isLaunching) {
             var r = fromItem ? fromItem.mapToItem(null, 0, 0, fromItem.width, fromItem.height)
                              : Qt.rect(0, 0, 0, 0)
@@ -126,6 +262,7 @@ Item {
     Component.onCompleted: {
         Desktop.desktop = desktop
         Desktop.panelsGrid = grid
+        Desktop.confirmation = confirmation
         lipstickSettings.lockScreen(true)
         if(firstRun.isFirstRun())
             firstRunComponent.createObject(desktop)
@@ -426,12 +563,34 @@ Item {
     }
 
     Component { id: topPanel;    QuickPanel      { } }
+    Component { id: streamPanel; NotificationStream { panelsGrid: grid } }
+    Component {
+        id: tilePanel
+        Loader {
+            property string tileFile
+            property bool forbidTop: true
+            property bool forbidBottom: true
+            source: tileFile !== "" ? Qt.resolvedUrl(tileFile) : ""
+        }
+    }
     Component { id: leftPanel;   NotificationsPanel { panelsGrid: grid } }
     Component { id: rightPanel;  Today              { } }
     Component {
         id: centerPanel;
         Item {
             property bool nightstandWatchfaceActive: nightstandMode.active && nightstandUseCustomWatchface.value && watchfaceNightstandSource.value != watchFaceSource.value
+            // Wear OS: a long press on the watchface opens the face picker
+            // (under the face: a face's own buttons keep their presses)
+            MouseArea {
+                anchors.fill: parent
+                z: -1
+                enabled: !displayAmbient
+                pressAndHoldInterval: 500
+                onPressAndHold: {
+                    Haptics.longPress()
+                    desktop.openFacePicker()
+                }
+            }
             Loader {
                 id: nightstandWatchfaceLoader
                 opacity: nightstandWatchfaceActive ? 1.0 : 0.0
@@ -487,7 +646,24 @@ Item {
     PanelsGrid {
         id: grid 
         anchors.fill: parent
+        // the app list follows a swipe right on the watchface (Wear layout)
+        edgeTarget: desktop.wearLayout ? appDrawer : null
+
         Component.onCompleted: {
+            desktop._wearLayout = homeLayout.value !== "asteroid"
+            if (desktop.wearLayout) {
+                addPanel(0, 0, centerPanel)
+                addPanel(0, -1, topPanel)
+                var ns = addPanel(0, 1, streamPanel)
+                desktop.buildTiles()
+                appDrawer.source = Qt.binding(function() { return appLauncherSource.value })
+                rightIndicator.visible  = Qt.binding(function() { return grid.toLeftAllowed && !displayAmbient })
+                leftIndicator.visible   = Qt.binding(function() { return grid.toRightAllowed && !displayAmbient && !appDrawer.isOpen })
+                topIndicator.visible    = Qt.binding(function() { return grid.toBottomAllowed && !displayAmbient })
+                bottomIndicator.visible = Qt.binding(function() { return grid.toTopAllowed && (!displayAmbient || !ns.modelEmpty) })
+                bottomIndicator.keepExpanded = Qt.binding(function() { return !ns.modelEmpty && grid.currentHorizontalPos == 0 && grid.currentVerticalPos == 0 })
+                return
+            }
             addPanel(0, 0, centerPanel)
             var al = addPanel(0, 1, bottomPanel)
             addPanel(1, 0, rightPanel)
@@ -501,6 +677,40 @@ Item {
 
             leftIndicator.keepExpanded = Qt.binding(function() { return !np.modelEmpty && grid.currentHorizontalPos == 0 && grid.currentVerticalPos == 0 })
         }
+    }
+
+    // Wear OS's page dots under the tiles (the watchface is the first)
+    ArcPageIndicator {
+        id: tileDots
+        z: 2
+        count: desktop.wearLayout && desktop.tileCount > 0 ? desktop.tileCount + 1 : 0
+        position: Math.max(0, -grid.contentX / Math.max(1, grid.width))
+        visible: count > 0 && grid.currentVerticalPos === 0 && !displayAmbient
+                 && (grid.currentHorizontalPos > 0 || grid.contentX < -1)
+    }
+
+    AppDrawer {
+        id: appDrawer
+        z: 5
+        onIsOpenChanged: if (isOpen && launcher.item) Desktop.appLauncher = launcher.item
+    }
+
+    FacePicker {
+        id: facePicker
+        z: 6
+        onChosen: (face) => watchFaceSource.value = face
+    }
+
+    TilesEditor {
+        id: tilesEditor
+        z: 6
+        onDone: (tiles) => tilesSetting.value = tiles
+    }
+
+    // "Sent", "Saved"... over everything on the home screen
+    Confirmation {
+        id: confirmation
+        z: 8
     }
 
     NotificationIndicator {
@@ -526,7 +736,10 @@ Item {
 
     Connections {
         target: Lipstick.compositor
-        function onDisplayOff() { lockscreenDelay.start() }
+        function onDisplayOff() {
+            lockscreenDelay.start()
+            desktop.closeOverlays()
+        }
      }
 
 // Wallpaper

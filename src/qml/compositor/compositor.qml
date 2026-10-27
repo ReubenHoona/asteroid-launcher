@@ -101,8 +101,8 @@ Item {
          * the last part of the way */
         readonly property bool dismissing: gestureArea.active
         readonly property real dismissProgress: dismissing ? Math.min(1, gestureArea.progress) : 0
-        readonly property real dismissScale: 1 - 0.2 * dismissProgress
-        opacity: dismissProgress < 0.6 ? 1 : 1 - (dismissProgress - 0.6) / 0.4
+        readonly property real dismissScale: (1 - 0.2 * dismissProgress) * (1 - 0.25 * root.closeProgress)
+        opacity: (dismissProgress < 0.6 ? 1 : 1 - (dismissProgress - 0.6) / 0.4) * (1 - root.closeProgress)
         transform: [
             Scale {
                 origin.x: appLayer.width / 2
@@ -246,6 +246,55 @@ Item {
     Component {
         id: windowWrapper
         WindowWrapperBase { }
+    }
+
+    /* The crown button (mce's power_button_trigger, see CrownButton), as
+     * Wear OS uses it: in an application it goes back to the watchface (the
+     * window leaves as a Wear OS window does: down to 0.75 and fading,
+     * 250 ms), on the home screen the home screen decides (app list, back
+     * to the watchface) */
+    property real closeProgress: 0
+
+    function closeTopmost() {
+        if (closeAnim.running || gestureArea.active || !comp.topmostWindow)
+            return
+        Desktop.desktop.aboutToClose = true
+        closeAnim.start()
+    }
+
+    SequentialAnimation {
+        id: closeAnim
+        NumberAnimation {
+            target: root
+            property: "closeProgress"
+            from: 0
+            to: 1
+            duration: 250
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: root.windowEasing
+        }
+        ScriptAction {
+            script: {
+                var app = comp.topmostWindow
+                comp.setCurrentWindow(null)
+                if (app && app.window)
+                    Lipstick.compositor.closeClientForWindowId(app.window.windowId)
+                root.closeProgress = 0
+                Desktop.desktop.aboutToClose = false
+            }
+        }
+    }
+
+    Connections {
+        target: typeof crownButton !== "undefined" ? crownButton : null
+        function onPressed() {
+            if (launchSplash.active)
+                return
+            if (comp.appActive)
+                root.closeTopmost()
+            else if (homeLoader.item)
+                homeLoader.item.crownPressed()
+        }
     }
 
     Timer {

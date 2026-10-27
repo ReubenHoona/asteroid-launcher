@@ -5,14 +5,18 @@ set(SRC
 	gesturefilterarea.cpp
 	applauncher.cpp
 	notificationsnoozer.cpp
-	watchfacereloader.cpp)
+	watchfacereloader.cpp
+	healthlog.cpp
+	crownbutton.cpp)
 set(HEADERS
 	applauncherbackground.h
 	firstrun.h
 	gesturefilterarea.h
 	applauncher.h
 	notificationsnoozer.h
-	watchfacereloader.h)
+	watchfacereloader.h
+	healthlog.h
+	crownbutton.h)
 
 add_executable(asteroid-launcher ${SRC} ${HEADERS} resources-qml.qrc)
 
@@ -29,6 +33,19 @@ set(QML_FILES
 	qml/misc/ShutdownScreen.qml
 	qml/misc/BluetoothAgent.qml
 	qml/misc/desktop.js
+	qml/misc/AppDrawer.qml
+	qml/misc/FacePicker.qml
+	qml/notifications/NotificationStream.qml
+	qml/notifications/NotificationCard.qml
+	qml/notifications/NotificationText.qml
+	qml/tiles/TileBase.qml
+	qml/tiles/TilesEditor.qml
+	qml/tiles/HeartRateTile.qml
+	qml/tiles/StepsTile.qml
+	qml/tiles/WeatherTile.qml
+	qml/tiles/AgendaTile.qml
+	qml/tiles/TimerTile.qml
+	qml/tiles/MediaTile.qml
 	qml/notifications/NotificationActions.qml
 	qml/notifications/NotificationButton.qml
 	qml/notifications/NotificationIndicator.qml
@@ -56,6 +73,19 @@ set_source_files_properties(qml/misc/PanelsGrid.qml                  PROPERTIES 
 set_source_files_properties(qml/misc/ShutdownScreen.qml              PROPERTIES QT_RESOURCE_ALIAS system/ShutdownScreen.qml)
 set_source_files_properties(qml/misc/BluetoothAgent.qml              PROPERTIES QT_RESOURCE_ALIAS connectivity/BluetoothAgent.qml)
 set_source_files_properties(qml/misc/desktop.js                      PROPERTIES QT_RESOURCE_ALIAS desktop.js)
+set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES QT_RESOURCE_ALIAS AppDrawer.qml)
+set_source_files_properties(qml/misc/FacePicker.qml                  PROPERTIES QT_RESOURCE_ALIAS FacePicker.qml)
+set_source_files_properties(qml/notifications/NotificationStream.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationStream.qml)
+set_source_files_properties(qml/notifications/NotificationCard.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationCard.qml)
+set_source_files_properties(qml/notifications/NotificationText.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationText.qml)
+set_source_files_properties(qml/tiles/TileBase.qml                   PROPERTIES QT_RESOURCE_ALIAS tiles/TileBase.qml)
+set_source_files_properties(qml/tiles/TilesEditor.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/TilesEditor.qml)
+set_source_files_properties(qml/tiles/HeartRateTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/HeartRateTile.qml)
+set_source_files_properties(qml/tiles/StepsTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/StepsTile.qml)
+set_source_files_properties(qml/tiles/WeatherTile.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/WeatherTile.qml)
+set_source_files_properties(qml/tiles/AgendaTile.qml                 PROPERTIES QT_RESOURCE_ALIAS tiles/AgendaTile.qml)
+set_source_files_properties(qml/tiles/TimerTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/TimerTile.qml)
+set_source_files_properties(qml/tiles/MediaTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/MediaTile.qml)
 set_source_files_properties(qml/notifications/NotificationActions.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationActions.qml)
 set_source_files_properties(qml/notifications/NotificationButton.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationButton.qml)
 set_source_files_properties(qml/notifications/NotificationIndicator.qml PROPERTIES QT_RESOURCE_ALIAS NotificationIndicator.qml)
