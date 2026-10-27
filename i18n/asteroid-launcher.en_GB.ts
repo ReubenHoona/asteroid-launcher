@@ -592,5 +592,109 @@
         <source>Found it</source>
         <translation>Found it</translation>
     </message>
+    <message id="id-clear-all">
+        <source>Clear all</source>
+        <translation>Clear all</translation>
+    </message>
+    <message id="id-reply-sent">
+        <source>Sent</source>
+        <translation>Sent</translation>
+    </message>
+    <message id="id-tile-agenda">
+        <source>Agenda</source>
+        <translation>Agenda</translation>
+    </message>
+    <message id="id-tile-alarm-at">
+        <source>Alarm %1</source>
+        <translation>Alarm %1</translation>
+    </message>
+    <message id="id-tile-all-day">
+        <source>All day</source>
+        <translation>All day</translation>
+    </message>
+    <message id="id-tile-bpm">
+        <source>bpm</source>
+        <translation>bpm</translation>
+    </message>
+    <message id="id-tile-calendar">
+        <source>Calendar</source>
+        <translation>Calendar</translation>
+    </message>
+    <message id="id-tile-cancel">
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message id="id-tile-forecast">
+        <source>Forecast</source>
+        <translation>Forecast</translation>
+    </message>
+    <message id="id-tile-health">
+        <source>Health</source>
+        <translation>Health</translation>
+    </message>
+    <message id="id-tile-heart-rate">
+        <source>Heart rate</source>
+        <translation>Heart rate</translation>
+    </message>
+    <message id="id-tile-measure">
+        <source>Measure</source>
+        <translation>Measure</translation>
+    </message>
+    <message id="id-tile-media">
+        <source>Media</source>
+        <translation>Media</translation>
+    </message>
+    <message id="id-tile-min">
+        <source>min</source>
+        <translation>min</translation>
+    </message>
+    <message id="id-tile-music">
+        <source>Music</source>
+        <translation>Music</translation>
+    </message>
+    <message id="id-tile-no-events">
+        <source>No more events</source>
+        <translation>No more events</translation>
+    </message>
+    <message id="id-tile-no-forecast">
+        <source>No forecast from the phone yet</source>
+        <translation>No forecast from the phone yet</translation>
+    </message>
+    <message id="id-tile-no-reading">
+        <source>No reading today</source>
+        <translation>No reading today</translation>
+    </message>
+    <message id="id-tile-nothing-playing">
+        <source>Nothing playing</source>
+        <translation>Nothing playing</translation>
+    </message>
+    <message id="id-tile-steps">
+        <source>Steps</source>
+        <translation>Steps</translation>
+    </message>
+    <message id="id-tile-steps-of">
+        <source>of %1</source>
+        <translation>of %1</translation>
+    </message>
+    <message id="id-tile-timer">
+        <source>Timer</source>
+        <translation>Timer</translation>
+    </message>
+    <message id="id-tile-tomorrow">
+        <source>Tomorrow</source>
+        <translation>Tomorrow</translation>
+    </message>
+    <message id="id-tile-weather">
+        <source>Weather</source>
+        <translation>Weather</translation>
+    </message>
+    <message id="id-tiles-done">
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message id="id-tiles-editor">
+        <source>Tiles</source>
+        <translation>Tiles</translation>
+    </message>
 </context>
 </TS>
