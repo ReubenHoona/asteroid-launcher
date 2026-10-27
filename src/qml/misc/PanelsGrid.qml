@@ -130,6 +130,19 @@ GestureFilterArea {
         changeAllowedDirections()
     }
 
+    /* Glide to a panel (the crown button back to the watchface) the way a
+     * released swipe settles */
+    function animateTo(posX, posY) {
+        revealNeighbour(posX, posY)
+        var horizontalMove = posX !== currentHorizontalPos
+        currentHorizontalPos = posX
+        currentVerticalPos = posY
+        if (horizontalMove)
+            settle("x", -panelWidth * posX, panelWidth)
+        else
+            settle("y", -panelHeight * posY, panelHeight)
+    }
+
     function hideOffscreen() {
         for(var rec of panels.values())
             if(rec.col !== currentHorizontalPos || rec.row !== currentVerticalPos)
@@ -186,8 +199,22 @@ GestureFilterArea {
         revealNeighbour(currentHorizontalPos, currentVerticalPos+1)
     }
 
+    /* An object with dragBy(dx) and release(velocity) that a swipe to the
+     * right on the middle panel drives when there is no panel on its left
+     * (the Wear layout's app list) */
+    property var edgeTarget: null
+    captureRight: edgeTarget !== null && currentHorizontalPos === 0 && currentVerticalPos === 0
+                  && cellAt(-1, 0) === undefined
+    property bool _edgeDrag: false
+
     onSwipeMoved: (horizontal, delta) => {
         panelsHideTimeout.stop()
+        if (horizontal && (_edgeDrag || (captureRight && !toRightAllowed && delta > 0
+                                         && Math.abs(content.x + currentHorizontalPos * panelWidth) < 1))) {
+            _edgeDrag = true
+            edgeTarget.dragBy(delta)
+            return
+        }
         if(horizontal) {
             contentX = content.x + delta
             var currentPanelX = -currentHorizontalPos*panelWidth
@@ -209,6 +236,12 @@ GestureFilterArea {
     }
 
     onSwipeReleased: (horizontal, velocity, tracing) => {
+        if (_edgeDrag) {
+            _edgeDrag = false
+            edgeTarget.release(velocity)
+            animateIndicators()
+            return
+        }
         if(!tracing) {
             if(horizontal) {
                 var locX = contentX + currentHorizontalPos * panelWidth

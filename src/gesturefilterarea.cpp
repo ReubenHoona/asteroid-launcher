@@ -86,7 +86,7 @@ bool GestureFilterArea::trackMove(const QPointF &pos)
         if (abs(m_velocityX) > abs(m_velocityY)) {
             if(m_velocityX > m_threshold) {
                 m_tracing = false;
-                if(m_toRightAllowed) {
+                if(m_toRightAllowed || m_captureRight) {
                     m_horizontal = true;
                     wantsGrab = true;
                 }

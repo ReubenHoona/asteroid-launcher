@@ -41,6 +41,9 @@ class GestureFilterArea : public QQuickItem
     Q_PROPERTY(bool toLeftAllowed WRITE setToLeftAllowed READ toLeftAllowed NOTIFY toLeftAllowedChanged)
     Q_PROPERTY(bool toBottomAllowed WRITE setToBottomAllowed READ toBottomAllowed NOTIFY toBottomAllowedChanged)
     Q_PROPERTY(bool toTopAllowed WRITE setToTopAllowed READ toTopAllowed NOTIFY toTopAllowedChanged)
+    /* Take a swipe to the right even with no panel on the left: the Wear
+     * layout pulls its app list in with it */
+    Q_PROPERTY(bool captureRight WRITE setCaptureRight READ captureRight NOTIFY captureRightChanged)
 
 public:
     GestureFilterArea(QQuickItem *parent = 0);
@@ -48,6 +51,13 @@ public:
     bool toLeftAllowed()   { return m_toLeftAllowed;   }
     bool toBottomAllowed() { return m_toBottomAllowed; }
     bool toTopAllowed()    { return m_toTopAllowed;    }
+    bool captureRight()    { return m_captureRight;    }
+    void setCaptureRight(const bool capture) {
+        if (m_captureRight != capture) {
+            m_captureRight = capture;
+            emit captureRightChanged();
+        }
+    }
 
     void setToRightAllowed(const bool allowed) {
         if (m_toRightAllowed != allowed) {
@@ -82,9 +92,11 @@ signals:
     void toLeftAllowedChanged();
     void toTopAllowedChanged();
     void toBottomAllowedChanged();
+    void captureRightChanged();
 
 private:
     bool m_toRightAllowed, m_toLeftAllowed, m_toBottomAllowed, m_toTopAllowed;
+    bool m_captureRight = false;
 
     bool m_horizontal, m_pressed, m_tracing, m_grabbed;
     unsigned int m_counter;
