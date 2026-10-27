@@ -54,6 +54,15 @@ void PulseAudioControl::openConnection()
         return;
     }
 
+    // PulseAudio went away (restarted): drop the dead connection, or it
+    // leaks, and a failed reconnect would leave it in place and schedule
+    // no retry (the retry below is for a NULL connection only)
+    if (dbusConnection != NULL) {
+        dbus_connection_remove_filter(dbusConnection, PulseAudioControl::signalHandler, (void *)this);
+        dbus_connection_unref(dbusConnection);
+        dbusConnection = NULL;
+    }
+
     // Establish a connection to the server
     char *pa_bus_address = getenv("PULSE_DBUS_SERVER");
     QByteArray addressArray;
@@ -86,7 +95,10 @@ void PulseAudioControl::openConnection()
 
     if (!dbusConnection) {
         QTimer::singleShot(reconnectTimeout, this, SLOT(update()));
-        reconnectTimeout += 5000; // next reconnects wait for 5000ms more
+        // next reconnects wait for 5000ms more, at most a minute
+        reconnectTimeout = qMin(reconnectTimeout + 5000, 60000);
+    } else {
+        reconnectTimeout = 2000;
     }
 }
 
