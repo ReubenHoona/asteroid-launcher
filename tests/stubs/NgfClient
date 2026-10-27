@@ -1,0 +1,59 @@
+// Test stub of libngf-qt's Ngf::Client (non-graphical feedback daemon client): records what is played
+// and stopped.
+#ifndef STUB_NGFCLIENT
+#define STUB_NGFCLIENT
+
+#include <QList>
+#include <QMap>
+#include <QObject>
+#include <QPair>
+#include <QString>
+#include <QVariant>
+
+namespace Ngf {
+
+struct ClientLog
+{
+    static inline int connects = 0;
+    static inline quint32 nextEventId = 1;
+    static inline QList<QPair<QString, QMap<QString, QVariant>>> played; // event, properties
+    static inline QList<quint32> playedIds;
+    static inline QList<quint32> stopped;
+
+    static void reset()
+    {
+        connects = 0;
+        played.clear();
+        playedIds.clear();
+        stopped.clear();
+    }
+};
+
+class Client : public QObject
+{
+public:
+    explicit Client(QObject *parent = nullptr) : QObject(parent) {}
+
+    bool connect()
+    {
+        ++ClientLog::connects;
+        return true;
+    }
+
+    quint32 play(const QString &event, const QMap<QString, QVariant> &properties)
+    {
+        ClientLog::played << qMakePair(event, properties);
+        ClientLog::playedIds << ClientLog::nextEventId;
+        return ClientLog::nextEventId++;
+    }
+
+    bool stop(quint32 eventId)
+    {
+        ClientLog::stopped << eventId;
+        return true;
+    }
+};
+
+}
+
+#endif
