@@ -25,7 +25,7 @@ TileBase {
 
     // the running countdown, if any
     property QtObject countdown: null
-    property int left: 0
+    property int remaining: 0
 
     AlarmsModel {
         id: countdowns
@@ -54,8 +54,8 @@ TileBase {
     }
 
     function updateLeft() {
-        left = countdown ? Math.max(0, Math.round(countdown.triggerTime - Date.now() / 1000)) : 0
-        if (countdown && left === 0)
+        remaining = countdown ? Math.max(0, Math.round(countdown.triggerTime - Date.now() / 1000)) : 0
+        if (countdown && remaining === 0)
             countdown = null
     }
 
@@ -68,7 +68,7 @@ TileBase {
         a.save()
         lastDuration.value = seconds
         countdown = a
-        left = seconds
+        remaining = seconds
         Haptics.confirm()
     }
 
@@ -76,7 +76,7 @@ TileBase {
         if (countdown)
             countdown.deleteAlarm()
         countdown = null
-        left = 0
+        remaining = 0
         Haptics.click()
     }
 
@@ -166,7 +166,7 @@ TileBase {
         spacing: Math.round(tile.height * 0.03)
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: tile.format(tile.left)
+            text: tile.format(tile.remaining)
             font.pixelSize: Math.round(tile.height * 0.15)
             font.styleName: "SemiCondensed Medium"
         }

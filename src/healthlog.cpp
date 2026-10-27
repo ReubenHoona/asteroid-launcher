@@ -96,7 +96,7 @@ void HealthLog::reload()
     }
     /* again just after midnight: the day's graph starts over */
     const QDateTime now = QDateTime::currentDateTime();
-    m_midnight.start(int(qBound<qint64>(1000, now.msecsTo(QDateTime(day.addDays(1), QTime(0, 0, 5))), 86400000)));
+    m_midnight.start(int(qBound(qint64(1000), now.msecsTo(QDateTime(day.addDays(1), QTime(0, 0, 5))), qint64(86400000))));
 
     const QString path = sensorDir(m_sensor) + day.toString(QStringLiteral("yyyy-MM-dd")) + QStringLiteral(".log");
     const QString sensor = m_sensor;
@@ -139,7 +139,7 @@ HealthLog::Result HealthLog::read(const QString &path, const QString &sensor, in
             continue;
         if (!cumulative && value == 0)
             continue;   /* no reading (off the wrist) */
-        const int b = int(qBound<qint64>(0, (epoch - dayStart) / bucketSecs, buckets - 1));
+        const int b = int(qBound(qint64(0), (epoch - dayStart) / bucketSecs, qint64(buckets - 1)));
         sum[b] += value;
         count[b]++;
         top[b] = qMax(top[b], value);
