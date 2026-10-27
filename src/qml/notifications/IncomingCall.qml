@@ -63,6 +63,8 @@ Item {
     readonly property bool ongoing: call !== null && isOngoing(call)
     // Time in call, refreshed every second while shown
     property string elapsed: ""
+    // The display is off: nothing to refresh
+    property bool displayOff: false
 
     visible: call !== null
 
@@ -105,6 +107,12 @@ Item {
     function updateElapsed() {
         if (call === null)
             return
+        // A call the phone never said was over (the link dropped during
+        // the call): do not keep it up, ticking, for ever
+        if (ongoing && !isOngoing(call)) {
+            hide()
+            return
+        }
         var s = Math.max(0, Math.floor((new Date().getTime() - call.timestamp.getTime()) / 1000))
         var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60
         s = s % 60
@@ -231,7 +239,8 @@ Item {
     Timer {
         interval: 1000
         repeat: true
-        running: incomingCall.visible && incomingCall.ongoing
+        triggeredOnStart: true
+        running: incomingCall.visible && incomingCall.ongoing && !incomingCall.displayOff
         onTriggered: updateElapsed()
     }
 
@@ -247,11 +256,13 @@ Item {
     Connections {
         target: Lipstick.compositor
         function onDisplayOff() {
+            incomingCall.displayOff = true
             if (incomingCall.visible && incomingCall.keepOn) {
                 silence()
                 displayRelease()
             }
         }
+        function onDisplayOn() { incomingCall.displayOff = false }
     }
 
     Rectangle {
