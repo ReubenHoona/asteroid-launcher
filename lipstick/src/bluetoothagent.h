@@ -24,6 +24,7 @@
 #include <QDBusObjectPath>
 #include <QDBusServiceWatcher>
 #include <QDBusMessage>
+#include <QTimer>
 
 class BluetoothAgent : public QObject, protected QDBusContext
 {
@@ -84,9 +85,13 @@ private:
     QDBusObjectPath device;
     QDBusServiceWatcher *mWatcher;
     QDBusMessage m_latestMessage;
+    // Ends a pairing window nobody answers (a display-only passkey, a lost
+    // Cancel): it keeps the display on while it shows
+    QTimer m_windowTimeout;
 
     void setTrusted(QDBusObjectPath path);
     void reject();
+    void restoreStaleDisplaySettings();
 
 private slots:
     void serviceRegistered(const QString& name);
