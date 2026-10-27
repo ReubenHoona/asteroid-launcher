@@ -19,11 +19,17 @@
 #include <QDBusConnectionInterface>
 #include <QDBusReply>
 #include <QDBusPendingCall>
+#include <QDebug>
 #include <QDBusVariant>
 
 #include "bluetoothagent.h"
 
 #define AGENT_CAPABILITY        "DisplayYesNo"
+// BlueZ cancels an unanswered request after 60 s; this is the backstop
+#define WINDOW_TIMEOUT_MS       120000
+
+static const char INHIBIT_BLANK_MODE[] = "/system/osso/dsm/display/inhibit_blank_mode";
+static const char TKLOCK_BLANK_DISABLE[] = "/system/osso/dsm/locks/tklock_blank_disable";
 
 BluetoothAgent::BluetoothAgent(QObject *parent) : QObject(parent)
 {
@@ -42,6 +48,42 @@ BluetoothAgent::BluetoothAgent(QObject *parent) : QObject(parent)
     state = Idle;
     pinCode = "";
     passkey = 0;
+
+    m_windowTimeout.setSingleShot(true);
+    m_windowTimeout.setInterval(WINDOW_TIMEOUT_MS);
+    connect(&m_windowTimeout, &QTimer::timeout, this, [this] {
+        qWarning() << "BluetoothAgent: no answer to the pairing request, closing it";
+        if (state == ReqPinCode || state == ReqPasskey || state == ReqConfirmation
+                || state == ReqAuthorization || state == AuthService)
+            reject();
+        setState(Idle);
+        setWindowVisible(false);
+    });
+
+    restoreStaleDisplaySettings();
+}
+
+// The pairing window keeps the display on through mce settings, which mce
+// saves: when lipstick stopped while the window showed (crash, restart), the
+// display never blanked again, also after a reboot. Undo exactly what
+// setWindowVisible(true) set. Before the QML is loaded (the first run sets
+// the same values, after this), with short timeouts.
+void BluetoothAgent::restoreStaleDisplaySettings()
+{
+    auto get = [](const char *key) -> int {
+        QDBusMessage call = QDBusMessage::createMethodCall("com.nokia.mce", "/com/nokia/mce/request",
+                                                           "com.nokia.mce.request", "get_config");
+        call << QVariant::fromValue(QDBusObjectPath(key));
+        const QDBusMessage reply = QDBusConnection::systemBus().call(call, QDBus::Block, 1000);
+        if (reply.type() != QDBusMessage::ReplyMessage || reply.arguments().isEmpty())
+            return -1;
+        return reply.arguments().first().value<QDBusVariant>().variant().toInt();
+    };
+    if (get(INHIBIT_BLANK_MODE) != 3 || get(TKLOCK_BLANK_DISABLE) != 1)
+        return;
+    qWarning() << "BluetoothAgent: the display was left always on by an earlier pairing window, restoring";
+    m_mceDbus->asyncCall("set_config", QDBusObjectPath(INHIBIT_BLANK_MODE).path(), QVariant::fromValue(QDBusVariant(0)));
+    m_mceDbus->asyncCall("set_config", QDBusObjectPath(TKLOCK_BLANK_DISABLE).path(), QVariant::fromValue(QDBusVariant(0)));
 }
 
 void BluetoothAgent::serviceRegistered(const QString&)
@@ -124,6 +166,10 @@ void BluetoothAgent::setWindowVisible(bool visible)
         return;
 
     m_visible = visible;
+    if (visible)
+        m_windowTimeout.start();
+    else
+        m_windowTimeout.stop();
     if (visible) {
         // Turn the screen on and keep it on and unlocked for the duration of
         // the pairing. Pairing usually starts from the phone while the watch
@@ -173,6 +219,8 @@ QString BluetoothAgent::RequestPinCode(QDBusObjectPath object, const QDBusMessag
     setState(ReqPinCode);
 
     message.setDelayedReply(true);
+    // userAccepts() answers this message (it answered the previous request)
+    m_latestMessage = message;
 
     return "";
 }
@@ -185,6 +233,7 @@ quint32 BluetoothAgent::RequestPasskey(QDBusObjectPath object, const QDBusMessag
     setState(ReqPasskey);
 
     message.setDelayedReply(true);
+    m_latestMessage = message;
 
     return 0;
 }
