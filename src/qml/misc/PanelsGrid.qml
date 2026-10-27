@@ -217,9 +217,7 @@ GestureFilterArea {
                 else if((locX < -width/2) || velocity < -10 && toLeftAllowed)
                     currentHorizontalPos++
 
-                contentAnim.property = "x"
-                contentAnim.to = -panelWidth*currentHorizontalPos
-                contentAnim.start()
+                settle("x", -panelWidth*currentHorizontalPos, panelWidth)
             } else {
                 var locY = contentY + currentVerticalPos * panelHeight
                 if((locY > height/2 && velocity > 0) || velocity > 10 && toBottomAllowed)
@@ -227,9 +225,7 @@ GestureFilterArea {
                 else if((locY < -height/2 && velocity < 0) || velocity < -10 && toTopAllowed)
                     currentVerticalPos++
 
-                contentAnim.property = "y"
-                contentAnim.to = -panelHeight*currentVerticalPos
-                contentAnim.start()
+                settle("y", -panelHeight*currentVerticalPos, panelHeight)
             }
         }
 
@@ -244,10 +240,26 @@ GestureFilterArea {
         onTriggered: hideOffscreen();
     }
 
+    /* The released panel glides to its place the way the finger was
+     * going: LinearOutSlowIn (0, 0, 0.2, 1) as Wear OS settles a swipe, over
+     * 150 ms for a short way up to 250 ms for a whole panel (it was a 100 ms
+     * linear jump) */
+    function settle(prop, to, size) {
+        contentAnim.stop()
+        var from = prop === "x" ? content.x : content.y
+        var way = size > 0 ? Math.min(1, Math.abs(to - from) / size) : 1
+        contentAnim.property = prop
+        contentAnim.to = to
+        contentAnim.duration = 150 + 100 * way
+        contentAnim.start()
+    }
+
     NumberAnimation {
         id: contentAnim
         target: content
-        duration: 100
+        duration: 250
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: [0, 0, 0.2, 1, 1, 1]
         onStopped: panelsHideTimeout.restart()
     }
 }
