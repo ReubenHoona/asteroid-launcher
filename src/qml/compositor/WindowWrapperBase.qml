@@ -36,22 +36,55 @@ import org.asteroid.utils
 Item {
     id: wrapper
 
-    property alias moveInAnim: moveInAnimation
-
     property Item window
     property bool smoothBorders: false
     width: window !== null ? Dims.w(100) : 0
     height: window !== null ? Dims.h(100) : 0
-    NumberAnimation on x { id: moveInAnimation; running: false ; to: 0; duration: 100 }
-    NumberAnimation on opacity {
-        id: fadeInAnimation
-        running: false
-        from: 0
-        to: 1
-        duration: 100
-        onFinished: parent.ready = true
+
+    /* Wear OS window open (AOSP frameworks/base core/res/res
+     * anim-watch/rounded_window_enter.xml): scale 0.75 -> 1 over 250 ms and
+     * alpha 0.25 -> 1 over 150 ms about the middle of the screen, with the
+     * watch window interpolator (0.4, 0, 0.2, 1). Over the launch splash,
+     * which already zoomed out of the icon, the window only fades in. */
+    property real openScale: 1
+    readonly property var _easing: [0.4, 0, 0.2, 1, 1, 1]
+
+    transform: Scale {
+        origin.x: wrapper.width / 2
+        origin.y: wrapper.height / 2
+        xScale: wrapper.openScale
+        yScale: wrapper.openScale
     }
-    function animateIn() { fadeInAnimation.start(); }
+
+    ParallelAnimation {
+        id: zoomIn
+        NumberAnimation {
+            target: wrapper; property: "openScale"; from: 0.75; to: 1; duration: 250
+            easing.type: Easing.BezierSpline; easing.bezierCurve: wrapper._easing
+        }
+        NumberAnimation {
+            target: wrapper; property: "opacity"; from: 0.25; to: 1; duration: 150
+            easing.type: Easing.BezierSpline; easing.bezierCurve: wrapper._easing
+        }
+        onFinished: wrapper.parent.ready = true
+    }
+
+    NumberAnimation {
+        id: fadeIn
+        target: wrapper; property: "opacity"; from: 0; to: 1; duration: 150
+        easing.type: Easing.BezierSpline; easing.bezierCurve: wrapper._easing
+        onFinished: wrapper.parent.ready = true
+    }
+
+    function animateIn(overSplash) {
+        zoomIn.stop()
+        fadeIn.stop()
+        openScale = 1
+        if (overSplash)
+            fadeIn.start()
+        else
+            zoomIn.start()
+    }
 
     Component.onCompleted: {
         window.parent = wrapper

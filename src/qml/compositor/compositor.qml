@@ -44,6 +44,16 @@ Item {
     height: Dims.h(100)
     rotation: Screen.angleBetween(Screen.primaryScreen, Lipstick.compositor.screenOrientation)
 
+    /* Wear OS motion. Window open and close: AOSP frameworks/base
+     * core/res/res/interpolator-watch/rounded_window_interpolator.xml
+     * (0.4, 0, 0.2, 1) over 250 ms; swipe to dismiss settling: androidx
+     * wear compose SwipeToDismissBox, LinearOutSlowIn (0, 0, 0.2, 1) over
+     * 200 ms, dismissed past half the width or on a flick */
+    readonly property var windowEasing: [0.4, 0, 0.2, 1, 1, 1]
+    readonly property var settleEasing: [0, 0, 0.2, 1, 1, 1]
+
+    Component.onCompleted: Desktop.launchSplash = launchSplash
+
     // The home screen is a persistent item at the bottom of the z-stack, not
     // an in-process "window". Its z follows MainScreen's own z (raised while
     // the splash is up) so it can sit above running apps when needed.
@@ -60,15 +70,54 @@ Item {
         }
     }
 
+    // The home screen darkens under an application being swiped away and
+    // brightens as it leaves (Wear OS: background scrim 0.5 * (1 - progress))
+    Rectangle {
+        z: 1
+        anchors.fill: parent
+        color: "black"
+        opacity: 0.5 * (1 - appLayer.dismissProgress)
+        visible: appLayer.dismissing && opacity > 0
+    }
+
+    // Launch feedback, Wear OS style: the tapped icon grows into a disc in
+    // the colours of the application that fills the screen right away and
+    // stays until the window of the application fades in over it
+    LaunchSplash {
+        id: launchSplash
+        z: 1.5
+        anchors.fill: parent
+        easing: root.windowEasing
+    }
+
     Item {
         property bool ready: false
         id: appLayer
-        visible: comp ? comp.appActive : false
+        visible: comp ? comp.appActive || dismissing : false
         z: 2
 
-        opacity: (width-2*gestureArea.value)/width
-        x: gestureArea.active &&  gestureArea.horizontal ? gestureArea.value : 0
-        y: gestureArea.active && !gestureArea.horizontal ? gestureArea.value : 0
+        /* An application being swiped away follows the finger and shrinks
+         * (to 0.8: Wear OS squeezes the screen it dismisses), and fades in
+         * the last part of the way */
+        readonly property bool dismissing: gestureArea.active
+        readonly property real dismissProgress: dismissing ? Math.min(1, gestureArea.progress) : 0
+        readonly property real dismissScale: 1 - 0.2 * dismissProgress
+        opacity: dismissProgress < 0.6 ? 1 : 1 - (dismissProgress - 0.6) / 0.4
+        transform: [
+            Scale {
+                origin.x: appLayer.width / 2
+                origin.y: appLayer.height / 2
+                xScale: appLayer.dismissScale
+                yScale: appLayer.dismissScale
+            },
+            Translate {
+                // the near edge of the shrunk window stays under the finger
+                x: appLayer.dismissing && gestureArea.horizontal
+                   ? gestureArea.value - (1 - appLayer.dismissScale) * appLayer.width / 2 : 0
+                y: appLayer.dismissing && !gestureArea.horizontal
+                   ? gestureArea.value - (1 - appLayer.dismissScale) * appLayer.height / 2 : 0
+            }
+        ]
 
         width: parent.width
         height: parent.height
@@ -113,10 +162,21 @@ Item {
         acceptsDown: true
         acceptsRight: comp != null && comp.topmostWindow != null && !comp.topmostWindowRequestsGesturesDisabled
 
-        property real swipeThreshold: 0.15
+        // Wear OS: past half the screen, or a flick
+        property real swipeThreshold: 0.5
+
+        // The gesture (its direction and value) stays set until the
+        // window has settled back or left: the animations below run on it
+        function endGesture() {
+            delayReset = false
+            Desktop.desktop.aboutToClose = false
+            Desktop.desktop.aboutToMinimize = false
+        }
 
         onGestureStarted: (gesture) => {
             swipeAnimation.stop()
+            cancelAnimation.stop()
+            delayReset = true
             if (gesture == "down") {
                 Desktop.desktop.aboutToClose = true
             } else if(gesture == "right") {
@@ -125,31 +185,30 @@ Item {
         }
 
         onGestureFinished: (gesture) => {
-            if ((gesture == "down" || gesture == "right")) {
-                if (gestureArea.progress >= swipeThreshold) {
-                    swipeAnimation.valueTo = inverted ? -max : max
-                    swipeAnimation.start()
-                    var app = comp.topmostWindow
-                    comp.topmostWindow = null
-                    if (app && app.window)
-                        Lipstick.compositor.closeClientForWindowId(app.window.windowId)
-                } else {
-                    cancelAnimation.start()
-                }
-            } else if (comp.homeActive) {
+            if ((gesture == "down" || gesture == "right")
+                    && (gestureArea.progress >= swipeThreshold || gestureArea.flung)) {
+                // the window keeps going the way the finger went, then the
+                // application closes
+                swipeAnimation.valueTo = max
+                swipeAnimation.start()
+            } else {
                 cancelAnimation.start()
             }
-            Desktop.desktop.aboutToClose = false
-            Desktop.desktop.aboutToMinimize = false
         }
 
-        NumberAnimation {
+        SequentialAnimation {
             id: cancelAnimation
-            target: gestureArea
-            property: "value"
-            to: 0
-            duration: 200
-            easing.type: Easing.OutQuint
+
+            NumberAnimation {
+                target: gestureArea
+                property: "value"
+                to: 0
+                duration: 200
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: root.settleEasing
+            }
+
+            ScriptAction { script: gestureArea.endGesture() }
         }
 
         SequentialAnimation {
@@ -161,11 +220,18 @@ Item {
                 target: gestureArea
                 property: "value"
                 duration: 200
-                easing.type: Easing.OutQuint
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: root.settleEasing
             }
 
             ScriptAction {
-                script: comp.setCurrentWindow(null)
+                script: {
+                    var app = comp.topmostWindow
+                    comp.setCurrentWindow(null)
+                    if (app && app.window)
+                        Lipstick.compositor.closeClientForWindowId(app.window.windowId)
+                    gestureArea.endGesture()
+                }
             }
         }
     }
@@ -227,12 +293,18 @@ Item {
                     topmostApplicationWindow.visible = false
                 topmostApplicationWindow = topmostWindow
                 topmostApplicationWindow.visible = true
-                if (!skipAnimation) topmostApplicationWindow.animateIn()
+                // over the launch splash the window only fades in; without
+                // one it zooms in from 75% as a Wear OS activity does
+                if (!skipAnimation) topmostApplicationWindow.animateIn(launchSplash.active)
+                launchSplash.finish()
                 w.window.takeFocus()
             }
         }
 
-        onDisplayOff: delayTimer.start()
+        onDisplayOff: {
+            delayTimer.start()
+            launchSplash.cancel()
+        }
         onDisplayAboutToBeOn: delayTimer.stop()
 
         // An application that comes to the front while the display is off or
@@ -271,9 +343,13 @@ Item {
                 w.smoothBorders = Qt.binding(function() {
                     return gestureArea.active || appLayer.opacity < 1.0 || !appLayer.ready
                 })
-                w.x = width
-                w.moveInAnim.start()
-                cancelAnimation.start()
+                // a new application ends a swipe still settling
+                if (gestureArea.active) {
+                    cancelAnimation.stop()
+                    swipeAnimation.stop()
+                    gestureArea.endGesture()
+                    gestureArea.reset()
+                }
                 setCurrentWindow(w)
             }
         }

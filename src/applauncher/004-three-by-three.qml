@@ -103,7 +103,7 @@ Item {
 
             onClicked: {
                 clickToggle = true
-                model.object.launchApplication()
+                (typeof desktop !== "undefined" && desktop.launchApp) ? desktop.launchApp(model.object, circle) : model.object.launchApplication()
             }
 
             onPressed: {

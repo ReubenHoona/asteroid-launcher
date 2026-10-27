@@ -73,7 +73,7 @@ ListView {
         height: width
         enabled: !appsListView.dragging
 
-        onClicked: model.object.launchApplication()
+        onClicked: (typeof desktop !== "undefined" && desktop.launchApp) ? desktop.launchApp(model.object, circle) : model.object.launchApplication()
 
         Item {
             id: circleWrapper

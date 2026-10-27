@@ -70,7 +70,7 @@ Item {
             enabled: !appsListView.dragging
 
             onClicked: {
-                model.object.launchApplication()
+                (typeof desktop !== "undefined" && desktop.launchApp) ? desktop.launchApp(model.object, circle) : model.object.launchApplication()
             }
 
             DropShadow {

@@ -101,7 +101,7 @@ Item {
                 launcherCenterColor = alb.centerColor(root.selectedLauncherItem.filePath);
                 launcherOuterColor = alb.outerColor(root.selectedLauncherItem.filePath);
             }
-            onClicked: model.object.launchApplication()
+            onClicked: (typeof desktop !== "undefined" && desktop.launchApp) ? desktop.launchApp(model.object, circle) : model.object.launchApplication()
 
             Item {
                 id: circleWrapper
@@ -280,7 +280,7 @@ Item {
                 forbidTop = false
                 grid.changeAllowedDirections()
             }
-            onClicked: root.selectedLauncherItem.launchApplication()
+            onClicked: (typeof desktop !== "undefined" && desktop.launchApp) ? desktop.launchApp(root.selectedLauncherItem, null) : root.selectedLauncherItem.launchApplication()
         }
 
         layer.enabled: true

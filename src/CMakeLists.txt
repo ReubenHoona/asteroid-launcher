@@ -23,6 +23,7 @@ set(QML_FILES
 	qml/compositor/compositor.qml
 	qml/compositor/WindowWrapperBase.qml
 	qml/compositor/CircleMaskShader.qml
+	qml/compositor/LaunchSplash.qml
 	qml/misc/Splash.qml
 	qml/misc/PanelsGrid.qml
 	qml/misc/ShutdownScreen.qml
@@ -48,6 +49,7 @@ set_source_files_properties(qml/today/weathericons.js                PROPERTIES 
 set_source_files_properties(qml/compositor/compositor.qml            PROPERTIES QT_RESOURCE_ALIAS compositor.qml)
 set_source_files_properties(qml/compositor/WindowWrapperBase.qml     PROPERTIES QT_RESOURCE_ALIAS compositor/WindowWrapperBase.qml)
 set_source_files_properties(qml/compositor/CircleMaskShader.qml      PROPERTIES QT_RESOURCE_ALIAS compositor/CircleMaskShader.qml)
+set_source_files_properties(qml/compositor/LaunchSplash.qml          PROPERTIES QT_RESOURCE_ALIAS compositor/LaunchSplash.qml)
 set_source_files_properties(qml/misc/Splash.qml                      PROPERTIES QT_RESOURCE_ALIAS Splash.qml)
 set_source_files_properties(qml/misc/PanelsGrid.qml                  PROPERTIES QT_RESOURCE_ALIAS PanelsGrid.qml)
 set_source_files_properties(qml/misc/ShutdownScreen.qml              PROPERTIES QT_RESOURCE_ALIAS system/ShutdownScreen.qml)

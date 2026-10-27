@@ -107,6 +107,22 @@ Item {
     onAboutToCloseChanged: grid.moveTo(0, 0)
     onAboutToMinimizeChanged: grid.moveTo(0, 1)
 
+    /* Launch an application from the launcher. The launch splash grows out
+     * of fromItem (the tapped icon; null: the middle of the screen) in the
+     * colours of the application and covers the screen until its window
+     * shows up, as Wear OS does. The app launchers call this as
+     * desktop.launchApp(model.object, circle). */
+    function launchApp(launcherItem, fromItem) {
+        if (Desktop.launchSplash && !launcherItem.isLaunching) {
+            var r = fromItem ? fromItem.mapToItem(null, 0, 0, fromItem.width, fromItem.height)
+                             : Qt.rect(0, 0, 0, 0)
+            Desktop.launchSplash.start(r, alb.centerColor(launcherItem.filePath),
+                                       alb.outerColor(launcherItem.filePath),
+                                       launcherItem.iconId === "" ? "ios-help" : launcherItem.iconId)
+        }
+        launcherItem.launchApplication()
+    }
+
     Component.onCompleted: {
         Desktop.desktop = desktop
         Desktop.panelsGrid = grid
