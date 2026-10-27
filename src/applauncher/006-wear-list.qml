@@ -27,6 +27,15 @@ Item {
 
     anchors.fill: parent
 
+    /* Back to the top of the list, with the first rows centred.
+     * positionViewAtBeginning() puts the first row at the very top, past
+     * topMargin: the list was then not at its beginning, and a swipe down
+     * scrolled the margin into view instead of going back to the watchface */
+    function resetPosition() {
+        appsView.cancelFlick()
+        appsView.contentY = appsView.originY - appsView.topMargin
+    }
+
     // Wear OS lists sit on black: darken whatever wallpaper is behind
     Rectangle {
         anchors.fill: parent
@@ -71,7 +80,7 @@ Item {
             function onCurrentVerticalPosChanged() {
                 if (grid.currentVerticalPos === 0) {
                     // back on the watchface: the list opens at the top again
-                    appsView.positionViewAtBeginning()
+                    root.resetPosition()
                 } else if (grid.currentVerticalPos === 1) {
                     forbidTop = !appsView.atYBeginning
                     grid.changeAllowedDirections()
