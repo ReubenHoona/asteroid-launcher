@@ -242,7 +242,8 @@ Item {
         iface: "org.freedesktop.login1.Manager"
     }
 
-    NonGraphicalFeedback { id: feedback; event: "press" }
+    // a short, crisp click (ui_click, about 20 ms) instead of the 80 ms "press" buzz
+    NonGraphicalFeedback { id: feedback; event: "ui_click" }
     ConfigurationValue {
         id: vibrationEnabled
         key: "/desktop/asteroid/vibration"
