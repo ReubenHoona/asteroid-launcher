@@ -8,6 +8,8 @@
 
 #include <QQmlEngine>
 #include <QDir>
+#include <QFile>
+#include <QRegularExpression>
 #include <QStandardPaths>
 
 WatchfaceReloader::WatchfaceReloader(QQmlEngine *engine, QObject *parent)
@@ -23,8 +25,25 @@ WatchfaceReloader::WatchfaceReloader(QQmlEngine *engine, QObject *parent)
             this, &WatchfaceReloader::onDirectoryChanged);
 }
 
+bool WatchfaceReloader::usesSeconds(const QUrl &face)
+{
+    const QString path = face.isLocalFile() ? face.toLocalFile() : face.toString();
+    auto it = m_usesSeconds.constFind(path);
+    if (it != m_usesSeconds.constEnd())
+        return it.value();
+    bool seconds = true;
+    QFile file(path);
+    if (!path.isEmpty() && file.open(QIODevice::ReadOnly)) {
+        static const QRegularExpression re(QStringLiteral("getSeconds|getMilliseconds|\"ss\"|:ss\"|'ss'"));
+        seconds = re.match(QString::fromUtf8(file.readAll())).hasMatch();
+    }
+    m_usesSeconds.insert(path, seconds);
+    return seconds;
+}
+
 void WatchfaceReloader::onDirectoryChanged(const QString &)
 {
+    m_usesSeconds.clear();
     if (!m_engine)
         return;
 

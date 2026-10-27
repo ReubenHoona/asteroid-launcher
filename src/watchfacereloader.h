@@ -10,6 +10,8 @@
 #include <QObject>
 #include <QFileSystemWatcher>
 #include <QString>
+#include <QHash>
+#include <QUrl>
 
 class QQmlEngine;
 
@@ -30,6 +32,13 @@ class WatchfaceReloader : public QObject
 public:
     explicit WatchfaceReloader(QQmlEngine *engine, QObject *parent = nullptr);
 
+    //! Whether the watchface at  face shows seconds (a seconds hand or
+    //! digits): the launcher's clock then ticks every second, else every
+    //! minute, so a face that shows hours and minutes draws one frame a
+    //! minute. Read from the face's source (getSeconds(), an "ss" format),
+    //! once per file; true when the file cannot be read.
+    Q_INVOKABLE bool usesSeconds(const QUrl &face);
+
 signals:
     //! Emitted after the cache is cleared so QML can re-trigger the watchface
     //! loader against the freshly re-read directory.
@@ -42,6 +51,7 @@ private:
     QQmlEngine *m_engine;
     QFileSystemWatcher m_watcher;
     QString m_dir;
+    QHash<QString, bool> m_usesSeconds;
 };
 
 #endif // WATCHFACERELOADER_H

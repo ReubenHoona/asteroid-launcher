@@ -214,10 +214,24 @@ Item {
         }
     }
 
+    /* The clock the watchfaces draw. It ticks every second only for a face
+     * that shows seconds, else every minute (a face showing hours and
+     * minutes then draws one frame a minute), and stops while an
+     * application covers the home screen or the display is off */
+    property bool displayAwake: true
+    readonly property bool faceUsesSeconds: {
+        var faces = [watchFaceSource.value]
+        if (nightstandMode.active && nightstandUseCustomWatchface.value)
+            faces.push(watchfaceNightstandSource.value)
+        for (var i = 0; i < faces.length; i++)
+            if (watchfaceReloader.usesSeconds(faces[i]))
+                return true
+        return false
+    }
     WallClock {
         id: wallClock
-        enabled: desktop.visible
-        updateFrequency: WallClock.Second
+        enabled: desktop.visible && desktop.displayAwake
+        updateFrequency: desktop.faceUsesSeconds ? WallClock.Second : WallClock.Minute
     }
 
     MceChargerType {
@@ -266,9 +280,9 @@ Item {
         target: Lipstick.compositor
         function onDisplayAboutToBeOn() {
             wallClockAmbientTimeout.stop()
-            wallClock.enabled = true
+            desktop.displayAwake = true
         }
-        function onDisplayAboutToBeOff() { wallClock.enabled = false }
+        function onDisplayAboutToBeOff() { desktop.displayAwake = false }
         function onDisplayOn() {
             ambientMinuteTimer.stop()
             grid.animateIndicators()
