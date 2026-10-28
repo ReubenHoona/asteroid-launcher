@@ -19,14 +19,14 @@ TileBase {
     chipText: qsTrId("id-tile-speak") + localeManager.changesObserver
     onChipClicked: if (Desktop.compositorRoot) Desktop.compositorRoot.openAssistant("")
 
-    function L(id, en) {
+    function loc(id, en) {
         var s = qsTrId(id)
         return (s === id || s === "") ? en : s
     }
     readonly property var suggestions: [
-        { text: L("id-tile-asst-weather", "What's the weather?"), icon: "ios-cloudy-outline" },
-        { text: L("id-tile-asst-timer", "Set a timer for 5 minutes"), icon: "ios-timer-outline" },
-        { text: L("id-tile-asst-alarm", "When is my next alarm?"), icon: "ios-alarm-outline" }
+        { text: loc("id-tile-asst-weather", "What's the weather?"), icon: "ios-cloudy-outline" },
+        { text: loc("id-tile-asst-timer", "Set a timer for 5 minutes"), icon: "ios-timer-outline" },
+        { text: loc("id-tile-asst-alarm", "When is my next alarm?"), icon: "ios-alarm-outline" }
     ]
 
     Column {

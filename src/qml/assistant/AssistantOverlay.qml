@@ -50,7 +50,7 @@ Item {
     Behavior on opacity { NumberAnimation { duration: 220; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.4, 0, 0.2, 1, 1, 1] } }
     Behavior on scale { NumberAnimation { duration: 250; easing.type: Easing.BezierSpline; easing.bezierCurve: [0.4, 0, 0.2, 1, 1, 1] } }
 
-    function L(id, en) {
+    function loc(id, en) {
         var s = qsTrId(id)
         return (s === id || s === "") ? en : s
     }
@@ -82,7 +82,7 @@ Item {
     }
     function failedStart() {
         waitingStart = false
-        showCard({ icon: "ios-alert", text: L("id-asst-unavailable", "The assistant isn't available."), chips: [] })
+        showCard({ icon: "ios-alert", text: loc("id-asst-unavailable", "The assistant isn't available."), chips: [] })
     }
     function close() {
         if (!shown)
@@ -111,7 +111,7 @@ Item {
     }
     function handleResult(json) {
         var r
-        try { r = JSON.parse(json) } catch (e) { r = { type: "error", text: L("id-asst-error", "Something went wrong.") } }
+        try { r = JSON.parse(json) } catch (e) { r = { type: "error", text: loc("id-asst-error", "Something went wrong.") } }
         if (r.transcript)
             request = r.transcript
         if (r.type === "cancel")
@@ -122,7 +122,7 @@ Item {
         }
         if (r.type === "error") {
             showCard({ icon: r.code === "no-speech" ? "ios-mic-off-outline" : "ios-cloud-offline-outline",
-                       text: r.text, chips: [{ label: L("id-asst-try-again", "Try again"), icon: "ios-mic",
+                       text: r.text, chips: [{ label: loc("id-asst-try-again", "Try again"), icon: "ios-mic",
                                                run: function () { overlay.open("") } }] })
             return
         }
@@ -245,7 +245,7 @@ Item {
                     wrapMode: Text.Wrap
                     visible: overlay.heard === "" && overlay.request === ""
                     opacity: 0.75
-                    text: overlay.phase === "thinking" ? "" : overlay.L("id-asst-hi", "Hi, how can I help?")
+                    text: overlay.phase === "thinking" ? "" : overlay.loc("id-asst-hi", "Hi, how can I help?")
                     font.pixelSize: Math.round(parent.height * 0.062)
                 }
 
