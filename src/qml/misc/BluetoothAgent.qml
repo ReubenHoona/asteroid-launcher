@@ -155,8 +155,13 @@ Item {
         NumberAnimation { duration: 200 }
     }
 
-    HandWritingKeyboard {
+    // Only while a pairing dialog shows: made at start, the keyboard's
+    // style animated its hidden space key (32 frames after every launcher
+    // start)
+    Loader {
         anchors.fill: parent
+        active: btAgent.visible
+        sourceComponent: Component { HandWritingKeyboard { } }
     }
 
     Connections {

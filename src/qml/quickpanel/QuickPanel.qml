@@ -629,6 +629,9 @@ Item {
 
         isIncreasing: isCharging
         enableAnimations: options.value.batteryAnimation
+        // a short show when the panel opens or charging starts, then still:
+        // a static screen draws nothing (it drew 59 fps while charging)
+        animationDuration: 2000
         particleDesign: options.value.particleDesign
 
         fillColor: {
@@ -669,11 +672,12 @@ Item {
         // Only pulse while the panel is on screen. The panels grid toggles
         // rootitem.visible per panel, so this stops the infinite animation
         // from waking the CPU every 1.5s while charging on another panel.
+        // One pulse with the meter's show, ending at full opacity
         SequentialAnimation on opacity {
-            running: rootitem.visible && isCharging && options.value.batteryAnimation
-            loops: Animation.Infinite
-            NumberAnimation { to: 0.7; duration: 1500; easing.type: Easing.InOutQuad }
-            NumberAnimation { to: 1.0; duration: 1500; easing.type: Easing.InOutQuad }
+            running: rootitem.visible && isCharging && options.value.batteryAnimation && valueMeter.animating
+            alwaysRunToEnd: true
+            NumberAnimation { to: 0.7; duration: 1000; easing.type: Easing.InOutQuad }
+            NumberAnimation { to: 1.0; duration: 1000; easing.type: Easing.InOutQuad }
         }
     }
 
