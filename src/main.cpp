@@ -48,6 +48,7 @@
 #include "watchfacereloader.h"
 #include "healthlog.h"
 #include "crownbutton.h"
+#include "aodbrightness.h"
 
 int main(int argc, char **argv)
 {
@@ -97,6 +98,8 @@ int main(int argc, char **argv)
 
     // The crown button as Wear OS uses it (mce sends power_button_trigger)
     CrownButton *crownButton = new CrownButton();
+    // Settings > Display > Always-on brightness, to the panel driver
+    new AodBrightness(&app);
     app.engine()->rootContext()->setContextProperty("crownButton", crownButton);
 
     // Give these to the environment inside the launcher's wayland compositor

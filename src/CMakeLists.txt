@@ -7,7 +7,8 @@ set(SRC
 	notificationsnoozer.cpp
 	watchfacereloader.cpp
 	healthlog.cpp
-	crownbutton.cpp)
+	crownbutton.cpp
+	aodbrightness.cpp)
 set(HEADERS
 	applauncherbackground.h
 	firstrun.h
@@ -16,7 +17,8 @@ set(HEADERS
 	notificationsnoozer.h
 	watchfacereloader.h
 	healthlog.h
-	crownbutton.h)
+	crownbutton.h
+	aodbrightness.h)
 
 add_executable(asteroid-launcher ${SRC} ${HEADERS} resources-qml.qrc)
 
