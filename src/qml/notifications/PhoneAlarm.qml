@@ -62,7 +62,10 @@ Item {
     function isRinging(n) {
         if (n === null || n === undefined || handled[n.replacesId])
             return false
-        if (n.hints["x-asteroid-category"] !== "alarm" || n.hints["x-nemo-feedback"] !== "alarm")
+        // btsyncd's alarm vibration: eos_phone_alarm (no sound on the watch,
+        // the phone rings, as Wear OS), "alarm" from a btsyncd before that
+        var feedback = n.hints["x-nemo-feedback"]
+        if (n.hints["x-asteroid-category"] !== "alarm" || (feedback !== "eos_phone_alarm" && feedback !== "alarm"))
             return false
         return new Date().getTime() - n.timestamp.getTime() < 600000
     }
