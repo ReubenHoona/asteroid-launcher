@@ -498,22 +498,30 @@ Item {
     }
 
     // The ambient face is only redrawn on request (the wall clock is off):
-    // ask for an update at every minute while it shows. Not while the sensor
-    // hub draws the always-on display (displayOffloaded): it draws the time
-    // itself, as stock Wear OS.
+    // once in every minute while it shows. Qt timers stop while the system
+    // is suspended (CLOCK_MONOTONIC), so a one-shot timer to the next minute
+    // fired long after the RTC wakeup at the minute (lipstick's timed
+    // event), when the AP was asleep again, and the face stayed stale. So
+    // check the wall clock each second while the AP is awake: the first
+    // check after the wakeup redraws. The timer never wakes the AP itself.
+    // Not while the sensor hub draws the always-on display
+    // (displayOffloaded): it draws the time itself, as stock Wear OS.
+    property real ambientMinuteShown: 0
     Timer {
         id: ambientMinuteTimer
-        repeat: false
+        interval: 1000
+        repeat: true
         onTriggered: {
-            if (!Lipstick.compositor.displayOffloaded)
-                Lipstick.compositor.setAmbientUpdatesEnabled(true)
-            scheduleAmbientMinute()
+            var minute = Math.floor(Date.now() / 60000)
+            if (minute === desktop.ambientMinuteShown || Lipstick.compositor.displayOffloaded)
+                return
+            desktop.ambientMinuteShown = minute
+            Lipstick.compositor.setAmbientUpdatesEnabled(true)
         }
     }
 
     function scheduleAmbientMinute() {
-        var now = new Date()
-        ambientMinuteTimer.interval = 60000 - now.getSeconds() * 1000 - now.getMilliseconds() + 100
+        ambientMinuteShown = Math.floor(Date.now() / 60000)
         ambientMinuteTimer.restart()
     }
 
