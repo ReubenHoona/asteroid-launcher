@@ -211,6 +211,11 @@ Item {
     function crownPressed() {
         if (splash.visible)
             return
+        // the full screen keyboard of a reply goes first
+        if (Desktop.keyboard) {
+            Desktop.keyboard.dismiss()
+            return
+        }
         if (facePicker.visible || tilesEditor.visible) {
             closeOverlays()
             return
