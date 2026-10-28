@@ -734,10 +734,10 @@ void LipstickCompositor::scheduleAmbientUpdate()
     }
 }
 
-QByteArray LipstickCompositor::offloadRequest(const QByteArray &request)
+QByteArray LipstickCompositor::offloadRequest(const QByteArray &request, int timeoutSec)
 {
     struct sockaddr_un sa;
-    struct timeval tv = { 2, 0 };
+    struct timeval tv = { timeoutSec, 0 };
     char reply[512];
     ssize_t n = -1;
     int s = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
@@ -780,7 +780,8 @@ void LipstickCompositor::offloadResume()
 bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil)
 {
     m_offloadValidUntil = validUntil;
-    return offloadRequest("layout " + path.toLocal8Bit()).startsWith("ok");
+    // the upload is about 1-5 ms per 255-byte message on the hub's SPI link
+    return offloadRequest("layout " + path.toLocal8Bit(), 15).startsWith("ok");
 }
 
 void LipstickCompositor::clearOffloadLayout()

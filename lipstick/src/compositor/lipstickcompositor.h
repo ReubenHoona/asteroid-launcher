@@ -126,6 +126,8 @@ public:
     bool displayOffloaded() const { return m_displayOffloaded; }
     Q_INVOKABLE bool setOffloadLayout(const QString &path, qint64 validUntil = 0);
     Q_INVOKABLE void clearOffloadLayout();
+    // the daemon's status line ("ok state=... layout=0|1 ..."), empty without a daemon
+    Q_INVOKABLE QString offloadStatus() { return QString::fromLocal8Bit(offloadRequest("status")); }
     LipstickCompositorWindow *createView(QWaylandSurface *surf);
 
     QQuickWindow *quickWindow() { return m_window; }
@@ -208,7 +210,7 @@ private:
     QQmlComponent *shaderEffectComponent();
 
     void scheduleAmbientUpdate();
-    QByteArray offloadRequest(const QByteArray &request);
+    QByteArray offloadRequest(const QByteArray &request, int timeoutSec = 2);
     void offloadSuspend();
     void offloadResume();
 

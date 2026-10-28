@@ -183,6 +183,16 @@ bool HubOffload::update(QQuickItem *face, bool use12h, const QString &faceSource
         clear();
         return false;
     }
+    // no daemon: nothing to build for; a daemon without a layout (it was
+    // restarted): build and send it again
+    const QString status = LipstickCompositor::instance() ?
+                           LipstickCompositor::instance()->offloadStatus() : QString();
+    if (status.isEmpty() || status.contains(QLatin1String("layout=0"))) {
+        m_loaded = false;
+        m_key.clear();
+        if (status.isEmpty())
+            return false;
+    }
     const QPointF hp = hour->mapToScene(QPointF(0, 0));
     const QPointF mp = minute->mapToScene(QPointF(0, 0));
     const QString key = QStringLiteral("%1|%2|%3,%4|%5,%6|%7")
