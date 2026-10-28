@@ -56,7 +56,7 @@ Item {
                 text: {
                     var h = wallClock.time.getHours()
                     if (use12H.value) { h = h % 12; if (h === 0) h = 12 }
-                    return h < 10 ? "0" + h : "" + h
+                    return (h < 10 && !use12H.value ? "0" : "") + h
                 }
             }
 

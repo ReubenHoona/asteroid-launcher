@@ -52,7 +52,7 @@ Item {
             x: -parent.width * 0.055
             text: {
                 if (use12H.value) {
-                    wallClock.time.toLocaleString(Qt.locale(), "hh ap").slice(0, 2).replace(/1/g, " 1 ");
+                    wallClock.time.toLocaleString(Qt.locale(), "h ap").split(" ")[0].replace(/1/g, " 1 ");
                 } else {
                     wallClock.time.toLocaleString(Qt.locale(), "HH").replace(/1/g, " 1 ");
                 }

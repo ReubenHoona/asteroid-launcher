@@ -15,10 +15,12 @@ class MDConfItem;
  * /org/asteroidos/settings/always-on-brightness "low", "medium" (default) or
  * "high" sets how bright the panel is in always-on mode, through the BOE
  * panel driver's runtime parameter
- * /sys/module/panel_boe_wf012fbm/parameters/aod_max_level (the index into
- * the stock AOD brightness steps: 6, 12, 24; 12 = DBV 42 of 255). The image
+ * /sys/module/panel_boe_wf012fbm/parameters/aod_max_level, a step of the
+ * stock AOD brightness table: low 6, medium 8 (DBV 24 of 255: the image's
+ * default, eos-panel.conf, the user's choice), high 12 (DBV 42). The image
  * makes the parameter writable for the video group (eos-modem-up, as the
- * panel's lp_mode); applied at start and whenever the key changes.
+ * panel's lp_mode); applied at start and whenever the key changes, written
+ * only when it differs (the default needs no write).
  */
 class AodBrightness : public QObject
 {

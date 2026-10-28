@@ -57,7 +57,7 @@ Item {
                     pixelSize: parent.height * .36
                     weight: Font.Medium
                 }
-                text: root.displayHour < 10 ? "0" + root.displayHour : "" + root.displayHour
+                text: (root.displayHour < 10 && !use12H.value ? "0" : "") + root.displayHour
             }
 
             Text {

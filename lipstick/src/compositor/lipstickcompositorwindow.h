@@ -134,6 +134,7 @@ private:
     qreal m_backLastX = 0;
     qreal m_backSpeed = 0;
     qint64 m_backLastTime = 0;
+    int m_backPointId = -1;
     QVariant m_data;
     QVector<QQuickItem *> m_refs;
 };

@@ -107,6 +107,9 @@ GestureFilterArea {
     }
 
     function moveTo(posX, posY) {
+        // a glide still going would take the content on to its own panel
+        // after this, away from the one the grid says it is on
+        contentAnim.stop()
         content.x = -panelWidth*posX
         content.y = -panelHeight*posY
         currentHorizontalPos = posX
@@ -223,6 +226,13 @@ GestureFilterArea {
     captureRight: edgeTarget !== null && currentHorizontalPos === 0 && currentVerticalPos === 0
                   && cellAt(-1, 0) === undefined
     property bool _edgeDrag: false
+
+    /* A new swipe: the finger catches a panel still gliding (as a Wear OS
+     * pager does) and whether it pulls the app list is decided afresh */
+    onSwipeStarted: (horizontal) => {
+        _edgeDrag = false
+        contentAnim.stop()
+    }
 
     onSwipeMoved: (horizontal, delta) => {
         panelsHideTimeout.stop()

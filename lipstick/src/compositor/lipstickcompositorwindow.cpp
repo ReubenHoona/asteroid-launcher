@@ -306,21 +306,34 @@ void LipstickCompositorWindow::setBackFromAnywhere(bool enabled)
 static const qreal BACK_DECIDE_PX = 12.0;
 static const qreal BACK_MAX_SLOPE = 0.67;
 
+/* The swipe follows one point, the one pressed last; other points in the
+ * event are left alone (Qt's evdevtouch keeps a contact whose lift it
+ * missed in every later event as a stationary point: refusing every event
+ * with more than one point would end back from anywhere for good). A new
+ * press while a swipe goes on (its lift never came) ends that swipe. */
 bool LipstickCompositorWindow::trackBackSwipe(QTouchEvent *event)
 {
-    const QList<QEventPoint> &points = event->points();
-    if (points.size() != 1) {
-        if (m_backSwiping)
-            return true;
-        m_backTracking = false;
-        return false;
+    const QEventPoint *followed = nullptr;
+    for (const QEventPoint &pt : event->points()) {
+        if (pt.state() == QEventPoint::State::Pressed) {
+            followed = &pt;
+            break;
+        }
     }
-    const QEventPoint &p = points.first();
+    if (!followed && m_backPointId >= 0)
+        followed = event->pointById(m_backPointId);
+    if (!followed)
+        return m_backSwiping;
+    const QEventPoint &p = *followed;
     const QPointF pos = p.scenePosition();
     const qint64 now = event->timestamp();
     switch (p.state()) {
     case QEventPoint::State::Pressed:
-        m_backSwiping = false;
+        if (m_backSwiping) {
+            m_backSwiping = false;
+            emit backSwipeFinished(0, 0);
+        }
+        m_backPointId = p.id();
         m_backTracking = m_backFromAnywhere && !m_overridesSystemGestures;
         m_backStart = pos;
         m_backLastX = pos.x();
@@ -366,6 +379,7 @@ bool LipstickCompositorWindow::trackBackSwipe(QTouchEvent *event)
     }
     case QEventPoint::State::Released:
         m_backTracking = false;
+        m_backPointId = -1;
         if (m_backSwiping) {
             m_backSwiping = false;
             const qreal speed = now - m_backLastTime > 80 ? 0 : m_backSpeed;

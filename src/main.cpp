@@ -53,6 +53,15 @@
 
 int main(int argc, char **argv)
 {
+    // Every touch move goes to the home screen's QML as it comes: with Qt
+    // Quick's touch compression the panels took the finger on every second
+    // frame only (drags at 30 Hz, flings at 60). Qt Quick reads this once,
+    // at the first touch event, so setting it here is enough; it is the
+    // same as QML_NO_TOUCH_COMPRESSION=1 in the service's environment (and
+    // applications started from here inherit it as before).
+    if (!qEnvironmentVariableIsSet("QML_NO_TOUCH_COMPRESSION"))
+        qputenv("QML_NO_TOUCH_COMPRESSION", "1");
+
     // Registers the org.nemomobile.lipstick QML types, previously provided
     // by lipstick's QML extension plugin.
     registerLipstickTypes();

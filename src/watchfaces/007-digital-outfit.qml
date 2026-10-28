@@ -90,7 +90,7 @@ Item {
                 renderType: Text.NativeRendering
                 color: "#ffffff"
                 horizontalAlignment: Text.AlignHCenter
-                text: use12H.value ? wallClock.time.toLocaleString(Qt.locale(), "hh ap").slice(0, 2) : wallClock.time.toLocaleString(Qt.locale(), "HH")
+                text: use12H.value ? wallClock.time.toLocaleString(Qt.locale(), "h ap").split(" ")[0] : wallClock.time.toLocaleString(Qt.locale(), "HH")
 
                 anchors {
                     centerIn: watchfaceRoot
