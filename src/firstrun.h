@@ -46,7 +46,7 @@ public:
     Q_INVOKABLE void stopFirstRun();
 
     // Time zone whose reference location (tzdata zone1970.tab) is nearest to
-    // the given position, e.g. "Pacific/Auckland"; empty if none is known.
+    // the given position, e.g. "Europe/Paris"; empty if none is known.
     Q_INVOKABLE QString timezoneForPosition(double latitude, double longitude) const;
     // Local date and time in timeZone for a UTC time in seconds since the
     // epoch: { year, month (1-12), day, hour, minute }; empty if timeZone is

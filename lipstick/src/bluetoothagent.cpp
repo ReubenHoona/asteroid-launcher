@@ -102,11 +102,15 @@ void BluetoothAgent::serviceUnregistered(const QString&)
 void BluetoothAgent::setTrusted(QDBusObjectPath path)
 {
     QDBusInterface device("org.bluez", path.path(), "org.freedesktop.DBus.Properties", QDBusConnection::systemBus());
-    device.asyncCall("Set", "org.bluez.Device1", "Trusted", true);
+    // Properties.Set takes the value as a variant: a plain bool is refused (InvalidArgs)
+    device.asyncCall("Set", "org.bluez.Device1", "Trusted", QVariant::fromValue(QDBusVariant(true)));
 }
 
 void BluetoothAgent::reject()
 {
+    // Only a request has a message to answer: an error reply to none aborts in libdbus
+    if (m_latestMessage.type() != QDBusMessage::MethodCallMessage)
+        return;
     QDBusMessage pendingErrorReply = m_latestMessage.createErrorReply("org.bluez.Error.Rejected", "Rejected");
     QDBusConnection::systemBus().send(pendingErrorReply);
 }
@@ -206,7 +210,11 @@ void BluetoothAgent::userAccepts()
 
 void BluetoothAgent::userCancels()
 {
-    reject();
+    // A display-only code (DisplayPinCode / DisplayPasskey) waits for no answer:
+    // m_latestMessage is then an earlier, answered request, or none at all
+    if (state == ReqPinCode || state == ReqPasskey || state == ReqConfirmation
+            || state == ReqAuthorization || state == AuthService)
+        reject();
     setState(Idle);
 }
 
