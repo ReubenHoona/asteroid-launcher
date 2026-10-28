@@ -4,3 +4,4 @@ var appLauncher
 var desktop
 var launchSplash
 var confirmation
+var compositorRoot

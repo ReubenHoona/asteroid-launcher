@@ -289,6 +289,95 @@ void LipstickCompositorWindow::touchEvent(QTouchEvent *event)
     }
 }
 
+void LipstickCompositorWindow::setBackFromAnywhere(bool enabled)
+{
+    if (m_backFromAnywhere == enabled)
+        return;
+    m_backFromAnywhere = enabled;
+    emit backFromAnywhereChanged();
+}
+
+/* Wear OS goes back with a swipe right from anywhere at the root of an
+ * application. Lipstick sees every touch of the client (it intercepts the
+ * updates), so it watches for one: 12 px to the right, within 34 degrees of
+ * the horizontal, while the client allows it (backFromAnywhere, sent per
+ * touch). Then the client gets a touch cancel and the rest of the touch
+ * drives the compositor's close animation through the backSwipe* signals. */
+static const qreal BACK_DECIDE_PX = 12.0;
+static const qreal BACK_MAX_SLOPE = 0.67;
+
+bool LipstickCompositorWindow::trackBackSwipe(QTouchEvent *event)
+{
+    const QList<QEventPoint> &points = event->points();
+    if (points.size() != 1) {
+        if (m_backSwiping)
+            return true;
+        m_backTracking = false;
+        return false;
+    }
+    const QEventPoint &p = points.first();
+    const QPointF pos = p.scenePosition();
+    const qint64 now = event->timestamp();
+    switch (p.state()) {
+    case QEventPoint::State::Pressed:
+        m_backSwiping = false;
+        m_backTracking = m_backFromAnywhere && !m_overridesSystemGestures;
+        m_backStart = pos;
+        m_backLastX = pos.x();
+        m_backSpeed = 0;
+        m_backLastTime = now;
+        return false;
+    case QEventPoint::State::Updated: {
+        if (m_backSwiping || m_backTracking) {
+            const qint64 dt = now - m_backLastTime;
+            if (dt > 0) {
+                const qreal inst = (pos.x() - m_backLastX) * 1000.0 / dt;
+                m_backSpeed = dt > 100 ? inst : m_backSpeed * 0.4 + inst * 0.6;
+            }
+            m_backLastX = pos.x();
+            m_backLastTime = now;
+        }
+        if (m_backSwiping) {
+            emit backSwipeMoved(qMax<qreal>(0, pos.x() - m_backStart.x()));
+            return true;
+        }
+        if (!m_backTracking)
+            return false;
+        if (!m_backFromAnywhere || m_overridesSystemGestures) {
+            m_backTracking = false;
+            return false;
+        }
+        const qreal dx = pos.x() - m_backStart.x();
+        const qreal dy = pos.y() - m_backStart.y();
+        if ((qAbs(dy) > BACK_DECIDE_PX && qAbs(dy) > qAbs(dx)) || dx < -BACK_DECIDE_PX) {
+            m_backTracking = false;
+            return false;
+        }
+        if (dx < BACK_DECIDE_PX || qAbs(dy) > dx * BACK_MAX_SLOPE)
+            return false;
+        // ours: the client lets go of the touch
+        m_backTracking = false;
+        m_backSwiping = true;
+        m_backStart.setX(pos.x());
+        if (QWaylandSurface *s = surface())
+            s->compositor()->seatFor(event)->sendTouchCancelEvent(s->client());
+        emit backSwipeStarted();
+        return true;
+    }
+    case QEventPoint::State::Released:
+        m_backTracking = false;
+        if (m_backSwiping) {
+            m_backSwiping = false;
+            const qreal speed = now - m_backLastTime > 80 ? 0 : m_backSpeed;
+            emit backSwipeFinished(qMax<qreal>(0, pos.x() - m_backStart.x()), speed);
+            return true;
+        }
+        return false;
+    default:
+        return m_backSwiping;
+    }
+}
+
 void LipstickCompositorWindow::handleTouchEvent(QTouchEvent *event)
 {
     QList<QTouchEvent::TouchPoint> points = event->touchPoints();
@@ -296,6 +385,11 @@ void LipstickCompositorWindow::handleTouchEvent(QTouchEvent *event)
     QWaylandSurface *m_surface = surface();
     if (!m_surface) {
         event->ignore();
+        return;
+    }
+
+    if (trackBackSwipe(event)) {
+        event->accept();
         return;
     }
 

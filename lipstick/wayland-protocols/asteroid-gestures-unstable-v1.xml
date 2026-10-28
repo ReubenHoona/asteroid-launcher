@@ -32,7 +32,7 @@
     The compositor is free to honor or ignore these hints.
   </description>
 
-  <interface name="zasteroid_gestures_manager_v1" version="1">
+  <interface name="zasteroid_gestures_manager_v1" version="2">
     <description summary="gesture policy manager">
       The global entry point. A client binds it and uses it to obtain
       per-surface gesture objects.
@@ -52,7 +52,7 @@
     </request>
   </interface>
 
-  <interface name="zasteroid_gesture_surface_v1" version="1">
+  <interface name="zasteroid_gesture_surface_v1" version="2">
     <description summary="per-surface gesture policy">
       Created by zasteroid_gestures_manager_v1.get_gesture_surface. The
       lifetime of this object is independent of the underlying wl_surface;
@@ -73,6 +73,20 @@
 
         The hint takes effect on the next surface commit. The default state
         for a newly created gesture surface is "disabled".
+      </description>
+      <arg name="enabled" type="uint"/>
+    </request>
+
+    <request name="set_back_from_anywhere" since="2">
+      <description summary="let a swipe right from anywhere go back">
+        When enabled is non-zero and the system gestures are not overridden,
+        the compositor may take a swipe to the right that starts anywhere on
+        the surface, not only at the edge, as the system back gesture (on a
+        watch: closing the application), as Wear OS does at the root of an
+        application. The client sends it per touch: zero when the touch
+        starts on content of its own that moves sideways.
+
+        The default state for a newly created gesture surface is "disabled".
       </description>
       <arg name="enabled" type="uint"/>
     </request>

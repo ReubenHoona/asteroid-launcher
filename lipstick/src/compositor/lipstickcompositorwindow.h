@@ -34,6 +34,9 @@ class LipstickCompositorWindow : public QWaylandQuickItem
     Q_PROPERTY(qint64 processId READ processId CONSTANT)
     Q_PROPERTY(qint16 windowFlags READ windowFlags NOTIFY windowFlagsChanged)
     Q_PROPERTY(bool overridesSystemGestures READ overridesSystemGestures NOTIFY overridesSystemGesturesChanged)
+    /* The client allows a swipe right from anywhere to go back (it is at
+     * its root page and the touch is not on content moving sideways) */
+    Q_PROPERTY(bool backFromAnywhere READ backFromAnywhere NOTIFY backFromAnywhereChanged)
 
     Q_PROPERTY(bool focusOnTouch READ focusOnTouch WRITE setFocusOnTouch NOTIFY focusOnTouchChanged)
 
@@ -64,6 +67,8 @@ public:
 
     bool overridesSystemGestures() const;
     void setOverridesSystemGestures(bool enabled);
+    bool backFromAnywhere() const { return m_backFromAnywhere; }
+    void setBackFromAnywhere(bool enabled);
 
     QVariantMap windowProperties();
 
@@ -85,6 +90,13 @@ signals:
     void focusOnTouchChanged();
     void windowFlagsChanged();
     void overridesSystemGesturesChanged();
+    void backFromAnywhereChanged();
+    /* A swipe right from anywhere was taken from the client (it got a
+     * touch cancel): value is how far the finger went right, in px;
+     * velocity at the end in px/s */
+    void backSwipeStarted();
+    void backSwipeMoved(qreal value);
+    void backSwipeFinished(qreal value, qreal velocity);
 
 private slots:
     void handleTouchCancel();
@@ -98,6 +110,8 @@ private:
     bool canRemove() const;
     void tryRemove();
     void handleTouchEvent(QTouchEvent *e);
+    /* true: the event belongs to a back swipe and is not for the client */
+    bool trackBackSwipe(QTouchEvent *e);
 
     void setTitle(QString title);
     QString m_title;
@@ -113,6 +127,13 @@ private:
     bool m_noHardwareComposition: 1;
     bool m_focusOnTouch : 1;
     bool m_overridesSystemGestures : 1;
+    bool m_backFromAnywhere = false;
+    bool m_backTracking = false;
+    bool m_backSwiping = false;
+    QPointF m_backStart;
+    qreal m_backLastX = 0;
+    qreal m_backSpeed = 0;
+    qint64 m_backLastTime = 0;
     QVariant m_data;
     QVector<QQuickItem *> m_refs;
 };

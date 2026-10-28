@@ -52,7 +52,10 @@ Item {
     readonly property var windowEasing: [0.4, 0, 0.2, 1, 1, 1]
     readonly property var settleEasing: [0, 0, 0.2, 1, 1, 1]
 
-    Component.onCompleted: Desktop.launchSplash = launchSplash
+    Component.onCompleted: {
+        Desktop.launchSplash = launchSplash
+        Desktop.compositorRoot = root
+    }
 
     // The home screen is a persistent item at the bottom of the z-stack, not
     // an in-process "window". Its z follows MainScreen's own z (raised while
@@ -99,8 +102,12 @@ Item {
         /* An application being swiped away follows the finger and shrinks
          * (to 0.8: Wear OS squeezes the screen it dismisses), and fades in
          * the last part of the way */
-        readonly property bool dismissing: gestureArea.active
-        readonly property real dismissProgress: dismissing ? Math.min(1, gestureArea.progress) : 0
+        readonly property bool dismissing: gestureArea.active || root.anywhereActive
+        // a swipe right from anywhere (lipstick's backSwipe*) or from the edge
+        readonly property bool dismissHorizontal: root.anywhereActive || gestureArea.horizontal
+        readonly property real dismissValue: root.anywhereActive ? root.anywhereValue : gestureArea.value
+        readonly property real dismissProgress: !dismissing ? 0
+            : Math.min(1, root.anywhereActive ? root.anywhereValue / Math.max(1, width) : gestureArea.progress)
         readonly property real dismissScale: (1 - 0.2 * dismissProgress) * (1 - 0.25 * root.closeProgress)
         opacity: (dismissProgress < 0.6 ? 1 : 1 - (dismissProgress - 0.6) / 0.4) * (1 - root.closeProgress)
         transform: [
@@ -112,10 +119,10 @@ Item {
             },
             Translate {
                 // the near edge of the shrunk window stays under the finger
-                x: appLayer.dismissing && gestureArea.horizontal
-                   ? gestureArea.value - (1 - appLayer.dismissScale) * appLayer.width / 2 : 0
-                y: appLayer.dismissing && !gestureArea.horizontal
-                   ? gestureArea.value - (1 - appLayer.dismissScale) * appLayer.height / 2 : 0
+                x: appLayer.dismissing && appLayer.dismissHorizontal
+                   ? appLayer.dismissValue - (1 - appLayer.dismissScale) * appLayer.width / 2 : 0
+                y: appLayer.dismissing && !appLayer.dismissHorizontal
+                   ? appLayer.dismissValue - (1 - appLayer.dismissScale) * appLayer.height / 2 : 0
             }
         ]
 
@@ -254,6 +261,76 @@ Item {
      * 250 ms), on the home screen the home screen decides (app list, back
      * to the watchface) */
     property real closeProgress: 0
+
+    /* Back from anywhere, as Wear OS at the root of an application: the
+     * client allows it per touch (qml-asteroid Application.backFromAnywhere,
+     * the gestures protocol's set_back_from_anywhere), lipstick takes a
+     * swipe right from anywhere on the window and says so here; the window
+     * follows the finger as with the edge swipe and closes past half the
+     * screen or on a flick */
+    property bool anywhereActive: false
+    property real anywhereValue: 0
+    readonly property Item _topWindowItem: comp.topmostWindow ? comp.topmostWindow.window : null
+
+    Connections {
+        target: root._topWindowItem
+        ignoreUnknownSignals: true
+        function onBackSwipeStarted() {
+            if (closeAnim.running || gestureArea.active)
+                return
+            anywhereSettle.stop()
+            anywhereClose.stop()
+            root.anywhereValue = 0
+            root.anywhereActive = true
+            Desktop.desktop.aboutToMinimize = true
+        }
+        function onBackSwipeMoved(value) {
+            if (root.anywhereActive && !anywhereClose.running && !anywhereSettle.running)
+                root.anywhereValue = Math.min(value, root.width)
+        }
+        function onBackSwipeFinished(value, velocity) {
+            if (!root.anywhereActive)
+                return
+            // Wear OS: past half the width, or a flick (125 dp/s)
+            if (value >= root.width / 2 || velocity >= root.width / 192 * 125)
+                anywhereClose.start()
+            else
+                anywhereSettle.start()
+        }
+    }
+
+    SequentialAnimation {
+        id: anywhereSettle
+        NumberAnimation {
+            target: root; property: "anywhereValue"; to: 0; duration: 200
+            easing.type: Easing.BezierSpline; easing.bezierCurve: root.settleEasing
+        }
+        ScriptAction {
+            script: {
+                root.anywhereActive = false
+                Desktop.desktop.aboutToMinimize = false
+            }
+        }
+    }
+
+    SequentialAnimation {
+        id: anywhereClose
+        NumberAnimation {
+            target: root; property: "anywhereValue"; to: root.width; duration: 200
+            easing.type: Easing.BezierSpline; easing.bezierCurve: root.settleEasing
+        }
+        ScriptAction {
+            script: {
+                var app = comp.topmostWindow
+                comp.setCurrentWindow(null)
+                if (app && app.window)
+                    Lipstick.compositor.closeClientForWindowId(app.window.windowId)
+                root.anywhereActive = false
+                root.anywhereValue = 0
+                Desktop.desktop.aboutToMinimize = false
+            }
+        }
+    }
 
     function closeTopmost() {
         if (closeAnim.running || gestureArea.active || !comp.topmostWindow)
@@ -397,7 +474,7 @@ Item {
                 }
                 appLayer.ready = false
                 w.smoothBorders = Qt.binding(function() {
-                    return gestureArea.active || appLayer.opacity < 1.0 || !appLayer.ready
+                    return gestureArea.active || root.anywhereActive || appLayer.opacity < 1.0 || !appLayer.ready
                 })
                 // a new application ends a swipe still settling
                 if (gestureArea.active) {

@@ -43,9 +43,12 @@ protected:
     void zasteroid_gesture_surface_v1_destroy(Resource *resource) override;
     void zasteroid_gesture_surface_v1_set_overrides_system_gestures(
         Resource *resource, uint32_t enabled) override;
+    void zasteroid_gesture_surface_v1_set_back_from_anywhere(
+        Resource *resource, uint32_t enabled) override;
 
 private:
     void applyToWindow(bool enabled);
+    void applyBackFromAnywhere(bool enabled);
 
     QPointer<QWaylandSurface> m_surface;
 };

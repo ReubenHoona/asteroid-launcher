@@ -23,7 +23,7 @@ void AsteroidGesturesManager::initialize()
 {
     QWaylandCompositorExtensionTemplate::initialize();
     auto *compositor = static_cast<QWaylandCompositor *>(extensionContainer());
-    init(compositor->display(), 1);
+    init(compositor->display(), 2);
 }
 
 void AsteroidGesturesManager::zasteroid_gestures_manager_v1_destroy(Resource *resource)
@@ -50,6 +50,7 @@ AsteroidGestureSurface::~AsteroidGestureSurface() = default;
 void AsteroidGestureSurface::zasteroid_gesture_surface_v1_destroy_resource(Resource *)
 {
     applyToWindow(false);
+    applyBackFromAnywhere(false);
     delete this;
 }
 
@@ -62,6 +63,25 @@ void AsteroidGestureSurface::zasteroid_gesture_surface_v1_set_overrides_system_g
     Resource *, uint32_t enabled)
 {
     applyToWindow(enabled != 0);
+}
+
+void AsteroidGestureSurface::zasteroid_gesture_surface_v1_set_back_from_anywhere(
+    Resource *, uint32_t enabled)
+{
+    applyBackFromAnywhere(enabled != 0);
+}
+
+void AsteroidGestureSurface::applyBackFromAnywhere(bool enabled)
+{
+    if (!m_surface)
+        return;
+    const auto views = m_surface->views();
+    for (QWaylandView *view : views) {
+        if (auto *window = qobject_cast<LipstickCompositorWindow *>(view->renderObject())) {
+            window->setBackFromAnywhere(enabled);
+            return;
+        }
+    }
 }
 
 void AsteroidGestureSurface::applyToWindow(bool enabled)
