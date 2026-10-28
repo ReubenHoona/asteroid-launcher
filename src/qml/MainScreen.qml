@@ -229,6 +229,21 @@ Item {
             grid.animateTo(0, 1)
     }
 
+    /* A tap on the heads-up card: the notification, open, in the stream (an
+     * application on the screen closes first, as the crown would) */
+    property Item streamItem: null
+    function openNotification(n) {
+        if (Desktop.compositorRoot && !Lipstick.compositor.homeActive)
+            Desktop.compositorRoot.closeTopmost()
+        closeOverlays()
+        if (wearLayout && streamItem) {
+            grid.moveTo(0, 1)
+            streamItem.openDetail(n)
+        } else {
+            grid.moveTo(-1, 0)
+        }
+    }
+
     /* Launch the app of /usr/share/applications/<name>.desktop the way the
      * launcher does (lipstick's launcher item: booster, splash) */
     function launchByName(name, fromItem) {
@@ -734,6 +749,7 @@ Item {
                 desktop.centreItem = addPanel(0, 0, centerPanel)
                 addPanel(0, -1, topPanel)
                 var ns = addPanel(0, 1, streamPanel)
+                desktop.streamItem = ns
                 desktop.buildTiles()
                 appDrawer.source = Qt.binding(function() { return appLauncherSource.value })
                 rightIndicator.visible  = Qt.binding(function() { return grid.toLeftAllowed && !displayAmbient })
