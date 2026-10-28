@@ -6,24 +6,25 @@
 #ifndef ASSISTANTKEY_H
 #define ASSISTANTKEY_H
 
-#include <QElapsedTimer>
 #include <QObject>
-#include <QSocketNotifier>
 #include <QString>
-#include <QTimer>
 
 /*
  * What starts the assistant, as on the stock Pixel Watch 2: a press and
  * hold of the side button (Google: "press and hold the side button next to
  * the crown"; holding the crown stays the power menu, which mce owns).
  *
- * The side button is the gpio-keys KEY_VOLUMEDOWN (PM5100 GPIO 9). Nothing
- * else uses it with the display on: the launcher reads the evdev device
- * itself, without a grab (mce grabs it while the display is off, so then
- * the press only goes to mce). A hold of holdMs (Wear OS: the long-press
- * timeout, 400 ms; 500 here, the launcher's own long press) emits
- * longPressed() once, while the button is still down; a shorter press
- * emits pressed() (Wear OS: recent apps, not done yet).
+ * The side button is the gpio-keys KEY_VOLUMEDOWN (PM5100 GPIO 9). mce owns
+ * it as it owns the crown: it grabs the device with the display off or in
+ * low power mode, so a reader of its own would miss presses then. mce's
+ * side key (side_key_code in /etc/mce/61eos-side-key.conf) wakes the
+ * display on a press and sends com.nokia.mce.signal.power_button_trigger on
+ * the system bus:
+ * - "side-key-long": held for the long press delay (500 ms, the Android
+ *   long press timeout of the global actions key), sent once the display
+ *   is on, from every display state -> longPressed();
+ * - "side-key": a shorter press with the display on -> pressed() (Wear OS:
+ *   recent apps, not done yet). A press with the display off only wakes it.
  *
  * Also on the session bus, on the launcher's connection
  * (org.nemomobile.lipstick): /org/asteroidos/launcher/assistant,
@@ -34,16 +35,13 @@ class AssistantKey : public QObject
 {
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.asteroidos.launcher.Assistant")
-    Q_PROPERTY(int holdMs READ holdMs WRITE setHoldMs NOTIFY holdMsChanged)
-    Q_PROPERTY(bool available READ available NOTIFY availableChanged)
+    Q_PROPERTY(bool available READ available CONSTANT)
 
 public:
     explicit AssistantKey(QObject *parent = nullptr);
-    ~AssistantKey() override;
 
-    int holdMs() const { return mHoldMs; }
-    void setHoldMs(int ms);
-    bool available() const { return mFd >= 0; }
+    /* listening to mce for the side button */
+    bool available() const { return mAvailable; }
 
 public slots:
     /* D-Bus: open the assistant (listening) or ask it a text question */
@@ -54,21 +52,12 @@ signals:
     void longPressed();
     void pressed();
     void openRequested(const QString &text);
-    void holdMsChanged();
-    void availableChanged();
 
 private slots:
-    void onReadable();
+    void onTrigger(const QString &action);
 
 private:
-    bool openDevice();
-    int mFd = -1;
-    QString mPath;
-    QSocketNotifier *mNotifier = nullptr;
-    QTimer mHold;
-    bool mDown = false;
-    bool mFired = false;
-    int mHoldMs = 500;
+    bool mAvailable = false;
 };
 
 #endif // ASSISTANTKEY_H

@@ -157,7 +157,8 @@ Item {
     Connections {
         target: typeof assistantKey !== "undefined" ? assistantKey : null
         function onLongPressed() {
-            // with the display on: mce owns the button while it is off
+            // mce: held 500 ms, from any display state (it turns the
+            // display on first)
             Haptics.longPress()
             root.openAssistant("")
         }

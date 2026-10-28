@@ -7,107 +7,34 @@
 
 #include <QDBusConnection>
 #include <QDebug>
-#include <QDir>
-#include <QFile>
 
-#include <fcntl.h>
-#include <linux/input.h>
-#include <sys/ioctl.h>
-#include <unistd.h>
-
-static bool hasKey(int fd, int code)
-{
-    unsigned long bits[KEY_MAX / (8 * sizeof(unsigned long)) + 1] = {0};
-    if (ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(bits)), bits) < 0)
-        return false;
-    return bits[code / (8 * sizeof(unsigned long))] & (1UL << (code % (8 * sizeof(unsigned long))));
-}
+static const char MCE_SIGNAL_PATH[] = "/com/nokia/mce/signal";
+static const char MCE_SIGNAL_IF[] = "com.nokia.mce.signal";
+static const char MCE_POWER_BUTTON_TRIGGER[] = "power_button_trigger";
+static const char SIDE_KEY_LONG[] = "side-key-long";
+static const char SIDE_KEY[] = "side-key";
 
 AssistantKey::AssistantKey(QObject *parent) : QObject(parent)
 {
-    mHold.setSingleShot(true);
-    connect(&mHold, &QTimer::timeout, this, [this] {
-        if (mDown && !mFired) {
-            mFired = true;
-            emit longPressed();
-        }
-    });
-    if (!openDevice())
-        qInfo() << "AssistantKey: no side button (gpio-keys KEY_VOLUMEDOWN) found";
+    /* any sender: mce broadcasts it */
+    mAvailable = QDBusConnection::systemBus().connect(QString(), QLatin1String(MCE_SIGNAL_PATH),
+                                                      QLatin1String(MCE_SIGNAL_IF),
+                                                      QLatin1String(MCE_POWER_BUTTON_TRIGGER),
+                                                      this, SLOT(onTrigger(QString)));
+    if (!mAvailable)
+        qWarning() << "AssistantKey: cannot listen to mce for the side button";
     // the launcher's own session bus name is lipstick's
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/org/asteroidos/launcher/assistant"), this,
                                                  QDBusConnection::ExportScriptableSlots);
 }
 
-AssistantKey::~AssistantKey()
+void AssistantKey::onTrigger(const QString &action)
 {
-    if (mFd >= 0)
-        ::close(mFd);
-}
-
-void AssistantKey::setHoldMs(int ms)
-{
-    if (ms == mHoldMs || ms < 100)
-        return;
-    mHoldMs = ms;
-    emit holdMsChanged();
-}
-
-bool AssistantKey::openDevice()
-{
-    // the gpio-keys device with KEY_VOLUMEDOWN (event1/2 on eos; not the
-    // pmic's pwrkey/resin, which mce and lipstick read)
-    const QString env = qEnvironmentVariable("ASSISTANT_KEY_DEVICE");
-    QStringList candidates;
-    if (!env.isEmpty())
-        candidates << env;
-    const QStringList names = QDir(QStringLiteral("/sys/class/input")).entryList({QStringLiteral("event*")});
-    for (const QString &n : names) {
-        QFile name(QStringLiteral("/sys/class/input/%1/device/name").arg(n));
-        if (!name.open(QIODevice::ReadOnly))
-            continue;
-        if (name.readAll().trimmed() == "gpio-keys")
-            candidates.prepend(QStringLiteral("/dev/input/") + n);
-    }
-    for (const QString &path : std::as_const(candidates)) {
-        const int fd = ::open(path.toLocal8Bit().constData(), O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-        if (fd < 0)
-            continue;
-        if (!hasKey(fd, KEY_VOLUMEDOWN)) {
-            ::close(fd);
-            continue;
-        }
-        mFd = fd;
-        mPath = path;
-        mNotifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
-        connect(mNotifier, &QSocketNotifier::activated, this, &AssistantKey::onReadable);
-        qInfo() << "AssistantKey: the side button is" << path;
-        return true;
-    }
-    return false;
-}
-
-void AssistantKey::onReadable()
-{
-    struct input_event ev[16];
-    for (;;) {
-        const ssize_t n = ::read(mFd, ev, sizeof(ev));
-        if (n <= 0)
-            break;
-        for (size_t i = 0; i < size_t(n) / sizeof(ev[0]); i++) {
-            if (ev[i].type != EV_KEY || ev[i].code != KEY_VOLUMEDOWN)
-                continue;
-            if (ev[i].value == 1 && !mDown) {
-                mDown = true;
-                mFired = false;
-                mHold.start(mHoldMs);
-            } else if (ev[i].value == 0 && mDown) {
-                mDown = false;
-                mHold.stop();
-                if (!mFired)
-                    emit pressed();
-            }
-        }
+    if (action == QLatin1String(SIDE_KEY_LONG)) {
+        qInfo() << "AssistantKey: side button held";
+        emit longPressed();
+    } else if (action == QLatin1String(SIDE_KEY)) {
+        emit pressed();
     }
 }
 
