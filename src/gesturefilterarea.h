@@ -85,7 +85,11 @@ public:
     }
 
 signals:
+    /* The area takes a swipe: its direction is decided and allowed */
+    void swipeStarted(bool horizontal);
     void swipeMoved(bool horizontal, qreal delta);
+    /* The swipe ends: the finger lifted, or the touch went away (cancelled,
+     * grab lost, the area hidden; velocity 0 then) */
     void swipeReleased(bool horizontal, qreal velocity, bool tracing);
 
     void toRightAllowedChanged();
@@ -102,13 +106,22 @@ private:
     unsigned int m_counter;
     QPointF m_prevPos;
     qreal m_velocityX, m_velocityY, m_threshold;
+    /* the touch point followed, and the time of its press */
+    int m_pointId = -1;
+    quint64 m_pressTime = 0;
 
     /* Shared gesture state machine, positions in GFA-local coordinates */
     void beginTracking(const QPointF &pos);
     bool trackMove(const QPointF &pos);   // returns true when the exclusive grab is wanted
     void finishTracking();                // emits swipeReleased when appropriate
 
+    QEventPoint *followedPoint(QTouchEvent *event);
+    void startGesture(const QTouchEvent *event, const QEventPoint &point, const QPointF &localPos);
+    /* The touch went away without a lift: a swipe going on ends there */
+    void endGesture(const char *why);
+
 protected:
+    void itemChange(ItemChange change, const ItemChangeData &value) override;
     virtual bool childMouseEventFilter(QQuickItem *, QEvent *);
     virtual void mousePressEvent(QMouseEvent *event);
     virtual void mouseMoveEvent(QMouseEvent *event);

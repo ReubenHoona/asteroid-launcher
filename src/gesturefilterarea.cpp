@@ -33,12 +33,25 @@
  * directly in the filter, the exclusive grab is taken by accepting the
  * filtered touch event, and further updates then arrive in touchEvent().
  * The mouse path is kept for pointer devices.
+ *
+ * A gesture follows one touch point: the one pressed last. Other points in
+ * an event are left alone. Qt's evdevtouch does not resync after the
+ * kernel drops events (SYN_DROPPED): a contact whose lift it missed stays
+ * in every later event as a stationary point, and refusing every event
+ * with more than one point left the home screen without a swipe until the
+ * launcher restarted, while taps (touch to mouse, from any pressed point)
+ * still worked. A new press always starts over: a swipe whose lift never
+ * came ends there, and so does one whose touch is cancelled, taken away
+ * or hidden, so the panels settle and nothing stays pressed.
  */
 
 #include "gesturefilterarea.h"
 
+#include <QLoggingCategory>
 #include <QQuickWindow>
 #include <QScreen>
+
+Q_LOGGING_CATEGORY(lcGesture, "asteroid.launcher.gesture", QtInfoMsg)
 
 GestureFilterArea::GestureFilterArea(QQuickItem *parent) : QQuickItem(parent)
 {
@@ -83,7 +96,7 @@ bool GestureFilterArea::trackMove(const QPointF &pos)
     m_velocityX = (m_velocityX*(m_counter-1) + (pos.x()-m_prevPos.x()))/m_counter;
     m_velocityY = (m_velocityY*(m_counter-1) + (pos.y()-m_prevPos.y()))/m_counter;
     if(m_tracing) {
-        if (abs(m_velocityX) > abs(m_velocityY)) {
+        if (qAbs(m_velocityX) > qAbs(m_velocityY)) {
             if(m_velocityX > m_threshold) {
                 m_tracing = false;
                 if(m_toRightAllowed || m_captureRight) {
@@ -130,21 +143,79 @@ bool GestureFilterArea::trackMove(const QPointF &pos)
         emit swipeMoved(m_horizontal, delta);
     }
     m_prevPos = pos;
+    if (wantsGrab)
+        emit swipeStarted(m_horizontal);
     return wantsGrab;
 }
 
 void GestureFilterArea::finishTracking()
 {
+    m_pointId = -1;
     if (!m_pressed)
         return;
-    if (m_grabbed) {
-        qreal currVel = m_horizontal ? m_velocityX : m_velocityY;
-        emit swipeReleased(m_horizontal, currVel, m_tracing);
-    }
+    // cleared first: a handler of swipeReleased may start something new
+    const bool grabbed = m_grabbed;
     m_pressed = false;
     m_grabbed = false;
     setKeepTouchGrab(false);
     setKeepMouseGrab(false);
+    if (grabbed) {
+        qreal currVel = m_horizontal ? m_velocityX : m_velocityY;
+        emit swipeReleased(m_horizontal, currVel, m_tracing);
+    }
+}
+
+void GestureFilterArea::endGesture(const char *why)
+{
+    const bool swiping = m_pressed && m_grabbed;
+    m_pressed = false;
+    m_grabbed = false;
+    m_pointId = -1;
+    setKeepTouchGrab(false);
+    setKeepMouseGrab(false);
+    if (swiping) {
+        qCInfo(lcGesture, "swipe ended without a lift: %s", why);
+        emit swipeReleased(m_horizontal, 0, m_tracing);
+    }
+}
+
+/* The point a gesture follows: one just pressed (it starts a gesture), else
+ * the one followed so far; nullptr when the event has neither */
+QEventPoint *GestureFilterArea::followedPoint(QTouchEvent *event)
+{
+    for (qsizetype i = 0; i < event->pointCount(); ++i) {
+        QEventPoint &p = event->point(i);
+        if (p.state() == QEventPoint::State::Pressed)
+            return &p;
+    }
+    return m_pointId >= 0 ? event->pointById(m_pointId) : nullptr;
+}
+
+void GestureFilterArea::startGesture(const QTouchEvent *event, const QEventPoint &point, const QPointF &localPos)
+{
+    // the same press can be seen more than once (filtered for each child
+    // it is offered to, then delivered here): only a new one starts over
+    const bool newPress = event->timestamp() != m_pressTime || point.id() != m_pointId;
+    if (newPress) {
+        endGesture("a new touch came first");
+        if (event->pointCount() > 1) {
+            for (const QEventPoint &p : event->points()) {
+                if (p.id() != point.id())
+                    qCInfo(lcGesture) << "press with another touch point held, left alone: id" << p.id()
+                                      << p.state() << p.scenePosition() << "held" << p.timeHeld() << "s";
+            }
+        }
+    }
+    beginTracking(localPos);
+    m_pointId = point.id();
+    m_pressTime = event->timestamp();
+}
+
+void GestureFilterArea::itemChange(ItemChange change, const ItemChangeData &value)
+{
+    if ((change == ItemVisibleHasChanged || change == ItemEnabledHasChanged) && !value.boolValue)
+        endGesture("the area was hidden or disabled");
+    QQuickItem::itemChange(change, value);
 }
 
 /* Child event filtering */
@@ -163,10 +234,13 @@ bool GestureFilterArea::childMouseEventFilter(QQuickItem *i, QEvent *e)
     case QEvent::TouchUpdate:
     case QEvent::TouchEnd:
         return filterTouchEvent(i, static_cast<QTouchEvent *>(e));
+    case QEvent::TouchCancel:
+        endGesture("touch cancelled");
+        break;
     case QEvent::UngrabMouse:
         if (window() && window()->mouseGrabberItem() && window()->mouseGrabberItem() != this) {
             // The grab has been taken away from a child and given to some other item.
-            mouseUngrabEvent();
+            endGesture("a child's grab went to another item");
         }
         break;
     default:
@@ -179,23 +253,24 @@ bool GestureFilterArea::childMouseEventFilter(QQuickItem *i, QEvent *e)
 bool GestureFilterArea::filterTouchEvent(QQuickItem *item, QTouchEvent *event)
 {
     Q_UNUSED(item)
-    if (event->pointCount() != 1)
+    QEventPoint *followed = followedPoint(event);
+    if (!followed)
         return false;
-
-    const QEventPoint &point = event->points().first();
+    const QEventPoint &point = *followed;
     QPointF localPos = mapFromScene(point.scenePosition());
-    if (!contains(localPos))
-        return false;
-
-    QQuickItem *grabber = qobject_cast<QQuickItem *>(event->exclusiveGrabber(point));
-    if (grabber && grabber != this && (grabber->keepTouchGrab() || grabber->keepMouseGrab()))
-        return false;
 
     switch (point.state()) {
     case QEventPoint::State::Pressed:
-        beginTracking(localPos);
+        if (!contains(localPos))
+            return false;
+        startGesture(event, point, localPos);
         break;
-    case QEventPoint::State::Updated:
+    case QEventPoint::State::Updated: {
+        // a child that keeps its grab (a list being dragged, a slider)
+        // has this touch
+        QQuickItem *grabber = qobject_cast<QQuickItem *>(event->exclusiveGrabber(point));
+        if (grabber && grabber != this && (grabber->keepTouchGrab() || grabber->keepMouseGrab()))
+            return false;
         if (m_pressed && trackMove(localPos)) {
             // Threshold crossed in an allowed direction: take the swipe.
             // Accepting the filtered event and returning true makes the
@@ -209,9 +284,10 @@ bool GestureFilterArea::filterTouchEvent(QQuickItem *item, QTouchEvent *event)
             return true;
         }
         break;
+    }
     case QEventPoint::State::Released:
         // Released before any grab: the child owns this gesture (tap/scroll).
-        m_pressed = false;
+        finishTracking();
         break;
     default:
         break;
@@ -256,16 +332,22 @@ bool GestureFilterArea::filterMouseEvent(QQuickItem *item, QMouseEvent *event)
 
 void GestureFilterArea::touchEvent(QTouchEvent *event)
 {
-    if (!isEnabled() || event->pointCount() != 1) {
+    if (event->type() == QEvent::TouchCancel) {
+        endGesture("touch cancelled");
+        event->accept();
+        return;
+    }
+    QEventPoint *followed = isEnabled() ? followedPoint(event) : nullptr;
+    if (!followed) {
         QQuickItem::touchEvent(event);
         return;
     }
-    const QEventPoint &point = event->points().first();
+    const QEventPoint &point = *followed;
     QPointF localPos = mapFromScene(point.scenePosition());
 
     switch (point.state()) {
     case QEventPoint::State::Pressed:
-        beginTracking(localPos);
+        startGesture(event, point, localPos);
         // Accepting the press makes us the exclusive grabber of the point, so
         // updates keep coming even though nothing else is under the finger.
         // The gesture counts as grabbed from the start here — there is no
@@ -314,13 +396,9 @@ void GestureFilterArea::mouseReleaseEvent(QMouseEvent *event) {
 }
 
 void GestureFilterArea::mouseUngrabEvent() {
-    m_pressed = false;
-    m_grabbed = false;
-    setKeepMouseGrab(false);
+    endGesture("mouse grab lost");
 }
 
 void GestureFilterArea::touchUngrabEvent() {
-    m_pressed = false;
-    m_grabbed = false;
-    setKeepTouchGrab(false);
+    endGesture("touch grab lost");
 }
