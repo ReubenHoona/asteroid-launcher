@@ -128,8 +128,9 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, Q
         const uint32_t rgba = (uint32_t(qRound(c.red() * o)) << 24) |
                               (uint32_t(qRound(c.green() * o)) << 16) |
                               (uint32_t(qRound(c.blue() * o)) << 8) | 0xff;
+        // whole pixels, as the native text rendering places the glyph run
         const QPointF pos = it->mapToScene(QPointF(0, 0));
-        if (tf < 0 || el_sprite_text(L, tf, float(pos.x()), float(pos.y()), rgba, 2,
+        if (tf < 0 || el_sprite_text(L, tf, float(qRound(pos.x())), float(qRound(pos.y())), rgba, 2,
                                      exprs[k], nullptr)) {
             *why = QString("digits: %1").arg(el_error(L));
             el_free(L);
