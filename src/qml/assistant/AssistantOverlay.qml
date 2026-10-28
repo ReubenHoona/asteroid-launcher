@@ -42,6 +42,11 @@ Item {
     property int session: 0
     // a session's result belongs to the overlay that started it
     property bool waitingStart: false
+    // the session's Result came (its actions may still be working)
+    property bool resultSeen: false
+    // one per open(): what an action or a chip answers late (a phone
+    // query, a reply being sent) is dropped once another session began
+    property int generation: 0
     readonly property bool active: shown
 
     visible: opacity > 0
@@ -64,6 +69,8 @@ Item {
         request = ""
         level = 0
         session = 0
+        resultSeen = false
+        generation++
         shown = true
         waitingStart = true
         if (text) {
@@ -76,9 +83,19 @@ Item {
         }
     }
     function started(s) {
+        if (!waitingStart)
+            return
         waitingStart = false
-        if (s > 0 && session === 0)
-            session = s
+        if (!shown)
+            return
+        if (s > 0) {
+            if (session === 0)
+                session = s
+        } else if (session === 0 && phase !== "card") {
+            // the daemon refused (its Result names the reason, but it may
+            // have come before this overlay listened to its signals)
+            failedStart()
+        }
     }
     function failedStart() {
         waitingStart = false
@@ -87,7 +104,10 @@ Item {
     function close() {
         if (!shown)
             return
-        if (phase !== "card")
+        // Cancel() ends whatever session the daemon runs: only while this
+        // overlay's own may still be going (not once its Result came, as
+        // an action that opens an app closes the overlay)
+        if (phase !== "card" && !resultSeen)
             daemon.typedCall("Cancel", [])
         shown = false
         phase = "starting"
@@ -96,13 +116,20 @@ Item {
         if (phase === "listening")
             daemon.typedCall("Stop", [])
     }
-    function mine(s) {
-        // the first session the daemon names after open() is this overlay's
-        if (!shown)
-            return false
-        if (session === 0 && s > 0)
+    // The session this overlay started: the one whose "starting" state
+    // comes while open() waits for Listen()/Ask() (the daemon emits it
+    // before it returns), else the one they return. Not the first session
+    // named: starting a session first ends the one going on (another
+    // client's dictation: a btsyncd voice reply, the keyboard) with that
+    // session's "idle", which used to be taken for this overlay's; every
+    // signal of its own session was then ignored and the overlay stayed on
+    // its first screen.
+    function adopt(s, state) {
+        if (shown && waitingStart && session === 0 && s > 0 && state === "starting")
             session = s
-        return s === session
+    }
+    function mine(s) {
+        return shown && s > 0 && s === session
     }
     function showCard(c) {
         cardData = c
@@ -110,6 +137,8 @@ Item {
         flick.contentY = 0
     }
     function handleResult(json) {
+        resultSeen = true
+        var g = generation
         var r
         try { r = JSON.parse(json) } catch (e) { r = { type: "error", text: loc("id-asst-error", "Something went wrong.") } }
         if (r.transcript)
@@ -117,7 +146,7 @@ Item {
         if (r.type === "cancel")
             return close()
         if (r.type === "intent") {
-            actions.run(r.intent, r.slots, r.transcript, function (c) { overlay.done(c) })
+            actions.run(r.intent, r.slots, r.transcript, function (c) { if (overlay.generation === g) overlay.done(c) })
             return
         }
         if (r.type === "error") {
@@ -154,8 +183,16 @@ Item {
         signalsEnabled: true
 
         function rcStateChanged(s: int, state: string) {
+            overlay.adopt(s, state)
             if (!overlay.mine(s) || overlay.phase === "card")
                 return
+            if (state === "idle" && !overlay.resultSeen) {
+                // the daemon dropped this session without a result (another
+                // client started one): nothing more will come for it
+                overlay.shown = false
+                overlay.phase = "starting"
+                return
+            }
             if (state === "listening" && overlay.phase !== "listening") {
                 overlay.phase = "listening"
                 // the microphone is open: Wear OS's ready haptic
@@ -366,8 +403,9 @@ Item {
                                 height: Math.round(flick.height * 0.14)
                                 onClicked: {
                                     Haptics.click()
+                                    var g = overlay.generation
                                     if (chip && chip.run)
-                                        chip.run(function (c) { overlay.done(c) })
+                                        chip.run(function (c) { if (overlay.generation === g) overlay.done(c) })
                                 }
                                 Rectangle {
                                     anchors.fill: parent
