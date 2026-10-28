@@ -24,7 +24,8 @@ Item {
         property string hourText: {
             var h = wallClock.time.getHours()
             if (use12H.value) { h = h % 12; if (h === 0) h = 12 }
-            return (h < 10 ? "0" : "") + h
+            // 12 h: no leading zero, as Wear OS (the first quadrant stays empty)
+            return (h < 10 ? (use12H.value ? " " : "0") : "") + h
         }
 
         anchors.centerIn: parent
@@ -160,7 +161,7 @@ Item {
                 x: parseInt(parent.width * 0.135)
                 y: parseInt(parent.height * 0.045)
                 sourceSize: Qt.size(parent.width / 2 - parent.width * 0.15, parent.height / 2 - parent.height * 0.15)
-                source: imgPath + root.hourText.slice(0, 1) + ".png"
+                source: root.hourText.charAt(0) === " " ? "" : imgPath + root.hourText.slice(0, 1) + ".png"
             }
 
             Image {

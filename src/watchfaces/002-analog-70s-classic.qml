@@ -155,7 +155,7 @@ Item {
                 pixelSize: parent.height / 14
                 family: "League Spartan"
             }
-            text: use12H.value ? wallClock.time.toLocaleString(Qt.locale(), "hh ap").slice(0, 2) +
+            text: use12H.value ? wallClock.time.toLocaleString(Qt.locale(), "h ap").split(" ")[0] +
                                  wallClock.time.toLocaleString(Qt.locale(), ":mm") :
                                  wallClock.time.toLocaleString(Qt.locale(), "HH:mm")
         }

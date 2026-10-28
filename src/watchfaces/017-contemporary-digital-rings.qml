@@ -136,7 +136,7 @@ Item {
             styleColor: Qt.rgba(0, 0, 0, 0.5)
             text: {
                 if (use12H.value) {
-                    wallClock.time.toLocaleString(Qt.locale(), "hh ap").slice(0, 2);
+                    wallClock.time.toLocaleString(Qt.locale(), "h ap").split(" ")[0];
                 } else {
                     wallClock.time.toLocaleString(Qt.locale(), "HH");
                 }
