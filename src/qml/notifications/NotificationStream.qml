@@ -353,7 +353,7 @@ Item {
                 panelsGrid: null
             }
 
-            TimeText { }
+            TimeText { visible: !actionsPage.fullScreenLayer }
 
             // the phone closed it, or it was dismissed: back to the stream
             Connections {

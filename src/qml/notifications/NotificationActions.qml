@@ -30,7 +30,6 @@
 import QtQuick
 import Nemo.Configuration
 import Nemo.DBus
-import QtQuick.VirtualKeyboard
 import org.asteroid.controls
 import org.asteroid.launcher
 import "desktop.js" as Desktop
@@ -54,6 +53,8 @@ Item {
 
     // A reply went to the phone
     signal replySent()
+    // the page on top covers the whole screen (the keyboard): no time over it
+    readonly property bool fullScreenLayer: layerStack.currentLayer ? layerStack.currentLayer.fullScreen === true : false
 
     // Actions the phone offers for a notification it sent (asteroid-btsyncd
     // puts them in this hint): reply, open, mute, answer, reject
@@ -610,58 +611,32 @@ Item {
         }
     }
 
+    // Write a reply: Gboard for Wear OS's full screen keyboard, the reply at
+    // its top, Send next to the space bar; a swipe down, a swipe right from
+    // the text or the crown goes back to the replies
     Component {
         id: writeLayer
 
         Item {
+            id: writePage
             property var pop
             property int depth
+            readonly property bool fullScreen: true
 
-            // Qt 6 Virtual Keyboard ships no free handwriting engine (the
-            // HandWritingKeyboard panel stays empty without one): use its
-            // keyboard, narrow enough for the round screen
-            InputPanel {
-                id: keyboard
-                z: 99
-                width: Dims.w(82)
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: Dims.h(40)
-                visible: active
-            }
-
-            TextField {
-                id: replyField
-                width: Dims.w(80)
-                textWidth: Dims.w(75)
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: Dims.h(22)
+            WearKeyboard {
+                id: replyKeyboard
+                anchors.fill: parent
                 //% "Your reply"
-                previewText: qsTrId("id-reply-preview")
-            }
-
-            NotificationButton {
-                //% "Send"
-                text: qsTrId("id-reply-send") + localeManager.changesObserver
-                width: Dims.w(40)
-                height: Dims.h(17)
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: replyField.bottom
-                anchors.topMargin: Dims.h(6)
-                visible: replyField.text.trim().length > 0 && !Qt.inputMethod.visible
-                onClicked: actions.sendReply(replyField.text)
-            }
-
-            // The keyboard's Enter key sends
-            Connections {
-                target: replyField.editor
-                function onAccepted() {
-                    if (replyField.text.trim().length > 0)
-                        actions.sendReply(replyField.text)
+                placeholderText: qsTrId("id-reply-preview")
+                actionKey: "send"
+                onAccepted: (text) => { actions.sendReply(text) }
+                onDismissed: { writePage.pop() }
+                Component.onCompleted: {
+                    Desktop.keyboard = replyKeyboard
+                    forceActiveFocus()
                 }
+                Component.onDestruction: if (Desktop.keyboard === replyKeyboard) Desktop.keyboard = null
             }
-
-            Component.onCompleted: if (replyField.editor) replyField.editor.forceActiveFocus()
         }
     }
 
