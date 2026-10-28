@@ -48,6 +48,16 @@ public:
     //! usesSeconds(face) when the face names none.
     Q_INVOKABLE bool secondsShown(QQuickItem *item, const QUrl &face);
 
+    //! The watchface options of the face picker, for any face, by the names
+    //! the bundled faces give their items: date items (date*, day*, month*,
+    //! week*) hide without  showDate; seconds items (second*) hide without
+    //!  showSeconds and always in  ambient (as on Wear OS); in ambient
+    //! with  ambientStyle "outline" every text is drawn as an outline in
+    //! grey. What it hides or restyles it puts back as it was when the
+    //! option or the mode no longer asks for it.
+    Q_INVOKABLE void applyFaceOptions(QQuickItem *face, bool showDate, bool showSeconds,
+                                      bool ambient, const QString &ambientStyle);
+
 signals:
     //! Emitted after the cache is cleared so QML can re-trigger the watchface
     //! loader against the freshly re-read directory.

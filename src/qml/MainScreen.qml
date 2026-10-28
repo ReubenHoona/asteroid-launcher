@@ -391,9 +391,42 @@ Item {
                                       && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible
     property bool faceSecondsShown: false
     function checkSeconds() {
-        if (!centreItem || !faceShown)
+        if (!centreItem)
             return
-        faceSecondsShown = watchfaceReloader.secondsShown(centreItem.activeFace, centreItem.activeSource)
+        applyFaceOptions()
+        if (!faceShown)
+            return
+        faceSecondsShown = faceShowSeconds.value
+                           && watchfaceReloader.secondsShown(centreItem.activeFace, centreItem.activeSource)
+    }
+
+    /* The watchface options of the face picker, for every face: date and
+     * seconds shown or not (seconds never in always-on mode, as on Wear OS),
+     * and how the always-on face looks: "dim" (the face in grey: 55 %) or
+     * "outline" (grey letter outlines, and the rest dimmed) */
+    ConfigurationValue {
+        id: faceShowDate
+        key: "/org/asteroidos/watchface/show-date"
+        defaultValue: true
+        onValueChanged: Qt.callLater(desktop.checkSeconds)
+    }
+    ConfigurationValue {
+        id: faceShowSeconds
+        key: "/org/asteroidos/watchface/show-seconds"
+        defaultValue: true
+        onValueChanged: Qt.callLater(desktop.checkSeconds)
+    }
+    ConfigurationValue {
+        id: faceAmbientStyle
+        key: "/org/asteroidos/watchface/ambient-style"
+        defaultValue: "dim"
+        onValueChanged: Qt.callLater(desktop.checkSeconds)
+    }
+    function applyFaceOptions() {
+        if (!centreItem || !centreItem.activeFace)
+            return
+        watchfaceReloader.applyFaceOptions(centreItem.activeFace, faceShowDate.value, faceShowSeconds.value,
+                                           displayAmbient, faceAmbientStyle.value)
     }
     onFaceShownChanged: if (faceShown) checkSeconds()
     onDisplayAmbientChanged: Qt.callLater(checkSeconds)
@@ -619,6 +652,8 @@ Item {
         id: centerPanel;
         Item {
             property bool nightstandWatchfaceActive: nightstandMode.active && nightstandUseCustomWatchface.value && watchfaceNightstandSource.value != watchFaceSource.value
+            // always-on: the face in grey, not full white
+            opacity: displayAmbient ? 0.55 : 1.0
             // Wear OS: a long press on the watchface opens the face picker
             // (under the face: a face's own buttons keep their presses)
             MouseArea {

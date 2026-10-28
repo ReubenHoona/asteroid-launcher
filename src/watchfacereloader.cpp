@@ -9,6 +9,7 @@
 #include <QQmlContext>
 #include <QQmlEngine>
 #include <QQuickItem>
+#include <QColor>
 #include <QDir>
 #include <QFile>
 #include <QRegularExpression>
@@ -63,6 +64,72 @@ static int secondsItems(QQuickItem *item)
             found = 0;
     }
     return found;
+}
+
+static void setHidden(QQuickItem *item, bool hide)
+{
+    static const char KEY[] = "_eosShown";
+    const QVariant kept = item->property(KEY);
+    if (hide) {
+        if (!kept.isValid())
+            item->setProperty(KEY, item->property("visible"));   // as the face had it
+        item->setVisible(false);
+    } else if (kept.isValid()) {
+        item->setVisible(kept.toBool());
+        item->setProperty(KEY, QVariant());
+    }
+}
+
+static void setOutline(QQuickItem *item, bool outline)
+{
+    static const char COLOR[] = "_eosColor";
+    static const char STYLE[] = "_eosStyle";
+    static const char STYLECOLOR[] = "_eosStyleColor";
+    const bool kept = item->property(COLOR).isValid();
+    if (outline) {
+        if (!kept) {
+            item->setProperty(COLOR, item->property("color"));
+            item->setProperty(STYLE, item->property("style"));
+            item->setProperty(STYLECOLOR, item->property("styleColor"));
+        }
+        // the letters' edge only, in grey: few lit pixels on the always-on
+        // screen (QQuickText::Outline is 1)
+        item->setProperty("style", 1);
+        item->setProperty("styleColor", QColor(0x9e, 0x9e, 0x9e));
+        item->setProperty("color", QColor(Qt::black));
+    } else if (kept) {
+        item->setProperty("color", item->property(COLOR));
+        item->setProperty("style", item->property(STYLE));
+        item->setProperty("styleColor", item->property(STYLECOLOR));
+        item->setProperty(COLOR, QVariant());
+        item->setProperty(STYLE, QVariant());
+        item->setProperty(STYLECOLOR, QVariant());
+    }
+}
+
+static void applyOptions(QQuickItem *item, bool showDate, bool showSeconds, bool ambient, bool outline)
+{
+    QQmlContext *ctx = qmlContext(item);
+    const QString id = ctx ? ctx->nameForObject(item).toLower() : QString();
+    if (!id.isEmpty()) {
+        if (id.startsWith(QLatin1String("second")))
+            setHidden(item, !showSeconds || ambient);
+        else if (id.startsWith(QLatin1String("date")) || id.startsWith(QLatin1String("day"))
+                 || id.startsWith(QLatin1String("month")) || id.startsWith(QLatin1String("week")))
+            setHidden(item, !showDate);
+    }
+    if (item->inherits("QQuickText"))
+        setOutline(item, ambient && outline);
+    const QList<QQuickItem *> children = item->childItems();
+    for (QQuickItem *child : children)
+        applyOptions(child, showDate, showSeconds, ambient, outline);
+}
+
+void WatchfaceReloader::applyFaceOptions(QQuickItem *face, bool showDate, bool showSeconds,
+                                         bool ambient, const QString &ambientStyle)
+{
+    if (face)
+        applyOptions(face, showDate, showSeconds, ambient, ambientStyle == QLatin1String("outline"));
 }
 
 bool WatchfaceReloader::secondsShown(QQuickItem *item, const QUrl &face)

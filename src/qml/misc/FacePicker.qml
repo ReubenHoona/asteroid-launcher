@@ -8,6 +8,7 @@ import QtCore
 import Qt.labs.folderlistmodel
 import org.asteroid.controls
 import org.asteroid.utils
+import Nemo.Configuration
 
 /*
  * The watchface picker, opened by a long press on the watchface as on
@@ -36,6 +37,7 @@ Item {
     readonly property var _easing: [0.4, 0, 0.2, 1, 1, 1]
 
     function open() {
+        options.visible = false
         faces.positionAt(current)
         closeAnim.stop()
         openAnim.restart()
@@ -174,8 +176,8 @@ Item {
 
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: Math.round(picker.height * 0.08)
+                anchors.top: parent.top
+                anchors.topMargin: Math.round(picker.height * 0.07)
                 visible: faceItem.isCurrent
                 width: picker.width * 0.6
                 horizontalAlignment: Text.AlignHCenter
@@ -184,6 +186,126 @@ Item {
                 font.pixelSize: Math.round(picker.height * 0.05)
                 opacity: 0.8
             }
+        }
+    }
+
+    /* Wear OS's face options: under the faces a Customize button, opening
+     * the options every bundled face follows (the launcher applies them by
+     * the faces' item names, see WatchfaceReloader.applyFaceOptions) */
+    ConfigurationValue { id: showDate; key: "/org/asteroidos/watchface/show-date"; defaultValue: true }
+    ConfigurationValue { id: showSeconds; key: "/org/asteroidos/watchface/show-seconds"; defaultValue: true }
+    ConfigurationValue { id: ambientStyle; key: "/org/asteroidos/watchface/ambient-style"; defaultValue: "dim" }
+
+    MouseArea {
+        id: customize
+        visible: !options.visible
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Math.round(picker.height * 0.06)
+        width: Math.round(picker.width * 0.46)
+        height: Math.round(picker.height * 0.16)
+        opacity: picker.progress
+        onClicked: {
+            Haptics.click()
+            options.visible = true
+        }
+        Rectangle {
+            anchors.fill: parent
+            radius: height / 2
+            color: "#a8c7fa"
+            opacity: customize.pressed ? 0.75 : 1
+        }
+        Label {
+            anchors.centerIn: parent
+            //% "Customize"
+            text: qsTrId("id-face-customize") + localeManager.changesObserver
+            color: "#000000"
+            font.pixelSize: Math.round(picker.height * 0.055)
+            font.styleName: "SemiCondensed Medium"
+        }
+    }
+
+    Item {
+        id: options
+        anchors.fill: parent
+        visible: false
+        onVisibleChanged: if (!visible) optionsFlick.contentY = 0
+
+        Rectangle { anchors.fill: parent; color: "#000000" }
+        MouseArea { anchors.fill: parent }
+
+        readonly property var styleLabels: [
+            //% "Dimmed"
+            qsTrId("id-face-ambient-dim"),
+            //% "Outline"
+            qsTrId("id-face-ambient-outline")
+        ]
+        readonly property var styleValues: ["dim", "outline"]
+        readonly property real rowHeight: Dims.h(25)
+
+        Flickable {
+            id: optionsFlick
+            anchors.fill: parent
+            contentHeight: optionsColumn.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            Column {
+                id: optionsColumn
+                width: parent.width
+                Item { width: parent.width; height: Dims.h(16) }
+                LabeledSwitch {
+                    width: parent.width
+                    height: options.rowHeight
+                    //% "Date"
+                    text: qsTrId("id-face-show-date")
+                    checked: showDate.value
+                    onCheckedChanged: if (showDate.value !== checked) showDate.value = checked
+                }
+                LabeledSwitch {
+                    width: parent.width
+                    height: options.rowHeight
+                    //% "Seconds"
+                    text: qsTrId("id-face-show-seconds")
+                    checked: showSeconds.value
+                    onCheckedChanged: if (showSeconds.value !== checked) showSeconds.value = checked
+                }
+                OptionCycler {
+                    width: parent.width
+                    height: options.rowHeight
+                    //% "Always-on"
+                    text: qsTrId("id-face-ambient")
+                    valueArray: options.styleLabels
+                    currentValue: options.styleLabels[Math.max(0, options.styleValues.indexOf(ambientStyle.value))]
+                    onValueChanged: (value) => ambientStyle.value = options.styleValues[options.styleLabels.indexOf(value)]
+                }
+                Item { width: parent.width; height: Dims.h(4) }
+                MouseArea {
+                    id: done
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    width: Math.round(picker.width * 0.4)
+                    height: Math.round(picker.height * 0.15)
+                    onClicked: options.visible = false
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: height / 2
+                        color: "#a8c7fa"
+                        opacity: done.pressed ? 0.75 : 1
+                    }
+                    Label {
+                        anchors.centerIn: parent
+                        //% "Done"
+                        text: qsTrId("id-tiles-done") + localeManager.changesObserver
+                        color: "#000000"
+                        font.pixelSize: Math.round(picker.height * 0.055)
+                        font.styleName: "SemiCondensed Medium"
+                    }
+                }
+                Item { width: parent.width; height: Dims.h(16) }
+            }
+        }
+
+        PageHeader {
+            //% "Watch face"
+            text: qsTrId("id-face-options")
         }
     }
 }

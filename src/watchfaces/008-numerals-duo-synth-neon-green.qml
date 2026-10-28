@@ -20,6 +20,12 @@ Item {
 
     Item {
         id: root
+        // the hours in the 12 or 24 hour clock of Settings > Units
+        property string hourText: {
+            var h = wallClock.time.getHours()
+            if (use12H.value) { h = h % 12; if (h === 0) h = 12 }
+            return (h < 10 ? "0" : "") + h
+        }
 
         anchors.centerIn: parent
         height: Math.min(parent.width, parent.height)
@@ -154,7 +160,7 @@ Item {
                 x: parseInt(parent.width * 0.135)
                 y: parseInt(parent.height * 0.045)
                 sourceSize: Qt.size(parent.width / 2 - parent.width * 0.15, parent.height / 2 - parent.height * 0.15)
-                source: imgPath + wallClock.time.toLocaleString(Qt.locale(), "HH").slice(0, 1) + ".png"
+                source: imgPath + root.hourText.slice(0, 1) + ".png"
             }
 
             Image {
@@ -165,7 +171,7 @@ Item {
                 x: parseInt(parent.width / 2 + parent.width * 0.03)
                 y: parseInt(parent.height * 0.045)
                 sourceSize: Qt.size(parent.width / 2 - parent.width * 0.15, parent.height / 2 - parent.height * 0.15)
-                source: imgPath + wallClock.time.toLocaleString(Qt.locale(), "HH").slice(1, 2) + ".png"
+                source: imgPath + root.hourText.slice(1, 2) + ".png"
             }
 
             Image {
