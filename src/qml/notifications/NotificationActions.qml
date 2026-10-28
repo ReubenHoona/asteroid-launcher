@@ -107,26 +107,34 @@ Item {
         btsyncd.typedCall("Silence", [{ "type": "u", "value": notification.replacesId }])
     }
 
+    // Wear OS shows "Sent" as soon as a reply is chosen and goes back to the
+    // conversation; the phone's updated notification (with the reply) then
+    // replaces the card. The confirmation lives in the home screen, so it
+    // stays even if the card goes meanwhile (a failure shows over it).
     function sendReply(text) {
-        if (text.trim().length === 0)
+        var reply = text.trim()
+        if (reply.length === 0)
             return
+        replyFailed.visible = false
+        while (layerStack.layers.length > 0)
+            layerStack.pop(layerStack.currentLayer)
+        //% "Sent"
+        if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-reply-sent"))
+        var failed = function () {
+            replyFailed.visible = true
+            //% "Not sent: phone not connected"
+            if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-reply-failed"), false)
+        }
         btsyncd.typedCall("Reply",
                           [{ "type": "u", "value": notification.replacesId },
-                           { "type": "s", "value": text.trim() }],
+                           { "type": "s", "value": reply }],
                           function (sent) {
-                              if (!sent) {
-                                  replyFailed.visible = true
-                                  return
-                              }
-                              replyFailed.visible = false
-                              // Wear OS confirms a sent reply and goes back
-                              while (layerStack.layers.length > 0)
-                                  layerStack.pop(layerStack.currentLayer)
-                              //% "Sent"
-                              if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-reply-sent"))
-                              actions.replySent()
+                              if (!sent)
+                                  failed()
+                              else
+                                  actions.replySent()
                           },
-                          function () { replyFailed.visible = true })
+                          failed)
     }
 
     DBusInterface {
@@ -531,6 +539,7 @@ Item {
 
             PageHeader {
                 id: replyTitle
+                belowTimeText: actions.showText
                 //% "Reply"
                 text: qsTrId("id-reply")
             }
@@ -539,7 +548,7 @@ Item {
 
             ListView {
                 anchors.fill: parent
-                anchors.topMargin: Dims.h(20)
+                anchors.topMargin: actions.showText ? Dims.h(28) : Dims.h(20)
                 anchors.bottomMargin: Dims.h(10)
                 clip: true
                 // The phone's suggested replies first (marked with \u0002),
@@ -746,6 +755,7 @@ Item {
             }
 
             PageHeader {
+                belowTimeText: actions.showText
                 //% "Speak"
                 text: qsTrId("id-voice-title")
             }
@@ -757,7 +767,7 @@ Item {
                 height: width
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: Dims.h(21)
+                anchors.topMargin: actions.showText ? Dims.h(28) : Dims.h(21)
                 color: vpage.failed ? "#ff6060" : "#ffffff"
 
                 SequentialAnimation on opacity {
@@ -863,6 +873,7 @@ Item {
 
             PageHeader {
                 id: title
+                belowTimeText: actions.showText
                 //% "Snooze"
                 text: qsTrId("id-snooze")
             }
