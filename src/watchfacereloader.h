@@ -14,6 +14,7 @@
 #include <QUrl>
 
 class QQmlEngine;
+class QQuickItem;
 
 /*!
  * \brief Drops the QML component cache when a watchface is added at runtime.
@@ -38,6 +39,14 @@ public:
     //! minute. Read from the face's source (getSeconds(), an "ss" format),
     //! once per file; true when the file cannot be read.
     Q_INVOKABLE bool usesSeconds(const QUrl &face);
+
+    //! Whether the seconds of the loaded watchface  item (from  face)
+    //! are on screen now: faces name their seconds items second* (secondHand,
+    //! secondText, secondSVG...) and hide them in nightstand, ambient or 12 h
+    //! modes; a hidden one still redrew the screen every second. True when
+    //! one such item is visible, false when all are hidden, and
+    //! usesSeconds(face) when the face names none.
+    Q_INVOKABLE bool secondsShown(QQuickItem *item, const QUrl &face);
 
 signals:
     //! Emitted after the cache is cleared so QML can re-trigger the watchface

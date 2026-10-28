@@ -175,8 +175,10 @@ Item {
         for (var t = 0; t < wanted.length; t++) {
             var panel = grid.addPanel(t + 1, 0, tilePanel)
             panel.tileFile = tileRegistry[wanted[t]].file
-            panel.visible = false
         }
+        // drawn once offscreen (first textures, text, shapes made now, not
+        // in the first frames of a swipe), then hidden
+        grid.hideSoon()
         builtTiles = wanted
         if (onTiles)
             grid.moveTo(Math.min(grid.currentHorizontalPos, wanted.length), 0)
@@ -263,6 +265,7 @@ Item {
         Desktop.desktop = desktop
         Desktop.panelsGrid = grid
         Desktop.confirmation = confirmation
+        prewarmTimer.start()
         lipstickSettings.lockScreen(true)
         if(firstRun.isFirstRun())
             firstRunComponent.createObject(desktop)
@@ -351,24 +354,37 @@ Item {
         }
     }
 
-    /* The clock the watchfaces draw. It ticks every second only for a face
-     * that shows seconds, else every minute (a face showing hours and
-     * minutes then draws one frame a minute), and stops while an
-     * application covers the home screen or the display is off */
+    /* The clock the watchfaces draw. It ticks every second only while the
+     * watchface is the page on screen and its seconds are shown (faces hide
+     * them in nightstand, ambient or 12 h mode); else every minute, on the
+     * minute: under tiles, the notifications or the app list that is the
+     * frame their own curved time draws anyway, and the face is right when
+     * it comes back, with no text to change in the first frame of the way
+     * back. It stops under an application and with the display off. */
     property bool displayAwake: true
-    readonly property bool faceUsesSeconds: {
-        var faces = [watchFaceSource.value]
-        if (nightstandMode.active && nightstandUseCustomWatchface.value)
-            faces.push(watchfaceNightstandSource.value)
-        for (var i = 0; i < faces.length; i++)
-            if (watchfaceReloader.usesSeconds(faces[i]))
-                return true
-        return false
+    property Item centreItem: null
+    readonly property bool faceShown: centreItem !== null && centreItem.visible
+                                      && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible
+    property bool faceSecondsShown: false
+    function checkSeconds() {
+        if (!centreItem || !faceShown)
+            return
+        faceSecondsShown = watchfaceReloader.secondsShown(centreItem.activeFace, centreItem.activeSource)
+    }
+    onFaceShownChanged: if (faceShown) checkSeconds()
+    onDisplayAmbientChanged: Qt.callLater(checkSeconds)
+    Connections {
+        target: nightstandMode
+        function onActiveChanged() { Qt.callLater(desktop.checkSeconds) }
+    }
+    Connections {
+        target: use12H
+        function onValueChanged() { Qt.callLater(desktop.checkSeconds) }
     }
     WallClock {
         id: wallClock
         enabled: desktop.visible && desktop.displayAwake
-        updateFrequency: desktop.faceUsesSeconds ? WallClock.Second : WallClock.Minute
+        updateFrequency: desktop.faceShown && desktop.faceSecondsShown ? WallClock.Second : WallClock.Minute
     }
 
     MceChargerType {
@@ -422,6 +438,8 @@ Item {
         function onDisplayAboutToBeOff() { desktop.displayAwake = false }
         function onDisplayOn() {
             ambientMinuteTimer.stop()
+            if (desktop.prewarmPending)
+                prewarmTimer.restart()
             grid.animateIndicators()
             ambientDarken = 0
             if (Lipstick.compositor.ambientEnabled) grid.moveTo(0, 0)
@@ -591,6 +609,10 @@ Item {
                     desktop.openFacePicker()
                 }
             }
+            // the face on screen and its file, for the clock (checkSeconds)
+            readonly property Item activeFace: nightstandWatchfaceActive ? nightstandWatchfaceLoader.item : watchfaceLoader.item
+            readonly property url activeSource: nightstandWatchfaceActive ? watchfaceNightstandSource.value : watchFaceSource.value
+            onActiveFaceChanged: Qt.callLater(desktop.checkSeconds)
             Loader {
                 id: nightstandWatchfaceLoader
                 opacity: nightstandWatchfaceActive ? 1.0 : 0.0
@@ -652,7 +674,7 @@ Item {
         Component.onCompleted: {
             desktop._wearLayout = homeLayout.value !== "asteroid"
             if (desktop.wearLayout) {
-                addPanel(0, 0, centerPanel)
+                desktop.centreItem = addPanel(0, 0, centerPanel)
                 addPanel(0, -1, topPanel)
                 var ns = addPanel(0, 1, streamPanel)
                 desktop.buildTiles()
@@ -664,7 +686,7 @@ Item {
                 bottomIndicator.keepExpanded = Qt.binding(function() { return !ns.modelEmpty && grid.currentHorizontalPos == 0 && grid.currentVerticalPos == 0 })
                 return
             }
-            addPanel(0, 0, centerPanel)
+            desktop.centreItem = addPanel(0, 0, centerPanel)
             var al = addPanel(0, 1, bottomPanel)
             addPanel(1, 0, rightPanel)
             var np = addPanel(-1, 0, leftPanel)
@@ -687,6 +709,19 @@ Item {
         position: Math.max(0, -grid.contentX / Math.max(1, grid.width))
         visible: count > 0 && grid.currentVerticalPos === 0 && !displayAmbient
                  && (grid.currentHorizontalPos > 0 || grid.contentX < -1)
+    }
+
+    // The app list is drawn once, unseen, a few seconds after the start, so
+    // that its first opening does not make its textures and text then
+    property bool prewarmPending: false
+    Timer {
+        id: prewarmTimer
+        interval: 4000
+        onTriggered: {
+            desktop.prewarmPending = !(desktop.visible && desktop.displayAwake && !displayAmbient)
+            if (!desktop.prewarmPending)
+                appDrawer.prewarm()
+        }
     }
 
     AppDrawer {

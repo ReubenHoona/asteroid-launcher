@@ -6,7 +6,9 @@
 
 #include "watchfacereloader.h"
 
+#include <QQmlContext>
 #include <QQmlEngine>
+#include <QQuickItem>
 #include <QDir>
 #include <QFile>
 #include <QRegularExpression>
@@ -39,6 +41,37 @@ bool WatchfaceReloader::usesSeconds(const QUrl &face)
     }
     m_usesSeconds.insert(path, seconds);
     return seconds;
+}
+
+// -1: no item named second*; 0: all hidden; 1: one is visible
+static int secondsItems(QQuickItem *item)
+{
+    int found = -1;
+    QQmlContext *ctx = qmlContext(item);
+    const QString id = ctx ? ctx->nameForObject(item) : QString();
+    if (id.startsWith(QLatin1String("second"), Qt::CaseInsensitive)) {
+        if (item->isVisible() && item->opacity() > 0)
+            return 1;
+        found = 0;
+    }
+    const QList<QQuickItem *> children = item->childItems();
+    for (QQuickItem *child : children) {
+        const int r = secondsItems(child);
+        if (r == 1)
+            return 1;
+        if (r == 0)
+            found = 0;
+    }
+    return found;
+}
+
+bool WatchfaceReloader::secondsShown(QQuickItem *item, const QUrl &face)
+{
+    if (!usesSeconds(face))
+        return false;
+    if (!item)
+        return true;
+    return secondsItems(item) != 0;
 }
 
 void WatchfaceReloader::onDirectoryChanged(const QString &)
