@@ -50,6 +50,7 @@
 #include "crownbutton.h"
 #include "aodbrightness.h"
 #include "assistantkey.h"
+#include "huboffload.h"
 
 int main(int argc, char **argv)
 {
@@ -99,6 +100,9 @@ int main(int argc, char **argv)
     // it shows on the homescreen live, without a launcher restart.
     WatchfaceReloader *watchfaceReloader = new WatchfaceReloader(app.engine());
     app.engine()->rootContext()->setContextProperty("watchfaceReloader", watchfaceReloader);
+    // the always-on display layout for the sensor hub (stock display offload)
+    HubOffload *hubOffload = new HubOffload(&app);
+    app.engine()->rootContext()->setContextProperty("hubOffload", hubOffload);
 
     qmlRegisterType<AppLauncherBackground>("org.asteroid.launcher", 1, 0, "AppLauncherBackground");
     qmlRegisterType<GestureFilterArea>("org.asteroid.launcher", 1, 0, "GestureFilterArea");

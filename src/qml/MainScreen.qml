@@ -486,16 +486,27 @@ Item {
         id: wallClockAmbientTimeout
         interval: 200
         repeat: false
-        onTriggered: Lipstick.compositor.setAmbientUpdatesEnabled(false)
+        onTriggered: {
+            // The face has drawn this minute in its ambient style: give its
+            // layout to the sensor hub, which then draws the time while the
+            // AP sleeps (stock display offload; kept while unchanged)
+            if (Lipstick.compositor.displayAmbient && desktop.centreItem)
+                hubOffload.update(desktop.centreItem.activeFace, use12H.value,
+                                  desktop.centreItem.activeSource)
+            Lipstick.compositor.setAmbientUpdatesEnabled(false)
+        }
     }
 
     // The ambient face is only redrawn on request (the wall clock is off):
-    // ask for an update at every minute while it shows.
+    // ask for an update at every minute while it shows. Not while the sensor
+    // hub draws the always-on display (displayOffloaded): it draws the time
+    // itself, as stock Wear OS.
     Timer {
         id: ambientMinuteTimer
         repeat: false
         onTriggered: {
-            Lipstick.compositor.setAmbientUpdatesEnabled(true)
+            if (!Lipstick.compositor.displayOffloaded)
+                Lipstick.compositor.setAmbientUpdatesEnabled(true)
             scheduleAmbientMinute()
         }
     }
