@@ -9,7 +9,10 @@ import org.asteroid.controls
 import "../weathericons.js" as IconTools
 
 // Today's weather and the next three days, from the forecast the phone
-// sends (asteroid-btsyncd writes it to dconf /org/asteroidos/weather)
+// sends (asteroid-btsyncd writes it to dconf /org/asteroidos/weather) or,
+// while the phone is away, the one eos-weather fetches over Wi-Fi (same
+// keys, source "watch"). Shown, the tile asks eos-weather for a check: it
+// fetches only when the forecast is old, the phone away and Wi-Fi up.
 TileBase {
     id: tile
     title: city.value !== "" ? city.value
@@ -23,11 +26,13 @@ TileBase {
     ConfigurationValue { id: city; key: "/org/asteroidos/weather/city-name"; defaultValue: "" }
     ConfigurationValue { id: day0Stamp; key: "/org/asteroidos/weather/timestamp-day0"; defaultValue: 0 }
     ConfigurationValue { id: fahrenheit; key: "/org/asteroidos/settings/use-fahrenheit"; defaultValue: false }
+    ConfigurationValue { id: forecastSource; key: "/org/asteroidos/weather/source"; defaultValue: "phone" }
+    ConfigurationValue { id: refreshRequest; key: "/org/asteroidos/weather/refresh-request"; defaultValue: 0 }
 
     // which forecast day is today: the phone sends five days starting with
     // the day of its last update
     property int offset: 0
-    onLiveChanged: if (live) refresh()
+    onLiveChanged: if (live) { refresh(); refreshRequest.value = Math.floor(Date.now() / 1000) }
     Component.onCompleted: refresh()
     function refresh() {
         var d0 = new Date(day0Stamp.value * 1000)
@@ -83,6 +88,13 @@ TileBase {
                     opacity: 0.7
                     font.pixelSize: Math.round(tile.height * 0.06)
                 }
+                Label {
+                    visible: forecastSource.value === "watch"
+                    //% "Wi-Fi"
+                    text: qsTrId("id-tile-forecast-wifi") + localeManager.changesObserver
+                    opacity: 0.5
+                    font.pixelSize: Math.round(tile.height * 0.04)
+                }
             }
         }
 
@@ -128,7 +140,7 @@ TileBase {
         wrapMode: Text.Wrap
         opacity: 0.7
         font.pixelSize: Math.round(tile.height * 0.055)
-        //% "No forecast from the phone yet"
-        text: qsTrId("id-tile-no-forecast") + localeManager.changesObserver
+        //% "No forecast yet"
+        text: qsTrId("id-tile-no-forecast-yet") + localeManager.changesObserver
     }
 }

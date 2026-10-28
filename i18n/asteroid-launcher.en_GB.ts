@@ -656,9 +656,13 @@
         <source>No more events</source>
         <translation>No more events</translation>
     </message>
-    <message id="id-tile-no-forecast">
-        <source>No forecast from the phone yet</source>
-        <translation>No forecast from the phone yet</translation>
+    <message id="id-tile-no-forecast-yet">
+        <source>No forecast yet</source>
+        <translation>No forecast yet</translation>
+    </message>
+    <message id="id-tile-forecast-wifi">
+        <source>Wi-Fi</source>
+        <translation>Wi-Fi</translation>
     </message>
     <message id="id-tile-no-reading">
         <source>No reading today</source>
