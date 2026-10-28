@@ -23,7 +23,7 @@ void AodBrightness::apply()
 {
     const QString level = m_level->value(QStringLiteral("medium")).toString();
     const int step = level == QLatin1String("low") ? 6 : level == QLatin1String("high") ? 12 : 8;
-    QFile param(QLatin1String(PARAM));
+    QFile param(QString::fromLatin1(PARAM));
     if (!param.exists())
         return;   // another panel, or the driver not loaded
     if (param.open(QIODevice::ReadOnly)) {
