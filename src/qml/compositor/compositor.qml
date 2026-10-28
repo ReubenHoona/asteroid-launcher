@@ -300,6 +300,18 @@ Item {
     property bool anywhereActive: false
     property real anywhereValue: 0
     readonly property Item _topWindowItem: comp.topmostWindow ? comp.topmostWindow.window : null
+    // The swipe ends with its window: once the window that would send
+    // backSwipeFinished is no longer in front (the application closed or
+    // crashed, delayTimer closed it with the display off, another came to
+    // the front), nothing finishes it, and the home screen stayed under
+    // the dismiss scrim with the application layer shown (dismissing)
+    on_TopWindowItemChanged: {
+        if (root.anywhereActive && !anywhereClose.running && !anywhereSettle.running) {
+            root.anywhereActive = false
+            root.anywhereValue = 0
+            Desktop.desktop.aboutToMinimize = false
+        }
+    }
 
     Connections {
         target: root._topWindowItem
