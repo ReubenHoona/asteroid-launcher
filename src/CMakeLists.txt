@@ -8,7 +8,8 @@ set(SRC
 	watchfacereloader.cpp
 	healthlog.cpp
 	crownbutton.cpp
-	aodbrightness.cpp)
+	aodbrightness.cpp
+	assistantkey.cpp)
 set(HEADERS
 	applauncherbackground.h
 	firstrun.h
@@ -18,7 +19,8 @@ set(HEADERS
 	watchfacereloader.h
 	healthlog.h
 	crownbutton.h
-	aodbrightness.h)
+	aodbrightness.h
+	assistantkey.h)
 
 add_executable(asteroid-launcher ${SRC} ${HEADERS} resources-qml.qrc)
 
@@ -48,6 +50,10 @@ set(QML_FILES
 	qml/tiles/AgendaTile.qml
 	qml/tiles/TimerTile.qml
 	qml/tiles/MediaTile.qml
+	qml/tiles/AssistantTile.qml
+	qml/assistant/AssistantOverlay.qml
+	qml/assistant/AssistantActions.qml
+	qml/assistant/AssistantDots.qml
 	qml/notifications/NotificationActions.qml
 	qml/notifications/NotificationButton.qml
 	qml/notifications/NotificationIndicator.qml
@@ -88,6 +94,10 @@ set_source_files_properties(qml/tiles/WeatherTile.qml                PROPERTIES 
 set_source_files_properties(qml/tiles/AgendaTile.qml                 PROPERTIES QT_RESOURCE_ALIAS tiles/AgendaTile.qml)
 set_source_files_properties(qml/tiles/TimerTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/TimerTile.qml)
 set_source_files_properties(qml/tiles/MediaTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/MediaTile.qml)
+set_source_files_properties(qml/tiles/AssistantTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/AssistantTile.qml)
+set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
+set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
+set_source_files_properties(qml/assistant/AssistantDots.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantDots.qml)
 set_source_files_properties(qml/notifications/NotificationActions.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationActions.qml)
 set_source_files_properties(qml/notifications/NotificationButton.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationButton.qml)
 set_source_files_properties(qml/notifications/NotificationIndicator.qml PROPERTIES QT_RESOURCE_ALIAS NotificationIndicator.qml)

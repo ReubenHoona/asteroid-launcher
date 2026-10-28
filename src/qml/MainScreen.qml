@@ -149,12 +149,14 @@ Item {
         //% "Timer"
         "timer": { file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer") },
         //% "Media"
-        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media") }
+        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media") },
+        //% "Assistant"
+        "assistant": { file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant") }
     })
     ConfigurationValue {
         id: tilesSetting
         key: "/org/asteroidos/ux/tiles"
-        defaultValue: ["weather", "heartrate", "steps", "agenda", "timer", "media"]
+        defaultValue: ["weather", "heartrate", "steps", "agenda", "timer", "media", "assistant"]
         onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
     }
     property var builtTiles: []
@@ -265,6 +267,12 @@ Item {
      * shows up, as Wear OS does. The app launchers call this as
      * desktop.launchApp(model.object, circle). */
     function launchApp(launcherItem, fromItem) {
+        // "Assistant" in the app list is the launcher's own overlay
+        if (launcherItem.filePath && launcherItem.filePath.split("/").pop() === "asteroid-assistant.desktop") {
+            if (Desktop.compositorRoot && Desktop.compositorRoot.openAssistant)
+                Desktop.compositorRoot.openAssistant("")
+            return
+        }
         launchedFromDrawer = appDrawer.isOpen
         if (Desktop.launchSplash && !launcherItem.isLaunching) {
             var r = fromItem ? fromItem.mapToItem(null, 0, 0, fromItem.width, fromItem.height)

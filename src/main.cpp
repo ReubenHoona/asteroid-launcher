@@ -49,6 +49,7 @@
 #include "healthlog.h"
 #include "crownbutton.h"
 #include "aodbrightness.h"
+#include "assistantkey.h"
 
 int main(int argc, char **argv)
 {
@@ -101,6 +102,10 @@ int main(int argc, char **argv)
     // Settings > Display > Always-on brightness, to the panel driver
     new AodBrightness(&app);
     app.engine()->rootContext()->setContextProperty("crownButton", crownButton);
+    // The assistant: a hold of the side button (as the stock Pixel Watch 2),
+    // and Open()/Ask() on the session bus
+    AssistantKey *assistantKey = new AssistantKey(&app);
+    app.engine()->rootContext()->setContextProperty("assistantKey", assistantKey);
 
     // Give these to the environment inside the launcher's wayland compositor
     // Fixes a bug where some applications wouldn't launch, eg. terminal or browser

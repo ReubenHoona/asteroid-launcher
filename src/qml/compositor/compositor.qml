@@ -136,6 +136,34 @@ Item {
     // Launcher overlays, rendered directly in the compositor scene as
     // z-ordered items instead of in-process "windows". Each is fed by a C++
     // object exposed as a context property; the QML gates its own visibility.
+
+    /* The assistant over the home screen and applications (Wear OS: an
+     * activity on top), under heads-up notifications, calls and alarms.
+     * It opens on a hold of the side button (assistantKey, as the stock
+     * Pixel Watch 2), from the app list and from the Assistant tile. */
+    Loader {
+        id: assistantLoader
+        z: 2.5
+        anchors.fill: parent
+        source: "assistant/AssistantOverlay.qml"
+    }
+    readonly property bool assistantShown: assistantLoader.item ? assistantLoader.item.shown : false
+    function openAssistant(text) {
+        if (!assistantLoader.item)
+            return
+        launchSplash.cancel()
+        assistantLoader.item.open(text || "")
+    }
+    Connections {
+        target: typeof assistantKey !== "undefined" ? assistantKey : null
+        function onLongPressed() {
+            // with the display on: mce owns the button while it is off
+            Haptics.longPress()
+            root.openAssistant("")
+        }
+        function onOpenRequested(text) { root.openAssistant(text) }
+    }
+
     Loader {
         z: 3
         anchors.fill: parent
@@ -170,7 +198,7 @@ Item {
 
     BorderGestureArea {
         id: gestureArea
-        enabled: comp ? comp.appActive : false
+        enabled: comp ? comp.appActive && !root.assistantShown : false
         z: 5
         anchors.fill: parent
         acceptsDown: true
@@ -365,6 +393,11 @@ Item {
     Connections {
         target: typeof crownButton !== "undefined" ? crownButton : null
         function onPressed() {
+            // the crown dismisses the assistant, wherever it was opened
+            if (root.assistantShown) {
+                assistantLoader.item.close()
+                return
+            }
             if (launchSplash.active)
                 return
             if (comp.appActive)
