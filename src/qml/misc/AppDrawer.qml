@@ -28,8 +28,39 @@ Item {
     readonly property bool isOpen: progress > 0
     readonly property real _dismiss: dismissArea.state === "swipe" ? dismissArea.progress : 0
 
-    visible: progress > 0
+    visible: progress > 0 || _warming
     anchors.fill: parent
+
+    /* Draw the list once where nobody sees it (into a tiny layer, the list
+     * itself hidden), so its first opening does not make its textures,
+     * icons and text in its first frames */
+    property bool _warming: false
+    property int _warmFrames: 0
+    function prewarm() {
+        if (isOpen || _warming)
+            return
+        _warmFrames = 0
+        _warming = true
+    }
+    Connections {
+        target: drawer.Window.window
+        enabled: drawer._warming
+        function onFrameSwapped() {
+            if (++drawer._warmFrames >= 2)
+                drawer._warming = false
+        }
+    }
+    ShaderEffectSource {
+        // a pixel in the screen's corner, under the round mask
+        width: 1
+        height: 1
+        z: -1
+        opacity: 0.01
+        visible: drawer._warming
+        sourceItem: drawer._warming ? content : null
+        hideSource: true
+        textureSize: Qt.size(32, 32)
+    }
 
     readonly property var _easing: [0.4, 0, 0.2, 1, 1, 1]
 
@@ -119,6 +150,8 @@ Item {
         id: dismissArea
         anchors.fill: parent
         swipeEnabled: drawer.progress >= 1
+        // no touch reaches the list while it is only drawn to warm it up
+        enabled: drawer.progress > 0
 
         onStarted: {
             dismissAnim.stop()
@@ -139,7 +172,7 @@ Item {
             anchors.fill: parent
             // opening: 0.85 -> 1 and fading in; swiped away: follows the
             // finger, squeezes to 0.8 and fades in the last part
-            opacity: drawer.progress * (drawer._dismiss < 0.6 ? 1 : 1 - (drawer._dismiss - 0.6) / 0.4)
+            opacity: drawer._warming ? 1 : drawer.progress * (drawer._dismiss < 0.6 ? 1 : 1 - (drawer._dismiss - 0.6) / 0.4)
             transform: [
                 Scale {
                     origin.x: content.width / 2

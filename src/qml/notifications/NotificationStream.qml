@@ -120,16 +120,30 @@ Item {
         return Math.floor(delta / 24) + qsTrId("id-day-abbrev")
     }
 
-    // back to the top, closed, when the user leaves the stream
+    // back to the top, closed, once the user has left the stream: done when
+    // it is hidden (not as the user leaves: that was work in the first
+    // frames of the glide away), and only when something is to be undone
     function reset() {
         while (stack.layers.length > 0)
             stack.pop(stack.currentLayer)
         expandedKey = ""
-        if (listView)
-            listView.positionViewAtBeginning()
+        // the top with its margin (positionViewAtBeginning() goes past it,
+        // and the list would then not be at its beginning)
+        if (listView && !listView.atYBeginning) {
+            listView.cancelFlick()
+            listView.contentY = listView.originY - listView.topMargin
+        }
+    }
+    function needsReset() {
+        return stack.layers.length > 0 || expandedKey !== "" || (listView !== null && !listView.atYBeginning)
     }
 
-    onVisibleChanged: if (visible) clockTick++
+    onVisibleChanged: {
+        if (visible)
+            clockTick++
+        else if (needsReset())
+            reset()
+    }
     Timer {
         interval: 60000
         repeat: true
@@ -140,8 +154,6 @@ Item {
     Connections {
         target: stream.panelsGrid
         function onCurrentVerticalPosChanged() {
-            if (stream.panelsGrid.currentVerticalPos !== 1)
-                stream.reset()
             stream.panelsGrid.changeAllowedDirections()
         }
     }

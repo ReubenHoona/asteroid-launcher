@@ -133,7 +133,12 @@ GestureFilterArea {
     /* Glide to a panel (the crown button back to the watchface) the way a
      * released swipe settles */
     function animateTo(posX, posY) {
-        revealNeighbour(posX, posY)
+        // every panel on the way shows while the content glides over it
+        var c, r
+        for (c = Math.min(posX, currentHorizontalPos); c <= Math.max(posX, currentHorizontalPos); c++)
+            revealNeighbour(c, posY === currentVerticalPos ? posY : currentVerticalPos)
+        for (r = Math.min(posY, currentVerticalPos); r <= Math.max(posY, currentVerticalPos); r++)
+            revealNeighbour(posX, r)
         var horizontalMove = posX !== currentHorizontalPos
         currentHorizontalPos = posX
         currentVerticalPos = posY
@@ -185,19 +190,31 @@ GestureFilterArea {
         if (rec !== undefined) rec.item.visible = true
     }
 
+    /* Only the neighbour the content moves towards shows: revealing both
+     * made the quick panel (and its charging particles) draw, unseen, under
+     * every swipe to the notifications */
     onContentXChanged: {
         if (displayAmbient) return
         panelsHideTimeout.restart()
-        revealNeighbour(currentHorizontalPos+1, currentVerticalPos)
-        revealNeighbour(currentHorizontalPos-1, currentVerticalPos)
+        var off = content.x + currentHorizontalPos * panelWidth
+        if (off < -0.5)
+            revealNeighbour(currentHorizontalPos+1, currentVerticalPos)
+        else if (off > 0.5)
+            revealNeighbour(currentHorizontalPos-1, currentVerticalPos)
     }
 
     onContentYChanged: {
         if (displayAmbient) return
         panelsHideTimeout.restart()
-        revealNeighbour(currentHorizontalPos, currentVerticalPos-1)
-        revealNeighbour(currentHorizontalPos, currentVerticalPos+1)
+        var off = content.y + currentVerticalPos * panelHeight
+        if (off > 0.5)
+            revealNeighbour(currentHorizontalPos, currentVerticalPos-1)
+        else if (off < -0.5)
+            revealNeighbour(currentHorizontalPos, currentVerticalPos+1)
     }
+
+    // hide what is not on screen once things are still (after building panels)
+    function hideSoon() { panelsHideTimeout.restart() }
 
     /* An object with dragBy(dx) and release(velocity) that a swipe to the
      * right on the middle panel drives when there is no panel on its left
