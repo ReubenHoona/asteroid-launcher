@@ -321,6 +321,30 @@ Item {
         enabled: DeviceSpecs.needsBurnInProtection && bipLevel.value > 0.0
         readonly property real bipMultiplier: Math.max(0.0, Math.min(1.0, bipLevel.value))
 
+        /* Wear OS moves the always-on screen by a few pixels at a time. The
+         * Settings levels High, Medium and Low (1.0, 0.5, 0.25) give about
+         * 8, 5 and 3 px either way from the centre (the old offsets let High
+         * wander some 52 px); the face walks there in steps of 1 or 2 px a
+         * minute instead of jumping anywhere in the range. The faces'
+         * setActiveWatchFaceArea/setCenterWatchFaceArea are kept for them
+         * but no longer widen it. */
+        readonly property real maxShift: bipMultiplier <= 0 ? 0
+            : Math.round((3 + 5 * Math.max(0, bipMultiplier - 0.25) / 0.75) * Dims.w(100) / 384)
+        property real shiftX: 0
+        property real shiftY: 0
+        function walk(v) {
+            var s = maxShift
+            var d = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 2))
+            var n = v + d
+            if (n > s || n < -s)
+                n = v - d
+            return Math.max(-s, Math.min(s, n))
+        }
+        function step() {
+            shiftX = walk(shiftX)
+            shiftY = walk(shiftY)
+        }
+
         onHeightOffsetChanged: {
             topOffset = heightOffset/2
             bottomOffset = topOffset
@@ -455,13 +479,11 @@ Item {
         function onDisplayAmbientUpdate() {
             // Perform burn in protection
             if (burnInProtectionManager.enabled) {
-                var xRange = (burnInProtectionManager.leftOffset + burnInProtectionManager.rightOffset) * burnInProtectionManager.bipMultiplier
-                var yRange = (burnInProtectionManager.topOffset + burnInProtectionManager.bottomOffset) * burnInProtectionManager.bipMultiplier
-                grid.contentX = Math.random() * xRange - burnInProtectionManager.leftOffset * burnInProtectionManager.bipMultiplier
-                grid.contentY = Math.random() * yRange - burnInProtectionManager.topOffset * burnInProtectionManager.bipMultiplier
-
-                leftIndicator.anchors.horizontalCenterOffset = (Math.random() * 2) * leftIndicator.finWidth
-                leftIndicator.anchors.verticalCenterOffset = (Math.random() - 0.5) * 4 * leftIndicator.finWidth
+                burnInProtectionManager.step()
+                grid.contentX = burnInProtectionManager.shiftX
+                grid.contentY = burnInProtectionManager.shiftY
+                leftIndicator.anchors.horizontalCenterOffset = burnInProtectionManager.shiftX
+                leftIndicator.anchors.verticalCenterOffset = burnInProtectionManager.shiftY
             }
             // Give watchface some time to update, then go back to deep sleep.
             wallClockAmbientTimeout.start();
