@@ -315,6 +315,17 @@ Item {
                         timestamp: actions.timestampStr
                     }
 
+                    // A message's picture, whole (Wear OS: full width, its own
+                    // aspect, rounded); a tap shows it full screen
+                    NotificationPicture {
+                        visible: actions.showText && wanted && (!failed || showError)
+                        width: parent.width
+                        notification: actions.notification
+                        showError: true
+                        tappable: true
+                        onTapped: layerStack.push(pictureLayer)
+                    }
+
             Column {
                 id: column
 
@@ -637,6 +648,43 @@ Item {
                 }
                 Component.onDestruction: if (Desktop.keyboard === replyKeyboard) Desktop.keyboard = null
             }
+        }
+    }
+
+    // A message's picture full screen, as large as the round screen shows all
+    // of it; a tap, a swipe right or the crown goes back to the notification
+    Component {
+        id: pictureLayer
+
+        Item {
+            id: pictureViewer
+            property var pop
+            property int depth
+            readonly property bool fullScreen: true
+
+            function close() { pictureViewer.pop() }
+
+            Rectangle {
+                anchors.fill: parent
+                color: "#000000"
+            }
+
+            NotificationPicture {
+                id: fullPicture
+                // the largest rectangle of the picture's aspect in the circle
+                readonly property real diameter: Math.min(pictureViewer.width, pictureViewer.height) * 0.98
+                width: Math.round(diameter / Math.sqrt(1 + aspect * aspect))
+                maxHeight: width * aspect
+                anchors.centerIn: parent
+                radius: Dims.l(4)
+                notification: actions.notification
+                showError: true
+            }
+
+            TapHandler { onTapped: pictureViewer.close() }
+
+            Component.onCompleted: Desktop.pictureViewer = pictureViewer
+            Component.onDestruction: if (Desktop.pictureViewer === pictureViewer) Desktop.pictureViewer = null
         }
     }
 

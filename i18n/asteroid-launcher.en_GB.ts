@@ -696,5 +696,9 @@
         <source>Tiles</source>
         <translation>Tiles</translation>
     </message>
+    <message id="id-picture-error">
+        <source>Can&apos;t display image</source>
+        <translation>Can&apos;t display image</translation>
+    </message>
 </context>
 </TS>

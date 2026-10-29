@@ -8,7 +8,8 @@ import org.asteroid.controls
 
 /*
  * One card of the notification stream, as Wear OS draws them: a rounded
- * dark card with the app, the time, the title and the newest lines. A tap
+ * dark card with the app, the time, the title and the newest lines (and a
+ * message's picture, NotificationPicture, under them). A tap
  * opens it; a swipe to either side drags it along under the finger and,
  * past a third of its width or on a flick, sends it off the screen and
  * dismisses it; otherwise it settles back (200 ms, LinearOutSlowIn).
@@ -47,14 +48,28 @@ Item {
     }
     readonly property real pad: Dims.l(4.5)
 
-    NotificationText {
+    Column {
         id: content
         x: card.pad
         y: card.pad
-        width: card.width - 2 * card.pad - (badge.visible ? badge.width : 0)
-        compact: true
-        notification: card.notification
-        timestamp: card.timestamp
+        width: card.width - 2 * card.pad
+        spacing: picture.visible ? Dims.h(2.5) : 0
+
+        NotificationText {
+            width: parent.width - (badge.visible ? badge.width : 0)
+            compact: true
+            notification: card.notification
+            timestamp: card.timestamp
+        }
+
+        // A message's picture, at most square here (the full view has all of it)
+        NotificationPicture {
+            id: picture
+            width: parent.width
+            maxHeight: width
+            radius: Math.max(0, bg.radius - card.pad)
+            notification: card.notification
+        }
     }
 
     Rectangle {

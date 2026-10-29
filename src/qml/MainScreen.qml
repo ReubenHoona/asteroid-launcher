@@ -213,9 +213,14 @@ Item {
     function crownPressed() {
         if (splash.visible)
             return
-        // the full screen keyboard of a reply goes first
+        // the full screen keyboard of a reply goes first, and a picture open
+        // full screen (back to its notification)
         if (Desktop.keyboard) {
             Desktop.keyboard.dismiss()
+            return
+        }
+        if (Desktop.pictureViewer) {
+            Desktop.pictureViewer.close()
             return
         }
         if (facePicker.visible || tilesEditor.visible) {

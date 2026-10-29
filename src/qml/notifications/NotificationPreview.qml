@@ -38,7 +38,8 @@ import "../desktop.js" as Desktop
 /*
  * A new notification as Wear OS shows it: a peek card slides up at the
  * bottom of the screen over whatever is there (250 ms, EmphasizedDecelerate),
- * with the app, the title and the newest lines. A tap opens the
+ * with the app, the title and the newest lines (and a message's picture, as a
+ * wide strip; never on the always-on display). A tap opens the
  * notification in the stream, a swipe down or to the side puts the card
  * away (the notification stays in the stream), and it goes by itself after
  * 5 s. Only the card takes touches.
@@ -162,15 +163,29 @@ Item {
             border.width: 1
         }
 
-        NotificationText {
+        Column {
             id: content
             x: card.pad
             y: card.pad
             width: card.width - 2 * card.pad
-            compact: true
-            notification: notificationWindow.shownNotification
-            //% "Now"
-            timestamp: qsTrId("id-now")
+            spacing: picture.visible ? Dims.h(2) : 0
+
+            NotificationText {
+                width: parent.width
+                compact: true
+                notification: notificationWindow.shownNotification
+                //% "Now"
+                timestamp: qsTrId("id-now")
+            }
+
+            // A message's picture, cropped to a wide strip in the peek card
+            NotificationPicture {
+                id: picture
+                width: parent.width
+                maxHeight: Math.round(width * 0.56)
+                radius: Math.max(0, Math.min(card.height / 2, Dims.l(8)) - card.pad)
+                notification: notificationWindow.shownNotification
+            }
         }
 
         TapHandler {
