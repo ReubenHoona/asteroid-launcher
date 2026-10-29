@@ -45,6 +45,14 @@ import org.nemomobile.lipstick
  * caller, time in call, End call and Hide. It neither turns the display on
  * nor keeps it on; Hide leaves the notification in the list.
  * Everything else keeps the usual notification preview.
+ *
+ * With the watch's hands-free link to the phone up (asteroid-btsyncd Calls,
+ * oFono), the call is also the phone's Bluetooth call, as on stock Wear OS:
+ * Answer answers it on the watch and the call audio comes to the watch;
+ * Decline and End call hang up over the link. In call: Mute (the watch's
+ * microphone), To phone / To watch (where the call audio plays), the call
+ * volume (- and +, and the crown). A call on the link with the audio on the
+ * watch gets the in-call view even without the phone's notification.
  */
 Item {
     id: incomingCall
@@ -60,13 +68,29 @@ Item {
 
     readonly property var callActions: call ? phoneActions(call) : []
     // The call shown is in progress (not ringing)
-    readonly property bool ongoing: call !== null && isOngoing(call)
+    readonly property bool ongoing: (call !== null && isOngoing(call)) || hfpOnly
     // Time in call, refreshed every second while shown
     property string elapsed: ""
     // The display is off: nothing to refresh
     property bool displayOff: false
 
-    visible: call !== null
+    // The phone's call on the watch's hands-free link (asteroid-btsyncd
+    // CallAudio, see GetCall): answered here, its audio comes to the watch
+    property var hfp: ({})
+    readonly property bool hfpRinging: hfp.available === true && (hfp.state === "incoming" || hfp.state === "waiting")
+    readonly property bool hfpInCall: hfp.available === true && ["active", "held", "dialing", "alerting"].indexOf(hfp.state) >= 0
+    readonly property bool audioOnWatch: hfpInCall && hfp.audioOnWatch === true
+    // A call on the link whose audio came to the watch, but no phone
+    // notification (yet): the in-call view all the same (also once the audio
+    // went to the phone, to bring it back), until hidden
+    property bool hfpHidden: false
+    property bool hfpShown: false
+    readonly property bool hfpOnly: call === null && hfpInCall && hfpShown && !hfpHidden
+
+    onAudioOnWatchChanged: if (audioOnWatch) hfpShown = true
+    onHfpInCallChanged: if (!hfpInCall) { hfpHidden = false; hfpShown = false }
+
+    visible: call !== null || hfpOnly
 
     function phoneActions(n) {
         var a = n.hints["x-asteroid-phone-actions"]
@@ -105,15 +129,16 @@ Item {
     }
 
     function updateElapsed() {
-        if (call === null)
+        if (call === null && !hfpOnly)
             return
         // A call the phone never said was over (the link dropped during
         // the call): do not keep it up, ticking, for ever
-        if (ongoing && !isOngoing(call)) {
+        if (call !== null && ongoing && !isOngoing(call)) {
             hide()
             return
         }
-        var s = Math.max(0, Math.floor((new Date().getTime() - call.timestamp.getTime()) / 1000))
+        var since = hfpInCall && hfp.activeSince > 0 ? hfp.activeSince : (call !== null ? call.timestamp.getTime() : new Date().getTime())
+        var s = Math.max(0, Math.floor((new Date().getTime() - since) / 1000))
         var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60
         s = s % 60
         elapsed = (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s
@@ -154,6 +179,8 @@ Item {
     }
 
     function hide() {
+        if (hfpInCall)
+            hfpHidden = true
         next(call)
     }
 
@@ -179,9 +206,38 @@ Item {
     function act(key) {
         var n = call
         next(n)
+        // Over the hands-free link, as stock: answered here, the call audio
+        // comes to the watch. The phone's notification action if the link
+        // cannot (no call there)
+        var method = key === "answer" && hfpRinging ? "Answer" :
+                     (key === "reject" && hfpRinging) || (key === "end" && hfpInCall) ? "Hangup" : ""
+        if (method !== "") {
+            calls.typedCall(method, [],
+                            function (done) { if (!done && n !== null) n.actionInvoked(key) },
+                            function (error, message) {
+                                console.log("IncomingCall:", method, error, message)
+                                if (n !== null)
+                                    n.actionInvoked(key)
+                            })
+            return
+        }
         // Lipstick reports it to asteroid-btsyncd, which tells the phone;
         // the notification then closes
-        n.actionInvoked(key)
+        if (n !== null)
+            n.actionInvoked(key)
+    }
+
+    function setMuted(muted) {
+        calls.typedCall("SetMuted", [{ "type": "b", "value": muted }])
+    }
+
+    function setVolume(volume) {
+        volume = Math.max(0, Math.min(100, volume))
+        calls.typedCall("SetVolume", [{ "type": "i", "value": volume }])
+    }
+
+    function setAudioOnWatch(onWatch) {
+        calls.typedCall("SetAudioOnWatch", [{ "type": "b", "value": onWatch }])
     }
 
     function silence() {
@@ -229,6 +285,21 @@ Item {
         iface: "org.asteroidos.btsyncd.Notifications"
     }
 
+    DBusInterface {
+        id: calls
+        bus: DBus.SessionBus
+        service: "org.asteroidos.btsyncd"
+        path: "/org/asteroidos/btsyncd/calls"
+        iface: "org.asteroidos.btsyncd.Calls"
+        signalsEnabled: true
+
+        function rcCallChanged(c) {
+            incomingCall.hfp = c
+        }
+
+        Component.onCompleted: typedCall("GetCall", [], function (c) { incomingCall.hfp = c })
+    }
+
     Timer {
         interval: 25000
         repeat: true
@@ -242,6 +313,15 @@ Item {
         triggeredOnStart: true
         running: incomingCall.visible && incomingCall.ongoing && !incomingCall.displayOff
         onTriggered: updateElapsed()
+    }
+
+    // The crown sets the call volume while the call audio is on the watch
+    WheelHandler {
+        target: null
+        enabled: incomingCall.visible && incomingCall.audioOnWatch
+        onWheel: function (event) {
+            incomingCall.setVolume(incomingCall.hfp.volume + (event.angleDelta.y > 0 ? 5 : -5))
+        }
     }
 
     // A phone that never says the call is over must not leave this up
@@ -287,7 +367,7 @@ Item {
 
     Label {
         id: caller
-        text: call ? call.summary : ""
+        text: call ? call.summary : (hfp.name ? hfp.name : (hfp.number ? hfp.number : ""))
         width: Dims.w(76)
         y: Dims.h(21)
         anchors.horizontalCenter: parent.horizontalCenter
@@ -298,7 +378,7 @@ Item {
 
     Label {
         id: number
-        text: call && call.body !== call.summary ? call.body : ""
+        text: call ? (call.body !== call.summary ? call.body : "") : (hfp.name && hfp.number ? hfp.number : "")
         width: Dims.w(70)
         anchors.top: caller.bottom
         anchors.horizontalCenter: parent.horizontalCenter
@@ -310,7 +390,11 @@ Item {
 
     Label {
         id: callState
-        text: (ongoing ?
+        text: (ongoing && hfpInCall && !audioOnWatch ?
+               //% "Call on phone %1"
+               //: %1 is the time in call, e.g. 1:23; the call audio is on the phone
+               qsTrId("id-call-on-phone").arg(elapsed) :
+               ongoing ?
                //% "In call %1"
                //: %1 is the time in call, e.g. 1:23
                qsTrId("id-call-in-progress").arg(elapsed) :
@@ -331,7 +415,7 @@ Item {
         property alias text: buttonLabel.text
         property color fill: "#444444"
         width: Dims.w(25)
-        height: width + buttonLabel.height + Dims.h(1)
+        height: width + (buttonLabel.text !== "" ? buttonLabel.height + Dims.h(1) : 0)
 
         Rectangle {
             id: circle
@@ -360,9 +444,11 @@ Item {
     }
 
     Row {
-        y: Dims.h(50)
+        // three buttons in a call on the hands-free link (Mute, End call,
+        // the audio's place), higher, the volume under them
+        y: incomingCall.ongoing && incomingCall.hfpInCall ? Dims.h(45) : Dims.h(50)
         anchors.horizontalCenter: parent.horizontalCenter
-        spacing: Dims.w(14)
+        spacing: incomingCall.ongoing && incomingCall.hfpInCall ? Dims.w(4) : Dims.w(14)
 
         CallButton {
             iconName: "ios-close"
@@ -383,12 +469,68 @@ Item {
         }
 
         CallButton {
+            iconName: incomingCall.hfp.muted ? "ios-mic-off" : "ios-mic"
+            fill: incomingCall.hfp.muted ? "#1565C0" : "#444444"
+            width: Dims.w(22)
+            text: (incomingCall.hfp.muted ?
+                   //% "Unmute"
+                   qsTrId("id-call-unmute") :
+                   //% "Mute"
+                   qsTrId("id-call-mute")) + localeManager.changesObserver
+            visible: incomingCall.ongoing && incomingCall.audioOnWatch
+            onClicked: incomingCall.setMuted(!incomingCall.hfp.muted)
+        }
+
+        CallButton {
             iconName: "ios-call"
             fill: "#C62828"
             //% "End call"
             text: qsTrId("id-call-end") + localeManager.changesObserver
-            visible: incomingCall.ongoing && incomingCall.hasAction("end")
+            width: incomingCall.ongoing && incomingCall.hfpInCall ? Dims.w(22) : Dims.w(25)
+            visible: incomingCall.ongoing && (incomingCall.hasAction("end") || incomingCall.hfpInCall)
             onClicked: incomingCall.act("end")
+        }
+
+        CallButton {
+            iconName: incomingCall.audioOnWatch ? "ios-phone-portrait" : "ios-watch"
+            width: Dims.w(22)
+            text: (incomingCall.audioOnWatch ?
+                   //% "To phone"
+                   //: Moves the call audio from the watch to the phone
+                   qsTrId("id-call-to-phone") :
+                   //% "To watch"
+                   //: Brings the call audio from the phone to the watch
+                   qsTrId("id-call-to-watch")) + localeManager.changesObserver
+            visible: incomingCall.ongoing && incomingCall.hfpInCall
+            onClicked: incomingCall.setAudioOnWatch(!incomingCall.audioOnWatch)
+        }
+    }
+
+    // The call volume, while the call audio is on the watch
+    Row {
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: Dims.h(74)
+        spacing: Dims.w(4)
+        visible: incomingCall.ongoing && incomingCall.audioOnWatch
+
+        CallButton {
+            iconName: "ios-volume-down"
+            width: Dims.w(11)
+            onClicked: incomingCall.setVolume(incomingCall.hfp.volume - 10)
+        }
+
+        Label {
+            //% "Volume %1"
+            //: %1 is the call volume, 0 to 100
+            text: qsTrId("id-call-volume").arg(incomingCall.hfp.volume !== undefined ? incomingCall.hfp.volume : 0) + localeManager.changesObserver
+            anchors.verticalCenter: parent.verticalCenter
+            font.pixelSize: Dims.l(5)
+        }
+
+        CallButton {
+            iconName: "ios-volume-up"
+            width: Dims.w(11)
+            onClicked: incomingCall.setVolume(incomingCall.hfp.volume + 10)
         }
     }
 
@@ -408,10 +550,11 @@ Item {
         //% "Hide"
         text: qsTrId("id-call-hide") + localeManager.changesObserver
         width: Dims.w(40)
-        height: Dims.h(12)
+        // under the volume while the call audio is on the watch
+        height: incomingCall.audioOnWatch ? Dims.h(10) : Dims.h(12)
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Dims.h(6)
+        anchors.bottomMargin: incomingCall.audioOnWatch ? Dims.h(2) : Dims.h(6)
         visible: incomingCall.ongoing
         onClicked: incomingCall.hide()
     }
