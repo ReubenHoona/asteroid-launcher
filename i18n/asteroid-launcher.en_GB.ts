@@ -131,6 +131,34 @@
         <source>Hide</source>
         <translation>Hide</translation>
     </message>
+    <message id="id-call-on-phone">
+        <source>Call on phone %1</source>
+        <extracomment>%1 is the time in call, e.g. 1:23; the call audio is on the phone</extracomment>
+        <translation>Call on phone %1</translation>
+    </message>
+    <message id="id-call-mute">
+        <source>Mute</source>
+        <translation>Mute</translation>
+    </message>
+    <message id="id-call-unmute">
+        <source>Unmute</source>
+        <translation>Unmute</translation>
+    </message>
+    <message id="id-call-to-phone">
+        <source>To phone</source>
+        <extracomment>Moves the call audio from the watch to the phone</extracomment>
+        <translation>To phone</translation>
+    </message>
+    <message id="id-call-to-watch">
+        <source>To watch</source>
+        <extracomment>Brings the call audio from the phone to the watch</extracomment>
+        <translation>To watch</translation>
+    </message>
+    <message id="id-call-volume">
+        <source>Volume %1</source>
+        <extracomment>%1 is the call volume, 0 to 100</extracomment>
+        <translation>Volume %1</translation>
+    </message>
     <message id="id-call-incoming">
         <location line="+2"/>
         <source>Incoming call</source>
