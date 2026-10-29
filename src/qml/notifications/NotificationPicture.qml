@@ -21,7 +21,9 @@ import org.nemomobile.lipstick
  *   showError  when it will not come: Wear OS's "Can't display image" (the
  *              full view) instead of nothing (cards, the heads-up)
  *   tappable   a tap on it says tapped() (the full view opens it full screen)
- * Nothing of it on the always-on display (the space stays).
+ * Nothing of it on the always-on display (the space stays): hidden as soon as
+ * the display dims, so the frame the low-power panel keeps after the blank
+ * has no picture (stock Wear OS shows only the watch face in ambient).
  */
 Item {
     id: pic
@@ -54,7 +56,9 @@ Item {
                                    : (hintAspect > 0 ? hintAspect : 0.75)
     readonly property bool wanted: path !== ""
     readonly property bool failed: pictureState === 2
-    readonly property bool ambient: Lipstick.compositor.displayAmbient
+    // the display dimmed (it blanks next: lipstick draws nothing between the
+    // blank and the first ambient update), or in ambient
+    readonly property bool ambient: Lipstick.compositor.displayAmbient || Lipstick.compositor.displayDimmed
 
     visible: wanted && (!failed || showError)
     height: !visible ? 0 : failed ? errorColumn.height : Math.round(Math.min(maxHeight, width * aspect))
