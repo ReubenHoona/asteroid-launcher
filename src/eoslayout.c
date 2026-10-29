@@ -26,13 +26,18 @@ enum {
 	OP_PROPERTY = 32, OP_LOCALE = 34, OP_TEXT_BINDING = 35, OP_KV = 36,
 };
 
-/* SkExpressionType: expr_parse rule actions + byacc tables simulated (re/byacc_sim.py) */
+/* SkExpressionType: expr_parse rule actions + byacc tables simulated (re/byacc_sim.py);
+ * 5, 6, 9..12 from the hub's evaluator (hub 0x3d37a4: 5 ==, 6 != (not ==), 9 <= (not >),
+ * 10 >= (not <), 11 ||, 12 &&) */
 enum {
-	EX_ADD = 0, EX_SUB = 1, EX_MUL = 2, EX_DIV = 3, EX_MOD = 4,
-	EX_LT = 7, EX_GT = 8, EX_COND = 13, EX_NOT = 14, EX_NEG = 15,
+	EX_ADD = 0, EX_SUB = 1, EX_MUL = 2, EX_DIV = 3, EX_MOD = 4, EX_EQ = 5, EX_NE = 6,
+	EX_LT = 7, EX_GT = 8, EX_LE = 9, EX_GE = 10, EX_OR = 11, EX_AND = 12,
+	EX_COND = 13, EX_NOT = 14, EX_NEG = 15,
 };
 
 #define BT_TEXT_GLYPHS	14	/* SkBindingType of a bitmap-text glyph binding (op 35) */
+#define BT_MATRIX_TX	2	/* op 19 types 0..8: element of a concat op's SkMatrix (hub 0x3d2b3c) */
+#define BT_MATRIX_TY	5
 #define MAX_ITEMS	64
 
 typedef struct {
@@ -59,7 +64,7 @@ struct el_layout {
 	struct glyphvec vec[MAX_ITEMS]; int nvec;
 	struct expr ex[MAX_ITEMS]; int nex;
 	struct bitmap bmp[16]; int nbmp;
-	struct typeface tf[8]; int ntf;
+	struct typeface tf[16]; int ntf;
 	uint16_t next_prop;
 	uint32_t next_op;
 	uint32_t next_bitmap_id, next_typeface_id;
@@ -313,7 +318,7 @@ int el_glyph_atlas_a8(el_layout *L, int n, int cell_w, int cell_h,
 	struct bitmap *b;
 	uint16_t cw16 = (cell_w + 15) & 0xfff0;	/* HAL AddBitmapTypeface 0x1e570 repack */
 
-	if (L->ntf >= 8 || L->nbmp >= 16)
+	if (L->ntf >= 16 || L->nbmp >= 16)
 		return fail(L, "too many atlases");
 	if (n < 1 || n > 256 || cell_w < 1 || cell_h < 1 || cell_h > 0xffff ||
 	    (uint32_t)n * cw16 > 0xffff)
@@ -373,14 +378,36 @@ static int add_name(el_layout *L, const char *s, uint32_t off)
 	return 0;
 }
 
+/* a generated property for an expression: its id, or -1 */
+static int new_prop(el_layout *L, const char *expr, uint16_t type)
+{
+	if (L->nex >= MAX_ITEMS || L->next_prop == 0xffff)
+		return fail(L, "too many properties");
+	L->ex[L->nex].prop = L->next_prop;
+	L->ex[L->nex].type = type;
+	L->ex[L->nex].s = strdup(expr);
+	if (!L->ex[L->nex].s)
+		return fail(L, "out of memory");
+	L->nex++;
+	return L->next_prop++;
+}
+
 int el_sprite_text(el_layout *L, int typeface, float x, float y, uint32_t rgba,
 		   int n, const char *const *glyph_expr, const uint16_t *const_glyphs)
+{
+	return el_sprite_text_at(L, typeface, x, y, NULL, NULL, rgba, n, glyph_expr, const_glyphs);
+}
+
+int el_sprite_text_at(el_layout *L, int typeface, float x, float y, const char *x_expr,
+		      const char *y_expr, uint32_t rgba, int n, const char *const *glyph_expr,
+		      const uint16_t *const_glyphs)
 {
 	struct typeface *t;
 	struct glyphvec *v = NULL;
 	char name[16] = "";
 	uint8_t *p;
 	int64_t off;
+	int pid;
 
 	if (L->finished)
 		return fail(L, "layout finished");
@@ -398,28 +425,47 @@ int el_sprite_text(el_layout *L, int typeface, float x, float y, uint32_t rgba,
 			v = &L->vec[L->nvec];
 			v->n = 0;
 		}
-		if (L->nex >= MAX_ITEMS || L->next_prop == 0xffff)
-			return fail(L, "too many properties");
-		L->ex[L->nex].prop = L->next_prop;
-		L->ex[L->nex].type = EL_PT_UINT32;	/* glyphIndexBindings are uint32 */
-		L->ex[L->nex].s = strdup(glyph_expr[i]);
-		if (!L->ex[L->nex].s)
-			return fail(L, "out of memory");
+		/* glyphIndexBindings are uint32 */
+		if ((pid = new_prop(L, glyph_expr[i], EL_PT_UINT32)) < 0)
+			return -1;
 		v->slot[v->n] = i;
-		v->prop[v->n] = L->next_prop++;
+		v->prop[v->n] = pid;
 		v->n++;
-		L->nex++;
 	}
-	/* TranslationGroup with constant offsets (HAL 0x245e8): save, translate, child, restore */
+	/* TranslationGroup (HAL 0x245e8): save, translate, child, restore. An offset bound to
+	 * an expression is a matrix binding (op 19 type 2 = tx, 5 = ty, float) on the concat
+	 * op, which then gets a name of its own; the constant x, y are its initial values. */
 	if (op_add(L, 1, OP_SAVE, 4, &p) < 0)
 		return -1;
-	if (op_add(L, 1, OP_CONCAT, 40, &p) < 0)
+	if ((off = op_add(L, 1, OP_CONCAT, 40, &p)) < 0)
 		return -1;
 	putf(p + 4, 1.0f);	/* SkMatrix {sx, kx, tx, ky, sy, ty, p0, p1, p2} */
 	putf(p + 12, x);
 	putf(p + 20, 1.0f);
 	putf(p + 24, y);
 	putf(p + 36, 1.0f);
+	if (x_expr || y_expr) {
+		const char *e[2] = { x_expr, y_expr };
+		const uint16_t bt[2] = { BT_MATRIX_TX, BT_MATRIX_TY };
+		char cname[16];
+
+		snprintf(cname, sizeof(cname), "op%u", ++L->next_op);
+		if (add_name(L, cname, (uint32_t)off) < 0)
+			return -1;
+		for (int k = 0; k < 2; k++) {
+			if (!e[k])
+				continue;
+			if (L->nbind >= MAX_ITEMS)
+				return fail(L, "too many bindings");
+			if ((pid = new_prop(L, e[k], EL_PT_FLOAT)) < 0)
+				return -1;
+			snprintf(L->bind[L->nbind].name, sizeof(L->bind[0].name), "%s", cname);
+			L->bind[L->nbind].type = bt[k];
+			L->bind[L->nbind].prop = pid;
+			L->bind[L->nbind].vec = -1;
+			L->nbind++;
+		}
+	}
 	if (v) {
 		/* GetNextOpId (HAL 0x21ed8): "op" + pre-incremented counter */
 		snprintf(name, sizeof(name), "op%u", ++L->next_op);
@@ -623,37 +669,67 @@ static int64_t ex_add(struct ex_ctx *c)
 	}
 }
 
-static int64_t ex_cmp(struct ex_ctx *c)
+/* one level of left-associative binary operators: ops[k] gives types[k] */
+static int64_t ex_binary(struct ex_ctx *c, int64_t (*next)(struct ex_ctx *),
+			 const char *const *ops, const uint32_t *types, int nops)
 {
-	int64_t a = ex_add(c), b;
+	int64_t a = next(c), b;
 
 	for (;;) {
-		uint32_t t;
+		int k;
 
 		if (a < 0)
 			return a;
 		ex_ws(c);
-		/* == != <= >= && || exist (tokens 0x105..0x10a, types 5,6,9..12) but
-		 * which is which is not resolved: refused */
-		if ((c->s[0] == '<' || c->s[0] == '>') && c->s[1] == '=')
-			return fail(c->L, "<= and >= are not supported");
-		if (c->s[0] == '<')
-			t = EX_LT;
-		else if (c->s[0] == '>')
-			t = EX_GT;
-		else
+		for (k = 0; k < nops; k++)
+			if (!strncmp(c->s, ops[k], strlen(ops[k])))
+				break;
+		if (k == nops)
 			return a;
-		c->s++;
-		b = ex_add(c);
+		c->s += strlen(ops[k]);
+		b = next(c);
 		if (b < 0)
 			return b;
-		a = node2(c, t, (uint32_t)a, (uint32_t)b);
+		a = node2(c, types[k], (uint32_t)a, (uint32_t)b);
 	}
+}
+
+/* C precedence: < > <= >=, then == !=, then &&, then ||, then ?: */
+static int64_t ex_cmp(struct ex_ctx *c)
+{
+	static const char *const ops[] = { "<=", ">=", "<", ">" };
+	static const uint32_t types[] = { EX_LE, EX_GE, EX_LT, EX_GT };
+
+	return ex_binary(c, ex_add, ops, types, 4);
+}
+
+static int64_t ex_eq(struct ex_ctx *c)
+{
+	static const char *const ops[] = { "==", "!=" };
+	static const uint32_t types[] = { EX_EQ, EX_NE };
+
+	return ex_binary(c, ex_cmp, ops, types, 2);
+}
+
+static int64_t ex_and(struct ex_ctx *c)
+{
+	static const char *const ops[] = { "&&" };
+	static const uint32_t types[] = { EX_AND };
+
+	return ex_binary(c, ex_eq, ops, types, 1);
+}
+
+static int64_t ex_or(struct ex_ctx *c)
+{
+	static const char *const ops[] = { "||" };
+	static const uint32_t types[] = { EX_OR };
+
+	return ex_binary(c, ex_and, ops, types, 1);
 }
 
 static int64_t ex_cond(struct ex_ctx *c)
 {
-	int64_t a = ex_cmp(c), b, d, o;
+	int64_t a = ex_or(c), b, d, o;
 	uint8_t *p;
 
 	if (a < 0)

@@ -86,6 +86,15 @@ int el_glyph_atlas_a8(el_layout *L, int n, int cell_w, int cell_h,
 int el_sprite_text(el_layout *L, int typeface, float x, float y, uint32_t rgba,
 		   int n, const char *const *glyph_expr, const uint16_t *const_glyphs);
 
+/*
+ * The same with the translation bound to expressions (the stock TranslationGroup with a
+ * bound offset): x_expr / y_expr (NULL: the constant x / y) give the top-left of the
+ * first cell as a float, e.g. "(" EL_EXPR_HOUR12 " < 10 ? 120.0 : 96.0)".
+ */
+int el_sprite_text_at(el_layout *L, int typeface, float x, float y, const char *x_expr,
+		      const char *y_expr, uint32_t rgba, int n, const char *const *glyph_expr,
+		      const uint16_t *const_glyphs);
+
 /* Layout annotation (op 36), e.g. "render_trigger.min_data_period.sec" "60". */
 int el_kv(el_layout *L, const char *key, const char *value);
 
@@ -109,5 +118,7 @@ int el_msg_sync_time(uint8_t *b, int64_t unix_minus_boot_ms, uint32_t local_ms_o
 #define EL_EXPR_HOUR12_D2	"((({0} + 11)%12 + 1)%10)"
 #define EL_EXPR_MIN_D1		"({1}/10)"
 #define EL_EXPR_MIN_D2		"({1}%10)"
+/* the hour of a 12 h clock, 1..12 (the inner part of the stock hour12 expressions) */
+#define EL_EXPR_HOUR12		"(({0} + 11)%12 + 1)"
 
 #endif
