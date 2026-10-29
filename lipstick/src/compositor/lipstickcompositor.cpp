@@ -669,7 +669,8 @@ void LipstickCompositor::scheduleAmbientUpdate()
 
     uint cookie = 0;
     QList<QVariant> cookies = reply.value();
-    if (offloaded && m_offloadValidUntil <= time(nullptr)) {
+    // eos: a layout that never expires needs no AP wakeup at all
+    if (offloaded && m_offloadValidUntil == 0) {
         for (const QVariant &c : cookies) {
             bool ok = true;
             uint id = c.toUInt(&ok);
@@ -713,8 +714,10 @@ void LipstickCompositor::scheduleAmbientUpdate()
         wakeupTime = currentTime;
     }
     wakeupTime += 60;
-    // eos: while the hub draws, only the layout's expiry wakes the AP
-    if (offloaded)
+    // eos: while the hub draws, only the layout's expiry wakes the AP; one
+    // that has expired already (the wakeup came a moment early, or the
+    // rebuild failed) gets the next minute's wakeup, to rebuild it
+    if (offloaded && m_offloadValidUntil > currentTime)
         wakeupTime = m_offloadValidUntil;
     wakeupEvent.setTicker(wakeupTime);
     wakeupEvent.setAttribute(QLatin1String("APPLICATION"), QLatin1String("wakup_alarm"));
