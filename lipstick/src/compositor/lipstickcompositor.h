@@ -211,8 +211,8 @@ private:
 
     void scheduleAmbientUpdate();
     QByteArray offloadRequest(const QByteArray &request, int timeoutSec = 2);
-    void offloadSuspend();
-    void offloadResume();
+    void offloadSuspend(const char *why);
+    void offloadResume(const char *why);
 
     static LipstickCompositor *m_instance;
 
@@ -249,6 +249,9 @@ private:
     bool m_ambientModeEnabled;
     bool m_displayOffloaded = false;
     qint64 m_offloadValidUntil = 0;
+    // the daemon was told the display is ready (suspend) and not since that
+    // it is not (resume)
+    bool m_offloadDisplayReady = false;
 };
 
 #endif // LIPSTICKCOMPOSITOR_H

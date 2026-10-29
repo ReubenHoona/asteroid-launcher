@@ -762,22 +762,31 @@ QByteArray LipstickCompositor::offloadRequest(const QByteArray &request, int tim
     return QByteArray(reply, n);
 }
 
-void LipstickCompositor::offloadSuspend()
+// why: "blank" (mce stopped the updates) or "ambient" (after an ambient
+// update), for the daemon's log
+void LipstickCompositor::offloadSuspend(const char *why)
 {
-    const bool offloaded = offloadRequest("suspend").startsWith("ok offloaded");
+    m_offloadDisplayReady = true;
+    const bool offloaded = offloadRequest(QByteArray("suspend ") + why).startsWith("ok offloaded");
     if (offloaded != m_displayOffloaded) {
         m_displayOffloaded = offloaded;
         emit displayOffloadedChanged();
     }
 }
 
-void LipstickCompositor::offloadResume()
+// why: "unblank" (mce turns the display on) or "ambient" (an ambient update)
+void LipstickCompositor::offloadResume(const char *why)
 {
-    if (!m_displayOffloaded)
+    // also when the hub did not take the display (no layout yet): the
+    // daemon must not keep it "ready" while it turns on
+    if (!m_offloadDisplayReady)
         return;
-    offloadRequest("resume");
-    m_displayOffloaded = false;
-    emit displayOffloadedChanged();
+    offloadRequest(QByteArray("resume ") + why);
+    m_offloadDisplayReady = false;
+    if (m_displayOffloaded) {
+        m_displayOffloaded = false;
+        emit displayOffloadedChanged();
+    }
 }
 
 bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil)
@@ -798,6 +807,13 @@ void LipstickCompositor::clearOffloadLayout()
 
 void LipstickCompositor::setAmbientUpdatesEnabled(bool enabled)
 {
+    // eos: ambient updates only while mce has the display blanked. Once mce
+    // turns it on (setUpdatesEnabled(true)) and before its display state
+    // says so, the launcher's ambient minute timer could still start an
+    // ambient update, and its end hid the window and told the display
+    // offload daemon the display was ready while it was turning on
+    if (m_updatesEnabled)
+        return;
     if (enabled) {
         if (m_currentDisplayState == QMceDisplay::DisplayOn) {
             return;
@@ -836,13 +852,13 @@ void LipstickCompositor::setUpdatesEnabled(bool enabled, bool inAmbientMode)
             // mode: the hub may take it (stock: startDisplayControl after a
             // suspended display state)
             if (ambientEnabled())
-                offloadSuspend();
+                offloadSuspend(inAmbientMode ? "ambient" : "blank");
 
             scheduleAmbientUpdate();
         } else {
             // eos: before the panel mode changes or the AP draws, the hub
             // gives the panel back (stock: endDisplayControl first)
-            offloadResume();
+            offloadResume(inAmbientMode ? "ambient" : "unblank");
             if (m_window->handle() && !inAmbientMode) {
                 QGuiApplication::platformNativeInterface()->nativeResourceForIntegration("DisplayOn");
             }
