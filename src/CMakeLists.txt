@@ -9,7 +9,9 @@ set(SRC
 	healthlog.cpp
 	crownbutton.cpp
 	aodbrightness.cpp
-	assistantkey.cpp)
+	assistantkey.cpp
+	huboffload.cpp
+	eoslayout.c)
 set(HEADERS
 	applauncherbackground.h
 	firstrun.h
@@ -20,7 +22,9 @@ set(HEADERS
 	healthlog.h
 	crownbutton.h
 	aodbrightness.h
-	assistantkey.h)
+	assistantkey.h
+	huboffload.h
+	eoslayout.h)
 
 add_executable(asteroid-launcher ${SRC} ${HEADERS} resources-qml.qrc)
 

@@ -57,6 +57,8 @@ class LipstickCompositor : public QWaylandQuickCompositor
     Q_PROPERTY(bool ambientSupported READ ambientSupported CONSTANT)
     Q_PROPERTY(bool ambientEnabled READ ambientEnabled WRITE setAmbientEnabled NOTIFY ambientEnabledChanged)
     Q_PROPERTY(bool displayAmbient READ displayAmbient NOTIFY displayAmbientChanged)
+    // eos: the sensor hub draws the always-on display (the AP does not)
+    Q_PROPERTY(bool displayOffloaded READ displayOffloaded NOTIFY displayOffloadedChanged)
 
 public:
     LipstickCompositor();
@@ -115,6 +117,17 @@ public:
 
     bool displayAmbient() const { return (m_currentDisplayState == QMceDisplay::DisplayOff) && ambientEnabled(); }
     Q_INVOKABLE void setUpdatesEnabled(bool enabled, bool inAmbientMode = false);
+
+    /*
+     * eos display offload (eos-display-offload daemon, the stock display
+     * offload HAL): the layout the hub draws while the AP sleeps, as the
+     * hub's render-channel messages in a file (eoslayout), or none.
+     */
+    bool displayOffloaded() const { return m_displayOffloaded; }
+    Q_INVOKABLE bool setOffloadLayout(const QString &path, qint64 validUntil = 0);
+    Q_INVOKABLE void clearOffloadLayout();
+    // the daemon's status line ("ok state=... layout=0|1 ..."), empty without a daemon
+    Q_INVOKABLE QString offloadStatus() { return QString::fromLocal8Bit(offloadRequest("status")); }
     LipstickCompositorWindow *createView(QWaylandSurface *surf);
 
     QQuickWindow *quickWindow() { return m_window; }
@@ -157,6 +170,7 @@ signals:
     void displayAboutToBeOff();
 
     void ambientEnabledChanged();
+    void displayOffloadedChanged();
 
     void completedChanged();
 
@@ -196,6 +210,9 @@ private:
     QQmlComponent *shaderEffectComponent();
 
     void scheduleAmbientUpdate();
+    QByteArray offloadRequest(const QByteArray &request, int timeoutSec = 2);
+    void offloadSuspend();
+    void offloadResume();
 
     static LipstickCompositor *m_instance;
 
@@ -230,6 +247,8 @@ private:
 
     Maemo::Timed::Interface *m_timedDbus;
     bool m_ambientModeEnabled;
+    bool m_displayOffloaded = false;
+    qint64 m_offloadValidUntil = 0;
 };
 
 #endif // LIPSTICKCOMPOSITOR_H

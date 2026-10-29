@@ -31,6 +31,11 @@
 #include <QWaylandQuickShellSurfaceItem>
 
 #include <mce/dbus-names.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/time.h>
+#include <unistd.h>
 #include <mce/mode-names.h>
 
 
@@ -650,6 +655,9 @@ void LipstickCompositor::scheduleAmbientUpdate()
     if (!ambientEnabled()) {
         return;
     }
+    // eos: the hub draws the time, the AP needs no wakeup per minute (stock:
+    // only the layout's minutes_valid schedules an AP update)
+    const bool offloaded = m_displayOffloaded;
     QMap<QString,QVariant> match;
     match.insert("type", QVariant(QString("wakeup")));
     QDBusReply< QList<QVariant> > reply = m_timedDbus->query_sync(match);
@@ -661,6 +669,15 @@ void LipstickCompositor::scheduleAmbientUpdate()
 
     uint cookie = 0;
     QList<QVariant> cookies = reply.value();
+    if (offloaded && m_offloadValidUntil <= time(nullptr)) {
+        for (const QVariant &c : cookies) {
+            bool ok = true;
+            uint id = c.toUInt(&ok);
+            if (ok)
+                m_timedDbus->cancel_sync(id);
+        }
+        return;
+    }
     // Cancel all wakeup cookies except one.
     while (!cookies.isEmpty()) {
         bool ok = true;
@@ -696,6 +713,9 @@ void LipstickCompositor::scheduleAmbientUpdate()
         wakeupTime = currentTime;
     }
     wakeupTime += 60;
+    // eos: while the hub draws, only the layout's expiry wakes the AP
+    if (offloaded)
+        wakeupTime = m_offloadValidUntil;
     wakeupEvent.setTicker(wakeupTime);
     wakeupEvent.setAttribute(QLatin1String("APPLICATION"), QLatin1String("wakup_alarm"));
     wakeupEvent.setAttribute(QLatin1String("type"), QLatin1String("wakeup"));
@@ -711,6 +731,65 @@ void LipstickCompositor::scheduleAmbientUpdate()
         QDBusReply<uint> res = m_timedDbus->replace_event_sync(wakeupEvent, cookie);
     } else {
         QDBusReply<uint> res = m_timedDbus->add_event_sync(wakeupEvent);
+    }
+}
+
+QByteArray LipstickCompositor::offloadRequest(const QByteArray &request, int timeoutSec)
+{
+    struct sockaddr_un sa;
+    struct timeval tv = { timeoutSec, 0 };
+    char reply[512];
+    ssize_t n = -1;
+    int s = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
+
+    if (s < 0)
+        return QByteArray();
+    memset(&sa, 0, sizeof(sa));
+    sa.sun_family = AF_UNIX;
+    strncpy(sa.sun_path, "/run/eos-display-offload/socket", sizeof(sa.sun_path) - 1);
+    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+    if (::connect(s, reinterpret_cast<struct sockaddr *>(&sa), sizeof(sa)) == 0 &&
+        ::send(s, request.constData(), request.size(), MSG_NOSIGNAL) == request.size())
+        n = ::recv(s, reply, sizeof(reply) - 1, 0);
+    ::close(s);
+    if (n <= 0) {
+        // no daemon: the AP keeps drawing the always-on display
+        return QByteArray();
+    }
+    return QByteArray(reply, n);
+}
+
+void LipstickCompositor::offloadSuspend()
+{
+    const bool offloaded = offloadRequest("suspend").startsWith("ok offloaded");
+    if (offloaded != m_displayOffloaded) {
+        m_displayOffloaded = offloaded;
+        emit displayOffloadedChanged();
+    }
+}
+
+void LipstickCompositor::offloadResume()
+{
+    if (!m_displayOffloaded)
+        return;
+    offloadRequest("resume");
+    m_displayOffloaded = false;
+    emit displayOffloadedChanged();
+}
+
+bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil)
+{
+    m_offloadValidUntil = validUntil;
+    // the upload is about 1-5 ms per 255-byte message on the hub's SPI link
+    return offloadRequest("layout " + path.toLocal8Bit(), 15).startsWith("ok");
+}
+
+void LipstickCompositor::clearOffloadLayout()
+{
+    offloadRequest("clear");
+    if (m_displayOffloaded) {
+        m_displayOffloaded = false;
+        emit displayOffloadedChanged();
     }
 }
 
@@ -750,8 +829,17 @@ void LipstickCompositor::setUpdatesEnabled(bool enabled, bool inAmbientMode)
             // trigger frame callbacks which are pending already at this time
             surfaceCommitted();
 
+            // eos: the AP stopped drawing and the panel is in its low-power
+            // mode: the hub may take it (stock: startDisplayControl after a
+            // suspended display state)
+            if (ambientEnabled())
+                offloadSuspend();
+
             scheduleAmbientUpdate();
         } else {
+            // eos: before the panel mode changes or the AP draws, the hub
+            // gives the panel back (stock: endDisplayControl first)
+            offloadResume();
             if (m_window->handle() && !inAmbientMode) {
                 QGuiApplication::platformNativeInterface()->nativeResourceForIntegration("DisplayOn");
             }
