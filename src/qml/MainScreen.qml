@@ -489,10 +489,16 @@ Item {
         onTriggered: {
             // The face has drawn this minute in its ambient style: give its
             // layout to the sensor hub, which then draws the time while the
-            // AP sleeps (stock display offload; kept while unchanged)
-            if (Lipstick.compositor.displayAmbient && desktop.centreItem)
-                hubOffload.update(desktop.centreItem.activeFace, use12H.value,
-                                  desktop.centreItem.activeSource)
+            // AP sleeps (stock display offload; kept while unchanged). Not in
+            // nightstand: on the charger the AP does not sleep anyway, and
+            // the face shows the charge
+            if (Lipstick.compositor.displayAmbient && desktop.centreItem) {
+                if (nightstand)
+                    hubOffload.clear()
+                else
+                    hubOffload.update(desktop.centreItem.activeFace, use12H.value,
+                                      desktop.centreItem.activeSource, wallClock.time)
+            }
             Lipstick.compositor.setAmbientUpdatesEnabled(false)
         }
     }

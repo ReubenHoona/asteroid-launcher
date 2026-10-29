@@ -129,6 +129,8 @@ Item {
 
         Text {
             id: hourDisplay
+            // the sensor hub draws these digits in always-on (HubOffload)
+            objectName: "eosHubHour"
 
             renderType: Text.NativeRendering
             color: Qt.rgba(1, 1, 1, 1)
@@ -160,6 +162,7 @@ Item {
 
         Text {
             id: minuteDisplay
+            objectName: "eosHubMinute"
 
             renderType: Text.NativeRendering
             color: Qt.rgba(1, 1, 1, 1)

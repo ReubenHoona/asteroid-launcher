@@ -39,6 +39,8 @@ Item {
 
             Text {
                 id: hourText
+                // the sensor hub draws these digits in always-on (HubOffload)
+                objectName: "eosHubHour"
 
                 anchors {
                     horizontalCenter: parent.horizontalCenter
@@ -62,6 +64,7 @@ Item {
 
             Text {
                 id: minuteText
+                objectName: "eosHubMinute"
 
                 anchors {
                     horizontalCenter: parent.horizontalCenter
