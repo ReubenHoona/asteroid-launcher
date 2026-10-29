@@ -249,6 +249,9 @@ private:
     bool m_ambientModeEnabled;
     bool m_displayOffloaded = false;
     qint64 m_offloadValidUntil = 0;
+    // what the display offload daemon holds, as far as this compositor knows
+    // (unknown: an earlier launcher may have left it a layout)
+    enum { OffloadLayoutUnknown, OffloadLayoutNone, OffloadLayoutSet } m_offloadLayout = OffloadLayoutUnknown;
     // the daemon was told the display is ready (suspend) and not since that
     // it is not (resume)
     bool m_offloadDisplayReady = false;

@@ -766,6 +766,15 @@ QByteArray LipstickCompositor::offloadRequest(const QByteArray &request, int tim
 // update), for the daemon's log
 void LipstickCompositor::offloadSuspend(const char *why)
 {
+    // A layout this compositor did not send (a launcher restart left it with
+    // the daemon) or one past its expiry would show a stale face or date:
+    // clear it before the display may be handed over, the next ambient
+    // update sends the new one (stock: the layout is cleared when the face
+    // changes and a new one is sent before it can be shown)
+    if (m_offloadLayout == OffloadLayoutUnknown ||
+        (m_offloadLayout == OffloadLayoutSet && m_offloadValidUntil &&
+         m_offloadValidUntil <= time(nullptr)))
+        clearOffloadLayout();
     m_offloadDisplayReady = true;
     const bool offloaded = offloadRequest(QByteArray("suspend ") + why).startsWith("ok offloaded");
     if (offloaded != m_displayOffloaded) {
@@ -793,12 +802,16 @@ bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil
 {
     m_offloadValidUntil = validUntil;
     // the upload is about 1-5 ms per 255-byte message on the hub's SPI link
-    return offloadRequest("layout " + path.toLocal8Bit(), 15).startsWith("ok");
+    const bool ok = offloadRequest("layout " + path.toLocal8Bit(), 15).startsWith("ok");
+    // (a failed upload leaves the daemon without a layout)
+    m_offloadLayout = ok ? OffloadLayoutSet : OffloadLayoutNone;
+    return ok;
 }
 
 void LipstickCompositor::clearOffloadLayout()
 {
     offloadRequest("clear");
+    m_offloadLayout = OffloadLayoutNone;
     if (m_displayOffloaded) {
         m_displayOffloaded = false;
         emit displayOffloadedChanged();

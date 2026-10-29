@@ -659,3 +659,9 @@ void HubOffload::clear()
     if (m_loaded)
         drop(true);
 }
+
+void HubOffload::invalidate()
+{
+    drop(true);
+    m_failedKey.clear();
+}

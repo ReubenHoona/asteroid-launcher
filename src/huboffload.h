@@ -52,7 +52,12 @@ public:
     // a layout for it.
     Q_INVOKABLE bool update(QQuickItem *face, bool use12h, const QString &faceSource,
                             const QDateTime &shown);
+    // No layout for the hub (the face is not to be offloaded now)
     Q_INVOKABLE void clear();
+    // The face, or a setting it draws with, changed: whatever layout the
+    // daemon holds is stale, drop it at once (stock: a watch face change
+    // clears the offload layout), the next ambient update builds a new one
+    Q_INVOKABLE void invalidate();
 
 private:
     bool build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, bool use12h,

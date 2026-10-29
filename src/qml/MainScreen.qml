@@ -482,6 +482,17 @@ Item {
         defaultValue: false
     }
 
+    // The sensor hub's always-on layout is the face drawn with these: when
+    // one changes, the layout the hub holds shows the old look, so it goes
+    // at once, before the display can go off with it (stock clears the
+    // offload layout when the watch face changes); the next ambient update
+    // builds the new one
+    readonly property string hubLayoutInputs: [watchFaceSource.value, watchfaceNightstandSource.value,
+                                               use12H.value, faceShowDate.value,
+                                               faceAmbientStyle.value].join("|")
+    onHubLayoutInputsChanged: hubOffload.invalidate()
+    onWatchfaceReloadRequested: hubOffload.invalidate()
+
     Timer {
         id: wallClockAmbientTimeout
         interval: 200
