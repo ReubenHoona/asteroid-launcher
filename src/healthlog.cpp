@@ -73,10 +73,14 @@ void HealthLog::setActive(bool active)
     m_active = active;
     emit activeChanged();
     watch();
-    if (active)
+    if (active) {
         reload();
-    else
+    } else {
+        /* nothing runs for a hidden tile or a face on a screen that is off:
+         * the next activation reads the file (and the day) again anyway */
         m_debounce.stop();
+        m_midnight.stop();
+    }
 }
 
 void HealthLog::watch()
