@@ -28,38 +28,140 @@
  */
 
 import QtQuick
+import Nemo.Configuration
 import org.nemomobile.lipstick
 import org.asteroid.controls
+import "desktop.js" as Desktop
 
+/*
+ * The home screen's notification indicator. The AsteroidOS layout: the
+ * notifications' icons at the top while the notification panels show. The
+ * Wear layout: Wear OS's unread notification dot (ClockworkSysUiGoogle's
+ * WatchFaceOverlayUi, Settings "Show unread notification dot", on by
+ * default): a dot at the bottom of the watch face while a notification came
+ * after the notification stream was last looked at; showing the stream
+ * marks them all read, as stock (UnreadItemsTracker.markAllItemsRead).
+ * dconf /org/asteroidos/notifications/unread-dot false hides it; when the
+ * stream was last seen is kept in /org/asteroidos/notifications/seen-until
+ * (ms since the epoch, over restarts: lipstick keeps its notifications).
+ */
 Item {
     id: notifIndic
     property QtObject panelsGrid
     property real iconSize: height
     property int currentIndex
     property var icons: []
-    visible: false
+
+    // the Wear layout (MainScreen's, read once it is set up)
+    property bool wearLayout: true
+    Component.onCompleted: Qt.callLater(function () {
+        notifIndic.wearLayout = !Desktop.desktop || Desktop.desktop.wearLayout !== false
+        notifIndic.countUnread()
+    })
+
+    ConfigurationValue {
+        id: unreadDotSetting
+        key: "/org/asteroidos/notifications/unread-dot"
+        defaultValue: true
+    }
+    ConfigurationValue {
+        id: seenUntil
+        key: "/org/asteroidos/notifications/seen-until"
+        defaultValue: 0
+        onValueChanged: notifIndic.countUnread()
+    }
+
+    // notifications newer than the last look at the stream, and the newest's time
+    property int unreadCount: 0
+    property real newestTimestamp: 0
+    readonly property bool streamShown: wearLayout && panelsGrid !== null
+                                        && panelsGrid.currentHorizontalPos === 0 && panelsGrid.currentVerticalPos === 1
+    onStreamShownChanged: if (streamShown) markAllRead()
+
+    // a call has its own screen: not an unread notification
+    function isCall(n) {
+        var a = n && n.hints ? n.hints["x-asteroid-phone-actions"] : ""
+        a = a ? String(a).split(",") : []
+        return a.indexOf("answer") >= 0 || a.indexOf("reject") >= 0 || a.indexOf("end") >= 0
+    }
+
+    function countUnread() {
+        var seen = Number(seenUntil.value) || 0
+        var count = 0
+        var newest = 0
+        for (var i = 0; i < notifModel.itemCount; i++) {
+            var n = notifModel.get(i)
+            if (!n || !n.timestamp || isCall(n))
+                continue
+            var t = n.timestamp.getTime()
+            if (isNaN(t))
+                continue
+            newest = Math.max(newest, t)
+            if (t > seen)
+                count++
+        }
+        newestTimestamp = newest
+        unreadCount = count
+        // looked at as it comes
+        if (streamShown && count > 0)
+            markAllRead()
+    }
+
+    function markAllRead() {
+        if (unreadCount > 0 && newestTimestamp > (Number(seenUntil.value) || 0))
+            seenUntil.value = newestTimestamp
+    }
 
     Item {
-        id: content
-        x: notifIndic.width/2
-        
-        Rectangle {
-            id: separator
-            visible: notifModel.itemCount !== 0
-            x: iconSize*1.1
-            width: 1
-            height: iconSize
-            color: "#8e8e8e"
-        }
+        id: unreadDot
+        objectName: "unreadDot"
+        readonly property real offset: notifIndic.panelsGrid
+                                       ? Math.abs(notifIndic.panelsGrid.normalizedHorOffset) + Math.abs(notifIndic.panelsGrid.normalizedVerOffset)
+                                       : 0
+        width: Dims.l(2.8)
+        height: width
+        x: (notifIndic.width - width) / 2
+        // its middle Dims.h(5.5) above the bottom of the screen
+        y: (notifIndic.parent ? notifIndic.parent.height : notifIndic.height) - notifIndic.y - Dims.h(5.5) - height / 2
+        // fades as the watch face is swiped away; grey on the always-on display, as the face
+        opacity: Math.max(0, 1 - 3 * offset) * (Lipstick.compositor.displayAmbient ? 0.55 : 1)
+        visible: notifIndic.wearLayout && unreadDotSetting.value !== false && notifIndic.unreadCount > 0 && opacity > 0
 
-        Icon {
-            visible: notifModel.itemCount !== 0
-            name: "ios-time"
-            color: "#8e8e8e"
-            width: iconSize
-            height: iconSize
-            anchors.leftMargin: iconSize/10
-            anchors.left: separator.right
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: "#ffffff"
+        }
+    }
+
+    // the AsteroidOS layout's icons
+    Item {
+        id: legacy
+        anchors.fill: parent
+        visible: false
+
+        Item {
+            id: content
+            x: notifIndic.width/2
+
+            Rectangle {
+                id: separator
+                visible: notifModel.itemCount !== 0
+                x: iconSize*1.1
+                width: 1
+                height: iconSize
+                color: "#8e8e8e"
+            }
+
+            Icon {
+                visible: notifModel.itemCount !== 0
+                name: "ios-time"
+                color: "#8e8e8e"
+                width: iconSize
+                height: iconSize
+                anchors.leftMargin: iconSize/10
+                anchors.left: separator.right
+            }
         }
     }
 
@@ -129,10 +231,10 @@ Item {
 
         function makeVisible() {
             if((panelsGrid.currentVerticalPos == 0 && panelsGrid.currentHorizontalPos < 0) && !Lipstick.compositor.displayAmbient) {
-                notifIndic.visible = true
+                legacy.visible = true
                 moveTo(panelsGrid.currentHorizontalPos+1)
             } else
-                notifIndic.visible = false
+                legacy.visible = false
         }
 
         function onCurrentHorizontalPosChanged() { makeVisible() }
@@ -141,7 +243,7 @@ Item {
 
     NotificationListModel {
         id: notifModel
-        onItemAdded: {
+        onItemAdded: (item) => {
             var index = notifModel.indexOf(item)
 
             var leftIconIndex = notifModel.itemCount
@@ -151,14 +253,19 @@ Item {
             }
 
             addIcon(-index, item)
+            notifIndic.countUnread()
         }
 
-        onRowsRemoved: {
+        onRowsRemoved: (parent, first, last) => {
             for (var i = first ; i <= last; i++)
                 removeIcon(-i)
 
             for (var i = last+1 ; i <= notifModel.itemCount+1; i++)
                 moveIcon(-i, -i+(last-first+1))
+            notifIndic.countUnread()
         }
+        // an update in place (lipstick: dataChanged, or moved to the top)
+        onDataChanged: notifIndic.countUnread()
+        onRowsMoved: notifIndic.countUnread()
     }
 }

@@ -13,7 +13,8 @@ import org.asteroid.controls
  * opens it; a swipe to either side drags it along under the finger and,
  * past a third of its width or on a flick, sends it off the screen and
  * dismisses it; otherwise it settles back (200 ms, LinearOutSlowIn).
- * "extra" > 0 shows the "+N" of a collapsed group.
+ * "extra" > 0 shows the "+N" of a collapsed group. A long press (Wear OS:
+ * the app's notification settings, BlockingMenu) is longPressed().
  */
 Item {
     id: card
@@ -24,6 +25,7 @@ Item {
 
     signal tapped()
     signal dismissed()
+    signal longPressed()
 
     // horizontal offset while dragged or flying off
     property real dx: 0
@@ -95,7 +97,10 @@ Item {
 
     TapHandler {
         id: tap
+        // as the watchface's long press (the face picker)
+        longPressThreshold: 0.5
         onTapped: card.tapped()
+        onLongPressed: card.longPressed()
     }
 
     DragHandler {

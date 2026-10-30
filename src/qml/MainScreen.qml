@@ -809,8 +809,8 @@ Item {
                 rightIndicator.visible  = Qt.binding(function() { return grid.toLeftAllowed && !displayAmbient })
                 leftIndicator.visible   = Qt.binding(function() { return grid.toRightAllowed && !displayAmbient && !appDrawer.isOpen })
                 topIndicator.visible    = Qt.binding(function() { return grid.toBottomAllowed && !displayAmbient })
-                bottomIndicator.visible = Qt.binding(function() { return grid.toTopAllowed && (!displayAmbient || !ns.modelEmpty) })
-                bottomIndicator.keepExpanded = Qt.binding(function() { return !ns.modelEmpty && grid.currentHorizontalPos == 0 && grid.currentVerticalPos == 0 })
+                // Wear OS: the unread notification dot (NotificationIndicator) says what waits below
+                bottomIndicator.visible = Qt.binding(function() { return grid.toTopAllowed && !displayAmbient && notifIndic.unreadCount === 0 })
                 return
             }
             desktop.centreItem = addPanel(0, 0, centerPanel)

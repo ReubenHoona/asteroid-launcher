@@ -176,6 +176,30 @@
         <source>Mute app</source>
         <translation>Mute app</translation>
     </message>
+    <message id="id-notification-clear">
+        <source>Clear</source>
+        <translation>Clear</translation>
+    </message>
+    <message id="id-opened-on-phone">
+        <source>Opened on your phone</source>
+        <translation>Opened on your phone</translation>
+    </message>
+    <message id="id-action-error">
+        <source>Can&apos;t finish action. Please check your connection.</source>
+        <translation>Can&apos;t finish action. Please check your connection.</translation>
+    </message>
+    <message id="id-notifications-menu-title">
+        <source>Notifications</source>
+        <translation>Notifications</translation>
+    </message>
+    <message id="id-notifications-menu-subtext">
+        <source>Get notifications from %1 on your watch. Manage settings in the %2 app on your phone.</source>
+        <translation>Get notifications from %1 on your watch. Manage settings in the %2 app on your phone.</translation>
+    </message>
+    <message id="id-emoji-title">
+        <source>Emoji</source>
+        <translation>Emoji</translation>
+    </message>
     <message id="id-reply-write">
         <location line="+69"/>
         <source>Write…</source>

@@ -8,7 +8,9 @@ import org.asteroid.controls
 
 // The whole of a notification, as Wear OS opens a card: the app's icon,
 // name and time, the title, and every line of the text (a conversation's
-// messages, one per line, as asteroid-btsyncd writes them)
+// messages, one per line, as asteroid-btsyncd writes them; opened, with
+// asteroid-btsyncd's x-asteroid-messages, as Wear OS's message bubbles:
+// NotificationConversation)
 Column {
     id: nt
 
@@ -72,9 +74,16 @@ Column {
         font.styleName: "SemiCondensed Medium"
     }
 
+    NotificationConversation {
+        id: conversationView
+        width: parent.width
+        visible: !nt.compact && messages.length > 0
+        notification: nt.compact ? null : nt.notification
+    }
+
     Label {
         width: parent.width
-        visible: text.length > 0
+        visible: text.length > 0 && !conversationView.visible
         text: {
             var b = nt.notification ? nt.notification.body : ""
             if (!nt.compact)

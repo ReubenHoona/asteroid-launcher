@@ -16,7 +16,10 @@ import org.asteroid.controls
  * the group, a tap on a card opens the whole notification with its
  * actions, replies and voice replies (NotificationActions), a swipe right
  * from the edge comes back. A card swiped sideways is dismissed (a closed
- * group: all of it), "Clear all" at the end dismisses everything.
+ * group: all of it), "Clear all" at the end dismisses everything. A long
+ * press on a phone app's card opens Wear OS's menu for that app's
+ * notifications (NotificationBlockingMenu); other cards ignore it, as stock
+ * ("Cannot block notifications from ... Ignoring long press").
  */
 Item {
     id: stream
@@ -103,6 +106,20 @@ Item {
 
     function openDetail(n) {
         stack.push(detailPage, { notification: n })
+    }
+
+    // A phone app's notification whose app the phone can stop sending
+    function canBlock(n) {
+        var a = n && n.hints ? n.hints["x-asteroid-phone-actions"] : ""
+        return a ? String(a).split(",").indexOf("mute") >= 0 : false
+    }
+
+    function openBlockingMenu(n) {
+        if (!canBlock(n))
+            return false
+        Haptics.longPress()
+        stack.push(blockingPage, { notification: n })
+        return true
     }
 
     function ago(n, tick) {
@@ -272,6 +289,7 @@ Item {
                                 }
                                 onDismissed: stream.dismiss(group.expanded || group.items.length === 1
                                                             ? [notification] : group.items)
+                                onLongPressed: stream.openBlockingMenu(notification)
                             }
                         }
                     }
@@ -322,6 +340,30 @@ Item {
                     font.pixelSize: Dims.l(6)
                     opacity: 0.7
                 }
+            }
+
+            TimeText { }
+        }
+    }
+
+    // Wear OS's long press menu: the app's notifications on or off
+    Component {
+        id: blockingPage
+
+        Item {
+            id: blocking
+            property var pop
+            property int depth
+            property QtObject notification
+
+            Rectangle {
+                anchors.fill: parent
+                color: "#000000"
+            }
+
+            NotificationBlockingMenu {
+                anchors.fill: parent
+                notification: blocking.notification
             }
 
             TimeText { }

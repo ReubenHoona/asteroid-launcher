@@ -88,8 +88,38 @@ Item {
         return r ? String(r).split("\n").filter(function (l) { return l.length > 0 }) : []
     }
 
+    // The phone's own action N: only with the phone there (lipstick closes the
+    // card after an action, and a lost one would be gone for nothing): else
+    // Wear OS's "Can't finish action. Please check your connection."
     function invokeAppAction(index) {
-        notification.actionInvoked("app-" + index)
+        whenPhoneConnected(function () { notification.actionInvoked("app-" + index) })
+    }
+
+    // Open on phone: the phone opens the app; Wear OS confirms "Opened on your phone"
+    function openOnPhone() {
+        whenPhoneConnected(function () {
+            notification.actionInvoked("open")
+            //% "Opened on your phone"
+            if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-opened-on-phone"))
+        })
+    }
+
+    function actionFailed() {
+        //% "Can't finish action. Please check your connection."
+        if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-action-error"), false)
+    }
+
+    // run(), once asteroid-btsyncd says a phone is connected; else the failure
+    function whenPhoneConnected(run) {
+        var n = notification
+        btsyncd.typedCall("PhoneConnected", [],
+                          function (connected) {
+                              if (connected && n === notification)
+                                  run()
+                              else if (!connected)
+                                  actionFailed()
+                          },
+                          actionFailed)
     }
 
     // How many of the app's actions the first page shows (the rest are
@@ -412,7 +442,7 @@ Item {
                     height: column.buttonHeight
                     visible: actions.hasPhoneAction("open") && !actions.hasPhoneAction("reply") && !column.isCall
                              && actions.mainAppActions === 0
-                    onClicked: actions.invokePhoneAction("open")
+                    onClicked: actions.openOnPhone()
                 }
 
                 NotificationButton {
@@ -433,9 +463,10 @@ Item {
                     onClicked: actions.dismissAll()
                 }
 
+                // Wear OS's full view ends with "Clear" (fullview_clear)
                 NotificationButton {
-                    //% "Dismiss"
-                    text: qsTrId("id-dismiss") + localeManager.changesObserver
+                    //% "Clear"
+                    text: qsTrId("id-notification-clear") + localeManager.changesObserver
                     width: parent.width
                     height: column.buttonHeight
                     visible: !column.isCall
@@ -508,7 +539,7 @@ Item {
                     height: Dims.h(17)
                     visible: actions.hasPhoneAction("open")
                              && (actions.hasPhoneAction("reply") || actions.mainAppActions > 0)
-                    onClicked: actions.invokePhoneAction("open")
+                    onClicked: actions.openOnPhone()
                 }
 
                 NotificationButton {
@@ -519,13 +550,14 @@ Item {
                     onClicked: layerStack.push(snoozeLayer)
                 }
 
+                // the app's notifications on or off: Wear OS's long press menu
                 NotificationButton {
                     //% "Mute app"
                     text: qsTrId("id-mute-app") + localeManager.changesObserver
                     width: parent.width
                     height: Dims.h(17)
                     visible: actions.hasPhoneAction("mute")
-                    onClicked: actions.invokePhoneAction("mute")
+                    onClicked: layerStack.push(blockingLayer)
                 }
 
                 NotificationButton {
@@ -536,6 +568,22 @@ Item {
                     onClicked: actions.dismissAll()
                 }
             }
+            }
+        }
+    }
+
+    // The app's notifications on or off (as the stream's long press)
+    Component {
+        id: blockingLayer
+
+        Item {
+            property var pop
+            property int depth
+
+            NotificationBlockingMenu {
+                anchors.fill: parent
+                notification: actions.notification
+                belowTimeText: actions.showText
             }
         }
     }
@@ -563,28 +611,61 @@ Item {
                 anchors.topMargin: actions.showText ? Dims.h(28) : Dims.h(20)
                 anchors.bottomMargin: Dims.h(10)
                 clip: true
-                // The phone's suggested replies first (marked with \u0002),
-                // then Speak (only while a phone that recognises speech is
-                // connected), Write and the canned replies not suggested already
+                // Wear OS's full view: the voice, keyboard and emoji inputs in a
+                // row (full_view_ime_choice; voice only while a phone that
+                // recognises speech is connected), then the phone's suggested
+                // replies (marked with \u0002) and the canned replies not
+                // suggested already
+                header: Item {
+                    width: ListView.view.width
+                    height: Dims.h(22)
+                    Row {
+                        anchors.centerIn: parent
+                        anchors.verticalCenterOffset: -Dims.h(1.5)
+                        spacing: Dims.w(4)
+                        Repeater {
+                            model: (actions.voiceAvailable ? ["speak"] : []).concat(["write", "emoji"])
+                            delegate: MouseArea {
+                                id: inputButton
+                                objectName: "replyInput"
+                                readonly property bool isSpeak: modelData === "speak"
+                                readonly property bool isWrite: modelData === "write"
+                                readonly property bool isEmoji: modelData === "emoji"
+                                width: Dims.l(17)
+                                height: width
+                                onClicked: {
+                                    if (isSpeak)
+                                        layerStack.push(voiceLayer)
+                                    else if (isWrite)
+                                        layerStack.push(writeLayer)
+                                    else
+                                        layerStack.push(emojiLayer)
+                                }
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: width / 2
+                                    color: inputButton.pressed ? "#3a3a3d" : "#262628"
+                                }
+                                Icon {
+                                    anchors.centerIn: parent
+                                    width: parent.width * 0.55
+                                    height: width
+                                    name: inputButton.isSpeak ? "ios-mic-outline"
+                                          : inputButton.isWrite ? "ios-create-outline" : "ios-happy-outline"
+                                }
+                            }
+                        }
+                    }
+                }
                 model: actions.smartReplies.map(function (r) { return "\u0002" + r })
-                       .concat(actions.voiceAvailable ? ["\u0001speak"] : []).concat(["\u0001write"])
                        .concat(Array.prototype.filter.call(cannedReplies.value, function (r) { return actions.smartReplies.indexOf(r) < 0 }))
                 delegate: MouseArea {
                     id: replyItem
-                    readonly property bool isWrite: modelData === "\u0001write"
-                    readonly property bool isSpeak: modelData === "\u0001speak"
                     readonly property bool isSmart: modelData.charAt(0) === "\u0002"
                     readonly property string replyText: isSmart ? modelData.substring(1) : modelData
                     width: ListView.view.width
                     height: Dims.h(18)
-                    onClicked: {
-                        if (isSpeak)
-                            layerStack.push(voiceLayer)
-                        else if (isWrite)
-                            layerStack.push(writeLayer)
-                        else
-                            actions.sendReply(replyItem.replyText)
-                    }
+                    onClicked: actions.sendReply(replyItem.replyText)
 
                     Rectangle {
                         anchors.fill: parent
@@ -594,8 +675,7 @@ Item {
 
                     Icon {
                         id: replyIcon
-                        name: replyItem.isSpeak ? "ios-mic-outline" : replyItem.isWrite ? "ios-create-outline"
-                              : replyItem.isSmart ? "ios-flash-outline" : "ios-text-outline"
+                        name: replyItem.isSmart ? "ios-flash-outline" : "ios-text-outline"
                         width: Dims.h(12)
                         height: width
                         anchors.verticalCenter: parent.verticalCenter
@@ -604,10 +684,7 @@ Item {
                     }
 
                     Label {
-                        //% "Write…"
-                        text: replyItem.isWrite ? qsTrId("id-reply-write")
-                                                  //% "Speak…"
-                                                : replyItem.isSpeak ? qsTrId("id-reply-speak") : replyItem.replyText
+                        text: replyItem.replyText
                         elide: Text.ElideRight
                         anchors.verticalCenter: parent.verticalCenter
                         anchors.left: replyIcon.right
@@ -647,6 +724,92 @@ Item {
                     forceActiveFocus()
                 }
                 Component.onDestruction: if (Desktop.keyboard === replyKeyboard) Desktop.keyboard = null
+            }
+        }
+    }
+
+    // Emoji replies (Wear OS's emoji input in the full view): the ones used
+    // last first, then the common ones; a tap sends it as the reply
+    readonly property var defaultEmoji: ["\u{1F44D}", "❤️", "\u{1F602}", "\u{1F60A}", "\u{1F60D}", "\u{1F64F}",
+                                         "\u{1F622}", "\u{1F62E}", "\u{1F389}", "\u{1F44C}", "\u{1F64C}", "\u{1F618}",
+                                         "\u{1F60E}", "\u{1F914}", "\u{1F605}", "\u{1F525}", "\u{1F44F}", "\u{1F4AF}",
+                                         "✅", "\u{1F44B}", "\u{1F923}", "\u{1F609}", "\u{1F642}", "\u{1F621}"]
+    ConfigurationValue {
+        id: recentEmoji
+        key: "/org/asteroidos/notifications/recent-emoji"
+        defaultValue: []
+    }
+    readonly property int maxRecentEmoji: 8
+    function emojiChoices(recent) {
+        var list = []
+        var r = recent || []
+        for (var i = 0; i < r.length && list.length < maxRecentEmoji; i++)
+            if (typeof r[i] === "string" && r[i].length > 0 && list.indexOf(r[i]) < 0)
+                list.push(r[i])
+        for (var j = 0; j < defaultEmoji.length; j++)
+            if (list.indexOf(defaultEmoji[j]) < 0)
+                list.push(defaultEmoji[j])
+        return list
+    }
+    function sendEmoji(e) {
+        var recent = [e]
+        var old = recentEmoji.value || []
+        for (var i = 0; i < old.length && recent.length < maxRecentEmoji; i++)
+            if (old[i] !== e)
+                recent.push(old[i])
+        recentEmoji.value = recent
+        actions.sendReply(e)
+    }
+
+    Component {
+        id: emojiLayer
+
+        Item {
+            id: emojiPage
+            property var pop
+            property int depth
+
+            PageHeader {
+                belowTimeText: actions.showText
+                //% "Emoji"
+                text: qsTrId("id-emoji-title")
+            }
+
+            GridView {
+                id: emojiGrid
+                objectName: "emojiGrid"
+                readonly property int columns: 4
+                anchors.top: parent.top
+                anchors.topMargin: actions.showText ? Dims.h(28) : Dims.h(20)
+                anchors.bottom: parent.bottom
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: cellWidth * columns
+                cellWidth: Dims.l(17)
+                cellHeight: Dims.l(17)
+                bottomMargin: Dims.h(14)
+                clip: true
+                boundsBehavior: Flickable.DragOverBounds
+                model: actions.emojiChoices(recentEmoji.value)
+                delegate: MouseArea {
+                    id: emojiCell
+                    readonly property string emoji: modelData
+                    width: emojiGrid.cellWidth
+                    height: emojiGrid.cellHeight
+                    onClicked: actions.sendEmoji(emojiCell.emoji)
+
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: parent.width * 0.9
+                        height: width
+                        radius: width / 2
+                        color: emojiCell.pressed ? "#3a3a3d" : "#262628"
+                    }
+                    Label {
+                        anchors.centerIn: parent
+                        text: emojiCell.emoji
+                        font.pixelSize: Dims.l(9)
+                    }
+                }
             }
         }
     }

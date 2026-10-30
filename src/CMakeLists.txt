@@ -47,6 +47,8 @@ set(QML_FILES
 	qml/notifications/NotificationCard.qml
 	qml/notifications/NotificationText.qml
 	qml/notifications/NotificationPicture.qml
+	qml/notifications/NotificationConversation.qml
+	qml/notifications/NotificationBlockingMenu.qml
 	qml/tiles/TileBase.qml
 	qml/tiles/TilesEditor.qml
 	qml/tiles/HeartRateTile.qml
@@ -92,6 +94,8 @@ set_source_files_properties(qml/notifications/NotificationStream.qml    PROPERTI
 set_source_files_properties(qml/notifications/NotificationCard.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationCard.qml)
 set_source_files_properties(qml/notifications/NotificationText.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationText.qml)
 set_source_files_properties(qml/notifications/NotificationPicture.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationPicture.qml)
+set_source_files_properties(qml/notifications/NotificationConversation.qml PROPERTIES QT_RESOURCE_ALIAS NotificationConversation.qml)
+set_source_files_properties(qml/notifications/NotificationBlockingMenu.qml PROPERTIES QT_RESOURCE_ALIAS NotificationBlockingMenu.qml)
 set_source_files_properties(qml/tiles/TileBase.qml                   PROPERTIES QT_RESOURCE_ALIAS tiles/TileBase.qml)
 set_source_files_properties(qml/tiles/TilesEditor.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/TilesEditor.qml)
 set_source_files_properties(qml/tiles/HeartRateTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/HeartRateTile.qml)
