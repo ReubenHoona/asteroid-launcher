@@ -264,8 +264,13 @@ Item {
                 moveIcon(-i, -i+(last-first+1))
             notifIndic.countUnread()
         }
-        // an update in place (lipstick: dataChanged, or moved to the top)
-        onDataChanged: notifIndic.countUnread()
-        onRowsMoved: notifIndic.countUnread()
+    }
+    // an update in place (lipstick's model: dataChanged, or moved to the top); a model
+    // without these signals (a test double) is fine
+    Connections {
+        target: notifModel
+        ignoreUnknownSignals: true
+        function onDataChanged() { notifIndic.countUnread() }
+        function onRowsMoved() { notifIndic.countUnread() }
     }
 }

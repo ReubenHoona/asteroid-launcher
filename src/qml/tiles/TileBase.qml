@@ -5,6 +5,7 @@
 
 import QtQuick
 import org.asteroid.controls
+import org.asteroid.utils
 
 /*
  * The frame of a tile, as Wear OS lays its tiles out: black, the time on
@@ -32,6 +33,37 @@ Item {
 
     signal chipClicked()
     signal clicked()
+
+    /*
+     * The page dots under the tiles (MainScreen's ArcPageIndicator: the watch
+     * face and every tile, along the bottom of the round screen): stock keeps
+     * the indicator at the bottom edge under the tile's primary chip, never
+     * over it. The chip sits above the dots under it, for as many dots as
+     * there are (the same geometry as ArcPageIndicator: 6 dp dots 4 dp apart,
+     * 6 dp from the edge), 2 dp clear; at least 6 % from the bottom as before.
+     */
+    readonly property int pageDots: typeof desktop !== "undefined" && desktop && desktop.tileCount > 0
+                                    ? desktop.tileCount + 1 : 0
+    readonly property real chipBottomMargin: {
+        var base = Math.round(height * 0.06)
+        if (pageDots <= 0 || width <= 0 || height <= 0)
+            return base
+        var s = Math.min(width, height), dp = s / 192, dot = 6 * dp, spacing = 4 * dp
+        var half = Math.round(width * 0.5) / 2 + dot / 2
+        var top = height
+        if (!DeviceSpecs.hasRoundScreen) {
+            top = height - 6 * dp - dot
+        } else {
+            var r = s / 2 - 6 * dp - dot / 2, step = (dot + spacing) / r
+            for (var i = 0; i < pageDots; i++) {
+                var a = (i - (pageDots - 1) / 2) * step
+                var x = r * Math.sin(a)
+                if (Math.abs(x) < half)
+                    top = Math.min(top, height / 2 + r * Math.cos(a) - dot / 2)
+            }
+        }
+        return Math.max(base, Math.ceil(height - top + 2 * dp))
+    }
 
     Rectangle {
         anchors.fill: parent
@@ -83,10 +115,11 @@ Item {
     // Wear OS's edge button: a wide pill hugging the bottom of the screen
     MouseArea {
         id: chip
+        objectName: "tileChip"
         visible: tile.chipText !== "" || tile.chipIcon !== ""
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: Math.round(tile.height * 0.06)
+        anchors.bottomMargin: tile.chipBottomMargin
         width: Math.round(tile.width * 0.5)
         height: Math.round(tile.height * 0.19)
         onClicked: {
