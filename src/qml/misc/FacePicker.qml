@@ -4,7 +4,9 @@
  */
 
 import QtQuick
+import QtQml.Models
 import QtCore
+import "complications"
 import Qt.labs.folderlistmodel
 import org.asteroid.controls
 import org.asteroid.utils
@@ -189,12 +191,42 @@ Item {
         }
     }
 
-    /* Wear OS's face options: under the faces a Customize button, opening
-     * the options every bundled face follows (the launcher applies them by
-     * the faces' item names, see WatchfaceReloader.applyFaceOptions) */
+    /* Wear OS's face editor: under the faces a Customize button. Its pages,
+     * swiped through as stock's: the options every bundled face follows
+     * (the launcher applies them by the faces' item names, see
+     * WatchfaceReloader.applyFaceOptions), then the face's complications
+     * when it has slots (FaceEditor). Customize on another face than the
+     * one worn puts it on first, as stock edits the face it applies. */
     ConfigurationValue { id: showDate; key: "/org/asteroidos/watchface/show-date"; defaultValue: true }
     ConfigurationValue { id: showSeconds; key: "/org/asteroidos/watchface/show-seconds"; defaultValue: true }
     ConfigurationValue { id: ambientStyle; key: "/org/asteroidos/watchface/ambient-style"; defaultValue: "dim" }
+
+    // the face on the home screen (MainScreen sets these): the live item the
+    // complications page shows, and the home screen's complication sources
+    property Item liveFace: null
+    property QtObject sources: null
+    readonly property bool hasSlots: sources !== null && liveFace !== null && sources.slotsOf(liveFace).length > 0
+
+    // the crown button: from a slot's data sources back to the slots;
+    // false when there is no level to go back to
+    function back() {
+        if (options.visible && complicationsPage.choosing) {
+            complicationsPage.chosenSlot = null
+            return true
+        }
+        return false
+    }
+
+    function customize() {
+        var face = picker.all[faces.currentIndex]
+        if (face && face !== current) {
+            current = face
+            chosen(face)
+        }
+        pages.currentIndex = 0
+        pages.positionViewAtBeginning()
+        options.visible = true
+    }
 
     MouseArea {
         id: customize
@@ -207,7 +239,7 @@ Item {
         opacity: picker.progress
         onClicked: {
             Haptics.click()
-            options.visible = true
+            picker.customize()
         }
         Rectangle {
             anchors.fill: parent
@@ -229,7 +261,12 @@ Item {
         id: options
         anchors.fill: parent
         visible: false
-        onVisibleChanged: if (!visible) optionsFlick.contentY = 0
+        onVisibleChanged: {
+            if (!visible) {
+                optionsFlick.contentY = 0
+                complicationsPage.chosenSlot = null
+            }
+        }
 
         Rectangle { anchors.fill: parent; color: "#000000" }
         MouseArea { anchors.fill: parent }
@@ -243,69 +280,115 @@ Item {
         readonly property var styleValues: ["dim", "outline"]
         readonly property real rowHeight: Dims.h(25)
 
-        Flickable {
-            id: optionsFlick
+        ListView {
+            id: pages
             anchors.fill: parent
-            contentHeight: optionsColumn.implicitHeight
+            orientation: ListView.Horizontal
+            snapMode: ListView.SnapOneItem
+            highlightRangeMode: ListView.StrictlyEnforceRange
+            highlightMoveDuration: 250
             boundsBehavior: Flickable.StopAtBounds
-            Column {
-                id: optionsColumn
-                width: parent.width
-                Item { width: parent.width; height: Dims.h(16) }
-                LabeledSwitch {
-                    width: parent.width
-                    height: options.rowHeight
-                    //% "Date"
-                    text: qsTrId("id-face-show-date")
-                    checked: showDate.value
-                    onCheckedChanged: if (showDate.value !== checked) showDate.value = checked
-                }
-                LabeledSwitch {
-                    width: parent.width
-                    height: options.rowHeight
-                    //% "Seconds"
-                    text: qsTrId("id-face-show-seconds")
-                    checked: showSeconds.value
-                    onCheckedChanged: if (showSeconds.value !== checked) showSeconds.value = checked
-                }
-                OptionCycler {
-                    width: parent.width
-                    height: options.rowHeight
-                    //% "Always-on"
-                    text: qsTrId("id-face-ambient")
-                    valueArray: options.styleLabels
-                    currentValue: options.styleLabels[Math.max(0, options.styleValues.indexOf(ambientStyle.value))]
-                    onValueChanged: (value) => ambientStyle.value = options.styleValues[options.styleLabels.indexOf(value)]
-                }
-                Item { width: parent.width; height: Dims.h(4) }
-                MouseArea {
-                    id: done
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: Math.round(picker.width * 0.4)
-                    height: Math.round(picker.height * 0.15)
-                    onClicked: options.visible = false
-                    Rectangle {
+            // the source list of a slot is a page of its own
+            interactive: picker.hasSlots && !complicationsPage.choosing
+            clip: true
+            model: ObjectModel {
+                Item {
+                    id: optionsPage
+                    width: pages.width
+                    height: pages.height
+                    Flickable {
+                        id: optionsFlick
                         anchors.fill: parent
-                        radius: height / 2
-                        color: "#a8c7fa"
-                        opacity: done.pressed ? 0.75 : 1
+                        contentHeight: optionsColumn.implicitHeight
+                        boundsBehavior: Flickable.StopAtBounds
+                        flickableDirection: Flickable.VerticalFlick
+                        Column {
+                            id: optionsColumn
+                            width: parent.width
+                            Item { width: parent.width; height: Dims.h(16) }
+                            LabeledSwitch {
+                                width: parent.width
+                                height: options.rowHeight
+                                //% "Date"
+                                text: qsTrId("id-face-show-date")
+                                checked: showDate.value
+                                onCheckedChanged: if (showDate.value !== checked) showDate.value = checked
+                            }
+                            LabeledSwitch {
+                                width: parent.width
+                                height: options.rowHeight
+                                //% "Seconds"
+                                text: qsTrId("id-face-show-seconds")
+                                checked: showSeconds.value
+                                onCheckedChanged: if (showSeconds.value !== checked) showSeconds.value = checked
+                            }
+                            OptionCycler {
+                                width: parent.width
+                                height: options.rowHeight
+                                //% "Always-on"
+                                text: qsTrId("id-face-ambient")
+                                valueArray: options.styleLabels
+                                currentValue: options.styleLabels[Math.max(0, options.styleValues.indexOf(ambientStyle.value))]
+                                onValueChanged: (value) => ambientStyle.value = options.styleValues[options.styleLabels.indexOf(value)]
+                            }
+                            Item { width: parent.width; height: Dims.h(4) }
+                            MouseArea {
+                                id: done
+                                anchors.horizontalCenter: parent.horizontalCenter
+                                width: Math.round(picker.width * 0.4)
+                                height: Math.round(picker.height * 0.15)
+                                onClicked: options.visible = false
+                                Rectangle {
+                                    anchors.fill: parent
+                                    radius: height / 2
+                                    color: "#a8c7fa"
+                                    opacity: done.pressed ? 0.75 : 1
+                                }
+                                Label {
+                                    anchors.centerIn: parent
+                                    //% "Done"
+                                    text: qsTrId("id-tiles-done") + localeManager.changesObserver
+                                    color: "#000000"
+                                    font.pixelSize: Math.round(picker.height * 0.055)
+                                    font.styleName: "SemiCondensed Medium"
+                                }
+                            }
+                            Item { width: parent.width; height: Dims.h(16) }
+                        }
                     }
-                    Label {
-                        anchors.centerIn: parent
-                        //% "Done"
-                        text: qsTrId("id-tiles-done") + localeManager.changesObserver
-                        color: "#000000"
-                        font.pixelSize: Math.round(picker.height * 0.055)
-                        font.styleName: "SemiCondensed Medium"
+                    PageHeader {
+                        //% "Watch face"
+                        text: qsTrId("id-face-options")
                     }
                 }
-                Item { width: parent.width; height: Dims.h(16) }
+                FaceEditor {
+                    id: complicationsPage
+                    width: pages.width
+                    height: pages.height
+                    face: options.visible ? picker.liveFace : null
+                    faceUrl: picker.current
+                    sources: picker.sources
+                }
             }
         }
 
-        PageHeader {
-            //% "Watch face"
-            text: qsTrId("id-face-options")
+        // the page dots at the bottom, as stock's editor
+        Row {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Math.round(picker.height * 0.025)
+            spacing: Math.round(picker.width * 0.02)
+            visible: picker.hasSlots && !complicationsPage.choosing
+            Repeater {
+                model: 2
+                delegate: Rectangle {
+                    width: Math.round(picker.width * 0.018)
+                    height: width
+                    radius: width / 2
+                    color: "#ffffff"
+                    opacity: pages.currentIndex === index ? 0.9 : 0.35
+                }
+            }
         }
     }
 }

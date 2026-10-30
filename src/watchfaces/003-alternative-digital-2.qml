@@ -156,6 +156,36 @@ Item {
                 }
                 text: Qt.formatTime(wallClock.time, "ss")
             }
+
+            // Complication slots, a line above the hour and one under the
+            // minutes (the launcher draws the chosen data in them, and only
+            // the date in always-on: ComplicationView.qml)
+            Item {
+                objectName: "eosComplication"
+                property string slotId: "top"
+                property string shape: "text"
+                property string defaultSource: "battery"
+                property color tint: "white"
+                property string fontFamily: "Roboto"
+                x: parent.width * .3
+                y: parent.height * .057
+                width: parent.width * .4
+                height: parent.height * .073
+                visible: !nightstandMode.active
+            }
+            Item {
+                objectName: "eosComplication"
+                property string slotId: "bottom"
+                property string shape: "text"
+                property string defaultSource: "steps"
+                property color tint: "white"
+                property string fontFamily: "Roboto"
+                x: parent.width * .27
+                y: parent.height * .844
+                width: parent.width * .46
+                height: parent.height * .073
+                visible: !nightstandMode.active
+            }
         }
 
         Item {

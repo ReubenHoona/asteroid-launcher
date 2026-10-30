@@ -307,6 +307,23 @@ Item {
 
         }
 
+        // A complication slot under the date, inside the rings (the launcher
+        // draws the chosen data in it, and only the date in always-on:
+        // ComplicationView.qml)
+        Item {
+            objectName: "eosComplication"
+            property string slotId: "bottom"
+            property string shape: "text"
+            property string defaultSource: "steps"
+            property color tint: "white"
+            property string fontFamily: "Titillium"
+            x: parent.width * .345
+            y: parent.height * .755
+            width: parent.width * .31
+            height: parent.height * .062
+            visible: !nightstandMode.active
+        }
+
         Item {
             id: nightstandMode
 

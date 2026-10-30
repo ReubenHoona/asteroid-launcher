@@ -117,6 +117,50 @@ Item {
                 }
                 text: root.dateText
             }
+
+            // Complication slots: a line above the time and two round ones
+            // under it, as the stock digital faces (the launcher draws the
+            // chosen data in them, and only the date in always-on:
+            // ComplicationView.qml)
+            Item {
+                objectName: "eosComplication"
+                property string slotId: "top"
+                property string shape: "text"
+                property string defaultSource: "battery"
+                property color tint: "white"
+                property string fontFamily: "Raleway"
+                x: parent.width * .2
+                y: parent.height * .19
+                width: parent.width * .6
+                height: parent.height * .075
+                visible: !nightstandMode.active
+            }
+            Item {
+                objectName: "eosComplication"
+                property string slotId: "left"
+                property string shape: "circle"
+                property string defaultSource: "steps"
+                property color tint: "white"
+                property string fontFamily: "Raleway"
+                width: parent.width * .17
+                height: width
+                x: parent.width * .39 - width / 2
+                y: parent.height * .765 - height / 2
+                visible: !nightstandMode.active
+            }
+            Item {
+                objectName: "eosComplication"
+                property string slotId: "right"
+                property string shape: "circle"
+                property string defaultSource: "heartrate"
+                property color tint: "white"
+                property string fontFamily: "Raleway"
+                width: parent.width * .17
+                height: width
+                x: parent.width * .61 - width / 2
+                y: parent.height * .765 - height / 2
+                visible: !nightstandMode.active
+            }
         }
 
         Item {

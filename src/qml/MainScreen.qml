@@ -39,6 +39,7 @@ import org.asteroid.utils
 import org.asteroid.launcher
 import "desktop.js" as Desktop
 import "tiles"
+import "complications"
 
 Item {
     id: desktop
@@ -225,15 +226,16 @@ Item {
             Desktop.pictureViewer.close()
             return
         }
-        // back a level in the tiles editor (from the list of tiles to
-        // add), else out of it
+        // back a level in the editors (the list of tiles to add, a slot's
+        // data sources, the face options), else out of them
         if (tilesEditor.visible) {
             if (!tilesEditor.back())
                 tilesEditor.close()
             return
         }
         if (facePicker.visible) {
-            closeOverlays()
+            if (!facePicker.back())
+                closeOverlays()
             return
         }
         if (appDrawer.isOpen) {
@@ -503,7 +505,27 @@ Item {
     // builds the new one
     readonly property string hubLayoutInputs: [watchFaceSource.value, watchfaceNightstandSource.value,
                                                use12H.value, faceShowDate.value,
-                                               faceAmbientStyle.value].join("|")
+                                               faceAmbientStyle.value,
+                                               JSON.stringify(faceComplications.value)].join("|")
+    // the complications chosen for the face (the date shows in always-on)
+    ConfigurationValue {
+        id: faceComplications
+        key: complications.configKey(complications.faceName(watchFaceSource.value))
+        defaultValue: []
+    }
+
+    /* The watch face complications (ComplicationSources): the data the
+     * faces' slots show, read only while the face (or the face editor) is
+     * on the awake screen; nothing is read, and nothing on the face changes,
+     * with the screen off or in always-on, where only the date shows */
+    ComplicationSources {
+        id: complications
+        active: desktop.displayAwake && !displayAmbient && (desktop.faceShown || facePicker.visible)
+        ambient: displayAmbient
+        nightstand: nightstandMode.active
+        use12h: use12H.value
+        now: wallClock.time
+    }
     onHubLayoutInputsChanged: hubOffload.invalidate()
     onWatchfaceReloadRequested: hubOffload.invalidate()
 
@@ -754,6 +776,7 @@ Item {
                 visible: opacity
                 anchors.fill: parent
                 source: watchfaceNightstandSource.value
+                onLoaded: complications.attach(item, source)
                 Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InCirc } }
             }
             Loader {
@@ -763,6 +786,7 @@ Item {
                 Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InCirc} }
                 anchors.fill: parent
                 source: watchFaceSource.value
+                onLoaded: complications.attach(item, source)
 
                 // Reinstantiate to re-read the source from disk. Toggling the
                 // Loader instead of rewriting the dconf-backed watchFaceSource
@@ -869,6 +893,8 @@ Item {
     FacePicker {
         id: facePicker
         z: 6
+        liveFace: desktop.centreItem ? desktop.centreItem.activeFace : null
+        sources: complications
         onChosen: (face) => watchFaceSource.value = face
     }
 

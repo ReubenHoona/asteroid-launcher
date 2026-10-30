@@ -712,6 +712,42 @@
         <source>Can&apos;t display image</source>
         <translation>Can&apos;t display image</translation>
     </message>
+    <message id="id-comp-empty">
+        <source>Empty</source>
+        <translation>Empty</translation>
+    </message>
+    <message id="id-comp-date">
+        <source>Day and date</source>
+        <translation>Day and date</translation>
+    </message>
+    <message id="id-comp-battery">
+        <source>Watch battery</source>
+        <translation>Watch battery</translation>
+    </message>
+    <message id="id-comp-phone-battery">
+        <source>Phone battery</source>
+        <translation>Phone battery</translation>
+    </message>
+    <message id="id-comp-next-event">
+        <source>Next event</source>
+        <translation>Next event</translation>
+    </message>
+    <message id="id-comp-no-events">
+        <source>No events</source>
+        <translation>No events</translation>
+    </message>
+    <message id="id-face-complications">
+        <source>Complications</source>
+        <translation>Complications</translation>
+    </message>
+    <message id="id-face-tap-to-change">
+        <source>Tap to change</source>
+        <translation>Tap to change</translation>
+    </message>
+    <message id="id-face-data">
+        <source>Data</source>
+        <translation>Data</translation>
+    </message>
     <message id="id-tile-alarm">
         <source>Alarm</source>
         <translation>Alarm</translation>

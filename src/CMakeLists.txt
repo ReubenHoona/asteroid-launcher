@@ -58,6 +58,10 @@ set(QML_FILES
 	qml/tiles/AssistantTile.qml
 	qml/tiles/AlarmTile.qml
 	qml/tiles/BatteryTile.qml
+	qml/complications/ComplicationSources.qml
+	qml/complications/ComplicationView.qml
+	qml/complications/AgendaSource.qml
+	qml/complications/FaceEditor.qml
 	qml/assistant/AssistantOverlay.qml
 	qml/assistant/AssistantActions.qml
 	qml/assistant/AssistantDots.qml
@@ -105,6 +109,10 @@ set_source_files_properties(qml/tiles/MediaTile.qml                  PROPERTIES 
 set_source_files_properties(qml/tiles/AssistantTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/AssistantTile.qml)
 set_source_files_properties(qml/tiles/AlarmTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/AlarmTile.qml)
 set_source_files_properties(qml/tiles/BatteryTile.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/BatteryTile.qml)
+set_source_files_properties(qml/complications/ComplicationSources.qml PROPERTIES QT_RESOURCE_ALIAS complications/ComplicationSources.qml)
+set_source_files_properties(qml/complications/ComplicationView.qml   PROPERTIES QT_RESOURCE_ALIAS complications/ComplicationView.qml)
+set_source_files_properties(qml/complications/AgendaSource.qml       PROPERTIES QT_RESOURCE_ALIAS complications/AgendaSource.qml)
+set_source_files_properties(qml/complications/FaceEditor.qml         PROPERTIES QT_RESOURCE_ALIAS complications/FaceEditor.qml)
 set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
 set_source_files_properties(qml/assistant/AssistantDots.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantDots.qml)
