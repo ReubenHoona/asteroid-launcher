@@ -712,5 +712,41 @@
         <source>Can&apos;t display image</source>
         <translation>Can&apos;t display image</translation>
     </message>
+    <message id="id-face-ambient">
+        <source>Always-on</source>
+        <translation>Always-on</translation>
+    </message>
+    <message id="id-face-ambient-dim">
+        <source>Dimmed</source>
+        <translation>Dimmed</translation>
+    </message>
+    <message id="id-face-ambient-outline">
+        <source>Outline</source>
+        <translation>Outline</translation>
+    </message>
+    <message id="id-face-customize">
+        <source>Customize</source>
+        <translation>Customize</translation>
+    </message>
+    <message id="id-face-options">
+        <source>Watch face</source>
+        <translation>Watch face</translation>
+    </message>
+    <message id="id-face-show-date">
+        <source>Date</source>
+        <translation>Date</translation>
+    </message>
+    <message id="id-face-show-seconds">
+        <source>Seconds</source>
+        <translation>Seconds</translation>
+    </message>
+    <message id="id-tile-assistant">
+        <source>Assistant</source>
+        <translation>Assistant</translation>
+    </message>
+    <message id="id-tile-speak">
+        <source>Speak</source>
+        <translation>Speak</translation>
+    </message>
 </context>
 </TS>
