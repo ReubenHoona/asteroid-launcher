@@ -10,7 +10,9 @@ import org.asteroid.controls
 import org.asteroid.launcher
 
 // Steps so far today (asteroid-sensorlogd's log) on a ring towards the
-// daily goal, as the Wear OS / Fitbit steps tile
+// daily goal, as the Fitbit "main goal" tile (an arc with its gap at the
+// bottom; the goal reached is said, as Fitbit celebrates it); a tap opens
+// the Health app
 TileBase {
     id: tile
     //% "Steps"
@@ -19,6 +21,7 @@ TileBase {
     //% "Health"
     chipText: qsTrId("id-tile-health") + localeManager.changesObserver
     onChipClicked: desktop.launchByName("asteroid-health", null)
+    onClicked: desktop.launchByName("asteroid-health", tile)
 
     HealthLog {
         id: log
@@ -33,6 +36,8 @@ TileBase {
         defaultValue: 10000
     }
 
+    //% "Goal reached"
+    readonly property string goalReachedText: qsTrId("id-tile-goal-reached") + localeManager.changesObserver
     readonly property real progress: goal.value > 0 ? Math.min(1, log.lastValue / goal.value) : 0
 
     Item {
@@ -79,10 +84,13 @@ TileBase {
             }
             Label {
                 anchors.horizontalCenter: parent.horizontalCenter
-                opacity: 0.7
+                opacity: tile.progress >= 1 ? 1 : 0.7
+                color: tile.progress >= 1 ? tile.accent : "#ffffff"
                 font.pixelSize: Math.round(tile.height * 0.05)
-                //% "of %1"
-                text: qsTrId("id-tile-steps-of").arg(Number(goal.value).toLocaleString(Qt.locale(), "f", 0)) + localeManager.changesObserver
+                text: (tile.progress >= 1 ? tile.goalReachedText
+                                          //% "of %1"
+                                          : qsTrId("id-tile-steps-of").arg(Number(goal.value).toLocaleString(Qt.locale(), "f", 0)))
+                      + localeManager.changesObserver
             }
         }
     }

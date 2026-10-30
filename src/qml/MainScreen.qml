@@ -39,6 +39,7 @@ import org.asteroid.utils
 import org.asteroid.launcher
 import "desktop.js" as Desktop
 import "tiles"
+import "complications"
 
 Item {
     id: desktop
@@ -136,27 +137,31 @@ Item {
     property bool _wearLayout: true
     property bool launchedFromDrawer: false
 
-    // the tiles: id -> file and name
+    // the tiles: id -> file, name and the icon of the tiles editor's list
     readonly property var tileRegistry: ({
         //% "Heart rate"
-        "heartrate": { file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-heart-rate") },
+        "heartrate": { file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-heart-rate"), icon: "ios-heart-outline" },
         //% "Steps"
-        "steps": { file: "tiles/StepsTile.qml", name: qsTrId("id-tile-steps") },
+        "steps": { file: "tiles/StepsTile.qml", name: qsTrId("id-tile-steps"), icon: "ios-walk" },
         //% "Weather"
-        "weather": { file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-weather") },
+        "weather": { file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-weather"), icon: "ios-partly-sunny-outline" },
         //% "Agenda"
-        "agenda": { file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-agenda") },
+        "agenda": { file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-agenda"), icon: "ios-calendar-outline" },
         //% "Timer"
-        "timer": { file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer") },
+        "timer": { file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer"), icon: "ios-timer-outline" },
         //% "Media"
-        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media") },
+        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media"), icon: "ios-musical-notes-outline" },
         //% "Assistant"
-        "assistant": { file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant") }
+        "assistant": { file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant"), icon: "ios-microphone-outline" },
+        //% "Alarm"
+        "alarm": { file: "tiles/AlarmTile.qml", name: qsTrId("id-tile-alarm"), icon: "ios-alarm-outline" },
+        //% "Battery"
+        "battery": { file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full" }
     })
     ConfigurationValue {
         id: tilesSetting
         key: "/org/asteroidos/ux/tiles"
-        defaultValue: ["weather", "heartrate", "steps", "agenda", "timer", "media", "assistant"]
+        defaultValue: ["weather", "heartrate", "steps", "agenda", "alarm", "timer", "battery", "media", "assistant"]
         onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
     }
     property var builtTiles: []
@@ -187,12 +192,10 @@ Item {
         grid.changeAllowedDirections()
     }
 
+    // the tile on screen (a long press on it) in the middle of the editor
     function openTilesEditor() {
-        var names = {}
-        for (var k in tileRegistry)
-            names[k] = tileRegistry[k].name
-        tilesEditor.names = names
-        tilesEditor.open(builtTiles)
+        tilesEditor.registry = tileRegistry
+        tilesEditor.open(builtTiles, Math.max(0, grid.currentHorizontalPos - 1))
     }
 
     function openFacePicker() {
@@ -204,7 +207,7 @@ Item {
     function closeOverlays() {
         appDrawer.closeNow()
         if (facePicker.visible) facePicker.close()
-        if (tilesEditor.visible) tilesEditor.close(false)
+        if (tilesEditor.visible) tilesEditor.close()
     }
 
     /* The crown button on the home screen, as Wear OS: on the watchface it
@@ -223,8 +226,16 @@ Item {
             Desktop.pictureViewer.close()
             return
         }
-        if (facePicker.visible || tilesEditor.visible) {
-            closeOverlays()
+        // back a level in the editors (the list of tiles to add, a slot's
+        // data sources, the face options), else out of them
+        if (tilesEditor.visible) {
+            if (!tilesEditor.back())
+                tilesEditor.close()
+            return
+        }
+        if (facePicker.visible) {
+            if (!facePicker.back())
+                closeOverlays()
             return
         }
         if (appDrawer.isOpen) {
@@ -494,7 +505,27 @@ Item {
     // builds the new one
     readonly property string hubLayoutInputs: [watchFaceSource.value, watchfaceNightstandSource.value,
                                                use12H.value, faceShowDate.value,
-                                               faceAmbientStyle.value].join("|")
+                                               faceAmbientStyle.value,
+                                               JSON.stringify(faceComplications.value)].join("|")
+    // the complications chosen for the face (the date shows in always-on)
+    ConfigurationValue {
+        id: faceComplications
+        key: complications.configKey(complications.faceName(watchFaceSource.value))
+        defaultValue: []
+    }
+
+    /* The watch face complications (ComplicationSources): the data the
+     * faces' slots show, read only while the face (or the face editor) is
+     * on the awake screen; nothing is read, and nothing on the face changes,
+     * with the screen off or in always-on, where only the date shows */
+    ComplicationSources {
+        id: complications
+        active: desktop.displayAwake && !displayAmbient && (desktop.faceShown || facePicker.visible)
+        ambient: displayAmbient
+        nightstand: nightstandMode.active
+        use12h: use12H.value
+        now: wallClock.time
+    }
     onHubLayoutInputsChanged: hubOffload.invalidate()
     onWatchfaceReloadRequested: hubOffload.invalidate()
 
@@ -745,6 +776,7 @@ Item {
                 visible: opacity
                 anchors.fill: parent
                 source: watchfaceNightstandSource.value
+                onLoaded: complications.attach(item, source)
                 Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InCirc } }
             }
             Loader {
@@ -754,6 +786,7 @@ Item {
                 Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InCirc} }
                 anchors.fill: parent
                 source: watchFaceSource.value
+                onLoaded: complications.attach(item, source)
 
                 // Reinstantiate to re-read the source from disk. Toggling the
                 // Loader instead of rewriting the dconf-backed watchFaceSource
@@ -860,13 +893,20 @@ Item {
     FacePicker {
         id: facePicker
         z: 6
+        liveFace: desktop.centreItem ? desktop.centreItem.activeFace : null
+        sources: complications
         onChosen: (face) => watchFaceSource.value = face
     }
 
     TilesEditor {
         id: tilesEditor
         z: 6
-        onDone: (tiles) => tilesSetting.value = tiles
+        onChanged: (tiles) => tilesSetting.value = tiles
+        // back on the tile in the middle of the editor, as stock
+        onFinished: (index) => {
+            if (index >= 0 && desktop.wearLayout)
+                Qt.callLater(function() { grid.moveTo(Math.min(index + 1, desktop.tileCount), 0) })
+        }
     }
 
     // "Sent", "Saved"... over everything on the home screen

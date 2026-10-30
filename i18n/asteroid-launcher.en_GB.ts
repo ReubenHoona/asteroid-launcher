@@ -736,5 +736,157 @@
         <source>Can&apos;t display image</source>
         <translation>Can&apos;t display image</translation>
     </message>
+    <message id="id-comp-empty">
+        <source>Empty</source>
+        <translation>Empty</translation>
+    </message>
+    <message id="id-comp-date">
+        <source>Day and date</source>
+        <translation>Day and date</translation>
+    </message>
+    <message id="id-comp-battery">
+        <source>Watch battery</source>
+        <translation>Watch battery</translation>
+    </message>
+    <message id="id-comp-phone-battery">
+        <source>Phone battery</source>
+        <translation>Phone battery</translation>
+    </message>
+    <message id="id-comp-next-event">
+        <source>Next event</source>
+        <translation>Next event</translation>
+    </message>
+    <message id="id-comp-no-events">
+        <source>No events</source>
+        <translation>No events</translation>
+    </message>
+    <message id="id-face-complications">
+        <source>Complications</source>
+        <translation>Complications</translation>
+    </message>
+    <message id="id-face-tap-to-change">
+        <source>Tap to change</source>
+        <translation>Tap to change</translation>
+    </message>
+    <message id="id-face-data">
+        <source>Data</source>
+        <translation>Data</translation>
+    </message>
+    <message id="id-tile-alarm">
+        <source>Alarm</source>
+        <translation>Alarm</translation>
+    </message>
+    <message id="id-tile-alarms">
+        <source>Alarms</source>
+        <translation>Alarms</translation>
+    </message>
+    <message id="id-tile-alarm-in-hm">
+        <source>In %1 h %2 min</source>
+        <translation>In %1 h %2 min</translation>
+    </message>
+    <message id="id-tile-alarm-in-h">
+        <source>In %1 h</source>
+        <translation>In %1 h</translation>
+    </message>
+    <message id="id-tile-alarm-in-m">
+        <source>In %1 min</source>
+        <translation>In %1 min</translation>
+    </message>
+    <message id="id-tile-alarm-once">
+        <source>Once</source>
+        <translation>Once</translation>
+    </message>
+    <message id="id-tile-today">
+        <source>Today</source>
+        <translation>Today</translation>
+    </message>
+    <message id="id-tile-alarm-weekdays">
+        <source>Weekdays</source>
+        <translation>Weekdays</translation>
+    </message>
+    <message id="id-tile-alarm-weekends">
+        <source>Weekends</source>
+        <translation>Weekends</translation>
+    </message>
+    <message id="id-tile-alarm-every-day">
+        <source>Every day</source>
+        <translation>Every day</translation>
+    </message>
+    <message id="id-tile-no-alarms">
+        <source>No alarms</source>
+        <translation>No alarms</translation>
+    </message>
+    <message id="id-tile-battery">
+        <source>Battery</source>
+        <translation>Battery</translation>
+    </message>
+    <message id="id-tile-charging">
+        <source>Charging</source>
+        <translation>Charging</translation>
+    </message>
+    <message id="id-tile-charged">
+        <source>Charged</source>
+        <translation>Charged</translation>
+    </message>
+    <message id="id-tile-watch">
+        <source>Watch</source>
+        <translation>Watch</translation>
+    </message>
+    <message id="id-tile-phone-disconnected">
+        <source>Phone not connected</source>
+        <translation>Phone not connected</translation>
+    </message>
+    <message id="id-tile-goal-reached">
+        <source>Goal reached</source>
+        <translation>Goal reached</translation>
+    </message>
+    <message id="id-tile-more-events">
+        <source>+%1 more</source>
+        <translation>+%1 more</translation>
+    </message>
+    <message id="id-tiles-add">
+        <source>Add tile</source>
+        <translation>Add tile</translation>
+    </message>
+    <message id="id-face-ambient">
+        <source>Always-on</source>
+        <translation>Always-on</translation>
+    </message>
+    <message id="id-face-ambient-dim">
+        <source>Dimmed</source>
+        <translation>Dimmed</translation>
+    </message>
+    <message id="id-face-ambient-outline">
+        <source>Outline</source>
+        <translation>Outline</translation>
+    </message>
+    <message id="id-face-customize">
+        <source>Customize</source>
+        <translation>Customize</translation>
+    </message>
+    <message id="id-face-options">
+        <source>Watch face</source>
+        <translation>Watch face</translation>
+    </message>
+    <message id="id-face-show-date">
+        <source>Date</source>
+        <translation>Date</translation>
+    </message>
+    <message id="id-face-show-seconds">
+        <source>Seconds</source>
+        <translation>Seconds</translation>
+    </message>
+    <message id="id-tile-assistant">
+        <source>Assistant</source>
+        <translation>Assistant</translation>
+    </message>
+    <message id="id-tile-speak">
+        <source>Speak</source>
+        <translation>Speak</translation>
+    </message>
+    <message id="id-tile-alarm-in-dh">
+        <source>In %1 d %2 h</source>
+        <translation>In %1 d %2 h</translation>
+    </message>
 </context>
 </TS>

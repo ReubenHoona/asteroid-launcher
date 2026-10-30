@@ -72,6 +72,10 @@ public:
 
     Q_INVOKABLE void reload();
 
+    /* Whether a timer of its own is armed (the 2 s debounce or the one for
+     * just after midnight): never while inactive (tests) */
+    bool timersArmed() const { return m_debounce.isActive() || m_midnight.isActive(); }
+
     /* The directory of a sensor's logs */
     static QString sensorDir(const QString &sensor);
 

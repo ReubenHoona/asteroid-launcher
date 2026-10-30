@@ -116,6 +116,36 @@ Item {
                 }
                 text: Qt.formatDate(wallClock.time, "dd MMMM").toUpperCase()
             }
+
+            // Complication slots, a line above and one under the time (the
+            // launcher draws the chosen data in them, and only the date in
+            // always-on: ComplicationView.qml)
+            Item {
+                objectName: "eosComplication"
+                property string slotId: "top"
+                property string shape: "text"
+                property string defaultSource: "battery"
+                property color tint: "white"
+                property string fontFamily: "Xolonium"
+                x: parent.width * .3
+                y: parent.height * .14
+                width: parent.width * .4
+                height: parent.height * .07
+                visible: !nightstandMode.active
+            }
+            Item {
+                objectName: "eosComplication"
+                property string slotId: "bottom"
+                property string shape: "text"
+                property string defaultSource: "steps"
+                property color tint: "white"
+                property string fontFamily: "Xolonium"
+                x: parent.width * .3
+                y: parent.height * .76
+                width: parent.width * .4
+                height: parent.height * .07
+                visible: !nightstandMode.active
+            }
         }
 
         Item {
