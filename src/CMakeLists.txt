@@ -56,6 +56,8 @@ set(QML_FILES
 	qml/tiles/TimerTile.qml
 	qml/tiles/MediaTile.qml
 	qml/tiles/AssistantTile.qml
+	qml/tiles/AlarmTile.qml
+	qml/tiles/BatteryTile.qml
 	qml/assistant/AssistantOverlay.qml
 	qml/assistant/AssistantActions.qml
 	qml/assistant/AssistantDots.qml
@@ -101,6 +103,8 @@ set_source_files_properties(qml/tiles/AgendaTile.qml                 PROPERTIES 
 set_source_files_properties(qml/tiles/TimerTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/TimerTile.qml)
 set_source_files_properties(qml/tiles/MediaTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/MediaTile.qml)
 set_source_files_properties(qml/tiles/AssistantTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/AssistantTile.qml)
+set_source_files_properties(qml/tiles/AlarmTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/AlarmTile.qml)
+set_source_files_properties(qml/tiles/BatteryTile.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/BatteryTile.qml)
 set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
 set_source_files_properties(qml/assistant/AssistantDots.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantDots.qml)

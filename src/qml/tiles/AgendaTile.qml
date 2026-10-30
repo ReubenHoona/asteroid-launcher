@@ -18,6 +18,7 @@ TileBase {
     //% "Calendar"
     chipText: qsTrId("id-tile-calendar") + localeManager.changesObserver
     onChipClicked: desktop.launchByName("asteroid-calendar", null)
+    onClicked: desktop.launchByName("asteroid-calendar", tile)
 
     ConfigurationValue { id: use12H; key: "/org/asteroidos/settings/use-12h-format"; defaultValue: false }
 
@@ -39,18 +40,25 @@ TileBase {
         onUpdated: if (tile.live) tile.upcoming = tile.nextEvents()
     }
 
-    // the first two events that have not ended yet
+    // the first two events that have not ended yet; how many more there are
+    // (stock's calendar tile: two at a time, then "More")
     property var upcoming: []
+    property int more: 0
     function nextEvents() {
         var now = new Date()
         var list = []
-        for (var i = 0; i < agenda.count && list.length < 2; i++) {
+        var rest = 0
+        for (var i = 0; i < agenda.count; i++) {
             var o = agenda.get(i, AgendaModel.OccurrenceObjectRole)
             var e = agenda.get(i, AgendaModel.EventObjectRole)
             if (!o || !e || o.endTime < now)
                 continue
-            list.push({ start: o.startTime, end: o.endTime, title: e.displayLabel, allDay: e.allDay })
+            if (list.length < 2)
+                list.push({ start: o.startTime, end: o.endTime, title: e.displayLabel, allDay: e.allDay })
+            else
+                rest++
         }
+        more = rest
         return list
     }
 
@@ -94,6 +102,14 @@ TileBase {
                     font.styleName: "SemiCondensed Medium"
                 }
             }
+        }
+        Label {
+            anchors.horizontalCenter: parent.horizontalCenter
+            visible: tile.more > 0
+            opacity: 0.7
+            font.pixelSize: Math.round(tile.height * 0.045)
+            //% "+%1 more"
+            text: qsTrId("id-tile-more-events").arg(tile.more) + localeManager.changesObserver
         }
     }
 

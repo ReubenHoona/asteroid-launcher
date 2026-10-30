@@ -136,27 +136,31 @@ Item {
     property bool _wearLayout: true
     property bool launchedFromDrawer: false
 
-    // the tiles: id -> file and name
+    // the tiles: id -> file, name and the icon of the tiles editor's list
     readonly property var tileRegistry: ({
         //% "Heart rate"
-        "heartrate": { file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-heart-rate") },
+        "heartrate": { file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-heart-rate"), icon: "ios-heart-outline" },
         //% "Steps"
-        "steps": { file: "tiles/StepsTile.qml", name: qsTrId("id-tile-steps") },
+        "steps": { file: "tiles/StepsTile.qml", name: qsTrId("id-tile-steps"), icon: "ios-walk" },
         //% "Weather"
-        "weather": { file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-weather") },
+        "weather": { file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-weather"), icon: "ios-partly-sunny-outline" },
         //% "Agenda"
-        "agenda": { file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-agenda") },
+        "agenda": { file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-agenda"), icon: "ios-calendar-outline" },
         //% "Timer"
-        "timer": { file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer") },
+        "timer": { file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer"), icon: "ios-timer-outline" },
         //% "Media"
-        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media") },
+        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media"), icon: "ios-musical-notes-outline" },
         //% "Assistant"
-        "assistant": { file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant") }
+        "assistant": { file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant"), icon: "ios-microphone-outline" },
+        //% "Alarm"
+        "alarm": { file: "tiles/AlarmTile.qml", name: qsTrId("id-tile-alarm"), icon: "ios-alarm-outline" },
+        //% "Battery"
+        "battery": { file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full" }
     })
     ConfigurationValue {
         id: tilesSetting
         key: "/org/asteroidos/ux/tiles"
-        defaultValue: ["weather", "heartrate", "steps", "agenda", "timer", "media", "assistant"]
+        defaultValue: ["weather", "heartrate", "steps", "agenda", "alarm", "timer", "battery", "media", "assistant"]
         onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
     }
     property var builtTiles: []
@@ -187,12 +191,10 @@ Item {
         grid.changeAllowedDirections()
     }
 
+    // the tile on screen (a long press on it) in the middle of the editor
     function openTilesEditor() {
-        var names = {}
-        for (var k in tileRegistry)
-            names[k] = tileRegistry[k].name
-        tilesEditor.names = names
-        tilesEditor.open(builtTiles)
+        tilesEditor.registry = tileRegistry
+        tilesEditor.open(builtTiles, Math.max(0, grid.currentHorizontalPos - 1))
     }
 
     function openFacePicker() {
@@ -204,7 +206,7 @@ Item {
     function closeOverlays() {
         appDrawer.closeNow()
         if (facePicker.visible) facePicker.close()
-        if (tilesEditor.visible) tilesEditor.close(false)
+        if (tilesEditor.visible) tilesEditor.close()
     }
 
     /* The crown button on the home screen, as Wear OS: on the watchface it
@@ -223,7 +225,14 @@ Item {
             Desktop.pictureViewer.close()
             return
         }
-        if (facePicker.visible || tilesEditor.visible) {
+        // back a level in the tiles editor (from the list of tiles to
+        // add), else out of it
+        if (tilesEditor.visible) {
+            if (!tilesEditor.back())
+                tilesEditor.close()
+            return
+        }
+        if (facePicker.visible) {
             closeOverlays()
             return
         }
@@ -866,7 +875,12 @@ Item {
     TilesEditor {
         id: tilesEditor
         z: 6
-        onDone: (tiles) => tilesSetting.value = tiles
+        onChanged: (tiles) => tilesSetting.value = tiles
+        // back on the tile in the middle of the editor, as stock
+        onFinished: (index) => {
+            if (index >= 0 && desktop.wearLayout)
+                Qt.callLater(function() { grid.moveTo(Math.min(index + 1, desktop.tileCount), 0) })
+        }
     }
 
     // "Sent", "Saved"... over everything on the home screen

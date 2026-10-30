@@ -25,6 +25,8 @@ Item {
     readonly property bool live: visible
     property string chipText: ""
     property string chipIcon: ""
+    // drawn small as a picture of itself (the tiles editor): no curved time
+    property bool preview: false
     default property alias content: body.data
     readonly property alias body: body
 
@@ -48,7 +50,7 @@ Item {
         }
     }
 
-    TimeText { }
+    TimeText { visible: !tile.preview }
 
     Label {
         id: titleLabel
