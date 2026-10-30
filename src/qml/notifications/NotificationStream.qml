@@ -114,11 +114,12 @@ Item {
         return a ? String(a).split(",").indexOf("mute") >= 0 : false
     }
 
-    function openBlockingMenu(n) {
+    // card: the card whose long press (its finger still down) opens it
+    function openBlockingMenu(n, card) {
         if (!canBlock(n))
             return false
         Haptics.longPress()
-        stack.push(blockingPage, { notification: n })
+        stack.push(blockingPage, { notification: n, openingCard: card || null })
         return true
     }
 
@@ -276,6 +277,7 @@ Item {
                         Repeater {
                             model: group.expanded ? group.items.length : Math.min(1, group.items.length)
                             delegate: NotificationCard {
+                                id: streamCard
                                 width: col.width
                                 notification: group.items[index] || null
                                 extra: group.expanded ? 0 : group.items.length - 1
@@ -289,7 +291,7 @@ Item {
                                 }
                                 onDismissed: stream.dismiss(group.expanded || group.items.length === 1
                                                             ? [notification] : group.items)
-                                onLongPressed: stream.openBlockingMenu(notification)
+                                onLongPressed: stream.openBlockingMenu(notification, streamCard)
                             }
                         }
                     }
@@ -355,6 +357,7 @@ Item {
             property var pop
             property int depth
             property QtObject notification
+            property Item openingCard: null
 
             Rectangle {
                 anchors.fill: parent
@@ -362,11 +365,19 @@ Item {
             }
 
             NotificationBlockingMenu {
+                id: blockingMenu
                 anchors.fill: parent
                 notification: blocking.notification
+                // the long press's finger is still down: its lift is not a tap here
+                openedByHold: blocking.openingCard !== null
+                holding: blocking.openingCard !== null && blocking.openingCard.held
             }
 
-            TimeText { }
+            // Wear OS: the time scrolls away with the page
+            TimeText {
+                opacity: Math.max(0, 1 - blockingMenu.scrolled / Dims.h(10))
+                transform: Translate { y: -blockingMenu.scrolled }
+            }
         }
     }
 
@@ -395,7 +406,12 @@ Item {
                 panelsGrid: null
             }
 
-            TimeText { visible: !actionsPage.fullScreenLayer }
+            // Wear OS: the time scrolls away with the notification
+            TimeText {
+                visible: !actionsPage.fullScreenLayer
+                opacity: Math.max(0, 1 - actionsPage.scrolled / Dims.h(10))
+                transform: Translate { y: -actionsPage.scrolled }
+            }
 
             // the phone closed it, or it was dismissed: back to the stream
             Connections {

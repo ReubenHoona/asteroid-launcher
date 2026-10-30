@@ -55,6 +55,13 @@ Item {
     signal replySent()
     // the page on top covers the whole screen (the keyboard): no time over it
     readonly property bool fullScreenLayer: layerStack.currentLayer ? layerStack.currentLayer.fullScreen === true : false
+    // How far the page on top is scrolled (the time scrolls away with it): the
+    // notification's page or the long press menu; the reply pages keep a fixed
+    // title and clip their lists under it
+    readonly property real scrolled: {
+        var page = layerStack.currentLayer ? layerStack.currentLayer : layerStack.firstPageItem
+        return page && page.scrolled !== undefined ? Math.max(0, page.scrolled) : 0
+    }
 
     // Actions the phone offers for a notification it sent (asteroid-btsyncd
     // puts them in this hint): reply, open, mute, answer, reject
@@ -320,6 +327,7 @@ Item {
         id: actionsComponent
 
         Item {
+            readonly property real scrolled: actionsFlick.contentY - actionsFlick.originY
             // In the notification stream the page shows the whole
             // notification above its buttons, and scrolls (showText);
             // otherwise the buttons sit in the middle as before
@@ -579,8 +587,10 @@ Item {
         Item {
             property var pop
             property int depth
+            readonly property real scrolled: moreMenu.scrolled
 
             NotificationBlockingMenu {
+                id: moreMenu
                 anchors.fill: parent
                 notification: actions.notification
                 belowTimeText: actions.showText

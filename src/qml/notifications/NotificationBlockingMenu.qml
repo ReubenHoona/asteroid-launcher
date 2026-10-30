@@ -33,11 +33,47 @@ Item {
     property bool appEnabled: true
     property bool pending: false
 
+    // How far the page is scrolled (the time scrolls away with it)
+    readonly property real scrolled: Math.max(0, flick.contentY - flick.originY)
+
+    /*
+     * Opened by a long press whose finger is still down (the stream's card):
+     * as stock (the menu is another window there, the touch stays with the
+     * card), nothing here reacts to that touch, nor to what its lift turns
+     * into: the page takes input from the next press on. holding is that
+     * touch; once it is up (and a press the page got from it is over) the
+     * guard goes armDelayMs later. A guard that never hears of the lift goes
+     * after guardMaxMs.
+     */
+    property bool openedByHold: false
+    property bool holding: false
+    property bool guardOn: false
+    readonly property int armDelayMs: 150
+    readonly property int guardMaxMs: 4000
+    onHoldingChanged: if (!holding) armSoon()
+    function armSoon() {
+        if (guardOn)
+            armTimer.restart()
+    }
+    Timer {
+        id: armTimer
+        interval: menu.armDelayMs
+        onTriggered: if (!guard.pressed && !menu.holding) menu.guardOn = false
+    }
+    Timer {
+        running: menu.guardOn
+        interval: menu.guardMaxMs
+        onTriggered: if (!guard.pressed) menu.guardOn = false
+    }
+
     Component.onCompleted: {
         if (notification) {
             notificationId = notification.replacesId
             appName = notification.appName
         }
+        guardOn = openedByHold
+        if (guardOn && !holding)
+            armSoon()
     }
 
     function toggle() {
@@ -71,6 +107,18 @@ Item {
         service: "org.asteroidos.btsyncd"
         path: "/org/asteroidos/btsyncd/notifications"
         iface: "org.asteroidos.btsyncd.Notifications"
+    }
+
+    // the opening touch's guard: over the whole page, it takes every press
+    // while it is on (the back swipe still sees them)
+    MouseArea {
+        id: guard
+        objectName: "blockingGuard"
+        anchors.fill: parent
+        z: 1000
+        enabled: menu.guardOn
+        onReleased: menu.armSoon()
+        onCanceled: menu.armSoon()
     }
 
     Flickable {

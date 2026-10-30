@@ -26,6 +26,8 @@ Item {
     signal tapped()
     signal dismissed()
     signal longPressed()
+    // the finger that pressed the card is still down (after a long press too)
+    readonly property bool held: tap.pressed
 
     // horizontal offset while dragged or flying off
     property real dx: 0
