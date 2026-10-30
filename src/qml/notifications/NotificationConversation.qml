@@ -16,14 +16,21 @@ import org.asteroid.controls
  * a run joined with small corners on the sender's side (24 dp corners, 4 dp
  * where they join, 12 x 8 dp padding, 2 dp between them, 8 dp between runs).
  * The messages come from asteroid-btsyncd's x-asteroid-messages hint (JSON:
- * s sender, t text, me the user's own).
+ * s sender, t text, me the user's own, p the file of its picture with w, h).
+ * A message's picture shows in its bubble, above its text, as stock keeps a
+ * message's image with the message (full_view_message_picture); a tap on it
+ * is pictureTapped (the full screen view).
  */
 Column {
     id: conversation
 
     property QtObject notification
-    // [{ s, t, me }] oldest first, [] when the notification has none
+    // [{ s, t, me, p, size }] oldest first, [] when the notification has none
     readonly property var messages: parse(notification)
+    // the pictures the bubbles show
+    readonly property var picturePaths: messages.filter(function (m) { return m.p !== "" }).map(function (m) { return m.p })
+
+    signal pictureTapped(string path, string size)
     // a group, or a conversation whose senders are not only its title
     readonly property bool showSenders: {
         var title = notification ? notification.summary : ""
@@ -43,8 +50,13 @@ Column {
             var list = JSON.parse(String(raw))
             if (!Array.isArray(list))
                 return []
-            return list.filter(function (m) { return m && typeof m.t === "string" && m.t.length > 0 })
-                       .map(function (m) { return { s: typeof m.s === "string" ? m.s : "", t: m.t, me: m.me === true } })
+            return list.filter(function (m) { return m && typeof m.t === "string" && (m.t.length > 0 || typeof m.p === "string") })
+                       .map(function (m) {
+                           var p = typeof m.p === "string" ? m.p : ""
+                           var size = Number(m.w) > 0 && Number(m.h) > 0 ? m.w + "x" + m.h : ""
+                           return { s: typeof m.s === "string" ? m.s : "", t: m.t, me: m.me === true, p: p, size: size }
+                       })
+                       .filter(function (m) { return m.t.length > 0 || m.p !== "" })
         } catch (e) {
             return []
         }
@@ -102,9 +114,13 @@ Column {
                 id: bubbleRect
                 readonly property real padX: Dims.l(3.9)
                 readonly property real padY: Dims.l(2.6)
+                readonly property bool hasText: message.m.t.length > 0
+                readonly property bool hasPicture: message.m.p !== ""
+                // a picture message is as wide as the bubbles get
+                readonly property real pictureWidth: conversation.width * 0.86 - 2 * padY
                 y: message.height - height
-                width: textLabel.width + 2 * padX
-                height: textLabel.height + 2 * padY
+                width: hasPicture ? conversation.width * 0.86 : textLabel.width + 2 * padX
+                height: (hasPicture ? bubblePicture.height + padY : 0) + (hasText ? textLabel.height + padY : 0) + padY
                 x: message.own ? conversation.width - width : 0
                 color: message.own ? "#a8c7fa" : "#303033"
                 readonly property real r: Math.min(conversation.largeRadius, height / 2)
@@ -114,10 +130,28 @@ Column {
                 topRightRadius: message.own && message.joinedAbove ? conversation.smallRadius : r
                 bottomRightRadius: message.own && message.joinedBelow ? conversation.smallRadius : r
 
+                NotificationPicture {
+                    id: bubblePicture
+                    objectName: "bubblePicture"
+                    visible: bubbleRect.hasPicture
+                    x: bubbleRect.padY
+                    y: bubbleRect.padY
+                    width: bubbleRect.pictureWidth
+                    // at most square in the bubble (the full screen view shows all of it)
+                    maxHeight: width
+                    radius: Math.max(0, bubbleRect.r - bubbleRect.padY)
+                    picturePath: message.m.p
+                    pictureSize: message.m.size
+                    showError: true
+                    tappable: true
+                    onTapped: conversation.pictureTapped(message.m.p, message.m.size)
+                }
+
                 Label {
                     id: textLabel
+                    visible: bubbleRect.hasText
                     x: bubbleRect.padX
-                    y: bubbleRect.padY
+                    y: bubbleRect.hasPicture ? bubblePicture.y + bubblePicture.height + bubbleRect.padY : bubbleRect.padY
                     // as wide as the text, at most 86 % of the column
                     width: Math.min(implicitWidth, conversation.width * 0.86 - 2 * bubbleRect.padX)
                     text: message.m.t

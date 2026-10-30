@@ -41,13 +41,21 @@ Item {
 
     signal tapped()
 
+    // A picture of its own (a message's, in its bubble; the full screen view of one), else
+    // the notification's (x-asteroid-picture): its file and its size "WxH"
+    property string picturePath: ""
+    property string pictureSize: ""
+
     readonly property string path: {
+        if (picturePath !== "")
+            return picturePath
         var h = notification && notification.hints ? notification.hints["x-asteroid-picture"] : undefined
         return h ? String(h) : ""
     }
     // height / width: of the picture once loaded, else of the size the phone said
     readonly property real hintAspect: {
-        var h = notification && notification.hints ? notification.hints["x-asteroid-picture-size"] : undefined
+        var h = picturePath !== "" ? pictureSize
+                : notification && notification.hints ? notification.hints["x-asteroid-picture-size"] : undefined
         var m = h ? String(h).match(/^(\d+)x(\d+)$/) : null
         return m && Number(m[1]) > 0 && Number(m[2]) > 0 ? Number(m[2]) / Number(m[1]) : 0
     }
@@ -124,7 +132,9 @@ Item {
         id: frame
         anchors.fill: parent
         visible: pic.pictureState === 1 && !pic.ambient
-        layer.enabled: visible
+        // rounded by a shader (the watch's GPU); the software renderer (the host tests'
+        // screenshots) draws no shader: the picture square there
+        layer.enabled: visible && frame.GraphicsInfo.api !== GraphicsInfo.Software
         layer.effect: OpacityMask {
             maskSource: Rectangle {
                 width: frame.width

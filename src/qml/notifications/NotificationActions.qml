@@ -347,21 +347,25 @@ Item {
                     spacing: Dims.h(5)
 
                     NotificationText {
+                        id: fullText
                         visible: actions.showText
                         width: parent.width
                         notification: actions.notification
                         timestamp: actions.timestampStr
+                        onPictureTapped: (path, size) => actions.showPicture(path, size)
                     }
 
                     // A message's picture, whole (Wear OS: full width, its own
-                    // aspect, rounded); a tap shows it full screen
+                    // aspect, rounded); a tap shows it full screen. Not when a
+                    // message's bubble shows it already.
                     NotificationPicture {
                         visible: actions.showText && wanted && (!failed || showError)
+                                 && fullText.bubblePictures.indexOf(path) < 0
                         width: parent.width
                         notification: actions.notification
                         showError: true
                         tappable: true
-                        onTapped: layerStack.push(pictureLayer)
+                        onTapped: actions.showPicture("", "")
                     }
 
             Column {
@@ -824,6 +828,15 @@ Item {
         }
     }
 
+    // A picture full screen: the notification's (path ""), or a message's
+    property string viewerPath: ""
+    property string viewerSize: ""
+    function showPicture(path, size) {
+        viewerPath = path
+        viewerSize = size
+        layerStack.push(pictureLayer)
+    }
+
     // A message's picture full screen, as large as the round screen shows all
     // of it; a tap, a swipe right or the crown goes back to the notification
     Component {
@@ -851,6 +864,8 @@ Item {
                 anchors.centerIn: parent
                 radius: Dims.l(4)
                 notification: actions.notification
+                picturePath: actions.viewerPath
+                pictureSize: actions.viewerSize
                 showError: true
             }
 

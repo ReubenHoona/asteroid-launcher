@@ -17,6 +17,9 @@ Column {
     property QtObject notification
     property string timestamp: ""
     property bool compact: false
+    // the pictures the conversation's bubbles show; a tap on one
+    readonly property var bubblePictures: conversationView.visible ? conversationView.picturePaths : []
+    signal pictureTapped(string path, string size)
 
     spacing: Dims.h(1.5)
 
@@ -79,6 +82,7 @@ Column {
         width: parent.width
         visible: !nt.compact && messages.length > 0
         notification: nt.compact ? null : nt.notification
+        onPictureTapped: (path, size) => nt.pictureTapped(path, size)
     }
 
     Label {
