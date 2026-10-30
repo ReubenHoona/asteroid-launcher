@@ -640,6 +640,18 @@
         <source>Measure</source>
         <translation>Measure</translation>
     </message>
+    <message id="id-tile-hr-now">
+        <source>Now</source>
+        <translation>Now</translation>
+    </message>
+    <message id="id-tile-hr-range">
+        <source>Range %1</source>
+        <translation>Range %1</translation>
+    </message>
+    <message id="id-tile-hr-resting">
+        <source>Resting %1</source>
+        <translation>Resting %1</translation>
+    </message>
     <message id="id-tile-media">
         <source>Media</source>
         <translation>Media</translation>

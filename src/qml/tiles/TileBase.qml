@@ -9,8 +9,9 @@ import org.asteroid.controls
 /*
  * The frame of a tile, as Wear OS lays its tiles out: black, the time on
  * the top arc, a coloured title, the content in the middle and an optional
- * chip at the bottom edge. A long press anywhere that is not a button opens
- * the tiles editor.
+ * chip at the bottom edge. A tap anywhere that is not a button is clicked()
+ * (as a Wear OS tile's clickable: it opens the tile's app); a long press
+ * opens the tiles editor.
  *
  * "live" is true while the tile is on screen (the panels grid hides the
  * panels nobody sees). Tiles only read and show their data while live, so a
@@ -28,6 +29,7 @@ Item {
     readonly property alias body: body
 
     signal chipClicked()
+    signal clicked()
 
     Rectangle {
         anchors.fill: parent
@@ -38,6 +40,7 @@ Item {
     MouseArea {
         anchors.fill: parent
         pressAndHoldInterval: 500
+        onClicked: tile.clicked()
         onPressAndHold: {
             Haptics.longPress()
             if (typeof desktop !== "undefined" && desktop.openTilesEditor)
