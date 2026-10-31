@@ -717,10 +717,11 @@ Item {
     /* text messages (SMS through the phone), as Assistant: who, the message, then Send */
     function messageSend(s, done) {
         if (!s.contact && !s.query) {
-            var who = { dictate: true, prompt: loc("id-asst-msg-who", "Who do you want to text?"), onText: function (text, d) {
+            // the name as the phone's contacts spell it, when the watch has them
+            var who = { dictate: true, kind: "contact", prompt: loc("id-asst-msg-who", "Who do you want to text?"), onText: function (text, d, code, contact) {
                 if (!text)
                     return d(notHeard(who))
-                messageSend({ contact: text, contactShown: capitalised(text), text: s.text }, d)
+                messageSend({ contact: contact || text, contactShown: contact || capitalised(text), text: s.text }, d)
             } }
             return done(who)
         }
@@ -741,17 +742,50 @@ Item {
                 var title = r.ask === "number" ? loc("id-asst-msg-which-number", "Which number?")
                                                : loc("id-asst-msg-which", "Which %1?").arg(first)
                 var seen = {}
-                done(card("ios-contacts-outline", "", title, list.slice(0, 4).map(function (m) {
+                var chips = list.slice(0, 4).map(function (m) {
                     var label = r.ask === "number" ? (m.t || loc("id-asst-msg-number", "Number")) : m.n
                     seen[label] = (seen[label] || 0) + 1
                     if (seen[label] > 1)
                         label += " " + seen[label]
                     return { label: label, run: function (d) { compose(m, s, d) } }
-                }), "#a8c7fa"))
+                })
+                var chooser = card("ios-contacts-outline", "", title, chips, "#a8c7fa")
+                if (r.ask === "contact") {
+                    // or by voice, as Assistant asks back: the name matched against the
+                    // phone's contacts on the watch, then against these
+                    var say = { dictate: true, kind: "contact", prompt: title, onText: function (t, d, code, contact) {
+                        var pick = pickCandidate(list.slice(0, 4), contact || t)
+                        if (pick)
+                            return compose(pick, s, d)
+                        d(chooser)
+                    } }
+                    chooser.chips = chips.concat([{ label: loc("id-asst-msg-say-name", "Say the name"), icon: "ios-mic",
+                                                    run: function (d) { d(say) } }])
+                }
+                done(chooser)
                 return
             }
             compose(list[0], s, done)
         })
+    }
+    // "Which Sam?" answered by voice: the candidate it names (the whole name, else the
+    // only one with all the words said), or null
+    function pickCandidate(list, said) {
+        var key = function (x) { return String(x || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim() }
+        var k = key(said)
+        if (!k)
+            return null
+        var words = k.split(" ")
+        var all = []
+        for (var i = 0; i < list.length; i++) {
+            var n = key(list[i].n)
+            if (n === k)
+                return list[i]
+            var nw = n.split(" ")
+            if (words.every(function (w) { return nw.indexOf(w) >= 0 }))
+                all.push(list[i])
+        }
+        return all.length === 1 ? all[0] : null
     }
     // the message: the words after the name, or asked for
     function compose(m, s, done) {

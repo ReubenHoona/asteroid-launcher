@@ -30,10 +30,13 @@ import "../desktop.js" as Desktop
  * card is on screen.
  *
  * A card can ask back, as Wear OS does ("What's the message?", "Where to?"):
- * { dictate: true, prompt, onText: function (text, done, code) }. The overlay
- * shows the prompt and listens again (Dictate("assistant"): recognised where
- * the commands are, the phone's recogniser while it is connected); the text
- * goes to onText, "" when nothing was heard (code says why).
+ * { dictate: true, prompt, kind?, onText: function (text, done, code, contact) }.
+ * The overlay shows the prompt and listens again (Dictate("assistant"):
+ * recognised where the commands are, the phone's recogniser while it is
+ * connected); the text goes to onText, "" when nothing was heard (code says
+ * why). kind "contact" ("Who do you want to text?", "Which Sam?"): the daemon
+ * also matches the name against the phone's contact names on the watch and
+ * gives the list's spelling as contact ("" when it is none of them).
  *
  * The display stays on while it listens and thinks (mce's blanking pause; the
  * watch face is not the lock screen while the assistant shows, see
@@ -142,7 +145,7 @@ Item {
         promptText = c.prompt || ""
         waitingStart = true
         phase = "starting"
-        daemon.typedCall("Dictate", [{ "type": "s", "value": "assistant" }], started, failedStart)
+        daemon.typedCall("Dictate", [{ "type": "s", "value": c.kind ? "assistant:" + c.kind : "assistant" }], started, failedStart)
     }
     function stopListening() {
         if (phase === "listening")
@@ -181,7 +184,8 @@ Item {
             followUp = null
             promptText = ""
             var text = r.type === "dictation" ? (r.text || "") : ""
-            f.onText(text, function (c) { if (overlay.generation === g) overlay.done(c) }, r.type === "dictation" ? "" : (r.code || r.type))
+            f.onText(text, function (c) { if (overlay.generation === g) overlay.done(c) }, r.type === "dictation" ? "" : (r.code || r.type),
+                     r.type === "dictation" ? (r.contact || "") : "")
             return
         }
         if (r.type === "cancel")
