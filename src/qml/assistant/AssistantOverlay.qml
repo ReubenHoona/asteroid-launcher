@@ -5,6 +5,7 @@
 
 import QtQuick
 import Nemo.DBus
+import Nemo.KeepAlive
 import org.nemomobile.lipstick
 import org.asteroid.controls
 import "../desktop.js" as Desktop
@@ -27,6 +28,17 @@ import "../desktop.js" as Desktop
  * The work is asteroid-assistant's (org.asteroidos.assistant, D-Bus
  * activated); the actions are AssistantActions'. Nothing animates once the
  * card is on screen.
+ *
+ * A card can ask back, as Wear OS does ("What's the message?", "Where to?"):
+ * { dictate: true, prompt, onText: function (text, done, code) }. The overlay
+ * shows the prompt and listens again (Dictate("assistant"): recognised where
+ * the commands are, the phone's recogniser while it is connected); the text
+ * goes to onText, "" when nothing was heard (code says why).
+ *
+ * The display stays on while it listens and thinks (mce's blanking pause; the
+ * watch face is not the lock screen while the assistant shows, see
+ * compositor.qml): before, the face's 10 s lock screen timeout blanked the
+ * display during a slow answer, and the overlay closed with it.
  */
 Item {
     id: overlay
@@ -47,6 +59,10 @@ Item {
     // one per open(): what an action or a chip answers late (a phone
     // query, a reply being sent) is dropped once another session began
     property int generation: 0
+    // the card's question being listened for ({ prompt, onText }), else null
+    property var followUp: null
+    // what the listening page asks: "Hi, how can I help?" unless a card asked
+    property string promptText: ""
     readonly property bool active: shown
 
     visible: opacity > 0
@@ -70,6 +86,8 @@ Item {
         level = 0
         session = 0
         resultSeen = false
+        followUp = null
+        promptText = ""
         generation++
         shown = true
         waitingStart = true
@@ -112,6 +130,20 @@ Item {
         shown = false
         phase = "starting"
     }
+    // A card asked back: listen for the answer (same generation: the flow goes on)
+    function startFollowUp(c) {
+        cardData = null
+        heard = ""
+        request = ""
+        level = 0
+        session = 0
+        resultSeen = false
+        followUp = c
+        promptText = c.prompt || ""
+        waitingStart = true
+        phase = "starting"
+        daemon.typedCall("Dictate", [{ "type": "s", "value": "assistant" }], started, failedStart)
+    }
     function stopListening() {
         if (phase === "listening")
             daemon.typedCall("Stop", [])
@@ -143,6 +175,15 @@ Item {
         try { r = JSON.parse(json) } catch (e) { r = { type: "error", text: loc("id-asst-error", "Something went wrong.") } }
         if (r.transcript)
             request = r.transcript
+        if (followUp) {
+            // the answer to a card's question: back to the action that asked
+            var f = followUp
+            followUp = null
+            promptText = ""
+            var text = r.type === "dictation" ? (r.text || "") : ""
+            f.onText(text, function (c) { if (overlay.generation === g) overlay.done(c) }, r.type === "dictation" ? "" : (r.code || r.type))
+            return
+        }
         if (r.type === "cancel")
             return close()
         if (r.type === "intent") {
@@ -162,6 +203,8 @@ Item {
     function done(c) {
         if (!shown)
             return
+        if (c && c.dictate)
+            return startFollowUp(c)
         if (c && c.close) {
             close()
             if (c.confirm && Desktop.confirmation)
@@ -226,6 +269,12 @@ Item {
 
     AssistantActions { id: actions }
 
+    // the display stays on while the assistant listens and thinks, as Wear OS
+    // keeps the screen on for it; the card then times out as usual
+    DisplayBlanking {
+        preventBlanking: overlay.shown && overlay.phase !== "card"
+    }
+
     // the screen goes away with the display, as Wear OS returns to the face
     Connections {
         target: typeof Lipstick !== "undefined" && Lipstick.compositor ? Lipstick.compositor : null
@@ -282,7 +331,8 @@ Item {
                     wrapMode: Text.Wrap
                     visible: overlay.heard === "" && overlay.request === ""
                     opacity: 0.75
-                    text: overlay.phase === "thinking" ? "" : overlay.loc("id-asst-hi", "Hi, how can I help?")
+                    text: overlay.phase === "thinking" ? ""
+                          : overlay.promptText !== "" ? overlay.promptText : overlay.loc("id-asst-hi", "Hi, how can I help?")
                     font.pixelSize: Math.round(parent.height * 0.062)
                 }
 

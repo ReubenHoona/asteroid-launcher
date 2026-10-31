@@ -30,7 +30,15 @@ import "../desktop.js" as Desktop
  * run(intent, slots, transcript, done): done(card) with the card the
  * overlay shows: { title, text, icon, accent, chips: [{ label, icon, run }] },
  * or { close: true, then: function } for intents that open an application
- * (the overlay goes, then the app starts).
+ * (the overlay goes, then the app starts), or { dictate: true, prompt,
+ * onText } to ask back ("What's the message?").
+ *
+ * Directions and text messages go to the phone, as Wear OS does without its
+ * own Maps or messaging app: asteroid-btsyncd's Assistant.Act() to
+ * Gadgetbridge (41+), which starts the maps app, looks up the contact and
+ * sends the SMS. A text is only sent when the user taps Send on the card;
+ * Gadgetbridge's "Text messages: test mode" (on by default) and dconf
+ * /org/asteroidos/assistant/sms-dry-run (for tests) keep it from being sent.
  */
 Item {
     id: actions
@@ -77,6 +85,17 @@ Item {
         path: "/org/asteroidos/btsyncd/phone"
         iface: "org.asteroidos.btsyncd.Phone"
     }
+    // the phone's actions (directions, contacts, texts): one ActResult per Act
+    DBusInterface {
+        id: relay
+        bus: DBus.SessionBus
+        service: "org.asteroidos.btsyncd"
+        path: "/org/asteroidos/btsyncd/assistant"
+        iface: "org.asteroidos.btsyncd.Assistant"
+        signalsEnabled: true
+        function rcActResult(id: int, json: string) { actions.actResult(id, json) }
+    }
+    ConfigurationValue { id: smsDryRun; key: "/org/asteroidos/assistant/sms-dry-run"; defaultValue: false }
 
     /* ---- helpers -------------------------------------------------------- */
 
@@ -205,6 +224,8 @@ Item {
                              : bluetooth.connected ? loc("id-asst-bt-connected", "Bluetooth is on and your phone is connected.")
                                                    : loc("id-asst-bt-is-on", "Bluetooth is on.")))
         case "notification.reply": return reply(s.text, done)
+        case "navigation.start": return navigate(s, done)
+        case "message.send": return messageSend(s, done)
         default:
             return done(card("ios-help-circle-outline", "", loc("id-asst-cannot", "Sorry, I can't do that yet.")))
         }
@@ -592,5 +613,194 @@ Item {
                                         function () { d(card("ios-chatbubbles-outline", "", loc("id-asst-not-sent", "Couldn't send it. Is your phone connected?"))) })
                   } },
                    { label: loc("id-asst-cancel", "Cancel"), run: function (d) { d({ close: true }) } }], "#a8c7fa"))
+    }
+
+    /* ---- the phone's actions: directions, contacts, text messages ------------ */
+
+    property var actWaits: ({})
+    property int actSeq: 1000 + Math.floor(Math.random() * 1000000)
+
+    // act({ a: "nav" | "contacts" | "sms", ... }, cb): cb(result) with { ok, er, ... };
+    // er "no-phone" (not connected), "old-app" (a Gadgetbridge without actions)
+    function act(json, cb) {
+        relay.typedCall("Actions", [], function (list) {
+            if (list && list.indexOf(json.a) >= 0) {
+                var id = ++actSeq
+                var waits = actWaits
+                waits[id] = cb
+                actWaits = waits
+                relay.typedCall("Act", [{ "type": "u", "value": id }, { "type": "s", "value": JSON.stringify(json) }],
+                    function (ok) { if (!ok) actResult(id, JSON.stringify({ ok: false, er: "no-phone" })) },
+                    function () { actResult(id, JSON.stringify({ ok: false, er: "no-phone" })) })
+                return
+            }
+            // connected but without them: Gadgetbridge is too old
+            phone.typedCall("Connected", [], function (connected) {
+                cb({ ok: false, er: connected ? "old-app" : "no-phone" })
+            }, function () { cb({ ok: false, er: "no-phone" }) })
+        }, function () { cb({ ok: false, er: "no-phone" }) })
+    }
+    function actResult(id, json) {
+        var cb = actWaits[id]
+        if (!cb)
+            return
+        var waits = actWaits
+        delete waits[id]
+        actWaits = waits
+        var r
+        try { r = JSON.parse(json) } catch (e) { r = { ok: false, er: "failed" } }
+        cb(r)
+    }
+
+    // what went wrong with the phone, as the card says it (Wear OS: what to do next)
+    function phoneError(r, noPhone) {
+        var er = r ? r.er : ""
+        if (er === "no-phone" || er === "disconnected")
+            return card("ios-phone-portrait", "", noPhone)
+        if (er === "old-app")
+            return card("ios-phone-portrait", "", loc("id-asst-act-old-app", "Update Gadgetbridge on your phone to do this from the watch."))
+        if (er === "timeout")
+            return card("ios-phone-portrait", "", loc("id-asst-act-timeout", "Your phone didn't answer. Please try again."))
+        if (er === "no-permission" && r.perm === "contacts")
+            return card("ios-contacts-outline", "", loc("id-asst-perm-contacts", "Allow Gadgetbridge to see your contacts: on your phone, Settings > Apps > Gadgetbridge > Permissions > Contacts."))
+        if (er === "no-permission" && r.perm === "sms")
+            return card("ios-text-outline", "", loc("id-asst-perm-sms", "Allow Gadgetbridge to send SMS: on your phone, Settings > Apps > Gadgetbridge > Permissions > SMS."))
+        if (er === "no-permission" && r.perm === "notifications")
+            return card("ios-notifications-outline", "", loc("id-asst-perm-notifications", "Allow Gadgetbridge to show notifications on your phone."))
+        return null
+    }
+    function capitalised(t) {
+        t = String(t || "").replace(/^[\s,:;.]+|[\s,:;]+$/g, "")
+        return t ? t.charAt(0).toUpperCase() + t.slice(1) : ""
+    }
+    // nothing was heard for a card's question: say so, offer to try again
+    function notHeard(again) {
+        return card("ios-mic-off-outline", "", loc("id-asst-not-caught", "Sorry, I didn't catch that."),
+                    [{ label: loc("id-asst-try-again", "Try again"), icon: "ios-mic", run: function (d) { d(again) } }])
+    }
+
+    /* directions: Maps on the phone (Wear OS's "Navigate to" without Maps on the watch) */
+    function navigate(s, done) {
+        if (!s.destination) {
+            var ask = { dictate: true, prompt: loc("id-asst-nav-where", "Where to?"), onText: function (text, d) {
+                if (!text)
+                    return d(notHeard(ask))
+                navigate({ destination: text, destinationShown: capitalised(text), mode: s.mode }, d)
+            } }
+            return done(ask)
+        }
+        var place = s.destinationShown || s.destination
+        var named = s.destination === "home" || s.destination === "work"
+        var shown = s.destination === "home" ? loc("id-asst-nav-home", "Home")
+                  : s.destination === "work" ? loc("id-asst-nav-work", "Work") : place
+        act({ a: "nav", q: named ? s.destination : place, mode: s.mode || "" }, function (r) {
+            if (!r.ok) {
+                var c = phoneError(r, loc("id-asst-nav-no-phone", "Your phone isn't connected. Directions need your phone."))
+                if (c)
+                    return done(c)
+                if (r.er === "no-maps")
+                    return done(card("ios-navigate-outline", shown, loc("id-asst-nav-no-maps", "There's no maps app on your phone. Install Google Maps to get directions.")))
+                return done(card("ios-navigate-outline", shown, loc("id-asst-nav-failed", "Couldn't start directions on your phone.")))
+            }
+            var how = s.mode === "walking" ? loc("id-asst-nav-walking", "Starting walking directions on your phone.")
+                    : s.mode === "bicycling" ? loc("id-asst-nav-cycling", "Starting cycling directions on your phone.")
+                    : s.mode === "transit" ? loc("id-asst-nav-transit", "Showing transit directions on your phone.")
+                    : loc("id-asst-nav-started", "Starting directions on your phone.")
+            if (r.how === "notification")
+                how = loc("id-asst-nav-tap", "Tap the notification on your phone to start directions.")
+            else if (r.app === "other")
+                how = loc("id-asst-nav-other", "Opened in the maps app on your phone.")
+            done(card("ios-navigate", shown, how, [], "#81c995"))
+        })
+    }
+
+    /* text messages (SMS through the phone), as Assistant: who, the message, then Send */
+    function messageSend(s, done) {
+        if (!s.contact && !s.query) {
+            var who = { dictate: true, prompt: loc("id-asst-msg-who", "Who do you want to text?"), onText: function (text, d) {
+                if (!text)
+                    return d(notHeard(who))
+                messageSend({ contact: text, contactShown: capitalised(text), text: s.text }, d)
+            } }
+            return done(who)
+        }
+        var heardName = s.contactShown || String(s.queryShown || s.query).split(" ").slice(0, 2).join(" ")
+        act({ a: "contacts", q: s.contact || s.query, split: !s.contact }, function (r) {
+            if (!r.ok) {
+                var c = phoneError(r, loc("id-asst-msg-no-phone", "Your phone isn't connected. Text messages need your phone."))
+                if (c)
+                    return done(c)
+                if (r.er === "no-match")
+                    return done(card("ios-contacts-outline", "", loc("id-asst-msg-no-contact", "I couldn't find %1 in your contacts.").arg(capitalised(heardName))))
+                return done(card("ios-text-outline", "", loc("id-asst-msg-failed", "Couldn't look up your contacts.")))
+            }
+            var list = r.c || []
+            if (r.ask === "contact" || r.ask === "number") {
+                // "Which Sam?" / "Which number?": tap one
+                var first = capitalised(String(heardName).split(" ")[0])
+                var title = r.ask === "number" ? loc("id-asst-msg-which-number", "Which number?")
+                                               : loc("id-asst-msg-which", "Which %1?").arg(first)
+                var seen = {}
+                done(card("ios-contacts-outline", "", title, list.slice(0, 4).map(function (m) {
+                    var label = r.ask === "number" ? (m.t || loc("id-asst-msg-number", "Number")) : m.n
+                    seen[label] = (seen[label] || 0) + 1
+                    if (seen[label] > 1)
+                        label += " " + seen[label]
+                    return { label: label, run: function (d) { compose(m, s, d) } }
+                }), "#a8c7fa"))
+                return
+            }
+            compose(list[0], s, done)
+        })
+    }
+    // the message: the words after the name, or asked for
+    function compose(m, s, done) {
+        var text = s.text || ""
+        if (!text && s.query && m.used > 0)
+            text = String(s.queryShown || s.query).split(/\s+/).slice(m.used).join(" ")
+        text = capitalised(text)
+        if (!text) {
+            var what = { dictate: true, prompt: loc("id-asst-msg-what-message", "What's the message?"), onText: function (t, d) {
+                if (!t)
+                    return d(notHeard(what))
+                confirmMessage(m, capitalised(t), d)
+            } }
+            return done(what)
+        }
+        confirmMessage(m, text, done)
+    }
+    // Assistant plays the message back, then Send, Change or Cancel: nothing goes before Send
+    function confirmMessage(m, text, done) {
+        var change = { dictate: true, prompt: loc("id-asst-msg-what-message", "What's the message?"), onText: function (t, d) {
+            if (!t)
+                return d(notHeard(change))
+            confirmMessage(m, capitalised(t), d)
+        } }
+        done(card("ios-text-outline", loc("id-asst-msg-to", "To %1").arg(m.n), text, [
+            { label: loc("id-asst-send", "Send"), icon: "ios-send", run: function (d) { sendMessage(m, text, d) } },
+            { label: loc("id-asst-msg-change", "Change"), icon: "ios-mic", run: function (d) { d(change) } },
+            { label: loc("id-asst-cancel", "Cancel"), run: function (d) { d({ close: true }) } }
+        ], "#a8c7fa"))
+    }
+    function sendMessage(m, text, done) {
+        act({ a: "sms", k: m.k, tx: text, dry: smsDryRun.value === true }, function (r) {
+            if (r.ok && r.dry)
+                return done(card("ios-text-outline", loc("id-asst-msg-test-title", "Not sent"),
+                                 loc("id-asst-msg-test", "Test mode is on in Gadgetbridge, so nothing was sent to %1.").arg(m.n)))
+            if (r.ok)
+                return done({ close: true, confirm: r.pending ? loc("id-asst-msg-sending", "Sending") : loc("id-asst-sent", "Sent") })
+            var c = phoneError(r, loc("id-asst-msg-no-phone", "Your phone isn't connected. Text messages need your phone."))
+            if (c)
+                return done(c)
+            if (r.er === "expired")
+                return done(card("ios-text-outline", "", loc("id-asst-msg-expired", "That took too long. Please try again.")))
+            if (r.er === "no-sms")
+                return done(card("ios-text-outline", "", loc("id-asst-msg-no-sms", "Your phone can't send text messages.")))
+            if (r.er === "no-service")
+                return done(card("ios-text-outline", "", loc("id-asst-msg-no-service", "Your phone has no signal. The message wasn't sent.")))
+            if (r.er === "radio-off")
+                return done(card("ios-text-outline", "", loc("id-asst-msg-radio-off", "Your phone is in airplane mode. The message wasn't sent.")))
+            done(card("ios-text-outline", "", loc("id-asst-msg-not-sent", "Couldn't send the message.")))
+        })
     }
 }

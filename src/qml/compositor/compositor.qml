@@ -442,9 +442,14 @@ Item {
         property bool longTimeout: homeActive
         Component.onCompleted: {
             longTimeout = Qt.binding(function() {
-                return homeActive && Desktop.panelsGrid != null
+                // the assistant over the face is not the lock screen: with it, mce
+            // blanked the display 10 s after the side button (its lock screen
+            // timeout) and allowed no blanking pause, and a slow answer never
+            // showed (the overlay closes with the display)
+            return homeActive && Desktop.panelsGrid != null
                     && Desktop.panelsGrid.currentVerticalPos == 0
                     && Desktop.panelsGrid.currentHorizontalPos == 0
+                    && !root.assistantShown
             })
         }
         onLongTimeoutChanged: lipstickSettings.lockscreenVisible = longTimeout
