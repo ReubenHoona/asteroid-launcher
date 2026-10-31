@@ -170,6 +170,18 @@ Item {
         cardData = c
         phase = "card"
         flick.contentY = 0
+        // a card that goes by itself ("Calling Sam Carter on your phone.": the call screen follows)
+        if (c && c.autoCloseMs > 0) {
+            autoClose.interval = c.autoCloseMs
+            autoClose.restart()
+        } else {
+            autoClose.stop()
+        }
+    }
+    Timer {
+        id: autoClose
+        repeat: false
+        onTriggered: if (overlay.shown && overlay.phase === "card" && overlay.cardData && overlay.cardData.autoCloseMs > 0) overlay.close()
     }
     function handleResult(json) {
         resultSeen = true

@@ -39,6 +39,12 @@ import "../desktop.js" as Desktop
  * sends the SMS. A text is only sent when the user taps Send on the card;
  * Gadgetbridge's "Text messages: test mode" (on by default) and dconf
  * /org/asteroidos/assistant/sms-dry-run (for tests) keep it from being sent.
+ *
+ * Calls ("call Sam Carter") go the same way, as a Wear OS watch calls a contact
+ * through the phone: the contact, "Which Sam?" or "Which number?", then the
+ * phone dials at once and the card says "Calling Sam Carter on your phone."
+ * with Cancel (the phone hangs up). Gadgetbridge's "Phone calls: test mode" (on
+ * by default) and /org/asteroidos/assistant/call-dry-run keep it from dialling.
  */
 Item {
     id: actions
@@ -96,6 +102,7 @@ Item {
         function rcActResult(id: int, json: string) { actions.actResult(id, json) }
     }
     ConfigurationValue { id: smsDryRun; key: "/org/asteroidos/assistant/sms-dry-run"; defaultValue: false }
+    ConfigurationValue { id: callDryRun; key: "/org/asteroidos/assistant/call-dry-run"; defaultValue: false }
 
     /* ---- helpers -------------------------------------------------------- */
 
@@ -226,6 +233,7 @@ Item {
         case "notification.reply": return reply(s.text, done)
         case "navigation.start": return navigate(s, done)
         case "message.send": return messageSend(s, done)
+        case "call.start": return callStart(s, done)
         default:
             return done(card("ios-help-circle-outline", "", loc("id-asst-cannot", "Sorry, I can't do that yet.")))
         }
@@ -665,6 +673,8 @@ Item {
             return card("ios-contacts-outline", "", loc("id-asst-perm-contacts", "Allow Gadgetbridge to see your contacts: on your phone, Settings > Apps > Gadgetbridge > Permissions > Contacts."))
         if (er === "no-permission" && r.perm === "sms")
             return card("ios-text-outline", "", loc("id-asst-perm-sms", "Allow Gadgetbridge to send SMS: on your phone, Settings > Apps > Gadgetbridge > Permissions > SMS."))
+        if (er === "no-permission" && r.perm === "phone")
+            return card("ios-call-outline", "", loc("id-asst-perm-phone", "Allow Gadgetbridge to make phone calls: on your phone, Settings > Apps > Gadgetbridge > Permissions > Phone."))
         if (er === "no-permission" && r.perm === "notifications")
             return card("ios-notifications-outline", "", loc("id-asst-perm-notifications", "Allow Gadgetbridge to show notifications on your phone."))
         return null
@@ -736,38 +746,95 @@ Item {
                 return done(card("ios-text-outline", "", loc("id-asst-msg-failed", "Couldn't look up your contacts.")))
             }
             var list = r.c || []
-            if (r.ask === "contact" || r.ask === "number") {
-                // "Which Sam?" / "Which number?": tap one
-                var first = capitalised(String(heardName).split(" ")[0])
-                var title = r.ask === "number" ? loc("id-asst-msg-which-number", "Which number?")
-                                               : loc("id-asst-msg-which", "Which %1?").arg(first)
-                var seen = {}
-                var chips = list.slice(0, 4).map(function (m) {
-                    var label = r.ask === "number" ? (m.t || loc("id-asst-msg-number", "Number")) : m.n
-                    seen[label] = (seen[label] || 0) + 1
-                    if (seen[label] > 1)
-                        label += " " + seen[label]
-                    return { label: label, run: function (d) { compose(m, s, d) } }
-                })
-                var chooser = card("ios-contacts-outline", "", title, chips, "#a8c7fa")
-                if (r.ask === "contact") {
-                    // or by voice, as Assistant asks back: the name matched against the
-                    // phone's contacts on the watch, then against these
-                    var say = { dictate: true, kind: "contact", prompt: title, onText: function (t, d, code, contact) {
-                        var pick = pickCandidate(list.slice(0, 4), contact || t)
-                        if (pick)
-                            return compose(pick, s, d)
-                        d(chooser)
-                    } }
-                    chooser.chips = chips.concat([{ label: loc("id-asst-msg-say-name", "Say the name"), icon: "ios-mic",
-                                                    run: function (d) { d(say) } }])
-                }
-                done(chooser)
-                return
-            }
+            if (r.ask === "contact" || r.ask === "number")
+                return done(chooser(r, list, heardName, function (m, d) { compose(m, s, d) }))
             compose(list[0], s, done)
         })
     }
+    // "Which Sam?" / "Which number?": tap one; "Which Sam?" also by voice, as Assistant
+    // asks back (the name matched against the phone's contacts on the watch, then these)
+    function chooser(r, list, heardName, pick) {
+        var first = capitalised(String(heardName).split(" ")[0])
+        var title = r.ask === "number" ? loc("id-asst-msg-which-number", "Which number?")
+                                       : loc("id-asst-msg-which", "Which %1?").arg(first)
+        var seen = {}
+        var chips = list.slice(0, 4).map(function (m) {
+            var label = r.ask === "number" ? (m.t || loc("id-asst-msg-number", "Number")) : m.n
+            seen[label] = (seen[label] || 0) + 1
+            if (seen[label] > 1)
+                label += " " + seen[label]
+            return { label: label, run: function (d) { pick(m, d) } }
+        })
+        var c = card("ios-contacts-outline", "", title, chips, "#a8c7fa")
+        if (r.ask === "contact") {
+            var say = { dictate: true, kind: "contact", prompt: title, onText: function (t, d, code, contact) {
+                var m = pickCandidate(list.slice(0, 4), contact || t)
+                if (m)
+                    return pick(m, d)
+                d(c)
+            } }
+            c.chips = chips.concat([{ label: loc("id-asst-msg-say-name", "Say the name"), icon: "ios-mic",
+                                      run: function (d) { d(say) } }])
+        }
+        return c
+    }
+
+    /* calls: the phone dials the contact, as a Wear OS watch calls through the phone */
+    function callStart(s, done) {
+        if (!s.contact) {
+            var who = { dictate: true, kind: "contact", prompt: loc("id-asst-call-who", "Who do you want to call?"),
+                        onText: function (text, d, code, contact) {
+                if (!text)
+                    return d(notHeard(who))
+                callStart({ contact: contact || text, contactShown: contact || capitalised(text), label: s.label }, d)
+            } }
+            return done(who)
+        }
+        var heardName = s.contactShown || capitalised(s.contact)
+        act({ a: "contacts", q: s.contact, split: false, for: "call", kind: s.label || "" }, function (r) {
+            if (!r.ok) {
+                var c = phoneError(r, loc("id-asst-call-no-phone", "Your phone isn't connected. Calls need your phone."))
+                if (c)
+                    return done(c)
+                if (r.er === "no-match")
+                    return done(card("ios-call-outline", "", loc("id-asst-msg-no-contact", "I couldn't find %1 in your contacts.").arg(capitalised(heardName))))
+                return done(card("ios-call-outline", "", loc("id-asst-msg-failed", "Couldn't look up your contacts.")))
+            }
+            var list = r.c || []
+            if (r.ask === "contact" || r.ask === "number")
+                return done(chooser(r, list, heardName, function (m, d) { placeCall(m, d) }))
+            placeCall(list[0], done)
+        })
+    }
+    // Wear OS says "Calling Sam Carter" and the call starts; Cancel hangs up. The phone's
+    // call state brings the watch's in-call screen; the card goes after a few seconds
+    function placeCall(m, done) {
+        act({ a: "call", k: m.k, dry: callDryRun.value === true }, function (r) {
+            if (r.ok && r.dry)
+                return done(card("ios-call-outline", loc("id-asst-call-test-title", "Not called"),
+                                 loc("id-asst-call-test", "Test mode is on in Gadgetbridge, so %1 wasn't called.").arg(m.n)))
+            if (r.ok) {
+                var c = card("ios-call", m.n, loc("id-asst-call-calling", "Calling %1 on your phone.").arg(m.n),
+                             [{ label: loc("id-asst-cancel", "Cancel"), icon: "ios-close", run: function (d) {
+                                 act({ a: "hangup" }, function () {})
+                                 d({ close: true })
+                             } }], "#81c995")
+                c.autoCloseMs = 5000
+                return done(c)
+            }
+            var e = phoneError(r, loc("id-asst-call-no-phone", "Your phone isn't connected. Calls need your phone."))
+            if (e)
+                return done(e)
+            if (r.er === "radio-off")
+                return done(card("ios-call-outline", "", loc("id-asst-call-radio-off", "Your phone is in airplane mode. Turn it off to call.")))
+            if (r.er === "no-calls")
+                return done(card("ios-call-outline", "", loc("id-asst-call-no-calls", "Your phone can't make calls.")))
+            if (r.er === "expired")
+                return done(card("ios-call-outline", "", loc("id-asst-msg-expired", "That took too long. Please try again.")))
+            done(card("ios-call-outline", "", loc("id-asst-call-failed", "Couldn't call %1.").arg(m.n)))
+        })
+    }
+
     // "Which Sam?" answered by voice: the candidate it names (the whole name, else the
     // only one with all the words said), or null
     function pickCandidate(list, said) {
