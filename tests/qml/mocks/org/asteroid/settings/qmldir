@@ -1,0 +1,6 @@
+module org.asteroid.settings
+DisplaySettings 1.0 DisplaySettings.qml
+VolumeControl 1.0 VolumeControl.qml
+TiltToWake 1.0 TiltToWake.qml
+TapToWake 1.0 TapToWake.qml
+MceConfigValue 1.0 MceConfigValue.qml

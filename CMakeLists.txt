@@ -54,6 +54,11 @@ ecm_find_qmlmodule(Qt5Compat.GraphicalEffects 1.0)
 add_subdirectory(lipstick)
 add_subdirectory(src)
 
+option(LAUNCHER_TESTS "Build the modes engine tests" OFF)
+if(LAUNCHER_TESTS)
+	add_subdirectory(tests)
+endif()
+
 build_translations(i18n)
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
