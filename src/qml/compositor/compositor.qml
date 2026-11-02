@@ -191,6 +191,13 @@ Item {
         source: "system/ShutdownScreen.qml"
     }
 
+    // Bedtime mode coming on: "Starting Bedtime mode…" (modes.h)
+    Loader {
+        z: 3
+        anchors.fill: parent
+        source: "system/ModeScreen.qml"
+    }
+
     Loader {
         z: 4
         anchors.fill: parent

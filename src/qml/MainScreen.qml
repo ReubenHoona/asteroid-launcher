@@ -672,11 +672,58 @@ Item {
         defaultValue: false
     }
 
+    /*
+     * The modes (modes.h): Bedtime, Theater and Battery saver keep the
+     * always-on screen off, Bedtime and Extra dim hold the brightness. mce's
+     * low power mode is the user's always-on choice (or the nightstand's)
+     * unless a mode blocks it; the nightstand leaves a held brightness
+     * alone, and what it would put back goes to the engine instead.
+     */
+    readonly property bool modesReady: typeof modes !== "undefined" && modes !== null
+    readonly property bool alwaysOnBlocked: modesReady && modes.alwaysOnBlocked
+    readonly property bool brightnessHeld: modesReady && modes.brightnessHolder !== ""
+    function applyLowPower() {
+        displaySettings.lowPowerModeEnabled = !alwaysOnBlocked
+                && (nightstandMode.active ? nightstandAlwaysOnDisplay.value : alwaysOnDisplay.value)
+    }
+    onAlwaysOnBlockedChanged: applyLowPower()
+    // a mode that ended while the launcher was not running left it off
+    Timer {
+        interval: 3000
+        running: true
+        onTriggered: if (!desktop.alwaysOnBlocked) desktop.applyLowPower()
+    }
+    // Bedtime coming on: the watch face (system/ModeScreen.qml)
+    function showWatchface() {
+        closeOverlays()
+        grid.moveTo(0, 0)
+    }
+
     Item {
         id: nightstandMode
         readonly property bool active: ready || nightstandDelayTimer.running
         readonly property bool ready: nightstandEnabled.value && mceChargerType.type != MceChargerType.None
         property int oldBrightness: 100
+        // the nightstand set its brightness (and owes the old one back)
+        property bool setBrightness: false
+        function enter() {
+            if (!desktop.brightnessHeld && !setBrightness) {
+                oldBrightness = displaySettings.brightness
+                displaySettings.brightness = nightstandBrightness.value
+                setBrightness = true
+            }
+            desktop.applyLowPower()
+        }
+        function leave() {
+            if (setBrightness) {
+                if (desktop.brightnessHeld)
+                    modes.setRestoreValue("brightness", oldBrightness)
+                else
+                    displaySettings.brightness = oldBrightness
+                setBrightness = false
+            }
+            desktop.applyLowPower()
+        }
         onReadyChanged: {
             if (ready) {
                 if (nightstandDelayTimer.running) {
@@ -684,20 +731,17 @@ Item {
                     nightstandDelayTimer.stop()
                 } else {
                     // enter nightstand mode
-                    oldBrightness = displaySettings.brightness
-                    displaySettings.brightness = nightstandBrightness.value
-                    displaySettings.lowPowerModeEnabled = nightstandAlwaysOnDisplay.value
+                    enter()
                 }
             } else {
                 if (nightstandEnabled.value) {
                     // start off-charger timer
                     nightstandDelayTimer.restart()
                 } else {
-                    // mode disabled, so 
+                    // mode disabled, so
                     // exit nightstand mode immediately
                     nightstandDelayTimer.stop()
-                    displaySettings.brightness = oldBrightness
-                    displaySettings.lowPowerModeEnabled = alwaysOnDisplay.value
+                    leave()
                 }
             }
         }
@@ -705,11 +749,22 @@ Item {
             id: nightstandDelayTimer
             interval: nightstandDelay.value * 1000
             repeat: false
-            onTriggered: {
-                // timer expired, so restore brightness
-                displaySettings.brightness = nightstandMode.oldBrightness
-                displaySettings.lowPowerModeEnabled = alwaysOnDisplay.value
+            // timer expired, so restore brightness
+            onTriggered: nightstandMode.leave()
+        }
+        // a mode let go of the brightness on the charger: the nightstand's,
+        // once mce has the user's back
+        Connections {
+            target: desktop
+            function onBrightnessHeldChanged() {
+                if (!desktop.brightnessHeld && nightstandMode.ready)
+                    nightstandHeldEnd.restart()
             }
+        }
+        Timer {
+            id: nightstandHeldEnd
+            interval: 1000
+            onTriggered: if (nightstandMode.ready && !desktop.brightnessHeld) nightstandMode.enter()
         }
     }
 

@@ -9,6 +9,8 @@ set(SRC
 	healthlog.cpp
 	crownbutton.cpp
 	aodbrightness.cpp
+	modescore.cpp
+	modes.cpp
 	assistantkey.cpp
 	huboffload.cpp
 	eoslayout.c)
@@ -22,6 +24,8 @@ set(HEADERS
 	healthlog.h
 	crownbutton.h
 	aodbrightness.h
+	modescore.h
+	modes.h
 	assistantkey.h
 	huboffload.h
 	eoslayout.h)
@@ -39,6 +43,7 @@ set(QML_FILES
 	qml/misc/Splash.qml
 	qml/misc/PanelsGrid.qml
 	qml/misc/ShutdownScreen.qml
+	qml/misc/ModeScreen.qml
 	qml/misc/BluetoothAgent.qml
 	qml/misc/desktop.js
 	qml/misc/AppDrawer.qml
@@ -77,6 +82,7 @@ set(QML_FILES
 	qml/notifications/PhoneAlarm.qml
 	qml/quickpanel/QuickPanel.qml
 	qml/quickpanel/QuickPanelToggle.qml
+	qml/quickpanel/ModeDialog.qml
 	qml/firstrun/FakeAlarmclock.qml
 	qml/firstrun/FirstRunConfig.qml
 	qml/firstrun/Tutorial.qml
@@ -92,6 +98,7 @@ set_source_files_properties(qml/compositor/LaunchSplash.qml          PROPERTIES 
 set_source_files_properties(qml/misc/Splash.qml                      PROPERTIES QT_RESOURCE_ALIAS Splash.qml)
 set_source_files_properties(qml/misc/PanelsGrid.qml                  PROPERTIES QT_RESOURCE_ALIAS PanelsGrid.qml)
 set_source_files_properties(qml/misc/ShutdownScreen.qml              PROPERTIES QT_RESOURCE_ALIAS system/ShutdownScreen.qml)
+set_source_files_properties(qml/misc/ModeScreen.qml                  PROPERTIES QT_RESOURCE_ALIAS system/ModeScreen.qml)
 set_source_files_properties(qml/misc/BluetoothAgent.qml              PROPERTIES QT_RESOURCE_ALIAS connectivity/BluetoothAgent.qml)
 set_source_files_properties(qml/misc/desktop.js                      PROPERTIES QT_RESOURCE_ALIAS desktop.js)
 set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES QT_RESOURCE_ALIAS AppDrawer.qml)
@@ -130,6 +137,7 @@ set_source_files_properties(qml/notifications/IncomingCall.qml          PROPERTI
 set_source_files_properties(qml/notifications/PhoneAlarm.qml            PROPERTIES QT_RESOURCE_ALIAS PhoneAlarm.qml)
 set_source_files_properties(qml/quickpanel/QuickPanel.qml            PROPERTIES QT_RESOURCE_ALIAS QuickPanel.qml)
 set_source_files_properties(qml/quickpanel/QuickPanelToggle.qml      PROPERTIES QT_RESOURCE_ALIAS QuickPanelToggle.qml)
+set_source_files_properties(qml/quickpanel/ModeDialog.qml            PROPERTIES QT_RESOURCE_ALIAS ModeDialog.qml)
 set_source_files_properties(qml/firstrun/FakeAlarmclock.qml          PROPERTIES QT_RESOURCE_ALIAS FakeAlarmclock.qml)
 set_source_files_properties(qml/firstrun/FirstRunConfig.qml          PROPERTIES QT_RESOURCE_ALIAS FirstRunConfig.qml)
 set_source_files_properties(qml/firstrun/Tutorial.qml                PROPERTIES QT_RESOURCE_ALIAS Tutorial.qml)

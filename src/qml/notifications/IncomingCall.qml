@@ -65,6 +65,10 @@ Item {
     property string elapsed: ""
     // The display is off: nothing to refresh
     property bool displayOff: false
+    // Bedtime and Theater mode (modes.h): the screen stays off until a
+    // button turns it on, as stock; the call shows then, without ringing
+    readonly property bool screenStaysOff: typeof modes !== "undefined" && modes !== null
+                                           && (modes.bedtime || modes.theater)
 
     visible: call !== null
 
@@ -138,9 +142,11 @@ Item {
             call = n
             silenced = n.hints["x-nemo-feedback-suppressed"] === true
         }
+        giveUp.restart()
+        if (screenStaysOff)
+            return
         keepOn = true
         displayOn()
-        giveUp.restart()
     }
 
     // Done with the call shown: the next ringing call, if any, from scratch

@@ -49,6 +49,7 @@
 #include "healthlog.h"
 #include "crownbutton.h"
 #include "aodbrightness.h"
+#include "modes.h"
 #include "assistantkey.h"
 #include "huboffload.h"
 
@@ -114,6 +115,10 @@ int main(int argc, char **argv)
     CrownButton *crownButton = new CrownButton();
     // Settings > Display > Always-on brightness, to the panel driver
     new AodBrightness(&app);
+    // Bedtime, Theater, Battery saver and Extra dim, as Wear OS (modes.h):
+    // what they change, and the user's settings they keep
+    ModesEngine *modes = new ModesEngine(&app);
+    app.engine()->rootContext()->setContextProperty("modes", modes);
     app.engine()->rootContext()->setContextProperty("crownButton", crownButton);
     // The assistant: a hold of the side button (as the stock Pixel Watch 2;
     // mce sends power_button_trigger), and Open()/Ask() on the session bus

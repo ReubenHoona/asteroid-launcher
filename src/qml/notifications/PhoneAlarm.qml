@@ -115,8 +115,14 @@ Item {
 
     onAlarmChanged: if (alarm === null) displayRelease()
 
+    // Theater mode (modes.h): only a button turns the screen on, as stock
+    // (the alarm still vibrates, and shows once the screen is on)
+    readonly property bool screenStaysOff: typeof modes !== "undefined" && modes !== null && modes.theater
+
     // mce keeps the display on for at most 30 s per request: renewed
     function displayOn() {
+        if (screenStaysOff)
+            return
         mce.typedCall("notification_begin_req",
                       [{ "type": "s", "value": "asteroid-phone-alarm" },
                        { "type": "i", "value": 30000 },

@@ -888,5 +888,57 @@
         <source>In %1 d %2 h</source>
         <translation>In %1 d %2 h</translation>
     </message>
+    <message id="id-dont-show-again">
+        <source>Don&apos;t show again</source>
+        <translation>Don&apos;t show again</translation>
+    </message>
+    <message id="id-bedtime-starting">
+        <source>Starting Bedtime mode…</source>
+        <translation>Starting Bedtime mode…</translation>
+    </message>
+    <message id="id-bedtime-off">
+        <source>Bedtime mode off</source>
+        <translation>Bedtime mode off</translation>
+    </message>
+    <message id="id-bedtime-confirm-title">
+        <source>Turn on Bedtime mode?</source>
+        <translation>Turn on Bedtime mode?</translation>
+    </message>
+    <message id="id-bedtime-confirm">
+        <source>Watch screen, tilt-to-wake, and touch are turned off. Only alarms and timers will notify you.</source>
+        <translation>Watch screen, tilt-to-wake, and touch are turned off. Only alarms and timers will notify you.</translation>
+    </message>
+    <message id="id-theater-confirm-title">
+        <source>Turn on Theater mode?</source>
+        <translation>Turn on Theater mode?</translation>
+    </message>
+    <message id="id-theater-confirm">
+        <source>Turns off screen and screen wake gestures, silences alerts.</source>
+        <translation>Turns off screen and screen wake gestures, silences alerts.</translation>
+    </message>
+    <message id="id-saver-confirm-title">
+        <source>Turn on Battery Saver mode?</source>
+        <translation>Turn on Battery Saver mode?</translation>
+    </message>
+    <message id="id-saver-confirm">
+        <source>Turns off Always-on-screen and Tilt-to-wake to extend battery life</source>
+        <translation>Turns off Always-on-screen and Tilt-to-wake to extend battery life</translation>
+    </message>
+    <message id="id-dnd-confirm-title">
+        <source>Turn on Do Not Disturb?</source>
+        <translation>Turn on Do Not Disturb?</translation>
+    </message>
+    <message id="id-dnd-confirm">
+        <source>Only alarms and timers will notify you.</source>
+        <translation>Only alarms and timers will notify you.</translation>
+    </message>
+    <message id="id-theater-expired">
+        <source>Theater mode off</source>
+        <translation>Theater mode off</translation>
+    </message>
+    <message id="id-theater-expired-body">
+        <source>Theater mode is turned off after 24 hours</source>
+        <translation>Theater mode is turned off after 24 hours</translation>
+    </message>
 </context>
 </TS>

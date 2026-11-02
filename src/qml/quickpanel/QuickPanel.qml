@@ -177,12 +177,6 @@ Item {
     }
 
     ConfigurationValue {
-        id: preCinemaAodState
-        key: "/desktop/asteroid/quickpanel/pre-cinema-aod-state"
-        defaultValue: true
-    }
-
-    ConfigurationValue {
         id: fixedToggles
         key: "/desktop/asteroid/quickpanel/fixed"
         defaultValue: ["lockButton", "settingsButton"]
@@ -191,7 +185,7 @@ Item {
     ConfigurationValue {
         id: sliderToggles
         key: "/desktop/asteroid/quickpanel/slider"
-        defaultValue: ["brightnessToggle", "bluetoothToggle", "hapticsToggle", "wifiToggle", "soundToggle", "cinemaToggle", "dndToggle", "aodToggle", "findPhoneButton", "powerOffToggle", "rebootToggle", "musicButton", "flashlightButton"]
+        defaultValue: ["brightnessToggle", "bluetoothToggle", "hapticsToggle", "wifiToggle", "soundToggle", "bedtimeToggle", "dndToggle", "cinemaToggle", "batterySaverToggle", "extraDimToggle", "aodToggle", "findPhoneButton", "powerOffToggle", "rebootToggle", "musicButton", "flashlightButton"]
     }
 
     ConfigurationValue {
@@ -212,7 +206,10 @@ Item {
             "musicButton": false,
             "flashlightButton": false,
             "findPhoneButton": true,
-            "dndToggle": true
+            "dndToggle": true,
+            "bedtimeToggle": true,
+            "batterySaverToggle": true,
+            "extraDimToggle": true
         }
     }
 
@@ -361,6 +358,8 @@ Item {
         }
     ]
 
+    readonly property var newToggles: ["findPhoneButton", "dndToggle", "bedtimeToggle", "batterySaverToggle", "extraDimToggle"]
+
     readonly property var toggleRegistry: {
         const map = {
             "lockButton": lockButtonComponent,
@@ -375,7 +374,10 @@ Item {
             "musicButton": musicButtonComponent,
             "flashlightButton": flashlightButtonComponent,
             "findPhoneButton": findPhoneButtonComponent,
-            "dndToggle": dndToggleComponent
+            "dndToggle": dndToggleComponent,
+            "bedtimeToggle": bedtimeToggleComponent,
+            "batterySaverToggle": batterySaverToggleComponent,
+            "extraDimToggle": extraDimToggleComponent
         };
 
         if (DeviceSpecs.hasWlan) {
@@ -387,9 +389,9 @@ Item {
 
         const toggles = {};
         for (const key in map) {
-            // Find phone is newer than the saved settings of most watches:
-            // on unless switched off
-            if (toggleEnabled.value[key] || ((key === "findPhoneButton" || key === "dndToggle") && toggleEnabled.value[key] === undefined)) {
+            // Find phone and the modes are newer than the saved settings of
+            // most watches: on unless switched off
+            if (toggleEnabled.value[key] || (newToggles.indexOf(key) >= 0 && toggleEnabled.value[key] === undefined)) {
                 toggles[key] = map[key];
             }
         }
@@ -495,6 +497,16 @@ Item {
             // ...and Do Not Disturb
             if (ids.indexOf("dndToggle") < 0 && fixedToggles.value.indexOf("dndToggle") < 0)
                 ids.push("dndToggle")
+            // ...and the modes: Bedtime before Do Not Disturb (stock's
+            // order), Battery saver and Extra dim after Theater
+            function missing(id) { return ids.indexOf(id) < 0 && fixedToggles.value.indexOf(id) < 0 }
+            if (missing("bedtimeToggle"))
+                ids.splice(Math.max(0, ids.indexOf("dndToggle")), 0, "bedtimeToggle")
+            var after = ids.indexOf("cinemaToggle") >= 0 ? ids.indexOf("cinemaToggle") + 1 : ids.length
+            if (missing("extraDimToggle"))
+                ids.splice(after, 0, "extraDimToggle")
+            if (missing("batterySaverToggle"))
+                ids.splice(after, 0, "batterySaverToggle")
             return ids
                 .map(id => toggleRegistry[id])
                 .filter(Boolean)
@@ -752,8 +764,10 @@ Item {
         id: brightnessToggleComponent
         QuickPanelToggle {
             id: brightnessToggle
+            objectName: "brightnessToggle"
             icon: "ios-sunny"
             checkable: true
+            enabled: !modesReady || modes.brightnessHolder === ""
             rangeBased: true
             rangeMin: 10
             rangeMax: 100
@@ -910,36 +924,109 @@ Item {
         }
     }
 
+    /*
+     * The modes, as the stock quick settings (STOCK-MODES.md): the
+     * launcher's modes engine (modes.h) does what each changes. Bedtime,
+     * Theater, Battery saver and the first Do Not Disturb ask first, with
+     * "Don't show again"; turning one off is at once. "cinemaToggle" keeps
+     * its id (saved panels) and is Theater mode now.
+     */
+    ConfigurationValue { id: askDnd; key: "/org/asteroidos/modes/ask/do-not-disturb"; defaultValue: true }
+    ConfigurationValue { id: askBedtime; key: "/org/asteroidos/modes/ask/bedtime"; defaultValue: true }
+    ConfigurationValue { id: askTheater; key: "/org/asteroidos/modes/ask/theater"; defaultValue: true }
+    ConfigurationValue { id: askBatterySaver; key: "/org/asteroidos/modes/ask/battery-saver"; defaultValue: true }
+
+    readonly property bool modesReady: typeof modes !== "undefined" && modes !== null
+
+    function askFirst(ask, title, message, apply) {
+        if (!ask.value) {
+            apply()
+            return
+        }
+        modeDialog.ask(title, message, function (dontShowAgain) {
+            if (dontShowAgain)
+                ask.value = false
+            apply()
+        })
+    }
+
+    Component {
+        id: bedtimeToggleComponent
+        QuickPanelToggle {
+            objectName: "bedtimeToggle"
+            icon: checked ? "ios-moon" : "ios-moon-outline"
+            checkable: true
+            checked: modesReady && modes.bedtime
+            onClicked: {
+                if (checked) {
+                    modes.bedtime = false
+                    //% "Bedtime mode off"
+                    modeToast.show(qsTrId("id-bedtime-off"))
+                    return
+                }
+                //% "Turn on Bedtime mode?"
+                askFirst(askBedtime, qsTrId("id-bedtime-confirm-title"),
+                         //% "Watch screen, tilt-to-wake, and touch are turned off. Only alarms and timers will notify you."
+                         qsTrId("id-bedtime-confirm"),
+                         function () { modes.bedtime = true })
+            }
+        }
+    }
+
     Component {
         id: cinemaToggleComponent
         QuickPanelToggle {
-            id: cinemaToggle
-            icon: "ios-film-outline"
-
-            property bool isMuted: DeviceSpecs.hasSpeaker ? preMuteLevel.value > 0 : true
-            property bool actualState: isMuted && !alwaysOnDisplay.value;
-
+            objectName: "theaterToggle"
+            icon: checked ? "ios-film" : "ios-film-outline"
             checkable: true
-
-            checked: actualState
+            checked: modesReady && modes.theater
             onClicked: {
-                if (!checked) {
-                    preCinemaAodState.value = alwaysOnDisplay.value;
-                    if (DeviceSpecs.hasSpeaker && !isMuted) {
-                        preMuteLevel.value = volume;
-                        setVolume(0);
-                    }
-                    alwaysOnDisplay.value = false;
-                    displaySettings.lowPowerModeEnabled = false;
-                } else {
-                    alwaysOnDisplay.value = preCinemaAodState.value;
-                    displaySettings.lowPowerModeEnabled = alwaysOnDisplay.value;
-                    if (DeviceSpecs.hasSpeaker && isMuted) {
-                        setVolume(preMuteLevel.value);
-                        preMuteLevel.value = 0;
-                    }
+                if (checked) {
+                    modes.theater = false
+                    return
                 }
+                //% "Turn on Theater mode?"
+                askFirst(askTheater, qsTrId("id-theater-confirm-title"),
+                         //% "Turns off screen and screen wake gestures, silences alerts."
+                         qsTrId("id-theater-confirm"),
+                         function () { modes.theater = true })
             }
+        }
+    }
+
+    Component {
+        id: batterySaverToggleComponent
+        QuickPanelToggle {
+            objectName: "batterySaverToggle"
+            icon: checked ? "ios-leaf" : "ios-leaf-outline"
+            checkable: true
+            // off and greyed out on the charger, as stock
+            enabled: modesReady && !modes.charging
+            checked: modesReady && modes.batterySaver
+            onClicked: {
+                if (checked) {
+                    modes.batterySaver = false
+                    return
+                }
+                //% "Turn on Battery Saver mode?"
+                askFirst(askBatterySaver, qsTrId("id-saver-confirm-title"),
+                         //% "Turns off Always-on-screen and Tilt-to-wake to extend battery life"
+                         qsTrId("id-saver-confirm"),
+                         function () { modes.batterySaver = true })
+            }
+        }
+    }
+
+    // Extra dim: this watch's own (Android's on the phone cannot be read):
+    // the screen under the lowest brightness, at once as Android's tile
+    Component {
+        id: extraDimToggleComponent
+        QuickPanelToggle {
+            objectName: "extraDimToggle"
+            icon: "ios-contrast"
+            checkable: true
+            checked: modesReady && modes.extraDim
+            onClicked: modes.extraDim = !checked
         }
     }
 
@@ -980,10 +1067,22 @@ Item {
     Component {
         id: dndToggleComponent
         QuickPanelToggle {
-            icon: checked ? "ios-moon" : "ios-moon-outline"
+            objectName: "dndToggle"
+            // stock's do-not-disturb-on circle; the moon is Bedtime's
+            icon: checked ? "ios-remove-circle" : "ios-remove-circle-outline"
             checkable: true
             checked: doNotDisturb.value
-            onClicked: doNotDisturb.value = !checked
+            onClicked: {
+                if (checked) {
+                    doNotDisturb.value = false
+                    return
+                }
+                //% "Turn on Do Not Disturb?"
+                askFirst(askDnd, qsTrId("id-dnd-confirm-title"),
+                         //% "Only alarms and timers will notify you."
+                         qsTrId("id-dnd-confirm"),
+                         function () { doNotDisturb.value = true })
+            }
         }
     }
 
@@ -1121,9 +1220,12 @@ Item {
     Component {
         id: aodToggleComponent
         QuickPanelToggle {
-            icon: alwaysOnDisplay.value ? "ios-watch-aod-on" : "ios-watch-aod-off"
+            objectName: "aodToggle"
+            readonly property bool blocked: modesReady && modes.alwaysOnBlocked
+            icon: checked ? "ios-watch-aod-on" : "ios-watch-aod-off"
             checkable: true
-            checked: alwaysOnDisplay.value
+            enabled: !blocked
+            checked: alwaysOnDisplay.value && !blocked
 
             onClicked: {
                 alwaysOnDisplay.value = !checked;
@@ -1159,6 +1261,46 @@ Item {
                     login1DBus.call("Reboot", [false]);
                 });
                 remorseTimer.start();
+            }
+        }
+    }
+
+    ModeDialog { id: modeDialog; objectName: "modeDialog" }
+
+    // a short line near the bottom, as stock's toast ("Bedtime mode off")
+    Item {
+        id: modeToast
+        objectName: "modeToast"
+        property string text: ""
+        anchors.fill: parent
+        z: 950
+        visible: opacity > 0
+        opacity: 0
+        function show(message) {
+            text = message
+            toastFade.stop()
+            opacity = 1
+            toastTimer.restart()
+        }
+        Timer { id: toastTimer; interval: 2000; onTriggered: toastFade.start() }
+        NumberAnimation { id: toastFade; target: modeToast; property: "opacity"; to: 0; duration: 200 }
+        Rectangle {
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: Dims.h(12)
+            width: Math.min(Dims.w(70), toastLabel.implicitWidth + Dims.w(10))
+            height: toastLabel.height + Dims.h(5)
+            radius: Math.min(height / 2, Dims.h(8))
+            color: "#3c4043"
+            Label {
+                id: toastLabel
+                anchors.centerIn: parent
+                width: Math.min(Dims.w(60), implicitWidth)
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                clip: false
+                text: modeToast.text
+                font.pixelSize: Dims.l(5.6)
             }
         }
     }

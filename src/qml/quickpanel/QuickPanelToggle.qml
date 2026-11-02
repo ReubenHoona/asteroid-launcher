@@ -35,6 +35,8 @@ MouseArea {
 
     width: parent.width
     height: width
+    // greyed out while a mode holds its setting (stock disables the tile)
+    opacity: enabled ? 1.0 : 0.38
 
     property alias icon: ic.name
     property bool checkable: false

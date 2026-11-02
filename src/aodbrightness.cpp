@@ -9,20 +9,27 @@
 #include <QFile>
 #include <MDConfItem>
 
+#include "modescore.h"
+
 static const char KEY[] = "/org/asteroidos/settings/always-on-brightness";
+static const char EXTRA_DIM_KEY[] = "/org/asteroidos/modes/extra-dim";
 static const char PARAM[] = "/sys/module/panel_boe_wf012fbm/parameters/aod_max_level";
 
 AodBrightness::AodBrightness(QObject *parent) : QObject(parent),
-    m_level(new MDConfItem(QLatin1String(KEY), this))
+    m_level(new MDConfItem(QLatin1String(KEY), this)),
+    m_extraDim(new MDConfItem(QLatin1String(EXTRA_DIM_KEY), this))
 {
     connect(m_level, &MDConfItem::valueChanged, this, &AodBrightness::apply);
+    connect(m_extraDim, &MDConfItem::valueChanged, this, &AodBrightness::apply);
     apply();
 }
 
 void AodBrightness::apply()
 {
     const QString level = m_level->value(QStringLiteral("medium")).toString();
-    const int step = level == QLatin1String("low") ? 6 : level == QLatin1String("high") ? 12 : 8;
+    int step = level == QLatin1String("low") ? 6 : level == QLatin1String("high") ? 12 : 8;
+    if (m_extraDim->value(false).toBool())
+        step = qMin(step, int(ModesCore::ExtraDimAodStep));
     QFile param(QString::fromLatin1(PARAM));
     if (!param.exists())
         return;   // another panel, or the driver not loaded
@@ -38,5 +45,5 @@ void AodBrightness::apply()
         m_warned = true;
         return;
     }
-    qDebug() << "AodBrightness:" << level << "= panel AOD step" << step;
+    qDebug() << "AodBrightness:" << level << (m_extraDim->value(false).toBool() ? "(extra dim)" : "") << "= panel AOD step" << step;
 }

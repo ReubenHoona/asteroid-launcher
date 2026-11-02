@@ -205,10 +205,10 @@ Item {
         case "health.steps": return steps(done)
         case "dnd.set":
             doNotDisturb.value = !!s.on
-            return done(card(s.on ? "ios-moon" : "ios-moon-outline", "",
+            return done(card(s.on ? "ios-remove-circle" : "ios-remove-circle-outline", "",
                              s.on ? loc("id-asst-dnd-on", "Do Not Disturb is on.") : loc("id-asst-dnd-off", "Do Not Disturb is off.")))
         case "dnd.query":
-            return done(card(doNotDisturb.value ? "ios-moon" : "ios-moon-outline", "",
+            return done(card(doNotDisturb.value ? "ios-remove-circle" : "ios-remove-circle-outline", "",
                              doNotDisturb.value ? loc("id-asst-dnd-on", "Do Not Disturb is on.") : loc("id-asst-dnd-off", "Do Not Disturb is off.")))
         case "brightness.set": return brightness(s, done)
         case "flashlight.on": return openApp("asteroid-flashlight", done)
