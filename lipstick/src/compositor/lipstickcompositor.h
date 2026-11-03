@@ -124,7 +124,14 @@ public:
      * hub's render-channel messages in a file (eoslayout), or none.
      */
     bool displayOffloaded() const { return m_displayOffloaded; }
-    Q_INVOKABLE bool setOffloadLayout(const QString &path, qint64 validUntil = 0);
+    // validUntil: when the layout's background expires (lipstick wakes the AP
+    // then); moveAfter: when the burn-in protection may move the face (the
+    // layout is then dropped at a display off and the AP sends the moved one)
+    Q_INVOKABLE bool setOffloadLayout(const QString &path, qint64 validUntil = 0,
+                                      qint64 moveAfter = 0);
+    // whether an ambient update is wanted: not while the hub draws a current
+    // layout (eosoffloadpolicy.h)
+    Q_INVOKABLE bool offloadAmbientUpdateWanted() const;
     Q_INVOKABLE void clearOffloadLayout();
     // the daemon's status line ("ok state=... layout=0|1 ..."), empty without a daemon
     Q_INVOKABLE QString offloadStatus() { return QString::fromLocal8Bit(offloadRequest("status")); }
@@ -249,6 +256,7 @@ private:
     bool m_ambientModeEnabled;
     bool m_displayOffloaded = false;
     qint64 m_offloadValidUntil = 0;
+    qint64 m_offloadMoveAfter = 0;
     // what the display offload daemon holds, as far as this compositor knows
     // (unknown: an earlier launcher may have left it a layout)
     enum { OffloadLayoutUnknown, OffloadLayoutNone, OffloadLayoutSet } m_offloadLayout = OffloadLayoutUnknown;

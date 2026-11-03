@@ -544,7 +544,8 @@ Item {
                     hubOffload.clear()
                 else
                     hubOffload.update(desktop.centreItem.activeFace, use12H.value,
-                                      desktop.centreItem.activeSource, wallClock.time)
+                                      desktop.centreItem.activeSource, wallClock.time,
+                                      burnInProtectionManager.enabled ? hubBurnInMoveMinutes : 0)
             }
             Lipstick.compositor.setAmbientUpdatesEnabled(false)
         }
@@ -558,15 +559,22 @@ Item {
     // check the wall clock each second while the AP is awake: the first
     // check after the wakeup redraws. The timer never wakes the AP itself.
     // Not while the sensor hub draws the always-on display
-    // (displayOffloaded): it draws the time itself, as stock Wear OS.
+    // (displayOffloaded): it draws the time itself, as stock Wear OS; but
+    // once its layout has expired (the date at midnight, AM/PM), at the AP
+    // wakeup lipstick schedules for that, the redraw sends the new one
+    // (stock: an AP update at the layout's minutes_valid).
     property real ambientMinuteShown: 0
+    // With the hub drawing, the burn-in protection moves the face at most
+    // this often, at a display off (one layout send then), instead of at
+    // every display off as the AP-drawn always-on screen does
+    readonly property int hubBurnInMoveMinutes: 60
     Timer {
         id: ambientMinuteTimer
         interval: 1000
         repeat: true
         onTriggered: {
             var minute = Math.floor(Date.now() / 60000)
-            if (minute === desktop.ambientMinuteShown || Lipstick.compositor.displayOffloaded)
+            if (minute === desktop.ambientMinuteShown || !Lipstick.compositor.offloadAmbientUpdateWanted())
                 return
             desktop.ambientMinuteShown = minute
             Lipstick.compositor.setAmbientUpdatesEnabled(true)

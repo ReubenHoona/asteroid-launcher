@@ -580,8 +580,10 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     }
 
     *until = validUntil(shown, use12h, hourWidthMoves);
+    const qint64 moveAfter = m_moveMinutes > 0 ? shown.toSecsSinceEpoch() + 60LL * m_moveMinutes : 0;
     if (!LipstickCompositor::instance() ||
-        !LipstickCompositor::instance()->setOffloadLayout(path, until->toSecsSinceEpoch())) {
+        !LipstickCompositor::instance()->setOffloadLayout(path, until->toSecsSinceEpoch(),
+                                                          moveAfter)) {
         *why = "the display offload daemon refused the layout";
         return false;
     }
@@ -593,8 +595,9 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
 }
 
 bool HubOffload::update(QQuickItem *face, bool use12h, const QString &faceSource,
-                        const QDateTime &shown)
+                        const QDateTime &shown, int moveMinutes)
 {
+    m_moveMinutes = moveMinutes;
     QQuickItem *hour = face ? face->findChild<QQuickItem *>("eosHubHour") : nullptr;
     QQuickItem *minute = face ? face->findChild<QQuickItem *>("eosHubMinute") : nullptr;
     QString why;

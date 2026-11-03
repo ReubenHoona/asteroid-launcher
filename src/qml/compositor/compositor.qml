@@ -434,7 +434,12 @@ Item {
         onTriggered: {
             if (comp.topmostWindow && comp.topmostWindow.window)
                 Lipstick.compositor.closeClientForWindowId(comp.topmostWindow.window.windowId)
-            Lipstick.compositor.setAmbientUpdatesEnabled(true)
+            // eos: not while the sensor hub draws a current layout: it shows
+            // the face whatever was open, and an update here was a second
+            // handover and a layout resend at every display off (stock: one
+            // handover per display off, a layout only when it changes)
+            if (Lipstick.compositor.offloadAmbientUpdateWanted())
+                Lipstick.compositor.setAmbientUpdatesEnabled(true)
         }
     }
 

@@ -25,6 +25,7 @@
 #include "lipstickcompositoradaptor.h"
 #include "lipsticksettings.h"
 #include "asteroidgesturesextension.h"
+#include "eosoffloadpolicy.h"
 #include <qpa/qwindowsysteminterface.h>
 #include <private/qguiapplication_p.h>
 #include <QtGui/qpa/qplatformintegration.h>
@@ -771,10 +772,17 @@ void LipstickCompositor::offloadSuspend(const char *why)
     // clear it before the display may be handed over, the next ambient
     // update sends the new one (stock: the layout is cleared when the face
     // changes and a new one is sent before it can be shown)
-    if (m_offloadLayout == OffloadLayoutUnknown ||
-        (m_offloadLayout == OffloadLayoutSet && m_offloadValidUntil &&
-         m_offloadValidUntil <= time(nullptr)))
+    // (also when the burn-in protection is due to move the face: the AP then
+    // sends the moved layout at the ambient update after the blank, the one
+    // handover of this display off)
+    const qint64 now = time(nullptr);
+    if (EosOffload::dropAtSuspend(m_offloadLayout == OffloadLayoutUnknown,
+                                  m_offloadLayout == OffloadLayoutSet,
+                                  m_offloadValidUntil, m_offloadMoveAfter, now)) {
+        if (m_offloadLayout == OffloadLayoutSet && !EosOffload::expired(m_offloadValidUntil, now))
+            qInfo() << "hub offload: burn-in move due, the next layout comes from the AP";
         clearOffloadLayout();
+    }
     m_offloadDisplayReady = true;
     const bool offloaded = offloadRequest(QByteArray("suspend ") + why).startsWith("ok offloaded");
     if (offloaded != m_displayOffloaded) {
@@ -798,9 +806,17 @@ void LipstickCompositor::offloadResume(const char *why)
     }
 }
 
-bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil)
+bool LipstickCompositor::offloadAmbientUpdateWanted() const
+{
+    return EosOffload::ambientUpdateWanted(m_displayOffloaded, m_offloadValidUntil,
+                                           time(nullptr));
+}
+
+bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil,
+                                          qint64 moveAfter)
 {
     m_offloadValidUntil = validUntil;
+    m_offloadMoveAfter = moveAfter;
     // the upload is about 1-5 ms per 255-byte message on the hub's SPI link
     const bool ok = offloadRequest("layout " + path.toLocal8Bit(), 15).startsWith("ok");
     // (a failed upload leaves the daemon without a layout)

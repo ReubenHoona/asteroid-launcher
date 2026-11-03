@@ -50,8 +50,10 @@ public:
     // Call while the ambient face is on screen (after an ambient update has
     // drawn it), with the time the face shows. Returns true when the hub has
     // a layout for it.
+    // moveMinutes: the burn-in protection moves the face at most this often
+    // (0: never), at a display off (LipstickCompositor::setOffloadLayout)
     Q_INVOKABLE bool update(QQuickItem *face, bool use12h, const QString &faceSource,
-                            const QDateTime &shown);
+                            const QDateTime &shown, int moveMinutes = 0);
     // No layout for the hub (the face is not to be offloaded now)
     Q_INVOKABLE void clear();
     // The face, or a setting it draws with, changed: whatever layout the
@@ -68,6 +70,7 @@ private:
     QDateTime m_until;
     QString m_failedKey;
     bool m_loaded = false;
+    int m_moveMinutes = 0;
 };
 
 #endif // HUBOFFLOAD_H
