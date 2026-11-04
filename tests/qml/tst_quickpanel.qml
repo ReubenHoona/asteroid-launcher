@@ -8,8 +8,8 @@
  * saved before they existed), Bedtime, Theater, Battery saver and the
  * first Do Not Disturb asking first with "Don't show again", off at once,
  * "Bedtime mode off", the always-on and brightness tiles greyed out while a
- * mode holds them, Battery saver greyed out on the charger, and "Starting
- * Bedtime mode…". Screenshots (384x384, round) go to the runner's shots
+ * mode holds them, Battery saver greyed out on the charger, "Starting
+ * Bedtime mode…", and the Flashlight tile opening the Flashlight app. Screenshots (384x384, round) go to the runner's shots
  * directory as quickpanel-*.png. Run by modes/tools/run-launcher-qml.sh
  * (qemu-aarch64, offscreen, software Qt Quick), which stages the panel's
  * QML as the launcher's qrc lays it out (module LauncherQml).
@@ -196,6 +196,8 @@ Item {
             compare(place("cinemaToggle") + 1, place("batterySaverToggle"))
             compare(place("batterySaverToggle") + 1, place("extraDimToggle"))
             compare(place("extraDimToggle") + 1, place("aodToggle"))
+            // the Flashlight tile is on for an older watch too
+            verify(place("flashlightButton") >= 0)
         }
 
         function test_03_bedtime_asks_then_off_at_once() {
@@ -314,6 +316,19 @@ Item {
             compare(find(modeScreen, "bedtimeStarting").text, "Starting Bedtime mode…")
             shot("quickpanel-10-starting-bedtime")
             tryCompare(modeScreen, "visible", false, 4000)
+        }
+
+        // the Flashlight tile, in the panel by default as stock's, opens the Flashlight app
+        function test_09_flashlight_tile() {
+            verify(place("flashlightButton") >= 0)
+            var t = tile("flashlightButton")
+            compare(t.icon, "gm-flashlight-on")
+            verify(!t.checkable)
+            shot("quickpanel-11-flashlight-tile")
+            tap(t)
+            var c = Backend.find("launcher", "launchApp")
+            verify(c !== null, "the app started")
+            compare(c.args[0], "asteroid-flashlight")
         }
     }
 }

@@ -204,7 +204,7 @@ Item {
             "powerOffToggle": true,
             "rebootToggle": true,
             "musicButton": false,
-            "flashlightButton": false,
+            "flashlightButton": true,
             "findPhoneButton": true,
             "dndToggle": true,
             "bedtimeToggle": true,
@@ -358,7 +358,8 @@ Item {
         }
     ]
 
-    readonly property var newToggles: ["findPhoneButton", "dndToggle", "bedtimeToggle", "batterySaverToggle", "extraDimToggle"]
+    // (the Flashlight tile too: stock's quick settings have it by default)
+    readonly property var newToggles: ["findPhoneButton", "dndToggle", "bedtimeToggle", "batterySaverToggle", "extraDimToggle", "flashlightButton"]
 
     readonly property var toggleRegistry: {
         const map = {
@@ -507,6 +508,9 @@ Item {
                 ids.splice(after, 0, "extraDimToggle")
             if (missing("batterySaverToggle"))
                 ids.splice(after, 0, "batterySaverToggle")
+            // ...and the Flashlight at the end (stock has it by default)
+            if (missing("flashlightButton"))
+                ids.push("flashlightButton")
             return ids
                 .map(id => toggleRegistry[id])
                 .filter(Boolean)
@@ -1209,10 +1213,14 @@ Item {
         }
     }
 
+    // Flashlight: opens the Flashlight app, as the stock quick settings'
+    // Flashlight button starts FlashlightActivity (STOCK-FLASHLIGHT.md); its
+    // icon is the stock tile's (quantum_gm_ic_flashlight_on)
     Component {
         id: flashlightButtonComponent
         QuickPanelToggle {
-            icon: "ios-bulb-outline"
+            objectName: "flashlightButton"
+            icon: "gm-flashlight-on"
             onClicked: appLauncher.launchApp("asteroid-flashlight")
         }
     }
