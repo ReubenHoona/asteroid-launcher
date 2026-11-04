@@ -7,7 +7,9 @@
  * display off, a layout sent only when it changes, expires or the burn-in
  * protection moves the face. The display-off sequences of 2026-11-02/03
  * (battery4: a second "ambient" handover 3.8 s after every display off with a
- * 290 KB resend) and the stale-layout cases. Plain C++ (no Qt):
+ * 290 KB resend) and the stale-layout cases; and the modes that keep the
+ * always-on screen off (2026-11-04: the hub took the panel at every blank in
+ * Bedtime and the face stayed on all night). Plain C++ (no Qt):
  * cmake -DLAUNCHER_TESTS=ON, or g++ -std=c++17 -I../lipstick/src/compositor.
  */
 
@@ -26,20 +28,44 @@ static int checks = 0;
 struct Watch {
     bool daemonLayout = false;      // the daemon holds a layout
     bool unknown = false;           // left by an earlier launcher
+    bool displayReady = false;      // the daemon was told the display is ready (suspend)
+    bool blocked = false;           // a mode keeps the always-on screen off
     bool offloaded = false;
     int64_t validUntil = 0, moveAfter = 0;
-    int handovers = 0, sends = 0, drops = 0;
+    int handovers = 0, sends = 0, drops = 0, releases = 0;
     int moveMinutes = 60;           // burn-in protection on
 
-    void suspend(int64_t now)       // setUpdatesEnabled(false): offloadSuspend
+    void release()                  // offloadRelease: "resume", the panel is the AP's
     {
+        releases++;
+        displayReady = false;
+        offloaded = false;
+    }
+    void suspend(int64_t now)       // setUpdatesEnabled(false): atDisplayOff
+    {
+        switch (atDisplayOff(true, blocked)) {
+        case Release:
+            release();
+            return;
+        case NoRequest:
+            return;
+        case Suspend:
+            break;
+        }
         if (dropAtSuspend(unknown, daemonLayout, validUntil, moveAfter, now)) {
             daemonLayout = unknown = false;
             drops++;
         }
-        offloaded = daemonLayout;
+        displayReady = true;
+        offloaded = daemonLayout && displayReady;   // the daemon's OFFLOADED
         if (offloaded)
             handovers++;
+    }
+    void setBlocked(bool b)         // LipstickCompositor::setOffloadBlocked (MainScreen's binding)
+    {
+        blocked = b;
+        if (atBlockChange(b) == Release)
+            release();
     }
     void ambientUpdate(int64_t now, int64_t until)  // the AP draws, HubOffload sends, offloadSuspend
     {
@@ -149,6 +175,57 @@ int main()
     }
     // a face the hub cannot draw: the AP draws every minute, as before
     CHECK(ambientUpdateWanted(false, 0, t0));
+
+    // the modes: what the compositor tells the daemon
+    CHECK(atDisplayOff(true, false) == Suspend);
+    CHECK(atDisplayOff(false, false) == NoRequest);
+    CHECK(atDisplayOff(true, true) == Release);
+    CHECK(atDisplayOff(false, true) == Release);
+    CHECK(atBlockChange(true) == Release && atBlockChange(false) == NoRequest);
+    // Bedtime (or Theater, Battery saver) turned on while the hub draws (the phone's
+    // Do Not Disturb at night): the panel back to the AP at once, blank; the layout kept
+    {
+        Watch w;
+        w.displayOff(t0, midnight);
+        CHECK(w.offloaded && w.handovers == 1);
+        w.setBlocked(true);
+        CHECK(!w.offloaded && !w.displayReady && w.releases == 1 && w.daemonLayout);
+        // the display on and off again in Bedtime (a button press): no handover, the
+        // daemon told the display is not ready at every blank, and the ambient update
+        // 5 s later (the AP draws, the hub holds the layout) hands nothing over either
+        for (int i = 1; i <= 5; i++) {
+            w.displayOn();
+            w.displayOff(t0 + i * 600, midnight);
+            CHECK(!w.offloaded && !w.displayReady);
+        }
+        CHECK(w.handovers == 1 && w.releases >= 6);
+        // Bedtime ends with the display off (the phone, in the morning): nothing is sent
+        // to the daemon; the next display off (mce's low power mode is back) hands over
+        int r = w.releases;
+        w.setBlocked(false);
+        CHECK(!w.offloaded && w.releases == r);
+        w.displayOn();
+        w.displayOff(t0 + 7200, midnight);
+        CHECK(w.offloaded && w.handovers == 2 && w.releases == r);
+    }
+    // Bedtime turned on with the display on, then the blank: no handover at all
+    {
+        Watch w;
+        w.displayOff(t0, midnight);
+        w.displayOn();
+        w.setBlocked(true);
+        int h = w.handovers;
+        w.displayOff(t0 + 60, midnight);
+        CHECK(!w.offloaded && w.handovers == h);
+    }
+    // the launcher restarted in Bedtime with the daemon left drawing by the one before:
+    // the first display off releases the panel, whatever this launcher knew
+    {
+        Watch w;
+        w.daemonLayout = w.unknown = w.displayReady = w.offloaded = w.blocked = true;
+        w.displayOff(t0, midnight);
+        CHECK(!w.offloaded && !w.displayReady && w.releases >= 1);
+    }
 
     printf("%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;

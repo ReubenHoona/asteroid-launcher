@@ -806,6 +806,33 @@ void LipstickCompositor::offloadResume(const char *why)
     }
 }
 
+// A mode keeps the always-on screen off (Bedtime, Theater, Battery saver:
+// the launcher's modes engine, bound by MainScreen): the hub must not draw
+// it either. Starting while the hub draws, the panel goes back to the AP at
+// once (which has it blank, mce's low power mode being off meanwhile).
+void LipstickCompositor::setOffloadBlocked(bool blocked)
+{
+    if (m_offloadBlocked == blocked)
+        return;
+    m_offloadBlocked = blocked;
+    qInfo() << "hub offload:" << (blocked ? "blocked: a mode keeps the always-on screen off" : "allowed again");
+    if (EosOffload::atBlockChange(blocked) == EosOffload::Release)
+        offloadRelease("modes");
+    emit offloadBlockedChanged();
+}
+
+// The display is not ready for the hub, whatever the daemon was told before
+// (an earlier launcher may have left it ready): the panel is the AP's
+void LipstickCompositor::offloadRelease(const char *why)
+{
+    offloadRequest(QByteArray("resume ") + why);
+    m_offloadDisplayReady = false;
+    if (m_displayOffloaded) {
+        m_displayOffloaded = false;
+        emit displayOffloadedChanged();
+    }
+}
+
 bool LipstickCompositor::offloadAmbientUpdateWanted() const
 {
     return EosOffload::ambientUpdateWanted(m_displayOffloaded, m_offloadValidUntil,
@@ -879,9 +906,18 @@ void LipstickCompositor::setUpdatesEnabled(bool enabled, bool inAmbientMode)
 
             // eos: the AP stopped drawing and the panel is in its low-power
             // mode: the hub may take it (stock: startDisplayControl after a
-            // suspended display state)
-            if (ambientEnabled())
+            // suspended display state); not while a mode keeps the always-on
+            // screen off (eosoffloadpolicy.h): the panel stays the AP's, blank
+            switch (EosOffload::atDisplayOff(ambientEnabled(), m_offloadBlocked)) {
+            case EosOffload::Suspend:
                 offloadSuspend(inAmbientMode ? "ambient" : "blank");
+                break;
+            case EosOffload::Release:
+                offloadRelease("blocked");
+                break;
+            case EosOffload::NoRequest:
+                break;
+            }
 
             scheduleAmbientUpdate();
         } else {

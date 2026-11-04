@@ -59,6 +59,9 @@ class LipstickCompositor : public QWaylandQuickCompositor
     Q_PROPERTY(bool displayAmbient READ displayAmbient NOTIFY displayAmbientChanged)
     // eos: the sensor hub draws the always-on display (the AP does not)
     Q_PROPERTY(bool displayOffloaded READ displayOffloaded NOTIFY displayOffloadedChanged)
+    // eos: a mode keeps the always-on screen off (MainScreen binds the modes
+    // engine's alwaysOnBlocked): the hub does not draw it either
+    Q_PROPERTY(bool offloadBlocked READ offloadBlocked WRITE setOffloadBlocked NOTIFY offloadBlockedChanged)
 
 public:
     LipstickCompositor();
@@ -133,6 +136,8 @@ public:
     // layout (eosoffloadpolicy.h)
     Q_INVOKABLE bool offloadAmbientUpdateWanted() const;
     Q_INVOKABLE void clearOffloadLayout();
+    bool offloadBlocked() const { return m_offloadBlocked; }
+    void setOffloadBlocked(bool blocked);
     // the daemon's status line ("ok state=... layout=0|1 ..."), empty without a daemon
     Q_INVOKABLE QString offloadStatus() { return QString::fromLocal8Bit(offloadRequest("status")); }
     LipstickCompositorWindow *createView(QWaylandSurface *surf);
@@ -178,6 +183,7 @@ signals:
 
     void ambientEnabledChanged();
     void displayOffloadedChanged();
+    void offloadBlockedChanged();
 
     void completedChanged();
 
@@ -220,6 +226,7 @@ private:
     QByteArray offloadRequest(const QByteArray &request, int timeoutSec = 2);
     void offloadSuspend(const char *why);
     void offloadResume(const char *why);
+    void offloadRelease(const char *why);
 
     static LipstickCompositor *m_instance;
 
@@ -263,6 +270,7 @@ private:
     // the daemon was told the display is ready (suspend) and not since that
     // it is not (resume)
     bool m_offloadDisplayReady = false;
+    bool m_offloadBlocked = false;
 };
 
 #endif // LIPSTICKCOMPOSITOR_H

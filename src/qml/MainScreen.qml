@@ -695,6 +695,14 @@ Item {
                 && (nightstandMode.active ? nightstandAlwaysOnDisplay.value : alwaysOnDisplay.value)
     }
     onAlwaysOnBlockedChanged: applyLowPower()
+    // ...and the sensor hub draws no always-on screen meanwhile either: the
+    // compositor keeps the panel from the offload daemon (2026-11-04: the hub
+    // took the panel at every blank in Bedtime, the face stayed on all night)
+    Binding {
+        target: Lipstick.compositor
+        property: "offloadBlocked"
+        value: desktop.alwaysOnBlocked
+    }
     // a mode that ended while the launcher was not running left it off
     Timer {
         interval: 3000

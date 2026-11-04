@@ -15,6 +15,7 @@
 
 #include "notifications/notificationmanager.h"
 #include "notifications/notificationfeedbackplayer.h"
+#include "notifications/eosquietpolicy.h"
 #include <QScreen> // should be included by lipstickcompositor.h
 #include "compositor/lipstickcompositor.h"
 #include "compositor/lipstickcompositorwindow.h"
@@ -153,6 +154,12 @@ void NotificationPreviewPresenter::removeNotification(uint id, bool onlyFromQueu
 bool NotificationPreviewPresenter::notificationShouldBeShown(LipstickNotification *notification)
 {
     if (notification->hidden() || notification->restored() || (notification->previewBody().isEmpty() && notification->previewSummary().isEmpty()))
+        return false;
+
+    // eos: Bedtime or Theater: no banner (it would turn the screen on) but
+    // an alarm's; the notification goes to the stream (eosquietpolicy.h)
+    if (!EosQuiet::previewAllowed(NotificationManager::instance()->quiet(),
+                                  notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString()))
         return false;
 
     const bool screenLocked = locks->locked();

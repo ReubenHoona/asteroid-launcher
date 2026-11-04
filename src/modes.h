@@ -40,7 +40,9 @@ class QTimer;
  *   - Battery saver goes off on the charger and comes back when unplugged;
  *   - Extra dim ends at a reboot (as Android's), its intensity in
  *     /org/asteroidos/modes/extra-dim-intensity.
- * Phone notifications are silenced by btsyncd, which reads the same keys.
+ * Phone notifications are silenced by btsyncd, which reads the same keys;
+ * the notification server (main.cpp sets NotificationManager::setQuiet from
+ * quiet) silences every other poster's the same way, alarms excepted.
  */
 class ModesEngine : public QObject, private ModesCore::Store
 {
@@ -53,6 +55,10 @@ class ModesEngine : public QObject, private ModesCore::Store
     Q_PROPERTY(int extraDimIntensity READ extraDimIntensity WRITE setExtraDimIntensity NOTIFY changed)
     Q_PROPERTY(bool charging READ charging NOTIFY chargingChanged)
     Q_PROPERTY(bool alwaysOnBlocked READ alwaysOnBlocked NOTIFY changed)
+    // Bedtime and Theater: notifications without banner, vibration or sound
+    // (alarms still come through); asteroid-btsyncd posts the phone's so,
+    // the notification server (lipstick eosquietpolicy.h) holds every poster to it
+    Q_PROPERTY(bool quiet READ quiet NOTIFY changed)
     // the mode that holds a setting ("bedtime", "theater", "battery-saver",
     // "extra-dim"), "" if none: Settings and the quick panel name it
     Q_PROPERTY(QString alwaysOnHolder READ alwaysOnHolder NOTIFY changed)
@@ -75,6 +81,7 @@ public:
     int extraDimIntensity() const;
     bool charging() const { return mCharging; }
     bool alwaysOnBlocked() const { return ModesCore::blocksAlwaysOn(mModes); }
+    bool quiet() const { return ModesCore::silencesNotifications(mModes); }
     QString alwaysOnHolder() const { return ModesCore::name(ModesCore::alwaysOnHolder(mModes)); }
     QString tiltHolder() const { return ModesCore::name(ModesCore::holder(ModesCore::TiltToWake, mModes)); }
     QString touchHolder() const { return ModesCore::name(ModesCore::holder(ModesCore::TouchToWake, mModes)); }

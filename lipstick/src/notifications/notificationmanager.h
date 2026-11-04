@@ -221,7 +221,14 @@ public:
      */
     NotificationList GetNotifications(const QString &owner);
 
+    // eos: Bedtime or Theater mode is on (the launcher's modes engine): no
+    // feedback or banner but for alarms (eosquietpolicy.h), for every poster
+    bool quiet() const { return m_quiet; }
+    void setQuiet(bool quiet);
+
 signals:
+    void quietChanged();
+
     /*!
      * A completed notification is one that has timed out, or has been dismissed by the user.
      *
@@ -336,6 +343,8 @@ private:
      * \param owner true if the manager is taking ownership of the notifications data
      */
     NotificationManager(QObject *parent, bool owner);
+
+    bool m_quiet = false;
 
     //! Destroys the notification manager.
     virtual ~NotificationManager();

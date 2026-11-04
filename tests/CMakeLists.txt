@@ -13,3 +13,7 @@ target_link_libraries(tst_modes PRIVATE Qt6::Core Qt6::DBus PkgConfig::mlite6)
 # The display offload decisions (lipstick/src/compositor/eosoffloadpolicy.h), plain C++
 add_executable(tst_offloadpolicy tst_offloadpolicy.cpp)
 target_include_directories(tst_offloadpolicy PRIVATE ../lipstick/src/compositor)
+
+# The notification server in Bedtime and Theater (lipstick/src/notifications/eosquietpolicy.h), plain C++
+add_executable(tst_quietpolicy tst_quietpolicy.cpp)
+target_include_directories(tst_quietpolicy PRIVATE ../lipstick/src/notifications)

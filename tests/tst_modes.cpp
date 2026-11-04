@@ -197,6 +197,7 @@ int main(int argc, char **argv)
     // nothing on: nothing written
     CHECK(mce.sets.isEmpty());
     CHECK(!engine->alwaysOnBlocked() && engine->tiltHolder().isEmpty());
+    CHECK(!engine->quiet());
 
     // --- Bedtime from Do Not Disturb (the quick panel): the latest wins
     engine->setDoNotDisturb(true);
@@ -210,6 +211,8 @@ int main(int argc, char **argv)
     CHECK(!engine->doNotDisturb());
     CHECK(engine->alwaysOnBlocked() && engine->alwaysOnHolder() == "bedtime");
     CHECK(engine->tiltHolder() == "bedtime" && engine->touchHolder() == "bedtime" && engine->brightnessHolder() == "bedtime");
+    // the notification server goes quiet with it (main.cpp)
+    CHECK(engine->quiet());
     // the user's values, kept in dconf
     CHECK(waitFor([&] { return confValue(M + "saved/tilt-to-wake") == QVariant(true); }, ConfMs));
     CHECK(waitFor([&] { return confValue(M + "saved/touch-to-wake").toString() == "unblank"; }, ConfMs));
@@ -233,6 +236,7 @@ int main(int argc, char **argv)
     CHECK(waitFor([&] { return !mce.get(TILT).toBool(); }));
     CHECK(engine->alwaysOnBlocked() && engine->alwaysOnHolder() == "battery-saver");
     CHECK(engine->tiltHolder() == "battery-saver" && engine->touchHolder().isEmpty() && engine->brightnessHolder().isEmpty());
+    CHECK(!engine->quiet());   // Battery saver alerts as ever
     CHECK(waitFor([&] { return confValue(M + "saved/tilt-to-wake") == QVariant(true); }, ConfMs));
     CHECK(waitFor([&] { return !confValue(M + "saved/brightness").isValid(); }, ConfMs));
 

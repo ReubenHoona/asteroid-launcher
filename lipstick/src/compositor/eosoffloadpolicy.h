@@ -46,6 +46,28 @@ inline bool dropAtSuspend(bool unknown, bool set, int64_t validUntil,
                                (moveAfter > 0 && moveAfter <= now)));
 }
 
+// The modes (Bedtime, Theater, Battery saver: ModesCore::blocksAlwaysOn in
+// the launcher's modes engine) keep the always-on screen off. The hub's
+// picture is that screen too: while a mode blocks it, a display off tells
+// the daemon the display is not ready (a "resume": the panel stays the AP's,
+// which has it blank) instead of ready, whatever an earlier launcher told
+// it; and a mode starting while the hub draws releases the panel at once.
+// The layout the daemon holds stays for when the last mode ends: the user's
+// always-on setting then has the next display off hand over as before.
+enum Handover { NoRequest, Suspend, Release };
+
+inline Handover atDisplayOff(bool ambientEnabled, bool blocked)
+{
+    if (blocked)
+        return Release;
+    return ambientEnabled ? Suspend : NoRequest;
+}
+
+inline Handover atBlockChange(bool blocked)
+{
+    return blocked ? Release : NoRequest;
+}
+
 } // namespace EosOffload
 
 #endif // EOSOFFLOADPOLICY_H

@@ -19,6 +19,7 @@
 #include "lipstickcompositorwindow.h"
 #include "notificationmanager.h"
 #include "notificationfeedbackplayer.h"
+#include "eosquietpolicy.h"
 
 namespace {
 
@@ -39,6 +40,7 @@ NotificationFeedbackPlayer::NotificationFeedbackPlayer(QObject *parent) :
     connect(NotificationManager::instance(), SIGNAL(notificationRemoved(uint)), this, SLOT(removeNotification(uint)));
     connect(NotificationManager::instance(), SIGNAL(notificationModified(uint)), this, SLOT(updateNotification(uint)));
     connect(NotificationManager::instance(), SIGNAL(notificationsModified(const QList<uint> &)), this, SLOT(updateNotifications(const QList<uint> &)));
+    connect(NotificationManager::instance(), SIGNAL(quietChanged()), this, SLOT(quietChanged()));
 
     QTimer::singleShot(0, this, SLOT(init()));
 }
@@ -62,8 +64,11 @@ void NotificationFeedbackPlayer::addNotification(uint id)
 
         // If feedback is suppressed, ignore this notification
         if (!notification->hints().value(NotificationManager::HINT_FEEDBACK_SUPPRESSED).toBool()) {
-            // Play the feedback related to the notification if any
-            const QString feedback = notification->hints().value(NotificationManager::HINT_FEEDBACK).toString();
+            // Play the feedback related to the notification if any (eos: in
+            // Bedtime or Theater only an alarm's, eosquietpolicy.h)
+            const QString feedback = QString::fromStdString(EosQuiet::feedback(
+                NotificationManager::instance()->quiet(),
+                notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString()));
             const QStringList feedbackItems = feedback.split(QStringLiteral(","), Qt::SkipEmptyParts);
             if (!feedbackItems.isEmpty()) {
                 QMap<QString, QVariant> properties;
@@ -104,6 +109,24 @@ void NotificationFeedbackPlayer::updateNotification(uint id)
     if (notification != 0 && notification->hints().value(NotificationManager::HINT_FEEDBACK_SUPPRESSED).toBool()) {
         // An update only suppresses feedback: it never starts any
         removeNotification(id);
+    }
+}
+
+// eos: Bedtime or Theater came on: whatever plays and is not an alarm's
+// (a call ringing on the phone) stops now
+void NotificationFeedbackPlayer::quietChanged()
+{
+    if (!NotificationManager::instance()->quiet())
+        return;
+    QMultiHash<LipstickNotification *, uint>::iterator it = idToEventId.begin();
+    while (it != idToEventId.end()) {
+        const std::string hint = it.key()->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString();
+        if (EosQuiet::feedback(true, hint).empty()) {
+            ngfClient->stop(it.value());
+            it = idToEventId.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 

@@ -38,6 +38,7 @@
 
 #include <lipstickqmltypes.h>
 #include <homeapplication.h>
+#include <notificationmanager.h>
 #include <localemanager.h>
 
 #include "applauncherbackground.h"
@@ -119,6 +120,12 @@ int main(int argc, char **argv)
     // what they change, and the user's settings they keep
     ModesEngine *modes = new ModesEngine(&app);
     app.engine()->rootContext()->setContextProperty("modes", modes);
+    // Bedtime and Theater make the notification server quiet: no feedback or
+    // banner from any poster but an alarm's (lipstick eosquietpolicy.h)
+    NotificationManager *notificationManager = NotificationManager::instance();
+    QObject::connect(modes, &ModesEngine::changed, notificationManager,
+                     [modes, notificationManager] { notificationManager->setQuiet(modes->quiet()); });
+    notificationManager->setQuiet(modes->quiet());
     app.engine()->rootContext()->setContextProperty("crownButton", crownButton);
     // The assistant: a hold of the side button (as the stock Pixel Watch 2;
     // mce sends power_button_trigger), and Open()/Ask() on the session bus

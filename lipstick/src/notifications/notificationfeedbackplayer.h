@@ -81,6 +81,8 @@ private slots:
      */
     void updateNotification(uint id);
     void updateNotifications(const QList<uint> &ids);
+    //! eos: the modes made the server quiet: stops what is not an alarm's
+    void quietChanged();
 
 private:
     //! Check whether feedbacks should be enabled for the given notification
