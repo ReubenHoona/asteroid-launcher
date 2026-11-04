@@ -84,7 +84,7 @@ QtObject {
             "org.asteroidos.btsyncd.Phone.Connected": true,
             "org.asteroidos.btsyncd.Phone.BatteryLevel": 80,
             "org.freedesktop.timedate1.ListTimezones": ["Africa/Abidjan", "America/New_York", "Europe/Berlin",
-                                                        "Europe/London", "Europe/Paris", "Pacific/Auckland", "Zulu"]
+                                                        "Europe/London", "Europe/Paris", "Asia/Tokyo", "Zulu"]
         }
         calls = []
     }
