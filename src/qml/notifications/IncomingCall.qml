@@ -45,6 +45,14 @@ import org.nemomobile.lipstick
  * caller, time in call, End call and Hide. It neither turns the display on
  * nor keeps it on; Hide leaves the notification in the list.
  * Everything else keeps the usual notification preview.
+ *
+ * Lipstick restores its notifications at start. A call card older than a
+ * few minutes when restored is a call that ended while the watch was down
+ * (the phone's removal never arrived: it only comes when the call's state
+ * changes) and is no call to show: stock Wear OS never shows a call screen
+ * for a call that ended. The card stays in the list as a plain notification
+ * until asteroid-btsyncd closes it, once the phone is back without posting
+ * the call again (its CallGraceMs).
  */
 Item {
     id: incomingCall
@@ -97,6 +105,21 @@ Item {
             return false
         var a = phoneActions(n)
         return a.indexOf("end") >= 0 && a.indexOf("answer") < 0 && a.indexOf("reject") < 0
+    }
+
+    // A call card lipstick restored at start (before the model is populated)
+    // that is older than this is no call to show (see the top of the file)
+    readonly property int restoredCallMaxMs: 180000
+
+    // A call from the phone, ringing or in progress
+    function isCall(n) {
+        var a = phoneActions(n)
+        return a.indexOf("end") >= 0 || a.indexOf("answer") >= 0 || a.indexOf("reject") >= 0
+    }
+
+    function staleRestored(n) {
+        return !notifModel.populated && isCall(n)
+               && new Date().getTime() - n.timestamp.getTime() > restoredCallMaxMs
     }
 
     function showOngoing(n) {
@@ -202,6 +225,12 @@ Item {
     NotificationListModel {
         id: notifModel
         onItemAdded: function (item) {
+            if (staleRestored(item)) {
+                // Not now, nor by a later look at the list
+                handled[item.replacesId] = true
+                console.log("IncomingCall: restored call card", item.replacesId, "from", item.timestamp, "is too old to show")
+                return
+            }
             if (isRinging(item))
                 show(item)
             else if (isOngoing(item) && (call === null || incomingCall.ongoing))
@@ -214,7 +243,7 @@ Item {
         // The launcher restarted while a call rang
         onPopulatedChanged: {
             var n = newestCall(null)
-            if (populated && n !== null)
+            if (notifModel.populated && n !== null)
                 show(n)
         }
     }
