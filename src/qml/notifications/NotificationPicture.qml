@@ -181,7 +181,7 @@ Item {
             //% "Can't display image"
             text: qsTrId("id-picture-error") + localeManager.changesObserver
             opacity: 0.6
-            font.pixelSize: Dims.l(5.2)
+            font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
         }
     }
 

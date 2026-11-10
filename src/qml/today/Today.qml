@@ -126,7 +126,7 @@ ListView {
             opacity: 0.8
             horizontalAlignment: Text.AlignLeft
             verticalAlignment: Text.AlignVCenter
-            font.pixelSize: Dims.l(5)
+            font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
             visible: weatherAvailable
         }
 
@@ -135,7 +135,7 @@ ListView {
             text: qsTrId("id-today")
             visible: !modelEmpty
             height: Dims.h(10)
-            font.pixelSize: Dims.l(6)
+            font.pixelSize: Theme.type.bodySmall.pixelSize
             font.capitalization: Font.SmallCaps
             anchors.bottom: parent.bottom
             anchors.left: parent.left
@@ -168,7 +168,7 @@ ListView {
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.left: parent.left
                 width: parent.width*0.3
-                font.pixelSize: Dims.l(5)
+                font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
             }
             Label {
                 id: title
@@ -204,7 +204,7 @@ ListView {
         horizontalAlignment: Text.AlignHCenter
         //% "No events today"
         text: qsTrId("id-no-events-today") + localeManager.changesObserver
-        font.pixelSize: Dims.l(6)
+        font.pixelSize: Theme.type.bodySmall.pixelSize
         opacity: 0.8
     }
 }

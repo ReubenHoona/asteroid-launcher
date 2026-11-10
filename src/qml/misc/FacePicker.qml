@@ -152,7 +152,7 @@ Item {
                     anchors.fill: parent
                     radius: width / 2
                     color: "#202124"
-                    border.color: faceItem.name + ".qml" === picker.current.split("/").pop() ? "#a8c7fa" : "#3c4043"
+                    border.color: faceItem.name + ".qml" === picker.current.split("/").pop() ? Theme.color.primary : Theme.color.surfaceContainerHigh
                     border.width: Math.max(2, Math.round(picker.width * 0.008))
                 }
                 Image {
@@ -244,14 +244,14 @@ Item {
         Rectangle {
             anchors.fill: parent
             radius: height / 2
-            color: "#a8c7fa"
+            color: Theme.color.primary
             opacity: customize.pressed ? 0.75 : 1
         }
         Label {
             anchors.centerIn: parent
             //% "Customize"
             text: qsTrId("id-face-customize") + localeManager.changesObserver
-            color: "#000000"
+            color: Theme.color.onPrimary
             font.pixelSize: Math.round(picker.height * 0.055)
             font.styleName: "SemiCondensed Medium"
         }
@@ -341,14 +341,14 @@ Item {
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: height / 2
-                                    color: "#a8c7fa"
+                                    color: Theme.color.primary
                                     opacity: done.pressed ? 0.75 : 1
                                 }
                                 Label {
                                     anchors.centerIn: parent
                                     //% "Done"
                                     text: qsTrId("id-tiles-done") + localeManager.changesObserver
-                                    color: "#000000"
+                                    color: Theme.color.onPrimary
                                     font.pixelSize: Math.round(picker.height * 0.055)
                                     font.styleName: "SemiCondensed Medium"
                                 }

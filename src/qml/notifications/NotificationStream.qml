@@ -268,7 +268,7 @@ Item {
                             Label {
                                 anchors.centerIn: parent
                                 text: group.groupKey + "  ·  " + group.items.length
-                                color: "#a8c7fa"
+                                color: Theme.color.primary
                                 font.pixelSize: Dims.l(5.8)
                                 font.styleName: "SemiCondensed Medium"
                             }
@@ -310,14 +310,14 @@ Item {
                         Rectangle {
                             anchors.fill: parent
                             radius: height / 2
-                            color: "#2d2d30"
+                            color: Theme.color.surfaceContainerLow
                             opacity: clearButton.pressed ? 0.7 : 1
                         }
                         Label {
                             anchors.centerIn: parent
                             //% "Clear all"
                             text: qsTrId("id-clear-all") + localeManager.changesObserver
-                            font.pixelSize: Dims.l(6)
+                            font.pixelSize: Theme.type.bodySmall.pixelSize
                             font.styleName: "SemiCondensed Medium"
                         }
                     }
@@ -339,7 +339,7 @@ Item {
                     anchors.horizontalCenter: parent.horizontalCenter
                     //% "No notifications"
                     text: qsTrId("id-no-notifications") + localeManager.changesObserver
-                    font.pixelSize: Dims.l(6)
+                    font.pixelSize: Theme.type.bodySmall.pixelSize
                     opacity: 0.7
                 }
             }

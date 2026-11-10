@@ -53,8 +53,8 @@ Column {
             width: Math.min(implicitWidth, nt.width - Dims.l(8) - timeLabel.width - Dims.w(4))
             elide: Text.ElideRight
             text: nt.notification ? nt.notification.appName : ""
-            color: "#a8c7fa"
-            font.pixelSize: Dims.l(5.6)
+            color: Theme.color.primary
+            font.pixelSize: Theme.type.labelSmall.pixelSize
             font.styleName: "SemiCondensed Medium"
         }
         Label {
@@ -62,7 +62,7 @@ Column {
             anchors.verticalCenter: parent.verticalCenter
             text: nt.timestamp !== "" ? "· " + nt.timestamp : ""
             opacity: 0.6
-            font.pixelSize: Dims.l(5.6)
+            font.pixelSize: Theme.type.labelSmall.pixelSize
         }
     }
 
@@ -100,6 +100,6 @@ Column {
         maximumLineCount: nt.compact ? 2 : 40
         elide: Text.ElideRight
         opacity: 0.85
-        font.pixelSize: Dims.l(6)
+        font.pixelSize: Theme.type.bodySmall.pixelSize
     }
 }

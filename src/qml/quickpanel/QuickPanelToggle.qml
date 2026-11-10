@@ -115,7 +115,7 @@ MouseArea {
     Rectangle {
         anchors.fill: parent
         radius: width/2
-        color: "#222222"
+        color: Theme.color.surfaceContainerLow
         opacity: ma.pressed ? 0.6 : ma.checked ?  0.75 : (ma.checkable ? 0.2 : 1)
     }
 

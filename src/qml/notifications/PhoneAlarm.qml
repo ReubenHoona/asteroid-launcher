@@ -229,7 +229,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
-        font.pixelSize: Dims.l(5)
+        font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
         opacity: 0.7
     }
 

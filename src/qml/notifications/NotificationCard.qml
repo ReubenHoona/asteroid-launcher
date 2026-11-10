@@ -47,8 +47,8 @@ Item {
         id: bg
         width: parent.width
         height: content.height + 2 * card.pad
-        radius: Math.min(height / 2, Dims.l(8))
-        color: tap.pressed ? "#3a3a3d" : "#262628"
+        radius: Theme.shape.clamp(Theme.shape.large, height)
+        color: tap.pressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
     }
     readonly property real pad: Dims.l(4.5)
 
@@ -86,13 +86,13 @@ Item {
         height: Dims.l(8)
         width: Math.max(height, badgeLabel.implicitWidth + height * 0.6)
         radius: height / 2
-        color: "#a8c7fa"
+        color: Theme.color.primary
         Label {
             id: badgeLabel
             anchors.centerIn: parent
             text: "+" + card.extra
-            color: "#000000"
-            font.pixelSize: Dims.l(5.2)
+            color: Theme.color.onPrimary
+            font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
             font.styleName: "SemiCondensed Medium"
         }
     }

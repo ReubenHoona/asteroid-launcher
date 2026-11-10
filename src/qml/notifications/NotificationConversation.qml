@@ -102,11 +102,11 @@ Column {
                 x: Dims.l(1.4)
                 width: conversation.width - 2 * x
                 text: message.m.s
-                color: "#a8c7fa"
+                color: Theme.color.primary
                 wrapMode: Text.Wrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
-                font.pixelSize: Dims.l(5.2)
+                font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
                 font.styleName: "SemiCondensed Medium"
             }
 
@@ -122,7 +122,7 @@ Column {
                 width: hasPicture ? conversation.width * 0.86 : textLabel.width + 2 * padX
                 height: (hasPicture ? bubblePicture.height + padY : 0) + (hasText ? textLabel.height + padY : 0) + padY
                 x: message.own ? conversation.width - width : 0
-                color: message.own ? "#a8c7fa" : "#303033"
+                color: message.own ? Theme.color.primary : "#303033"
                 readonly property real r: Math.min(conversation.largeRadius, height / 2)
                 // the corners on the sender's side are small where the run goes on
                 topLeftRadius: !message.own && message.joinedAbove ? conversation.smallRadius : r
@@ -157,8 +157,8 @@ Column {
                     text: message.m.t
                     textFormat: Text.PlainText
                     wrapMode: Text.Wrap
-                    color: message.own ? "#062e6f" : "#e3e3e3"
-                    font.pixelSize: Dims.l(6)
+                    color: message.own ? Theme.color.onPrimary : "#e3e3e3"
+                    font.pixelSize: Theme.type.bodySmall.pixelSize
                 }
             }
         }

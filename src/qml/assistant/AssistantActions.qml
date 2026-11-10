@@ -151,7 +151,7 @@ Item {
         return ""
     }
     function card(icon, title, text, chips, accent) {
-        return { icon: icon, title: title || "", text: text || "", chips: chips || [], accent: accent || "#a8c7fa" }
+        return { icon: icon, title: title || "", text: text || "", chips: chips || [], accent: accent || Theme.color.primary }
     }
     function openApp(name, onDone) {
         onDone({ close: true, then: function () {
@@ -527,7 +527,7 @@ Item {
                       [{ label: loc("id-asst-stop", "Stop"), run: function (d) {
                           btsyncd.typedCall("FindPhone", [{ "type": "b", "value": false }])
                           d({ close: true })
-                      } }], "#a8c7fa"))
+                      } }], Theme.color.primary))
         }, function () { done(card("ios-phone-portrait", "", loc("id-asst-phone-away", "Your phone isn't connected."))) })
     }
 
@@ -620,7 +620,7 @@ Item {
                                         },
                                         function () { d(card("ios-chatbubbles-outline", "", loc("id-asst-not-sent", "Couldn't send it. Is your phone connected?"))) })
                   } },
-                   { label: loc("id-asst-cancel", "Cancel"), run: function (d) { d({ close: true }) } }], "#a8c7fa"))
+                   { label: loc("id-asst-cancel", "Cancel"), run: function (d) { d({ close: true }) } }], Theme.color.primary))
     }
 
     /* ---- the phone's actions: directions, contacts, text messages ------------ */
@@ -765,7 +765,7 @@ Item {
                 label += " " + seen[label]
             return { label: label, run: function (d) { pick(m, d) } }
         })
-        var c = card("ios-contacts-outline", "", title, chips, "#a8c7fa")
+        var c = card("ios-contacts-outline", "", title, chips, Theme.color.primary)
         if (r.ask === "contact") {
             var say = { dictate: true, kind: "contact", prompt: title, onText: function (t, d, code, contact) {
                 var m = pickCandidate(list.slice(0, 4), contact || t)
@@ -881,7 +881,7 @@ Item {
             { label: loc("id-asst-send", "Send"), icon: "ios-send", run: function (d) { sendMessage(m, text, d) } },
             { label: loc("id-asst-msg-change", "Change"), icon: "ios-mic", run: function (d) { d(change) } },
             { label: loc("id-asst-cancel", "Cancel"), run: function (d) { d({ close: true }) } }
-        ], "#a8c7fa"))
+        ], Theme.color.primary))
     }
     function sendMessage(m, text, done) {
         act({ a: "sms", k: m.k, tx: text, dry: smsDryRun.value === true }, function (r) {

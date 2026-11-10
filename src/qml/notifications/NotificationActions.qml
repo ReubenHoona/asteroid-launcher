@@ -658,7 +658,7 @@ Item {
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: width / 2
-                                    color: inputButton.pressed ? "#3a3a3d" : "#262628"
+                                    color: inputButton.pressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
                                 }
                                 Icon {
                                     anchors.centerIn: parent
@@ -816,7 +816,7 @@ Item {
                         width: parent.width * 0.9
                         height: width
                         radius: width / 2
-                        color: emojiCell.pressed ? "#3a3a3d" : "#262628"
+                        color: emojiCell.pressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
                     }
                     Label {
                         anchors.centerIn: parent
@@ -979,7 +979,7 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: actions.showText ? Dims.h(28) : Dims.h(21)
-                color: vpage.failed ? "#ff6060" : "#ffffff"
+                color: vpage.failed ? Theme.color.error : "#ffffff"
 
                 SequentialAnimation on opacity {
                     running: vpage.voiceState === "listening"
@@ -998,8 +998,8 @@ Item {
                 width: Dims.w(70)
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
-                color: vpage.failed ? "#ff6060" : "#b0b0b0"
-                font.pixelSize: Dims.l(6)
+                color: vpage.failed ? Theme.color.error : "#b0b0b0"
+                font.pixelSize: Theme.type.bodySmall.pixelSize
                 text: actions.voiceStatus(vpage.voiceState, vpage.voiceError) + localeManager.changesObserver
             }
 
@@ -1065,8 +1065,8 @@ Item {
         id: replyFailed
         //% "Not sent: phone not connected"
         text: qsTrId("id-reply-failed") + localeManager.changesObserver
-        color: "#ff6060"
-        font.pixelSize: Dims.l(6)
+        color: Theme.color.error
+        font.pixelSize: Theme.type.bodySmall.pixelSize
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: Dims.h(12)
@@ -1175,7 +1175,7 @@ Item {
             id: timestamp
             color: "#b0b0b0"
             text: timestampStr
-            font.pixelSize: Dims.l(6)
+            font.pixelSize: Theme.type.bodySmall.pixelSize
         }
     }
 

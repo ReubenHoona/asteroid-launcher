@@ -123,7 +123,7 @@ Item {
                         bottomMargin: parent.height * 0.05
                     }
                     radius: height / 2
-                    color: launcherItem.pressed || root.fakePressed ? "#40ffffff" : "#22ffffff"
+                    color: launcherItem.pressed || root.fakePressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
                 }
 
                 Rectangle {
@@ -158,8 +158,8 @@ Item {
                     text: model.object.title + localeManager.changesObserver
                     elide: Text.ElideRight
                     maximumLineCount: 1
-                    // Wear OS label large, 15 sp at 2 px per dp on 384 px
-                    font.pixelSize: Dims.l(7.8) * appsView.viewScale
+                    // Wear OS labelMedium, 15 sp (Theme.type.labelMedium)
+                    font.pixelSize: Theme.type.labelMedium.pixelSize * appsView.viewScale
                     font.styleName: "SemiCondensed Medium"
                 }
             }

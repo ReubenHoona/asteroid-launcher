@@ -244,7 +244,7 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         //% "No notifications"
         text: qsTrId("id-no-notifications") + localeManager.changesObserver
-        font.pixelSize: Dims.l(6)
+        font.pixelSize: Theme.type.bodySmall.pixelSize
         opacity: 0.8
     }
 }

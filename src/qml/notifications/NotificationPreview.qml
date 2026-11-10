@@ -157,9 +157,9 @@ Item {
 
         Rectangle {
             anchors.fill: parent
-            radius: Math.min(height / 2, Dims.l(8))
-            color: tap.pressed ? "#3a3a3d" : "#262628"
-            border.color: "#3c4043"
+            radius: Theme.shape.clamp(Theme.shape.large, height)
+            color: tap.pressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
+            border.color: Theme.color.surfaceContainerHigh
             border.width: 1
         }
 
@@ -183,7 +183,7 @@ Item {
                 id: picture
                 width: parent.width
                 maxHeight: Math.round(width * 0.56)
-                radius: Math.max(0, Math.min(card.height / 2, Dims.l(8)) - card.pad)
+                radius: Math.max(0, Theme.shape.clamp(Theme.shape.large, card.height) - card.pad)
                 notification: notificationWindow.shownNotification
             }
         }

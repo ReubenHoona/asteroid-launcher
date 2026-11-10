@@ -13,7 +13,7 @@ TileBase {
     id: tile
     //% "Assistant"
     title: qsTrId("id-tile-assistant") + localeManager.changesObserver
-    accent: "#a8c7fa"
+    accent: Theme.color.primary
     chipIcon: "ios-mic"
     //% "Speak"
     chipText: qsTrId("id-tile-speak") + localeManager.changesObserver
@@ -46,7 +46,7 @@ TileBase {
                 Rectangle {
                     anchors.fill: parent
                     radius: height / 2
-                    color: "#2d2d30"
+                    color: Theme.color.surfaceContainerLow
                     opacity: parent.pressed ? 0.7 : 1
                 }
                 Row {

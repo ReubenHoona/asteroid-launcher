@@ -134,7 +134,7 @@ TileBase {
                 Rectangle {
                     anchors.fill: parent
                     radius: width / 2
-                    color: "#2d2d30"
+                    color: Theme.color.surfaceContainerLow
                     border.color: modelData === lastDuration.value ? tile.accent : "transparent"
                     border.width: Math.max(2, Math.round(tile.width * 0.006))
                     opacity: parent.pressed ? 0.7 : 1
@@ -178,7 +178,7 @@ TileBase {
             Rectangle {
                 anchors.fill: parent
                 radius: height / 2
-                color: "#2d2d30"
+                color: Theme.color.surfaceContainerLow
                 opacity: parent.pressed ? 0.7 : 1
             }
             Label {

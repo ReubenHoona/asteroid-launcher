@@ -14,7 +14,7 @@ TileBase {
     id: tile
     //% "Agenda"
     title: qsTrId("id-tile-agenda") + localeManager.changesObserver
-    accent: "#a8c7fa"
+    accent: Theme.color.primary
     //% "Calendar"
     chipText: qsTrId("id-tile-calendar") + localeManager.changesObserver
     onChipClicked: desktop.launchByName("asteroid-calendar", null)

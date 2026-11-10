@@ -162,8 +162,8 @@ Item {
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: Math.min(height / 2, Dims.l(8))
-                    color: chip.pressed ? "#3a3a3d" : "#262628"
+                    radius: Theme.shape.clamp(Theme.shape.large, height)
+                    color: chip.pressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
                 }
 
                 Label {
@@ -192,9 +192,9 @@ Item {
                     width: Dims.l(12)
                     height: Dims.l(7)
                     radius: height / 2
-                    color: on ? "#a8c7fa" : "transparent"
+                    color: on ? Theme.color.primary : "transparent"
                     border.width: on ? 0 : Math.max(1, Dims.l(0.6))
-                    border.color: "#8e918f"
+                    border.color: Theme.color.outline
                     opacity: menu.pending ? 0.6 : 1
 
                     Rectangle {
@@ -204,7 +204,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         x: track.on ? track.width - width - (track.height - width) / 2
                                     : (track.height - width) / 2
-                        color: track.on ? "#062e6f" : "#8e918f"
+                        color: track.on ? Theme.color.onPrimary : Theme.color.outline
                     }
                 }
             }
@@ -219,7 +219,7 @@ Item {
                 rightPadding: Dims.w(3.5)
                 wrapMode: Text.Wrap
                 horizontalAlignment: Text.AlignLeft
-                color: "#c4c7c5"
+                color: Theme.color.onSurfaceVariant
                 //% "Get notifications from %1 on your watch. Manage settings in the %2 app on your phone."
                 text: qsTrId("id-notifications-menu-subtext").arg(menu.appName).arg("Gadgetbridge") + localeManager.changesObserver
                 font.pixelSize: Dims.l(5.4)

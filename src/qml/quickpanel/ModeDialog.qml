@@ -92,7 +92,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.Wrap
                 clip: false
-                color: "#c4c7c5"
+                color: Theme.color.onSurfaceVariant
                 text: dialog.message
                 font.pixelSize: Dims.l(6.2)
             }
@@ -113,16 +113,16 @@ Item {
                         width: Dims.l(6.2)
                         height: width
                         radius: Dims.l(1.2)
-                        color: dialog.dontShowAgain ? "#a8c7fa" : "transparent"
+                        color: dialog.dontShowAgain ? Theme.color.primary : "transparent"
                         border.width: dialog.dontShowAgain ? 0 : Math.max(1, Dims.l(0.6))
-                        border.color: "#8e918f"
+                        border.color: Theme.color.outline
                         Icon {
                             anchors.centerIn: parent
                             visible: dialog.dontShowAgain
                             width: parent.width * 0.9
                             height: width
                             name: "ios-checkmark"
-                            color: "#062e6f"
+                            color: Theme.color.onPrimary
                         }
                     }
                     Label {
@@ -146,7 +146,7 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: width / 2
-                        color: no.pressed ? "#3a3a3d" : "#262628"
+                        color: no.pressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
                     }
                     Icon {
                         anchors.centerIn: parent
@@ -164,14 +164,14 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: width / 2
-                        color: yes.pressed ? "#c2d7fb" : "#a8c7fa"
+                        color: yes.pressed ? Theme.color.primaryDim : Theme.color.primary
                     }
                     Icon {
                         anchors.centerIn: parent
                         width: parent.width * 0.5
                         height: width
                         name: "ios-checkmark"
-                        color: "#062e6f"
+                        color: Theme.color.onPrimary
                     }
                 }
             }

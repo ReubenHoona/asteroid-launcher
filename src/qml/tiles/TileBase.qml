@@ -22,7 +22,7 @@ Item {
     id: tile
 
     property string title: ""
-    property color accent: "#a8c7fa"
+    property color accent: Theme.color.primary
     readonly property bool live: visible
     property string chipText: ""
     property string chipIcon: ""
@@ -94,7 +94,7 @@ Item {
         text: tile.title
         color: tile.accent
         // Wear OS title small, 14 sp
-        font.pixelSize: Math.round(tile.height * 0.068)
+        font.pixelSize: Theme.type.titleSmall.pixelSize
         font.styleName: "SemiCondensed Medium"
     }
 

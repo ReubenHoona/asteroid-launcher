@@ -187,7 +187,7 @@ Item {
                     anchors.fill: parent
                     radius: width / 2
                     color: "transparent"
-                    border.color: card.isCurrent && !card.isAdd ? "#a8c7fa" : "#3c4043"
+                    border.color: card.isCurrent && !card.isAdd ? Theme.color.primary : Theme.color.surfaceContainerHigh
                     border.width: Math.max(2, Math.round(editor.width * 0.006))
                 }
 
@@ -207,14 +207,14 @@ Item {
                         width: Math.round(editor.width * 0.17)
                         height: width
                         radius: width / 2
-                        color: "#a8c7fa"
+                        color: Theme.color.primary
                         opacity: editor.hidden.length > 0 ? 1 : 0.4
                         Icon {
                             anchors.centerIn: parent
                             width: parent.width * 0.55
                             height: width
                             name: "ios-add"
-                            color: "#000000"
+                            color: Theme.color.onPrimary
                         }
                     }
                     Label {
@@ -320,7 +320,7 @@ Item {
                 width: parent.width
                 height: width
                 radius: width / 2
-                color: arrow.pressed ? "#3c4043" : "#2d2d30"
+                color: arrow.pressed ? Theme.color.surfaceContainerHigh : Theme.color.surfaceContainerLow
                 opacity: arrow.can ? 1 : 0.35
             }
             Icon {
@@ -378,7 +378,7 @@ Item {
                     anchors.topMargin: Math.round(parent.height * 0.07)
                     anchors.bottomMargin: Math.round(parent.height * 0.07)
                     radius: height / 2
-                    color: rowArea.pressed ? "#3c4043" : "#2d2d30"
+                    color: rowArea.pressed ? Theme.color.surfaceContainerHigh : Theme.color.surfaceContainerLow
                     opacity: edge.alpha
                 }
                 MouseArea {

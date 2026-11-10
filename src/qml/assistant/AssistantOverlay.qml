@@ -213,7 +213,7 @@ Item {
             return
         }
         showCard({ icon: r.icon || "ios-chatbubbles-outline", title: r.title || "", text: r.text || "",
-                   chips: [], accent: r.via === "watch" ? "#a8c7fa" : "#c3e7ff" })
+                   chips: [], accent: r.via === "watch" ? Theme.color.primary : "#c3e7ff" })
     }
     // what an action gives back: a card, or close (then an app opens)
     function done(c) {
@@ -424,7 +424,7 @@ Item {
                         width: Math.round(flick.width * 0.15)
                         height: width
                         radius: width / 2
-                        color: cardColumn.c.accent || "#a8c7fa"
+                        color: cardColumn.c.accent || Theme.color.primary
                         visible: (cardColumn.c.icon || "") !== ""
                         Icon {
                             anchors.centerIn: parent
@@ -476,7 +476,7 @@ Item {
                                 Rectangle {
                                     anchors.fill: parent
                                     radius: height / 2
-                                    color: "#2d2d30"
+                                    color: Theme.color.surfaceContainerLow
                                     opacity: parent.pressed ? 0.7 : 1
                                 }
                                 Row {

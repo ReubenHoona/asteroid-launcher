@@ -65,7 +65,7 @@ TileBase {
         width: Math.round(tile.height * 0.46)
         height: width
         readonly property real stroke: Math.round(tile.height * 0.028)
-        readonly property color fill: tile.low ? "#f28b82" : tile.accent
+        readonly property color fill: tile.low ? Theme.color.error : tile.accent
 
         Shape {
             anchors.fill: parent

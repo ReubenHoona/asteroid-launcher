@@ -52,7 +52,7 @@ Item {
             width: Dims.l(18)
             height: width
             name: "ios-moon"
-            color: "#a8c7fa"
+            color: Theme.color.primary
         }
         Label {
             objectName: "bedtimeStarting"

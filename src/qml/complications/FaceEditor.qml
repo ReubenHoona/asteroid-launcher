@@ -73,7 +73,7 @@ Item {
                 anchors.fill: parent
                 radius: width / 2
                 color: "#000000"
-                border.color: "#3c4043"
+                border.color: Theme.color.surfaceContainerHigh
                 border.width: 2
             }
             ShaderEffectSource {
@@ -102,15 +102,15 @@ Item {
                     Rectangle {
                         anchors.fill: parent
                         radius: slot.shape === "circle" ? width / 2 : height / 2
-                        color: area.pressed ? "#40a8c7fa" : "transparent"
-                        border.color: "#a8c7fa"
+                        color: area.pressed ? Qt.alpha(Theme.color.primary, 0.25) : "transparent"
+                        border.color: Theme.color.primary
                         border.width: Math.max(2, Math.round(editor.width * 0.006))
                     }
                     Icon {
                         anchors.centerIn: parent
                         visible: editor.sourceOf(slotOutline.slot) === "empty"
                         name: "ios-add"
-                        color: "#a8c7fa"
+                        color: Theme.color.primary
                         width: Math.min(parent.width, parent.height) * 0.6
                         height: width
                     }
@@ -194,8 +194,8 @@ Item {
                     anchors.topMargin: Math.round(parent.height * 0.07)
                     anchors.bottomMargin: Math.round(parent.height * 0.07)
                     radius: height / 2
-                    color: rowArea.pressed ? "#3c4043" : "#2d2d30"
-                    border.color: row.current ? "#a8c7fa" : "transparent"
+                    color: rowArea.pressed ? Theme.color.surfaceContainerHigh : Theme.color.surfaceContainerLow
+                    border.color: row.current ? Theme.color.primary : "transparent"
                     border.width: Math.max(2, Math.round(editor.width * 0.006))
                     opacity: edge.alpha
                 }
@@ -234,7 +234,7 @@ Item {
                     width: visible ? pill.height * 0.4 : 0
                     height: width
                     name: "ios-checkmark"
-                    color: "#a8c7fa"
+                    color: Theme.color.primary
                     opacity: edge.alpha
                 }
             }

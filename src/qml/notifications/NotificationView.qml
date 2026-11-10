@@ -107,7 +107,7 @@ MouseArea {
             Label {
                 id: appName
                 width: Dims.w(56)
-                font.pixelSize: Dims.l(6)
+                font.pixelSize: Theme.type.bodySmall.pixelSize
                 elide: Text.ElideRight
 
                 Connections {

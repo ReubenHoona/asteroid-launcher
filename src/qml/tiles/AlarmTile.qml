@@ -210,7 +210,7 @@ TileBase {
                         width: parent.width
                         height: Math.round(tile.height * 0.075)
                         radius: height / 2
-                        color: row.alarm.enabled ? tile.accent : "#3c4043"
+                        color: row.alarm.enabled ? tile.accent : Theme.color.surfaceContainerHigh
                         opacity: toggleSwitch.pressed ? 0.75 : 1
                         Rectangle {
                             width: parent.height * 0.75

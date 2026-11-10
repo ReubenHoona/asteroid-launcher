@@ -339,7 +339,7 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
-        font.pixelSize: Dims.l(6)
+        font.pixelSize: Theme.type.bodySmall.pixelSize
         opacity: 0.7
     }
 
@@ -357,7 +357,7 @@ Item {
         anchors.top: number.bottom
         anchors.topMargin: Dims.h(1)
         anchors.horizontalCenter: parent.horizontalCenter
-        font.pixelSize: Dims.l(6)
+        font.pixelSize: Theme.type.bodySmall.pixelSize
         opacity: 0.7
     }
 
@@ -390,7 +390,7 @@ Item {
             anchors.top: circle.bottom
             anchors.topMargin: Dims.h(1)
             anchors.horizontalCenter: circle.horizontalCenter
-            font.pixelSize: Dims.l(5)
+            font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
         }
     }
 

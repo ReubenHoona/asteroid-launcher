@@ -1162,8 +1162,8 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.top: slidingRow.bottom
         anchors.topMargin: Dims.l(2)
-        color: "#ff6060"
-        font.pixelSize: Dims.l(6)
+        color: Theme.color.error
+        font.pixelSize: Theme.type.bodySmall.pixelSize
         // The voice reply page's string
         text: qsTrId("id-voice-no-phone")
         Timer {
@@ -1199,7 +1199,7 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: parent.width * 0.1
-                color: "#ff6060"
+                color: Theme.color.error
             }
 
             // Ringing: the icon pulses, only while the panel is on screen
@@ -1298,8 +1298,8 @@ Item {
             anchors.bottomMargin: Dims.h(12)
             width: Math.min(Dims.w(70), toastLabel.implicitWidth + Dims.w(10))
             height: toastLabel.height + Dims.h(5)
-            radius: Math.min(height / 2, Dims.h(8))
-            color: "#3c4043"
+            radius: Theme.shape.clamp(Theme.shape.large, height)
+            color: Theme.color.surfaceContainerHigh
             Label {
                 id: toastLabel
                 anchors.centerIn: parent
@@ -1308,7 +1308,7 @@ Item {
                 wrapMode: Text.Wrap
                 clip: false
                 text: modeToast.text
-                font.pixelSize: Dims.l(5.6)
+                font.pixelSize: Theme.type.labelSmall.pixelSize
             }
         }
     }

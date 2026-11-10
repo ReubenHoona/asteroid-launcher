@@ -506,7 +506,7 @@ FlatMesh {
             Label {
                 id: optionSubtitle
                 width: parent.width
-                font.pixelSize: Dims.l(5)
+                font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
                 fontSizeMode: Text.HorizontalFit
                 minimumPixelSize: Dims.l(4)
                 opacity: 0.75

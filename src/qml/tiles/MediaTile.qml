@@ -70,7 +70,7 @@ TileBase {
                     Rectangle {
                         anchors.fill: parent
                         radius: width / 2
-                        color: main ? tile.accent : "#2d2d30"
+                        color: main ? tile.accent : Theme.color.surfaceContainerLow
                         opacity: parent.pressed ? 0.7 : 1
                     }
                     Icon {
