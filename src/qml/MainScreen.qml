@@ -40,7 +40,24 @@ import org.asteroid.launcher
 import "desktop.js" as Desktop
 import "tiles"
 import "complications"
+import "home"
 
+/* The home screen. Its parts are owned modules in home/ (W1-launcher-split):
+ *   FaceLayer          the watch face, its options and clock  (faceLayer)
+ *   Trays              the panels around the face, the layout (trays)
+ *   TilesRing          the tiles, their dconf list, page dots (tilesRing)
+ *   AmbientController  display state, always-on, burn-in, hub, modes (ambientController)
+ *   ChargingController the nightstand                         (nightstandMode)
+ *   HomeOverlays       app list, face picker, tiles editor, splash, first run (overlays)
+ *   StatusSlot         unread indicator, edge hints           (statusSlot)
+ * This file keeps what the panels, faces, app launchers and the compositor
+ * reach by name: the root properties and functions below (desktop.*), and
+ * the ids of the shared objects (alb, wallClock, use12H, alwaysOnDisplay,
+ * mceChargerType, displaySettings, launcherModel, complications, grid,
+ * nightstandMode). The modules' own objects are forwarded under their old
+ * names (burnInProtectionManager, appDrawer, facePicker, tilesEditor,
+ * confirmation, splash, the indicators), so a lookup by name from a panel,
+ * a face or an app launcher finds the same object as before. */
 Item {
     id: desktop
     width: Dims.w(100)
@@ -86,7 +103,8 @@ Item {
      *  - scrollDarken tracks the grid offset (instant, follows the finger).
      *    The launcher page (verOffset > 0) is intentionally not darkened unless
      *    a launcher overrides the background colours.
-     *  - ambientDarken is toggled by the ambient signals and fades over 300ms. */
+     *  - ambientDarken is toggled by the ambient signals (AmbientController)
+     *    and fades over 300ms. */
     property real scrollDarken: displayAmbient ? 0.0
                               : (grid.normalizedVerOffset > 0 && !launcherColorOverride) ? 0.0
                               : Math.max(Math.abs(grid.normalizedHorOffset), Math.abs(grid.normalizedVerOffset)) * 0.4
@@ -99,11 +117,7 @@ Item {
     property bool aboutToClose: false
     property bool aboutToMinimize: false
 
-    /*
-     * The nightstand property is for use by watchfaces to signal them to, for example,
-     * enable a visual display of battery charge level, as with a ring around the perimeter
-     * of the watch that wouldn't normally be displayed.
-     */
+    // for the watchfaces: on the charger (ChargingController)
     property alias nightstand: nightstandMode.active
 
     onAboutToCloseChanged: {
@@ -123,134 +137,26 @@ Item {
             appDrawer.openNow()
     }
 
-    /* The Wear OS home screen (dconf /org/asteroidos/ux/home-layout "wear",
-     * the default; "asteroid" for the AsteroidOS one; read at start):
-     * watchface in the middle, quick settings above, the notification
-     * stream below (swipe up), the tiles to the right (swipe left), the app
-     * list over it all on the crown button (or a swipe right) */
-    ConfigurationValue {
-        id: homeLayout
-        key: "/org/asteroidos/ux/home-layout"
-        defaultValue: "wear"
-    }
+    // the layout, read at start (Trays)
     readonly property bool wearLayout: _wearLayout
     property bool _wearLayout: true
     property bool launchedFromDrawer: false
 
-    // the tiles: id -> file, name and the icon of the tiles editor's list
-    readonly property var tileRegistry: ({
-        //% "Heart rate"
-        "heartrate": { file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-heart-rate"), icon: "ios-heart-outline" },
-        //% "Steps"
-        "steps": { file: "tiles/StepsTile.qml", name: qsTrId("id-tile-steps"), icon: "ios-walk" },
-        //% "Weather"
-        "weather": { file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-weather"), icon: "ios-partly-sunny-outline" },
-        //% "Agenda"
-        "agenda": { file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-agenda"), icon: "ios-calendar-outline" },
-        //% "Timer"
-        "timer": { file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer"), icon: "ios-timer-outline" },
-        //% "Media"
-        "media": { file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media"), icon: "ios-musical-notes-outline" },
-        //% "Assistant"
-        "assistant": { file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant"), icon: "ios-microphone-outline" },
-        //% "Alarm"
-        "alarm": { file: "tiles/AlarmTile.qml", name: qsTrId("id-tile-alarm"), icon: "ios-alarm-outline" },
-        //% "Battery"
-        "battery": { file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full" }
-    })
-    ConfigurationValue {
-        id: tilesSetting
-        key: "/org/asteroidos/ux/tiles"
-        defaultValue: ["weather", "heartrate", "steps", "agenda", "alarm", "timer", "battery", "media", "assistant"]
-        onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
-    }
-    property var builtTiles: []
-    readonly property int tileCount: builtTiles.length
+    // the tiles (TilesRing)
+    readonly property var tileRegistry: tilesRing.tileRegistry
+    readonly property var builtTiles: tilesRing.builtTiles
+    readonly property int tileCount: tilesRing.tileCount
+    function buildTiles() { tilesRing.buildTiles() }
+    function openTilesEditor() { tilesRing.openTilesEditor() }
 
-    // the tiles from dconf, unknown ids left out, as panels (1..n, 0)
-    function buildTiles() {
-        var wanted = []
-        var list = tilesSetting.value || []
-        for (var i = 0; i < list.length; i++)
-            if (tileRegistry[list[i]] && wanted.indexOf(list[i]) < 0)
-                wanted.push(list[i])
-        if (JSON.stringify(wanted) === JSON.stringify(builtTiles))
-            return
-        var onTiles = grid.currentHorizontalPos > 0
-        for (var r = 1; r <= builtTiles.length; r++)
-            grid.removePanel(r, 0)
-        for (var t = 0; t < wanted.length; t++) {
-            var panel = grid.addPanel(t + 1, 0, tilePanel)
-            panel.tileFile = tileRegistry[wanted[t]].file
-        }
-        // drawn once offscreen (first textures, text, shapes made now, not
-        // in the first frames of a swipe), then hidden
-        grid.hideSoon()
-        builtTiles = wanted
-        if (onTiles)
-            grid.moveTo(Math.min(grid.currentHorizontalPos, wanted.length), 0)
-        grid.changeAllowedDirections()
-    }
+    // the face picker (FaceLayer, HomeOverlays)
+    function openFacePicker() { faceLayer.openFacePicker() }
 
-    // the tile on screen (a long press on it) in the middle of the editor
-    function openTilesEditor() {
-        tilesEditor.registry = tileRegistry
-        tilesEditor.open(builtTiles, Math.max(0, grid.currentHorizontalPos - 1))
-    }
+    // the drawer, the face picker and the tiles editor go (HomeOverlays)
+    function closeOverlays() { overlays.closeOverlays() }
 
-    function openFacePicker() {
-        facePicker.current = watchFaceSource.value
-        facePicker.open()
-    }
-
-    // the drawer, the face picker and the tiles editor go
-    function closeOverlays() {
-        appDrawer.closeNow()
-        if (facePicker.visible) facePicker.close()
-        if (tilesEditor.visible) tilesEditor.close()
-    }
-
-    /* The crown button on the home screen, as Wear OS: on the watchface it
-     * opens the app list; anywhere else (the app list, a tile, the
-     * notifications, quick settings) it goes back to the watchface */
-    function crownPressed() {
-        if (splash.visible)
-            return
-        // the full screen keyboard of a reply goes first, and a picture open
-        // full screen (back to its notification)
-        if (Desktop.keyboard) {
-            Desktop.keyboard.dismiss()
-            return
-        }
-        if (Desktop.pictureViewer) {
-            Desktop.pictureViewer.close()
-            return
-        }
-        // back a level in the editors (the list of tiles to add, a slot's
-        // data sources, the face options), else out of them
-        if (tilesEditor.visible) {
-            if (!tilesEditor.back())
-                tilesEditor.close()
-            return
-        }
-        if (facePicker.visible) {
-            if (!facePicker.back())
-                closeOverlays()
-            return
-        }
-        if (appDrawer.isOpen) {
-            appDrawer.close()
-            return
-        }
-        if (grid.currentHorizontalPos !== 0 || grid.currentVerticalPos !== 0) {
-            grid.animateTo(0, 0)
-            return
-        }
-        if (wearLayout)
-            appDrawer.open()
-        else
-            grid.animateTo(0, 1)
-    }
+    // the crown button on the home screen (HomeOverlays)
+    function crownPressed() { overlays.crownPressed() }
 
     /* A tap on the heads-up card: the notification, open, in the stream (an
      * application on the screen closes first, as the crown would) */
@@ -309,185 +215,28 @@ Item {
         Desktop.desktop = desktop
         Desktop.panelsGrid = grid
         Desktop.confirmation = confirmation
-        prewarmTimer.start()
+        overlays.startPrewarm()
         lipstickSettings.lockScreen(true)
         if(firstRun.isFirstRun())
-            firstRunComponent.createObject(desktop)
+            overlays.startFirstRun()
     }
 
-    Splash {
-        id: splash
-        z: 9
-    }
-
-    Component {
-        id: firstRunComponent
-        Item {
-            anchors.fill: parent
-            z: 8
-            // An ambient display keeps showing its last frame, which would be
-            // a frozen-looking wizard: show the ambient watchface below instead
-            visible: !Lipstick.compositor.displayAmbient
-            Tutorial { }
-            FirstRunConfig { }
-        }
-    }
-
-    ConfigurationValue {
-        id: bipLevel
-        key: "/org/asteroidos/settings/burn-in-protection-level"
-        defaultValue: DeviceSpecs.needsBurnInProtection ? 1.0 : 0.0
-    }
-
-    ConfigurationValue {
-        id: alwaysOnDisplay
-        key: "/org/asteroidos/settings/always-on-display"
-        defaultValue: true
-    }
-
-    Item {
-        id: burnInProtectionManager
-
-        // Maximum offset before components from other grid becomes visible.
-        property int maximumWidthOffset: Dims.w(27)
-        property int maximumHeightOffset: Dims.h(27)
-
-        property int leftOffset: Dims.w(2)
-        property int rightOffset: Dims.w(2)
-        property int topOffset: Dims.h(2)
-        property int bottomOffset: Dims.h(2)
-
-        // The maximum allowed movement in x and y direction.
-        property int widthOffset
-        property int heightOffset
-
-        // Enable/disable burn in protection.
-        enabled: DeviceSpecs.needsBurnInProtection && bipLevel.value > 0.0
-        readonly property real bipMultiplier: Math.max(0.0, Math.min(1.0, bipLevel.value))
-
-        /* Wear OS moves the always-on screen by a few pixels at a time. The
-         * Settings levels High, Medium and Low (1.0, 0.5, 0.25) give about
-         * 8, 5 and 3 px either way from the centre (the old offsets let High
-         * wander some 52 px); the face walks there in steps of 1 or 2 px a
-         * minute instead of jumping anywhere in the range. The faces'
-         * setActiveWatchFaceArea/setCenterWatchFaceArea are kept for them
-         * but no longer widen it. */
-        readonly property real maxShift: bipMultiplier <= 0 ? 0
-            : Math.round((3 + 5 * Math.max(0, bipMultiplier - 0.25) / 0.75) * Dims.w(100) / 384)
-        property real shiftX: 0
-        property real shiftY: 0
-        function walk(v) {
-            var s = maxShift
-            var d = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 2))
-            var n = v + d
-            if (n > s || n < -s)
-                n = v - d
-            return Math.max(-s, Math.min(s, n))
-        }
-        function step() {
-            shiftX = walk(shiftX)
-            shiftY = walk(shiftY)
-        }
-
-        onHeightOffsetChanged: {
-            topOffset = heightOffset/2
-            bottomOffset = topOffset
-        }
-
-        onWidthOffsetChanged: {
-            leftOffset = widthOffset/2
-            rightOffset = leftOffset
-        }
-
-        onLeftOffsetChanged: if (leftOffset > maximumWidthOffset/2) leftOffset = maximumWidthOffset/2
-        onRightOffsetChanged: if (rightOffset > maximumWidthOffset/2) rightOffset = maximumWidthOffset/2
-        onTopOffsetChanged: if (topOffset > maximumHeightOffset/2) topOffset = maximumHeightOffset/2
-        onBottomOffsetChanged: if (bottomOffset > maximumHeightOffset/2) bottomOffset = maximumHeightOffset/2
-
-        function setActiveWatchFaceArea(x, y, w, h) {
-            leftOffset = Math.min(x, maximumWidthOffset/2)
-            topOffset = Math.min(y, maximumHeightOffset/2)
-            rightOffset = Math.min(Dims.w(100)-w-x, maximumWidthOffset/2)
-            bottomOffset = Math.min(Dims.h(100)-h-y, maximumHeightOffset/2)
-        }
-        function setCenterWatchFaceArea(w, h) {
-            widthOffset = Dims.w(100)-w
-            heightOffset = Dims.h(100)-h
-        }
-        function resetOffsets() {
-            leftOffset = Dims.w(2)
-            rightOffset = Dims.w(2)
-            topOffset = Dims.h(2)
-            bottomOffset = Dims.h(2)
-        }
-    }
-
-    /* The clock the watchfaces draw. It ticks every second only while the
-     * watchface is the page on screen and its seconds are shown (faces hide
-     * them in nightstand, ambient or 12 h mode); else every minute, on the
-     * minute: under tiles, the notifications or the app list that is the
-     * frame their own curved time draws anyway, and the face is right when
-     * it comes back, with no text to change in the first frame of the way
-     * back. It stops under an application and with the display off. */
+    // the clock of the watch face (FaceLayer.checkSeconds); its id is the
+    // faces' and the first-run wizard's
     property bool displayAwake: true
     property Item centreItem: null
     readonly property bool faceShown: centreItem !== null && centreItem.visible
                                       && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible
-    property bool faceSecondsShown: false
-    function checkSeconds() {
-        if (!centreItem)
-            return
-        applyFaceOptions()
-        if (!faceShown)
-            return
-        faceSecondsShown = faceShowSeconds.value
-                           && watchfaceReloader.secondsShown(centreItem.activeFace, centreItem.activeSource)
-    }
-
-    /* The watchface options of the face picker, for every face: date and
-     * seconds shown or not (seconds never in always-on mode, as on Wear OS),
-     * and how the always-on face looks: "dim" (the face in grey: 55 %) or
-     * "outline" (grey letter outlines, and the rest dimmed) */
-    ConfigurationValue {
-        id: faceShowDate
-        key: "/org/asteroidos/watchface/show-date"
-        defaultValue: true
-        onValueChanged: Qt.callLater(desktop.checkSeconds)
-    }
-    ConfigurationValue {
-        id: faceShowSeconds
-        key: "/org/asteroidos/watchface/show-seconds"
-        defaultValue: true
-        onValueChanged: Qt.callLater(desktop.checkSeconds)
-    }
-    ConfigurationValue {
-        id: faceAmbientStyle
-        key: "/org/asteroidos/watchface/ambient-style"
-        defaultValue: "dim"
-        onValueChanged: Qt.callLater(desktop.checkSeconds)
-    }
-    function applyFaceOptions() {
-        if (!centreItem || !centreItem.activeFace)
-            return
-        watchfaceReloader.applyFaceOptions(centreItem.activeFace, faceShowDate.value, faceShowSeconds.value,
-                                           displayAmbient, faceAmbientStyle.value)
-    }
-    onFaceShownChanged: if (faceShown) checkSeconds()
-    onDisplayAmbientChanged: Qt.callLater(checkSeconds)
-    Connections {
-        target: nightstandMode
-        function onActiveChanged() { Qt.callLater(desktop.checkSeconds) }
-    }
-    Connections {
-        target: use12H
-        function onValueChanged() { Qt.callLater(desktop.checkSeconds) }
-    }
+    readonly property bool faceSecondsShown: faceLayer.faceSecondsShown
+    function checkSeconds() { faceLayer.checkSeconds() }
+    function applyFaceOptions() { faceLayer.applyFaceOptions() }
     WallClock {
         id: wallClock
         enabled: desktop.visible && desktop.displayAwake
         updateFrequency: desktop.faceShown && desktop.faceSecondsShown ? WallClock.Second : WallClock.Minute
     }
 
+    // Shared by id with the panels, tiles, faces and app launchers
     MceChargerType {
         id: mceChargerType
     }
@@ -498,20 +247,10 @@ Item {
         defaultValue: false
     }
 
-    // The sensor hub's always-on layout is the face drawn with these: when
-    // one changes, the layout the hub holds shows the old look, so it goes
-    // at once, before the display can go off with it (stock clears the
-    // offload layout when the watch face changes); the next ambient update
-    // builds the new one
-    readonly property string hubLayoutInputs: [watchFaceSource.value, watchfaceNightstandSource.value,
-                                               use12H.value, faceShowDate.value,
-                                               faceAmbientStyle.value,
-                                               JSON.stringify(faceComplications.value)].join("|")
-    // the complications chosen for the face (the date shows in always-on)
     ConfigurationValue {
-        id: faceComplications
-        key: complications.configKey(complications.faceName(watchFaceSource.value))
-        defaultValue: []
+        id: alwaysOnDisplay
+        key: "/org/asteroidos/settings/always-on-display"
+        defaultValue: true
     }
 
     /* The watch face complications (ComplicationSources): the data the
@@ -526,275 +265,49 @@ Item {
         use12h: use12H.value
         now: wallClock.time
     }
-    onHubLayoutInputsChanged: hubOffload.invalidate()
-    onWatchfaceReloadRequested: hubOffload.invalidate()
-
-    Timer {
-        id: wallClockAmbientTimeout
-        interval: 200
-        repeat: false
-        onTriggered: {
-            // The face has drawn this minute in its ambient style: give its
-            // layout to the sensor hub, which then draws the time while the
-            // AP sleeps (stock display offload; kept while unchanged). Not in
-            // nightstand: on the charger the AP does not sleep anyway, and
-            // the face shows the charge
-            if (Lipstick.compositor.displayAmbient && desktop.centreItem) {
-                if (nightstand)
-                    hubOffload.clear()
-                else
-                    hubOffload.update(desktop.centreItem.activeFace, use12H.value,
-                                      desktop.centreItem.activeSource, wallClock.time,
-                                      burnInProtectionManager.enabled ? hubBurnInMoveMinutes : 0)
-            }
-            Lipstick.compositor.setAmbientUpdatesEnabled(false)
-        }
-    }
-
-    // The ambient face is only redrawn on request (the wall clock is off):
-    // once in every minute while it shows. Qt timers stop while the system
-    // is suspended (CLOCK_MONOTONIC), so a one-shot timer to the next minute
-    // fired long after the RTC wakeup at the minute (lipstick's timed
-    // event), when the AP was asleep again, and the face stayed stale. So
-    // check the wall clock each second while the AP is awake: the first
-    // check after the wakeup redraws. The timer never wakes the AP itself.
-    // Not while the sensor hub draws the always-on display
-    // (displayOffloaded): it draws the time itself, as stock Wear OS; but
-    // once its layout has expired (the date at midnight, AM/PM), at the AP
-    // wakeup lipstick schedules for that, the redraw sends the new one
-    // (stock: an AP update at the layout's minutes_valid).
-    property real ambientMinuteShown: 0
-    // With the hub drawing, the burn-in protection moves the face at most
-    // this often, at a display off (one layout send then), instead of at
-    // every display off as the AP-drawn always-on screen does
-    readonly property int hubBurnInMoveMinutes: 60
-    Timer {
-        id: ambientMinuteTimer
-        interval: 1000
-        repeat: true
-        onTriggered: {
-            var minute = Math.floor(Date.now() / 60000)
-            if (minute === desktop.ambientMinuteShown || !Lipstick.compositor.offloadAmbientUpdateWanted())
-                return
-            desktop.ambientMinuteShown = minute
-            Lipstick.compositor.setAmbientUpdatesEnabled(true)
-        }
-    }
-
-    function scheduleAmbientMinute() {
-        ambientMinuteShown = Math.floor(Date.now() / 60000)
-        ambientMinuteTimer.restart()
-    }
 
     LauncherModel {
         id: launcherModel
     }
 
-    DisplaySettings { 
+    DisplaySettings {
         id: displaySettings
     }
 
-    Connections {
-        target: Lipstick.compositor
-        function onDisplayAboutToBeOn() {
-            wallClockAmbientTimeout.stop()
-            desktop.displayAwake = true
-        }
-        function onDisplayAboutToBeOff() { desktop.displayAwake = false }
-        function onDisplayOn() {
-            ambientMinuteTimer.stop()
-            if (desktop.prewarmPending)
-                prewarmTimer.restart()
-            grid.animateIndicators()
-            ambientDarken = 0
-            if (Lipstick.compositor.ambientEnabled) grid.moveTo(0, 0)
-        }
-        function onDisplayAmbientEntered() {
-            scheduleAmbientMinute()
-            ambientDarken = 1
-            grid.hideOffscreen();
-        }
-        function onDisplayAmbientLeft() {
-            if (burnInProtectionManager.enabled) leftIndicator.anchors.verticalCenterOffset = 0
-        }
-        function onDisplayAmbientUpdate() {
-            // Perform burn in protection
-            if (burnInProtectionManager.enabled) {
-                burnInProtectionManager.step()
-                grid.contentX = burnInProtectionManager.shiftX
-                grid.contentY = burnInProtectionManager.shiftY
-                leftIndicator.anchors.horizontalCenterOffset = burnInProtectionManager.shiftX
-                leftIndicator.anchors.verticalCenterOffset = burnInProtectionManager.shiftY
-            }
-            // Give watchface some time to update, then go back to deep sleep.
-            wallClockAmbientTimeout.start();
-        }
-    }
-
-    ConfigurationValue {
-        id: watchFaceSource
-        key: "/desktop/asteroid/watchface"
-        defaultValue: "file:///usr/share/asteroid-launcher/watchfaces/000-default-digital.qml"
-        onValueChanged: burnInProtectionManager.resetOffsets()
-    }
-
-    ConfigurationValue {
-        id: appLauncherSource
-        key: "/desktop/asteroid/applauncher"
-        defaultValue: "file:///usr/share/asteroid-launcher/applauncher/000-default-horizontal.qml"
-    }
-
-    ConfigurationValue {
-        id: watchfaceNightstandSource
-        key: "/desktop/asteroid/nightstand/watchface"
-        defaultValue: "file:///usr/share/asteroid-launcher/watchfaces/000-default-digital.qml"
-    }
-
-    ConfigurationValue {
-        id: nightstandBrightness
-        key: "/desktop/asteroid/nightstand/brightness"
-        defaultValue: 30
-    }
-
-    ConfigurationValue {
-        id: nightstandDelay
-        key: "/desktop/asteroid/nightstand/delay"
-        defaultValue: 5
-    }
-
-    ConfigurationValue {
-        id: nightstandEnabled
-        key: "/desktop/asteroid/nightstand/enabled"
-        defaultValue: true
-    }
-
-    ConfigurationValue {
-        id: nightstandAlwaysOnDisplay
-        key: "/desktop/asteroid/nightstand/always-on-display"
-        defaultValue: true
-    }
-
-    ConfigurationValue {
-        id: nightstandUseCustomWatchface
-        key: "/desktop/asteroid/nightstand/use-custom-watchface"
-        defaultValue: false
-    }
-
-    /*
-     * The modes (modes.h): Bedtime, Theater and Battery saver keep the
-     * always-on screen off, Bedtime and Extra dim hold the brightness. mce's
-     * low power mode is the user's always-on choice (or the nightstand's)
-     * unless a mode blocks it; the nightstand leaves a held brightness
-     * alone, and what it would put back goes to the engine instead.
-     */
-    readonly property bool modesReady: typeof modes !== "undefined" && modes !== null
-    readonly property bool alwaysOnBlocked: modesReady && modes.alwaysOnBlocked
-    readonly property bool brightnessHeld: modesReady && modes.brightnessHolder !== ""
-    function applyLowPower() {
-        displaySettings.lowPowerModeEnabled = !alwaysOnBlocked
-                && (nightstandMode.active ? nightstandAlwaysOnDisplay.value : alwaysOnDisplay.value)
-    }
-    onAlwaysOnBlockedChanged: applyLowPower()
-    // ...and the sensor hub draws no always-on screen meanwhile either: the
-    // compositor keeps the panel from the offload daemon (2026-11-04: the hub
-    // took the panel at every blank in Bedtime, the face stayed on all night)
-    Binding {
-        target: Lipstick.compositor
-        property: "offloadBlocked"
-        value: desktop.alwaysOnBlocked
-    }
-    // a mode that ended while the launcher was not running left it off
-    Timer {
-        interval: 3000
-        running: true
-        onTriggered: if (!desktop.alwaysOnBlocked) desktop.applyLowPower()
-    }
+    // the always-on screen (AmbientController)
+    readonly property string hubLayoutInputs: ambientController.hubLayoutInputs
+    readonly property real ambientMinuteShown: ambientController.ambientMinuteShown
+    readonly property int hubBurnInMoveMinutes: ambientController.hubBurnInMoveMinutes
+    function scheduleAmbientMinute() { ambientController.scheduleAmbientMinute() }
+    readonly property Item burnInProtectionManager: ambientController.burnInProtectionManager
+    readonly property bool modesReady: ambientController.modesReady
+    readonly property bool alwaysOnBlocked: ambientController.alwaysOnBlocked
+    readonly property bool brightnessHeld: ambientController.brightnessHeld
+    function applyLowPower() { ambientController.applyLowPower() }
     // Bedtime coming on: the watch face (system/ModeScreen.qml)
     function showWatchface() {
         closeOverlays()
         grid.moveTo(0, 0)
     }
 
-    Item {
-        id: nightstandMode
-        readonly property bool active: ready || nightstandDelayTimer.running
-        readonly property bool ready: nightstandEnabled.value && mceChargerType.type != MceChargerType.None
-        property int oldBrightness: 100
-        // the nightstand set its brightness (and owes the old one back)
-        property bool setBrightness: false
-        function enter() {
-            if (!desktop.brightnessHeld && !setBrightness) {
-                oldBrightness = displaySettings.brightness
-                displaySettings.brightness = nightstandBrightness.value
-                setBrightness = true
-            }
-            desktop.applyLowPower()
-        }
-        function leave() {
-            if (setBrightness) {
-                if (desktop.brightnessHeld)
-                    modes.setRestoreValue("brightness", oldBrightness)
-                else
-                    displaySettings.brightness = oldBrightness
-                setBrightness = false
-            }
-            desktop.applyLowPower()
-        }
-        onReadyChanged: {
-            if (ready) {
-                if (nightstandDelayTimer.running) {
-                    // timer was holding off, so cancel timer
-                    nightstandDelayTimer.stop()
-                } else {
-                    // enter nightstand mode
-                    enter()
-                }
-            } else {
-                if (nightstandEnabled.value) {
-                    // start off-charger timer
-                    nightstandDelayTimer.restart()
-                } else {
-                    // mode disabled, so
-                    // exit nightstand mode immediately
-                    nightstandDelayTimer.stop()
-                    leave()
-                }
-            }
-        }
-        Timer {
-            id: nightstandDelayTimer
-            interval: nightstandDelay.value * 1000
-            repeat: false
-            // timer expired, so restore brightness
-            onTriggered: nightstandMode.leave()
-        }
-        // a mode let go of the brightness on the charger: the nightstand's,
-        // once mce has the user's back
-        Connections {
-            target: desktop
-            function onBrightnessHeldChanged() {
-                if (!desktop.brightnessHeld && nightstandMode.ready)
-                    nightstandHeldEnd.restart()
-            }
-        }
-        Timer {
-            id: nightstandHeldEnd
-            interval: 1000
-            onTriggered: if (nightstandMode.ready && !desktop.brightnessHeld) nightstandMode.enter()
-        }
-    }
+    // what opens over the home screen (HomeOverlays)
+    readonly property Item splash: overlays.splash
+    readonly property Item appDrawer: overlays.appDrawer
+    readonly property Item facePicker: overlays.facePicker
+    readonly property Item tilesEditor: overlays.tilesEditor
+    readonly property Item confirmation: overlays.confirmation
+    readonly property bool prewarmPending: overlays.prewarmPending
 
-    Connections {
-        target: localeManager
-        function onChangesObserverChanged() {
-            var watchFaceSourceBackup = watchFaceSource.value
-            watchFaceSource.value = ""
-            watchFaceSource.value = watchFaceSourceBackup
-            var appLauncherSourceBackup = appLauncherSource.value
-            appLauncherSource.value = ""
-            appLauncherSource.value = appLauncherSourceBackup
-        }
-    }
+    // the status slot's indicators (StatusSlot)
+    readonly property Item rightIndicator: statusSlot.rightIndicator
+    readonly property Item leftIndicator: statusSlot.leftIndicator
+    readonly property Item topIndicator: statusSlot.topIndicator
+    readonly property Item bottomIndicator: statusSlot.bottomIndicator
+
+    FaceLayer { id: faceLayer }
+    ChargingController { id: nightstandMode }
+    AmbientController { id: ambientController }
+    Trays { id: trays }
 
     Connections {
         target: watchfaceReloader
@@ -806,214 +319,20 @@ Item {
         }
     }
 
-    Component { id: topPanel;    QuickPanel      { } }
-    Component { id: streamPanel; NotificationStream { panelsGrid: grid } }
-    Component {
-        id: tilePanel
-        Loader {
-            property string tileFile
-            property bool forbidTop: true
-            property bool forbidBottom: true
-            source: tileFile !== "" ? Qt.resolvedUrl(tileFile) : ""
-        }
-    }
-    Component { id: leftPanel;   NotificationsPanel { panelsGrid: grid } }
-    Component { id: rightPanel;  Today              { } }
-    Component {
-        id: centerPanel;
-        Item {
-            property bool nightstandWatchfaceActive: nightstandMode.active && nightstandUseCustomWatchface.value && watchfaceNightstandSource.value != watchFaceSource.value
-            // always-on: the face in grey, not full white
-            opacity: displayAmbient ? 0.55 : 1.0
-            // Wear OS: a long press on the watchface opens the face picker
-            // (under the face: a face's own buttons keep their presses)
-            MouseArea {
-                anchors.fill: parent
-                z: -1
-                enabled: !displayAmbient
-                pressAndHoldInterval: 500
-                onPressAndHold: {
-                    Haptics.longPress()
-                    desktop.openFacePicker()
-                }
-            }
-            // the face on screen and its file, for the clock (checkSeconds)
-            readonly property Item activeFace: nightstandWatchfaceActive ? nightstandWatchfaceLoader.item : watchfaceLoader.item
-            readonly property url activeSource: nightstandWatchfaceActive ? watchfaceNightstandSource.value : watchFaceSource.value
-            onActiveFaceChanged: Qt.callLater(desktop.checkSeconds)
-            Loader {
-                id: nightstandWatchfaceLoader
-                opacity: nightstandWatchfaceActive ? 1.0 : 0.0
-                visible: opacity
-                anchors.fill: parent
-                source: watchfaceNightstandSource.value
-                onLoaded: complications.attach(item, source)
-                Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InCirc } }
-            }
-            Loader {
-                id: watchfaceLoader
-                opacity: !nightstandWatchfaceActive ? 1.0 : 0.0
-                visible: opacity
-                Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InCirc} }
-                anchors.fill: parent
-                source: watchFaceSource.value
-                onLoaded: complications.attach(item, source)
-
-                // Reinstantiate to re-read the source from disk. Toggling the
-                // Loader instead of rewriting the dconf-backed watchFaceSource
-                // avoids a cross-process write that can clobber a concurrent
-                // activation.
-                Connections {
-                    target: desktop
-                    function onWatchfaceReloadRequested() {
-                        watchfaceLoader.active = false
-                        watchfaceLoader.active = true
-                    }
-                }
-            }
-        }
-    }
-    Component {
-        id: bottomPanel
-        Loader {
-            id: appLauncher
-            property bool fakePressed:     false
-            property bool toTopAllowed:    true
-            property bool toBottomAllowed: true
-            property bool toLeftAllowed:   true
-            property bool toRightAllowed:  true
-            property bool forbidTop: false
-            property bool forbidBottom: false
-            property bool forbidLeft: false
-            property bool forbidRight: false
-            source: appLauncherSource.value
-            onStatusChanged: {
-                if (appLauncher.status == Loader.Ready) {
-                    Desktop.appLauncher = appLauncher.item
-                }
-            }
-        }
-    }
-
     PanelsGrid {
-        id: grid 
+        id: grid
         anchors.fill: parent
         // the app list follows a swipe right on the watchface (Wear layout)
         edgeTarget: desktop.wearLayout ? appDrawer : null
 
-        Component.onCompleted: {
-            desktop._wearLayout = homeLayout.value !== "asteroid"
-            if (desktop.wearLayout) {
-                desktop.centreItem = addPanel(0, 0, centerPanel)
-                addPanel(0, -1, topPanel)
-                var ns = addPanel(0, 1, streamPanel)
-                desktop.streamItem = ns
-                desktop.buildTiles()
-                appDrawer.source = Qt.binding(function() { return appLauncherSource.value })
-                rightIndicator.visible  = Qt.binding(function() { return grid.toLeftAllowed && !displayAmbient })
-                leftIndicator.visible   = Qt.binding(function() { return grid.toRightAllowed && !displayAmbient && !appDrawer.isOpen })
-                topIndicator.visible    = Qt.binding(function() { return grid.toBottomAllowed && !displayAmbient })
-                // Wear OS: the unread notification dot (NotificationIndicator) says what waits below
-                bottomIndicator.visible = Qt.binding(function() { return grid.toTopAllowed && !displayAmbient && notifIndic.unreadCount === 0 })
-                return
-            }
-            desktop.centreItem = addPanel(0, 0, centerPanel)
-            var al = addPanel(0, 1, bottomPanel)
-            addPanel(1, 0, rightPanel)
-            var np = addPanel(-1, 0, leftPanel)
-            addPanel(0, -1, topPanel)
-
-            rightIndicator.visible  = Qt.binding(function() { return ((grid.toLeftAllowed   || (grid.currentVerticalPos == 1 && al.toLeftAllowed ))   && !displayAmbient)})
-            leftIndicator.visible   = Qt.binding(function() { return ((grid.toRightAllowed  || (grid.currentVerticalPos == 1 && al.toRightAllowed))   && (!displayAmbient || !np.modelEmpty))})
-            topIndicator.visible    = Qt.binding(function() { return ((grid.toBottomAllowed || (grid.currentVerticalPos == 1 && al.toBottomAllowed )) && !displayAmbient)})
-            bottomIndicator.visible = Qt.binding(function() { return ((grid.toTopAllowed    || (grid.currentVerticalPos == 1 && al.toTopAllowed ))    && !displayAmbient)})
-
-            leftIndicator.keepExpanded = Qt.binding(function() { return !np.modelEmpty && grid.currentHorizontalPos == 0 && grid.currentVerticalPos == 0 })
-        }
+        Component.onCompleted: trays.build()
     }
 
-    // Wear OS's page dots under the tiles (the watchface is the first)
-    ArcPageIndicator {
-        id: tileDots
-        z: 2
-        count: desktop.wearLayout && desktop.tileCount > 0 ? desktop.tileCount + 1 : 0
-        position: Math.max(0, -grid.contentX / Math.max(1, grid.width))
-        visible: count > 0 && grid.currentVerticalPos === 0 && !displayAmbient
-                 && (grid.currentHorizontalPos > 0 || grid.contentX < -1)
-    }
+    TilesRing { id: tilesRing }
 
-    // The app list is drawn once, unseen, a few seconds after the start, so
-    // that its first opening does not make its textures and text then
-    property bool prewarmPending: false
-    Timer {
-        id: prewarmTimer
-        interval: 4000
-        onTriggered: {
-            desktop.prewarmPending = !(desktop.visible && desktop.displayAwake && !displayAmbient)
-            if (!desktop.prewarmPending)
-                appDrawer.prewarm()
-        }
-    }
+    HomeOverlays { id: overlays }
 
-    AppDrawer {
-        id: appDrawer
-        z: 5
-        onIsOpenChanged: if (isOpen && launcher.item) Desktop.appLauncher = launcher.item
-    }
-
-    FacePicker {
-        id: facePicker
-        z: 6
-        liveFace: desktop.centreItem ? desktop.centreItem.activeFace : null
-        sources: complications
-        onChosen: (face) => watchFaceSource.value = face
-    }
-
-    TilesEditor {
-        id: tilesEditor
-        z: 6
-        onChanged: (tiles) => tilesSetting.value = tiles
-        // back on the tile in the middle of the editor, as stock
-        onFinished: (index) => {
-            if (index >= 0 && desktop.wearLayout)
-                Qt.callLater(function() { grid.moveTo(Math.min(index + 1, desktop.tileCount), 0) })
-        }
-    }
-
-    // "Sent", "Saved"... over everything on the home screen
-    Confirmation {
-        id: confirmation
-        z: 8
-    }
-
-    NotificationIndicator {
-        id: notifIndic
-        anchors.top: parent.top
-        anchors.topMargin: Dims.h(5)
-        height: Dims.h(8)
-        width: parent.width
-        panelsGrid: grid
-    }
-
-    Indicator { id: rightIndicator; edge: Qt.RightEdge }
-    Indicator { id: leftIndicator; edge: Qt.LeftEdge }
-    Indicator { id: topIndicator; edge: Qt.TopEdge }
-    Indicator { id: bottomIndicator; edge: Qt.BottomEdge }
-
-    Timer {
-        id: lockscreenDelay
-        interval: 150
-        repeat: false
-        onTriggered: grid.moveTo(0, 0)
-    }
-
-    Connections {
-        target: Lipstick.compositor
-        function onDisplayOff() {
-            lockscreenDelay.start()
-            desktop.closeOverlays()
-        }
-     }
+    StatusSlot { id: statusSlot }
 
 // Wallpaper
     ConfigurationValue {

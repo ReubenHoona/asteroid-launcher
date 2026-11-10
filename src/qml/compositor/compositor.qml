@@ -38,6 +38,17 @@ import org.asteroid.utils
 import "desktop.js" as Desktop
 import "compositor"
 
+/* The compositor scene. Its parts are owned modules in compositor/
+ * (W1-launcher-split):
+ *   AppLifecycle       lipstick's Compositor, windows in front (comp)
+ *   WindowTransitions  edge swipe, swipe from anywhere, crown close (transitions)
+ *   OverlayArbiter     assistant, heads-up, call, alarm, power, mode, BT (arbiter)
+ *   KeyRouter          crown button, side button hold
+ * This file keeps the stacking (home, scrim, launch splash, application
+ * layer, overlays, swipe, corner mask) and forwards the modules' old names
+ * (assistantShown, openAssistant, closeTopmost, closeProgress,
+ * anywhereActive, anywhereValue), which the home screen and the tiles use
+ * through Desktop.compositorRoot. */
 Item {
     id: root
     width: Dims.w(100)
@@ -56,6 +67,17 @@ Item {
         Desktop.launchSplash = launchSplash
         Desktop.compositorRoot = root
     }
+
+    // the overlays (OverlayArbiter)
+    readonly property bool assistantShown: arbiter.assistantShown
+    function openAssistant(text) { arbiter.openAssistant(text) }
+    function closeAssistant() { arbiter.closeAssistant() }
+
+    // the windows leaving (WindowTransitions)
+    readonly property real closeProgress: transitions.closeProgress
+    readonly property bool anywhereActive: transitions.anywhereActive
+    readonly property real anywhereValue: transitions.anywhereValue
+    function closeTopmost() { transitions.closeTopmost() }
 
     // The home screen is a persistent item at the bottom of the z-stack, not
     // an in-process "window". Its z follows MainScreen's own z (raised while
@@ -102,12 +124,12 @@ Item {
         /* An application being swiped away follows the finger and shrinks
          * (to 0.8: Wear OS squeezes the screen it dismisses), and fades in
          * the last part of the way */
-        readonly property bool dismissing: gestureArea.active || root.anywhereActive
+        readonly property bool dismissing: transitions.gestureArea.active || root.anywhereActive
         // a swipe right from anywhere (lipstick's backSwipe*) or from the edge
-        readonly property bool dismissHorizontal: root.anywhereActive || gestureArea.horizontal
-        readonly property real dismissValue: root.anywhereActive ? root.anywhereValue : gestureArea.value
+        readonly property bool dismissHorizontal: root.anywhereActive || transitions.gestureArea.horizontal
+        readonly property real dismissValue: root.anywhereActive ? root.anywhereValue : transitions.gestureArea.value
         readonly property real dismissProgress: !dismissing ? 0
-            : Math.min(1, root.anywhereActive ? root.anywhereValue / Math.max(1, width) : gestureArea.progress)
+            : Math.min(1, root.anywhereActive ? root.anywhereValue / Math.max(1, width) : transitions.gestureArea.progress)
         readonly property real dismissScale: (1 - 0.2 * dismissProgress) * (1 - 0.25 * root.closeProgress)
         opacity: (dismissProgress < 0.6 ? 1 : 1 - (dismissProgress - 0.6) / 0.4) * (1 - root.closeProgress)
         transform: [
@@ -133,434 +155,13 @@ Item {
         rotation: Screen.angleBetween(Lipstick.compositor.screenOrientation, Screen.primaryScreen)
     }
 
-    // Launcher overlays, rendered directly in the compositor scene as
-    // z-ordered items instead of in-process "windows". Each is fed by a C++
-    // object exposed as a context property; the QML gates its own visibility.
+    OverlayArbiter { id: arbiter }
 
-    /* The assistant over the home screen and applications (Wear OS: an
-     * activity on top), under heads-up notifications, calls and alarms.
-     * It opens on a hold of the side button (assistantKey, as the stock
-     * Pixel Watch 2), from the app list and from the Assistant tile. */
-    Loader {
-        id: assistantLoader
-        z: 2.5
-        anchors.fill: parent
-        source: "assistant/AssistantOverlay.qml"
-    }
-    readonly property bool assistantShown: assistantLoader.item ? assistantLoader.item.shown : false
-    function openAssistant(text) {
-        if (!assistantLoader.item)
-            return
-        launchSplash.cancel()
-        assistantLoader.item.open(text || "")
-    }
-    Connections {
-        target: typeof assistantKey !== "undefined" ? assistantKey : null
-        function onLongPressed() {
-            // mce: held 500 ms, from any display state (it turns the
-            // display on first)
-            Haptics.longPress()
-            root.openAssistant("")
-        }
-        function onOpenRequested(text) { root.openAssistant(text) }
-    }
+    WindowTransitions { id: transitions }
 
-    Loader {
-        z: 3
-        anchors.fill: parent
-        source: "notifications/NotificationPreview.qml"
-    }
+    KeyRouter { }
 
-    // A call ringing on the phone: full screen, above the preview
-    Loader {
-        z: 3
-        anchors.fill: parent
-        source: "IncomingCall.qml"
-    }
-
-    // An alarm or timer ringing on the phone: full screen, above the preview
-    Loader {
-        z: 3
-        anchors.fill: parent
-        source: "PhoneAlarm.qml"
-    }
-
-    Loader {
-        z: 3
-        anchors.fill: parent
-        source: "system/ShutdownScreen.qml"
-    }
-
-    // Bedtime mode coming on: "Starting Bedtime mode…" (modes.h)
-    Loader {
-        z: 3
-        anchors.fill: parent
-        source: "system/ModeScreen.qml"
-    }
-
-    Loader {
-        z: 4
-        anchors.fill: parent
-        source: "connectivity/BluetoothAgent.qml"
-    }
-
-    BorderGestureArea {
-        id: gestureArea
-        enabled: comp ? comp.appActive && !root.assistantShown : false
-        z: 5
-        anchors.fill: parent
-        acceptsDown: true
-        acceptsRight: comp != null && comp.topmostWindow != null && !comp.topmostWindowRequestsGesturesDisabled
-
-        // Wear OS: past half the screen, or a flick
-        property real swipeThreshold: 0.5
-
-        // The gesture (its direction and value) stays set until the
-        // window has settled back or left: the animations below run on it
-        function endGesture() {
-            delayReset = false
-            Desktop.desktop.aboutToClose = false
-            Desktop.desktop.aboutToMinimize = false
-        }
-
-        onGestureStarted: (gesture) => {
-            swipeAnimation.stop()
-            cancelAnimation.stop()
-            delayReset = true
-            if (gesture == "down") {
-                Desktop.desktop.aboutToClose = true
-            } else if(gesture == "right") {
-                Desktop.desktop.aboutToMinimize = true
-            }
-        }
-
-        onGestureFinished: (gesture) => {
-            if ((gesture == "down" || gesture == "right")
-                    && (gestureArea.progress >= swipeThreshold || gestureArea.flung)) {
-                // the window keeps going the way the finger went, then the
-                // application closes
-                swipeAnimation.valueTo = max
-                swipeAnimation.start()
-            } else {
-                cancelAnimation.start()
-            }
-        }
-
-        SequentialAnimation {
-            id: cancelAnimation
-
-            NumberAnimation {
-                target: gestureArea
-                property: "value"
-                to: 0
-                duration: 200
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: root.settleEasing
-            }
-
-            ScriptAction { script: gestureArea.endGesture() }
-        }
-
-        SequentialAnimation {
-            id: swipeAnimation
-            property alias valueTo: valueAnimation.to
-
-            NumberAnimation {
-                id: valueAnimation
-                target: gestureArea
-                property: "value"
-                duration: 200
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: root.settleEasing
-            }
-
-            ScriptAction {
-                script: {
-                    var app = comp.topmostWindow
-                    comp.setCurrentWindow(null)
-                    if (app && app.window)
-                        Lipstick.compositor.closeClientForWindowId(app.window.windowId)
-                    gestureArea.endGesture()
-                }
-            }
-        }
-    }
-
-    Component {
-        id: windowWrapper
-        WindowWrapperBase { }
-    }
-
-    /* The crown button (mce's power_button_trigger, see CrownButton), as
-     * Wear OS uses it: in an application it goes back to the watchface (the
-     * window leaves as a Wear OS window does: down to 0.75 and fading,
-     * 250 ms), on the home screen the home screen decides (app list, back
-     * to the watchface) */
-    property real closeProgress: 0
-
-    /* Back from anywhere, as Wear OS at the root of an application: the
-     * client allows it per touch (qml-asteroid Application.backFromAnywhere,
-     * the gestures protocol's set_back_from_anywhere), lipstick takes a
-     * swipe right from anywhere on the window and says so here; the window
-     * follows the finger as with the edge swipe and closes past half the
-     * screen or on a flick */
-    property bool anywhereActive: false
-    property real anywhereValue: 0
-    readonly property Item _topWindowItem: comp.topmostWindow ? comp.topmostWindow.window : null
-    // The swipe ends with its window: once the window that would send
-    // backSwipeFinished is no longer in front (the application closed or
-    // crashed, delayTimer closed it with the display off, another came to
-    // the front), nothing finishes it, and the home screen stayed under
-    // the dismiss scrim with the application layer shown (dismissing)
-    on_TopWindowItemChanged: {
-        if (root.anywhereActive && !anywhereClose.running && !anywhereSettle.running) {
-            root.anywhereActive = false
-            root.anywhereValue = 0
-            Desktop.desktop.aboutToMinimize = false
-        }
-    }
-
-    Connections {
-        target: root._topWindowItem
-        ignoreUnknownSignals: true
-        function onBackSwipeStarted() {
-            if (closeAnim.running || gestureArea.active)
-                return
-            anywhereSettle.stop()
-            anywhereClose.stop()
-            root.anywhereValue = 0
-            root.anywhereActive = true
-            Desktop.desktop.aboutToMinimize = true
-        }
-        function onBackSwipeMoved(value) {
-            if (root.anywhereActive && !anywhereClose.running && !anywhereSettle.running)
-                root.anywhereValue = Math.min(value, root.width)
-        }
-        function onBackSwipeFinished(value, velocity) {
-            if (!root.anywhereActive)
-                return
-            // Wear OS: past half the width, or a flick (125 dp/s)
-            if (value >= root.width / 2 || velocity >= root.width / 192 * 125)
-                anywhereClose.start()
-            else
-                anywhereSettle.start()
-        }
-    }
-
-    SequentialAnimation {
-        id: anywhereSettle
-        NumberAnimation {
-            target: root; property: "anywhereValue"; to: 0; duration: 200
-            easing.type: Easing.BezierSpline; easing.bezierCurve: root.settleEasing
-        }
-        ScriptAction {
-            script: {
-                root.anywhereActive = false
-                Desktop.desktop.aboutToMinimize = false
-            }
-        }
-    }
-
-    SequentialAnimation {
-        id: anywhereClose
-        NumberAnimation {
-            target: root; property: "anywhereValue"; to: root.width; duration: 200
-            easing.type: Easing.BezierSpline; easing.bezierCurve: root.settleEasing
-        }
-        ScriptAction {
-            script: {
-                var app = comp.topmostWindow
-                comp.setCurrentWindow(null)
-                if (app && app.window)
-                    Lipstick.compositor.closeClientForWindowId(app.window.windowId)
-                root.anywhereActive = false
-                root.anywhereValue = 0
-                Desktop.desktop.aboutToMinimize = false
-            }
-        }
-    }
-
-    function closeTopmost() {
-        if (closeAnim.running || gestureArea.active || !comp.topmostWindow)
-            return
-        Desktop.desktop.aboutToClose = true
-        closeAnim.start()
-    }
-
-    SequentialAnimation {
-        id: closeAnim
-        NumberAnimation {
-            target: root
-            property: "closeProgress"
-            from: 0
-            to: 1
-            duration: 250
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: root.windowEasing
-        }
-        ScriptAction {
-            script: {
-                var app = comp.topmostWindow
-                comp.setCurrentWindow(null)
-                if (app && app.window)
-                    Lipstick.compositor.closeClientForWindowId(app.window.windowId)
-                root.closeProgress = 0
-                Desktop.desktop.aboutToClose = false
-            }
-        }
-    }
-
-    Connections {
-        target: typeof crownButton !== "undefined" ? crownButton : null
-        function onPressed() {
-            // the crown dismisses the assistant, wherever it was opened
-            if (root.assistantShown) {
-                assistantLoader.item.close()
-                return
-            }
-            if (launchSplash.active)
-                return
-            if (comp.appActive)
-                root.closeTopmost()
-            else if (homeLoader.item)
-                homeLoader.item.crownPressed()
-        }
-    }
-
-    Timer {
-        id: delayTimer
-        interval: 5000
-        repeat: false
-        onTriggered: {
-            if (comp.topmostWindow && comp.topmostWindow.window)
-                Lipstick.compositor.closeClientForWindowId(comp.topmostWindow.window.windowId)
-            // eos: not while the sensor hub draws a current layout: it shows
-            // the face whatever was open, and an update here was a second
-            // handover and a layout resend at every display off (stock: one
-            // handover per display off, a layout only when it changes)
-            if (Lipstick.compositor.offloadAmbientUpdateWanted())
-                Lipstick.compositor.setAmbientUpdatesEnabled(true)
-        }
-    }
-
-    Compositor {
-        id: comp
-
-        // The current foreground application window, or null when the home
-        // screen (the persistent item underneath) is showing.
-        property Item topmostWindow
-
-        // Only used to change blank timeout when on watchface or elsewhere
-        property bool longTimeout: homeActive
-        Component.onCompleted: {
-            longTimeout = Qt.binding(function() {
-                // the assistant over the face is not the lock screen: with it, mce
-            // blanked the display 10 s after the side button (its lock screen
-            // timeout) and allowed no blanking pause, and a slow answer never
-            // showed (the overlay closes with the display)
-            return homeActive && Desktop.panelsGrid != null
-                    && Desktop.panelsGrid.currentVerticalPos == 0
-                    && Desktop.panelsGrid.currentHorizontalPos == 0
-                    && !root.assistantShown
-            })
-        }
-        onLongTimeoutChanged: lipstickSettings.lockscreenVisible = longTimeout
-
-        // Home is active whenever no application window is on top
-        homeActive: topmostWindow == null
-        property bool appActive: !homeActive
-
-        // The application window that was most recently topmost
-        property Item topmostApplicationWindow
-
-        readonly property bool topmostWindowRequestsGesturesDisabled: topmostWindow && topmostWindow.window
-                                                                      && topmostWindow.window.overridesSystemGestures
-
-        function windowToFront(winId) {
-            var o = comp.windowForId(winId)
-            setCurrentWindow(o ? o.userData : null)
-        }
-
-        function setCurrentWindow(w, skipAnimation) {
-            topmostWindow = w; // null => the home screen is shown
-
-            if (topmostWindow != null) {
-                if (topmostApplicationWindow && topmostApplicationWindow != topmostWindow)
-                    topmostApplicationWindow.visible = false
-                topmostApplicationWindow = topmostWindow
-                topmostApplicationWindow.visible = true
-                // over the launch splash the window only fades in; without
-                // one it zooms in from 75% as a Wear OS activity does
-                if (!skipAnimation) topmostApplicationWindow.animateIn(launchSplash.active)
-                launchSplash.finish()
-                w.window.takeFocus()
-            }
-        }
-
-        onDisplayOff: {
-            delayTimer.start()
-            launchSplash.cancel()
-        }
-        onDisplayAboutToBeOn: delayTimer.stop()
-
-        // An application that comes to the front while the display is off or
-        // in low power mode asks for the unlock above when mce refuses it
-        // (mce only unlocks with the display on or dimmed) and puts the lock
-        // back. The application then sits under mce's lockscreen policy: it
-        // blanks 10 s after the display comes on, and delayTimer closes the
-        // application 5 s later. Ask again once the display is on, and give
-        // the application back the focus lipstick did not restore while
-        // locked.
-        onDisplayOn: {
-            // A wake through the low-power (AOD) path does not always emit
-            // displayAboutToBeOn: the close timer started at display off
-            // would close the application 5 s later with the display on.
-            delayTimer.stop()
-            if (appActive && lipstickSettings.lockscreenVisible) {
-                lipstickSettings.lockscreenVisible = false
-                if (topmostWindow && topmostWindow.window)
-                    topmostWindow.window.takeFocus()
-            }
-        }
-
-        onWindowAdded: (window) => {
-            // The launcher's own UI (home screen + overlays) are plain items,
-            // so every window here is a Wayland client application.
-            var isDialogWindow = window.category === "dialog"
-
-            var w = windowWrapper.createObject(appLayer, { window: window })
-            window.userData = w
-
-            if (!isDialogWindow) {
-                if (topmostApplicationWindow != null) {
-                    Lipstick.compositor.closeClientForWindowId(topmostApplicationWindow.window.windowId)
-                }
-                appLayer.ready = false
-                w.smoothBorders = Qt.binding(function() {
-                    return gestureArea.active || root.anywhereActive || appLayer.opacity < 1.0 || !appLayer.ready
-                })
-                // a new application ends a swipe still settling
-                if (gestureArea.active) {
-                    cancelAnimation.stop()
-                    swipeAnimation.stop()
-                    gestureArea.endGesture()
-                    gestureArea.reset()
-                }
-                setCurrentWindow(w)
-            }
-        }
-
-        onWindowRaised: (window) => windowToFront(window.windowId)
-
-        onWindowRemoved: (window) => {
-            var w = window.userData;
-            if (comp.topmostWindow == w)
-                setCurrentWindow(null); // reveal the home screen underneath
-
-            if (window.userData)
-                window.userData.destroy()
-        }
-    }
+    AppLifecycle { id: comp }
 
     // Rounds off the corners of a round screen. The mask depends on nothing
     // but the size of the screen, so rather than masking the whole screen

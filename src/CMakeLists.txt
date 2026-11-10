@@ -86,6 +86,17 @@ set(QML_FILES
 	qml/firstrun/FakeAlarmclock.qml
 	qml/firstrun/FirstRunConfig.qml
 	qml/firstrun/Tutorial.qml
+	qml/compositor/KeyRouter.qml
+	qml/compositor/AppLifecycle.qml
+	qml/compositor/WindowTransitions.qml
+	qml/compositor/OverlayArbiter.qml
+	qml/home/FaceLayer.qml
+	qml/home/Trays.qml
+	qml/home/TilesRing.qml
+	qml/home/AmbientController.qml
+	qml/home/ChargingController.qml
+	qml/home/HomeOverlays.qml
+	qml/home/StatusSlot.qml
 )
 
 set_source_files_properties(qml/MainScreen.qml                       PROPERTIES QT_RESOURCE_ALIAS MainScreen.qml)
@@ -141,6 +152,17 @@ set_source_files_properties(qml/quickpanel/ModeDialog.qml            PROPERTIES 
 set_source_files_properties(qml/firstrun/FakeAlarmclock.qml          PROPERTIES QT_RESOURCE_ALIAS FakeAlarmclock.qml)
 set_source_files_properties(qml/firstrun/FirstRunConfig.qml          PROPERTIES QT_RESOURCE_ALIAS FirstRunConfig.qml)
 set_source_files_properties(qml/firstrun/Tutorial.qml                PROPERTIES QT_RESOURCE_ALIAS Tutorial.qml)
+set_source_files_properties(qml/compositor/KeyRouter.qml                  PROPERTIES QT_RESOURCE_ALIAS compositor/KeyRouter.qml)
+set_source_files_properties(qml/compositor/AppLifecycle.qml               PROPERTIES QT_RESOURCE_ALIAS compositor/AppLifecycle.qml)
+set_source_files_properties(qml/compositor/WindowTransitions.qml          PROPERTIES QT_RESOURCE_ALIAS compositor/WindowTransitions.qml)
+set_source_files_properties(qml/compositor/OverlayArbiter.qml             PROPERTIES QT_RESOURCE_ALIAS compositor/OverlayArbiter.qml)
+set_source_files_properties(qml/home/FaceLayer.qml                        PROPERTIES QT_RESOURCE_ALIAS home/FaceLayer.qml)
+set_source_files_properties(qml/home/Trays.qml                            PROPERTIES QT_RESOURCE_ALIAS home/Trays.qml)
+set_source_files_properties(qml/home/TilesRing.qml                        PROPERTIES QT_RESOURCE_ALIAS home/TilesRing.qml)
+set_source_files_properties(qml/home/AmbientController.qml                PROPERTIES QT_RESOURCE_ALIAS home/AmbientController.qml)
+set_source_files_properties(qml/home/ChargingController.qml               PROPERTIES QT_RESOURCE_ALIAS home/ChargingController.qml)
+set_source_files_properties(qml/home/HomeOverlays.qml                     PROPERTIES QT_RESOURCE_ALIAS home/HomeOverlays.qml)
+set_source_files_properties(qml/home/StatusSlot.qml                       PROPERTIES QT_RESOURCE_ALIAS home/StatusSlot.qml)
 
 asteroid_app_qml_module(asteroid-launcher ${QML_FILES})
 
