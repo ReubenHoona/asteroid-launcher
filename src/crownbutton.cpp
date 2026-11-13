@@ -12,6 +12,9 @@ static const char MCE_SIGNAL_PATH[] = "/com/nokia/mce/signal";
 static const char MCE_SIGNAL_IF[] = "com.nokia.mce.signal";
 static const char MCE_POWER_BUTTON_TRIGGER[] = "power_button_trigger";
 static const char CROWN_ACTION[] = "asteroid-crown";
+// mce actions_single_off=unblank,dbus3 with dbus_action3=asteroid-crown-wake: a press
+// that woke the display (meta-eos64 60eos-crown.conf; buttons-navigation-18)
+static const char CROWN_WAKE_ACTION[] = "asteroid-crown-wake";
 
 CrownButton::CrownButton(QObject *parent) : QObject(parent)
 {
@@ -27,6 +30,8 @@ void CrownButton::onTrigger(const QString &action)
 {
     if (action == QLatin1String(CROWN_ACTION))
         emit pressed();
+    else if (action == QLatin1String(CROWN_WAKE_ACTION))
+        emit wakePressed();
     else
         emit triggered(action);
 }

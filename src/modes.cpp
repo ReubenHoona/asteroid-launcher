@@ -277,9 +277,24 @@ void ModesEngine::setMce(const QString &key, const QVariant &value)
     QDBusConnection::systemBus().call(set, QDBus::NoBlock);
 }
 
+bool ModesEngine::tiltToWake() const
+{
+    return mMce.contains(QLatin1String(KEY_TILT)) ? mMce.value(QLatin1String(KEY_TILT)).toBool() : true;
+}
+
+bool ModesEngine::touchToWake() const
+{
+    return mMce.contains(QLatin1String(KEY_TOUCH)) ? mMce.value(QLatin1String(KEY_TOUCH)).toBool() : true;
+}
+
 void ModesEngine::mceConfigChanged(const QDBusObjectPath &path, const QDBusVariant &value)
 {
     const QString key = path.path();
+    // whatever way this returns: the gestures changed, KeyRouter reads them
+    struct Notify {
+        ModesEngine *e; bool on;
+        ~Notify() { if (on) emit e->changed(); }
+    } notify { this, key == QLatin1String(KEY_TILT) || key == QLatin1String(KEY_TOUCH) };
     if (key != QLatin1String(KEY_TILT) && key != QLatin1String(KEY_TOUCH) && key != QLatin1String(KEY_BRIGHTNESS)
             && key != QLatin1String(KEY_ALS) && key != QLatin1String(KEY_LPM))
         return;

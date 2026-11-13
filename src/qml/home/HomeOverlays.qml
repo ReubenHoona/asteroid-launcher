@@ -102,16 +102,12 @@ Item {
             Desktop.pictureViewer.close()
             return
         }
-        // back a level in the editors (the list of tiles to add, a slot's
-        // data sources, the face options), else out of them
-        if (tilesEditorItem.visible) {
-            if (!tilesEditorItem.back())
-                tilesEditorItem.close()
-            return
-        }
-        if (facePickerItem.visible) {
-            if (!facePickerItem.back())
-                closeOverlays()
+        // the editors: one press pops the whole stack and keeps (saves)
+        // what was changed, back to the face (stock SysUI pkx.java:991-1003
+        // pops its whole back stack; the tile manager is an activity, the
+        // crown goes Home: buttons-navigation-17)
+        if (tilesEditorItem.visible || facePickerItem.visible) {
+            closeOverlays()
             return
         }
         if (appDrawerItem.isOpen) {

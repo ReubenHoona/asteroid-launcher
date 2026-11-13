@@ -22,6 +22,11 @@ Item {
     Connections {
         target: typeof modes !== "undefined" ? modes : null
         function onBedtimeStarting() {
+            // Mode transitions do not cover calls or firing alarms (they are
+            // activities on top, stock; interruptions-16): no start screen
+            // and no jump to the face while one is up
+            if (typeof arbiter !== "undefined" && arbiter && arbiter.interrupting)
+                return
             fadeOut.stop()
             screen.opacity = 1
             hold.restart()

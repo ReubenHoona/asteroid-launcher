@@ -282,7 +282,9 @@ Item {
         target: Lipstick.compositor
         function onDisplayOff() {
             lockscreenDelay.start()
-            desktop.closeOverlays()
+            // the overlays (app list, face picker, tiles editor) stay until
+            // Settings > Display > Go to watch face has passed; the wake
+            // closes them then (AppLifecycle.goToFace, interruptions-14)
         }
     }
 }

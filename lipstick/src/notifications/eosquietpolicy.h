@@ -54,6 +54,48 @@ inline std::string feedback(bool quiet, const std::string &hint)
     return out;
 }
 
+/*
+ * What plays during a call (LipstickSettings::callState: 0 none, 1 ringing,
+ * 2 in progress), as stock (NotificationAttentionHelper.java:1168-1171,
+ * 778-800, 843-846: in a call a notification does not vibrate; ringing is
+ * not in-call) and calls win over alarms (DeskClock hob.java:68-96):
+ *  - in progress: no event but an alarm's, a ringing call's (a second call)
+ *    and the find-my-watch ring;
+ *  - ringing: a phone alarm's vibration stops (the alarm view is under the
+ *    call view), every other event plays.
+ * Audit interruptions-07, interruptions-15.
+ */
+inline bool playsInCall(int callState, const std::string &event)
+{
+    if (callState == 2)
+        return alertsWhileQuiet(event) || event == "eos_phone_ringing";
+    if (callState == 1)
+        return event != "eos_phone_alarm";
+    return true;
+}
+
+// The events of an x-nemo-feedback hint that play in this call state
+inline std::string feedbackInCall(int callState, const std::string &hint)
+{
+    if (callState == 0)
+        return hint;
+    std::string out;
+    size_t start = 0;
+    while (start <= hint.size()) {
+        size_t end = hint.find(',', start);
+        if (end == std::string::npos)
+            end = hint.size();
+        const std::string item = hint.substr(start, end - start);
+        if (!item.empty() && playsInCall(callState, item)) {
+            if (!out.empty())
+                out += ',';
+            out += item;
+        }
+        start = end + 1;
+    }
+    return out;
+}
+
 // Whether the banner shows (and the screen may turn on for it)
 inline bool previewAllowed(bool quiet, const std::string &hint)
 {

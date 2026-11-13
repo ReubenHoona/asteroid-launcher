@@ -17,3 +17,18 @@ target_include_directories(tst_offloadpolicy PRIVATE ../lipstick/src/compositor)
 # The notification server in Bedtime and Theater (lipstick/src/notifications/eosquietpolicy.h), plain C++
 add_executable(tst_quietpolicy tst_quietpolicy.cpp)
 target_include_directories(tst_quietpolicy PRIVATE ../lipstick/src/notifications)
+
+# The freezer of hidden applications (lipstick/src/compositor/eosfreezer.h), plain C++
+add_executable(tst_freezer tst_freezer.cpp)
+target_include_directories(tst_freezer PRIVATE ../lipstick/src/compositor)
+
+# The program name behind a window (lipstick/src/compositor/eosappkey.h), plain C++
+add_executable(tst_appkey tst_appkey.cpp)
+target_include_directories(tst_appkey PRIVATE ../lipstick/src/compositor)
+
+# Key claims (src/keyclaims.h): the table, and the bus object on a private bus:
+#   dbus-run-session -- ./tst_keyclaims
+add_executable(tst_keyclaims tst_keyclaims.cpp ../src/keyclaims.cpp ../src/keyclaims.h)
+set_target_properties(tst_keyclaims PROPERTIES AUTOMOC ON)
+target_include_directories(tst_keyclaims PRIVATE ../src)
+target_link_libraries(tst_keyclaims PRIVATE Qt6::Core Qt6::DBus)

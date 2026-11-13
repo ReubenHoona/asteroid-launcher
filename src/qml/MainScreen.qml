@@ -200,6 +200,13 @@ Item {
                 Desktop.compositorRoot.openAssistant("")
             return
         }
+        // already running, hidden in the background: it comes back warm, with
+        // the open motion and no splash (AppLifecycle.resumeApp)
+        if (Desktop.compositorRoot && Desktop.compositorRoot.resumeApp
+                && Desktop.compositorRoot.resumeApp(launcherItem.exec)) {
+            launchedFromDrawer = appDrawer.isOpen
+            return
+        }
         launchedFromDrawer = appDrawer.isOpen
         if (Desktop.launchSplash && !launcherItem.isLaunching) {
             var r = fromItem ? fromItem.mapToItem(null, 0, 0, fromItem.width, fromItem.height)

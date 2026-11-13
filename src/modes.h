@@ -62,6 +62,10 @@ class ModesEngine : public QObject, private ModesCore::Store
     // the mode that holds a setting ("bedtime", "theater", "battery-saver",
     // "extra-dim"), "" if none: Settings and the quick panel name it
     Q_PROPERTY(QString alwaysOnHolder READ alwaysOnHolder NOTIFY changed)
+    // Settings > Gestures as mce has them now (stock default: both on): the
+    // crown's Home action from the always-on display needs both
+    Q_PROPERTY(bool tiltToWake READ tiltToWake NOTIFY changed)
+    Q_PROPERTY(bool touchToWake READ touchToWake NOTIFY changed)
     Q_PROPERTY(QString tiltHolder READ tiltHolder NOTIFY changed)
     Q_PROPERTY(QString touchHolder READ touchHolder NOTIFY changed)
     Q_PROPERTY(QString brightnessHolder READ brightnessHolder NOTIFY changed)
@@ -83,6 +87,8 @@ public:
     bool alwaysOnBlocked() const { return ModesCore::blocksAlwaysOn(mModes); }
     bool quiet() const { return ModesCore::silencesNotifications(mModes); }
     QString alwaysOnHolder() const { return ModesCore::name(ModesCore::alwaysOnHolder(mModes)); }
+    bool tiltToWake() const;
+    bool touchToWake() const;
     QString tiltHolder() const { return ModesCore::name(ModesCore::holder(ModesCore::TiltToWake, mModes)); }
     QString touchHolder() const { return ModesCore::name(ModesCore::holder(ModesCore::TouchToWake, mModes)); }
     QString brightnessHolder() const { return ModesCore::name(ModesCore::holder(ModesCore::Brightness, mModes)); }

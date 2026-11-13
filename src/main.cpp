@@ -52,6 +52,7 @@
 #include "aodbrightness.h"
 #include "modes.h"
 #include "assistantkey.h"
+#include "keyclaims.h"
 #include "huboffload.h"
 
 int main(int argc, char **argv)
@@ -131,6 +132,11 @@ int main(int argc, char **argv)
     // mce sends power_button_trigger), and Open()/Ask() on the session bus
     AssistantKey *assistantKey = new AssistantKey(&app);
     app.engine()->rootContext()->setContextProperty("assistantKey", assistantKey);
+    // Which key the window in front takes for itself (the alarm presenter:
+    // side = dismiss, crown = snooze; an exercise app: its side button), on
+    // the session bus: org.asteroidos.launcher.Keys at /org/asteroidos/launcher/keys
+    KeyClaims *keyClaims = new KeyClaims(&app);
+    app.engine()->rootContext()->setContextProperty("keyClaims", keyClaims);
 
     // Give these to the environment inside the launcher's wayland compositor
     // Fixes a bug where some applications wouldn't launch, eg. terminal or browser

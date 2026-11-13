@@ -12,6 +12,7 @@ set(SRC
 	modescore.cpp
 	modes.cpp
 	assistantkey.cpp
+	keyclaims.cpp
 	huboffload.cpp
 	eoslayout.c)
 set(HEADERS
@@ -27,6 +28,7 @@ set(HEADERS
 	modescore.h
 	modes.h
 	assistantkey.h
+	keyclaims.h
 	huboffload.h
 	eoslayout.h)
 
@@ -87,6 +89,8 @@ set(QML_FILES
 	qml/firstrun/FirstRunConfig.qml
 	qml/firstrun/Tutorial.qml
 	qml/compositor/KeyRouter.qml
+	qml/compositor/keymap.js
+	qml/compositor/lifecycle.js
 	qml/compositor/AppLifecycle.qml
 	qml/compositor/WindowTransitions.qml
 	qml/compositor/OverlayArbiter.qml
@@ -153,6 +157,8 @@ set_source_files_properties(qml/firstrun/FakeAlarmclock.qml          PROPERTIES 
 set_source_files_properties(qml/firstrun/FirstRunConfig.qml          PROPERTIES QT_RESOURCE_ALIAS FirstRunConfig.qml)
 set_source_files_properties(qml/firstrun/Tutorial.qml                PROPERTIES QT_RESOURCE_ALIAS Tutorial.qml)
 set_source_files_properties(qml/compositor/KeyRouter.qml                  PROPERTIES QT_RESOURCE_ALIAS compositor/KeyRouter.qml)
+set_source_files_properties(qml/compositor/keymap.js                      PROPERTIES QT_RESOURCE_ALIAS compositor/keymap.js)
+set_source_files_properties(qml/compositor/lifecycle.js                   PROPERTIES QT_RESOURCE_ALIAS compositor/lifecycle.js)
 set_source_files_properties(qml/compositor/AppLifecycle.qml               PROPERTIES QT_RESOURCE_ALIAS compositor/AppLifecycle.qml)
 set_source_files_properties(qml/compositor/WindowTransitions.qml          PROPERTIES QT_RESOURCE_ALIAS compositor/WindowTransitions.qml)
 set_source_files_properties(qml/compositor/OverlayArbiter.qml             PROPERTIES QT_RESOURCE_ALIAS compositor/OverlayArbiter.qml)

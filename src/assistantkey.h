@@ -20,11 +20,13 @@
  * side key (side_key_code in /etc/mce/61eos-side-key.conf) wakes the
  * display on a press and sends com.nokia.mce.signal.power_button_trigger on
  * the system bus:
- * - "side-key-long": held for the long press delay (500 ms, the Android
- *   long press timeout of the global actions key), sent once the display
+ * - "side-key-long": held for the long press delay (300 ms, stock's: mce
+ *   side_key_long_press_delay in 61eos-side-key.conf), sent once the display
  *   is on, from every display state -> longPressed();
- * - "side-key": a shorter press with the display on -> pressed() (Wear OS:
- *   recent apps, not done yet). A press with the display off only wakes it.
+ * - "side-key": a shorter press with the display on, sent at the release
+ *   -> pressed(). The key router (KeyRouter.qml) counts the presses (300 ms
+ *   window) and runs the key map (keymap.js): Recents, previous app, screen
+ *   reader. A press with the display off only wakes it.
  *
  * Also on the session bus, on the launcher's connection
  * (org.nemomobile.lipstick): /org/asteroidos/launcher/assistant,

@@ -53,10 +53,12 @@ Item {
 
     BorderGestureArea {
         id: edgeSwipe
-        enabled: comp ? comp.appActive && !root.assistantShown : false
+        enabled: comp ? comp.appActive && !root.assistantShown && !comp.alertShown : false
         z: 5
         anchors.fill: parent
-        acceptsDown: true
+        // stock has no system gesture from the top edge inside an app
+        // (buttons-navigation-10, DECISIONS Q33: swipe-down-to-close removed)
+        acceptsDown: false
         acceptsRight: comp != null && comp.topmostWindow != null && !comp.topmostWindowRequestsGesturesDisabled
 
         // Wear OS: past half the screen, or a flick
@@ -123,10 +125,8 @@ Item {
 
             ScriptAction {
                 script: {
-                    var app = comp.topmostWindow
-                    comp.setCurrentWindow(null)
-                    if (app && app.window)
-                        Lipstick.compositor.closeClientForWindowId(app.window.windowId)
+                    // to the background, not closed (AppLifecycle.leaveApp)
+                    comp.leaveApp(comp.topmostWindow)
                     edgeSwipe.endGesture()
                 }
             }
@@ -218,10 +218,7 @@ Item {
         }
         ScriptAction {
             script: {
-                var app = comp.topmostWindow
-                comp.setCurrentWindow(null)
-                if (app && app.window)
-                    Lipstick.compositor.closeClientForWindowId(app.window.windowId)
+                comp.leaveApp(comp.topmostWindow)
                 transitions.anywhereActive = false
                 transitions.anywhereValue = 0
                 Desktop.desktop.aboutToMinimize = false
@@ -249,10 +246,7 @@ Item {
         }
         ScriptAction {
             script: {
-                var app = comp.topmostWindow
-                comp.setCurrentWindow(null)
-                if (app && app.window)
-                    Lipstick.compositor.closeClientForWindowId(app.window.windowId)
+                comp.leaveApp(comp.topmostWindow)
                 transitions.closeProgress = 0
                 Desktop.desktop.aboutToClose = false
             }

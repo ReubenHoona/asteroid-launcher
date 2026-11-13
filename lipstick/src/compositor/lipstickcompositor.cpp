@@ -21,6 +21,7 @@
 #include <QtGui/qpa/qplatformnativeinterface.h>
 #include "homeapplication.h"
 #include "lipstickcompositor.h"
+#include <time.h>
 #include "lipstickcompositorwindow.h"
 #include "lipstickcompositoradaptor.h"
 #include "lipsticksettings.h"
@@ -117,6 +118,8 @@ LipstickCompositor::LipstickCompositor()
 
 LipstickCompositor::~LipstickCompositor()
 {
+    // eos: no application stays stopped
+    m_freezer.thawAll();
     // ~QWindow can a call into onVisibleChanged and QWaylandCompositor after we
     // are destroyed, so disconnect it.
     disconnect(m_window, SIGNAL(visibleChanged(bool)), this, SLOT(onVisibleChanged(bool)));
@@ -248,6 +251,10 @@ void LipstickCompositor::closeClientForWindowId(int id)
 {
     LipstickCompositorWindow *window = m_windows.value(id, 0);
 
+    // eos: a stopped process cannot hear the quit
+    if (window)
+        m_freezer.thaw(window->processId());
+
     if (window && window->surface()) {
         QWaylandQtWindowManager *wmExtension = QWaylandQtWindowManager::findIn(this);
         if (wmExtension)
@@ -255,6 +262,32 @@ void LipstickCompositor::closeClientForWindowId(int id)
         else
             window->surface()->client()->close();
     }   
+}
+
+bool LipstickCompositor::freezeClientForWindowId(int id, bool freeze)
+{
+    LipstickCompositorWindow *window = m_windows.value(id, 0);
+    if (!window || window->processId() <= 1)
+        return false;
+    const qint64 pid = window->processId();
+    // never the compositor itself (an in-process window)
+    if (window->isInProcess())
+        return false;
+    return freeze ? m_freezer.freeze(pid) : m_freezer.thaw(pid);
+}
+
+bool LipstickCompositor::isClientFrozen(int id) const
+{
+    LipstickCompositorWindow *window = m_windows.value(id, 0);
+    return window && m_freezer.isFrozen(window->processId());
+}
+
+qint64 LipstickCompositor::bootTimeMs() const
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_BOOTTIME, &ts) != 0)
+        return 0;
+    return qint64(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
 }
 
 QWaylandSurface *LipstickCompositor::surfaceForId(int id) const

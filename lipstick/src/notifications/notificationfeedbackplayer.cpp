@@ -20,6 +20,7 @@
 #include "notificationmanager.h"
 #include "notificationfeedbackplayer.h"
 #include "eosquietpolicy.h"
+#include "lipsticksettings.h"
 
 namespace {
 
@@ -41,6 +42,8 @@ NotificationFeedbackPlayer::NotificationFeedbackPlayer(QObject *parent) :
     connect(NotificationManager::instance(), SIGNAL(notificationModified(uint)), this, SLOT(updateNotification(uint)));
     connect(NotificationManager::instance(), SIGNAL(notificationsModified(const QList<uint> &)), this, SLOT(updateNotifications(const QList<uint> &)));
     connect(NotificationManager::instance(), SIGNAL(quietChanged()), this, SLOT(quietChanged()));
+    // eos: a call came: what no longer plays in it stops now
+    connect(LipstickSettings::instance(), SIGNAL(callStateChanged()), this, SLOT(callStateChanged()));
 
     QTimer::singleShot(0, this, SLOT(init()));
 }
@@ -66,9 +69,11 @@ void NotificationFeedbackPlayer::addNotification(uint id)
         if (!notification->hints().value(NotificationManager::HINT_FEEDBACK_SUPPRESSED).toBool()) {
             // Play the feedback related to the notification if any (eos: in
             // Bedtime or Theater only an alarm's, eosquietpolicy.h)
-            const QString feedback = QString::fromStdString(EosQuiet::feedback(
-                NotificationManager::instance()->quiet(),
-                notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString()));
+            const QString feedback = QString::fromStdString(EosQuiet::feedbackInCall(
+                LipstickSettings::instance()->callState(),
+                EosQuiet::feedback(
+                    NotificationManager::instance()->quiet(),
+                    notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString())));
             const QStringList feedbackItems = feedback.split(QStringLiteral(","), Qt::SkipEmptyParts);
             if (!feedbackItems.isEmpty()) {
                 QMap<QString, QVariant> properties;
@@ -109,6 +114,25 @@ void NotificationFeedbackPlayer::updateNotification(uint id)
     if (notification != 0 && notification->hints().value(NotificationManager::HINT_FEEDBACK_SUPPRESSED).toBool()) {
         // An update only suppresses feedback: it never starts any
         removeNotification(id);
+    }
+}
+
+// eos: a call is ringing or in progress: the events that do not play in it
+// stop (a phone alarm's vibration under a ringing call; notifications in a call)
+void NotificationFeedbackPlayer::callStateChanged()
+{
+    const int state = LipstickSettings::instance()->callState();
+    if (state == 0)
+        return;
+    QMultiHash<LipstickNotification *, uint>::iterator it = idToEventId.begin();
+    while (it != idToEventId.end()) {
+        const std::string hint = it.key()->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString();
+        if (EosQuiet::feedbackInCall(state, hint).empty()) {
+            ngfClient->stop(it.value());
+            it = idToEventId.erase(it);
+        } else {
+            ++it;
+        }
     }
 }
 

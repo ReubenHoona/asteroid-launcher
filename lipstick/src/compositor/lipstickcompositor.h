@@ -27,6 +27,7 @@
 #include <QPointer>
 #include <QTimer>
 #include <MDConfItem>
+#include "eosfreezer.h"
 #include <qmcedisplay.h>
 
 #include <timed-qt6/interface>
@@ -103,6 +104,14 @@ public:
 
     Q_INVOKABLE QObject *windowForId(int) const;
     Q_INVOKABLE void closeClientForWindowId(int);
+    /* eos: an application that left the screen is frozen 5 s later (SIGSTOP
+     * of the window's process, eosfreezer.h) and thawed before it is shown
+     * again; false for a window that is gone or has no process. */
+    Q_INVOKABLE bool freezeClientForWindowId(int id, bool freeze);
+    Q_INVOKABLE bool isClientFrozen(int id) const;
+    // CLOCK_BOOTTIME in ms: runs while the AP sleeps (the go-to-watch-face
+    // time is measured on it, no timer armed)
+    Q_INVOKABLE qint64 bootTimeMs() const;
     Q_INVOKABLE void clearKeyboardFocus();
     Q_INVOKABLE void setDisplayOff();
     Q_INVOKABLE QVariant settingsValue(const QString &key, const QVariant &defaultValue = QVariant()) const
@@ -231,6 +240,7 @@ private:
     static LipstickCompositor *m_instance;
 
     int m_totalWindowCount;
+    EosFreeze::Table m_freezer;
     QHash<int, LipstickCompositorWindow *> m_mappedSurfaces;
     QHash<int, LipstickCompositorWindow *> m_windows;
 

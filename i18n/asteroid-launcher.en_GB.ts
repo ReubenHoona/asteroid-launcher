@@ -117,6 +117,21 @@
         <source>End call</source>
         <translation>End call</translation>
     </message>
+    <message id="id-call-cancel">
+        <location filename="../src/qml/notifications/IncomingCall.qml"/>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message id="id-call-second-message">
+        <location filename="../src/qml/notifications/IncomingCall.qml"/>
+        <source>Answering new call will end current call</source>
+        <translation>Answering new call will end current call</translation>
+    </message>
+    <message id="id-call-second-title">
+        <location filename="../src/qml/notifications/IncomingCall.qml"/>
+        <source>End current call?</source>
+        <translation>End current call?</translation>
+    </message>
     <message id="id-call-silenced">
         <location filename="../src/qml/notifications/IncomingCall.qml" line="+248"/>
         <source>Silenced</source>

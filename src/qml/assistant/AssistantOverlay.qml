@@ -48,6 +48,9 @@ Item {
     anchors.fill: parent
 
     property bool shown: false
+    // opened over a call (OverlayArbiter): no listening, a card says it
+    // cannot help (stock errormsg_phone_call_active)
+    property bool inCall: false
     // starting | listening | recognising | thinking | card
     property string phase: "starting"
     property real level: 0
@@ -80,6 +83,16 @@ Item {
     }
 
     function open(text) {
+        if (inCall) {
+            swipe.reset()
+            generation++
+            session = 0
+            followUp = null
+            waitingStart = false
+            shown = true
+            showCard({ icon: "ios-call", text: loc("id-asst-in-call", "Sorry, I can't help with that when you're in a call."), chips: [] })
+            return
+        }
         if (shown && phase !== "card" && !text)
             return
         swipe.reset()

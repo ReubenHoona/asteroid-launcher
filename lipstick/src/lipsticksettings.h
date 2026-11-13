@@ -26,6 +26,8 @@ class LipstickSettings : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(bool lockscreenVisible READ lockscreenVisible WRITE setLockscreenVisible NOTIFY lockscreenVisibleChanged)
+    // eos: 0 no call, 1 a call ringing, 2 a call in progress (the call view sets it)
+    Q_PROPERTY(int callState READ callState WRITE setCallState NOTIFY callStateChanged)
 
 public:
     explicit LipstickSettings();
@@ -37,12 +39,17 @@ public:
 
     Q_INVOKABLE void lockScreen(bool immediate);
 
+    int callState() const { return m_callState; }
+    void setCallState(int state) { if (m_callState != state) { m_callState = state; emit callStateChanged(); } }
+
 signals:
     void lockscreenVisibleChanged();
+    void callStateChanged();
 
 private:
     //! Logic for locking and unlocking the screen
     ScreenLock *screenLock;
+    int m_callState = 0;
 };
 
 Q_DECLARE_METATYPE(LipstickSettings *)

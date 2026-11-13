@@ -22,6 +22,8 @@
 #include <signal.h>
 #include "lipstickcompositor.h"
 #include "lipstickcompositorwindow.h"
+#include "eosappkey.h"
+#include <QFile>
 
 
 LipstickCompositorWindow::LipstickCompositorWindow(int windowId, const QString &category,
@@ -43,6 +45,11 @@ LipstickCompositorWindow::LipstickCompositorWindow(int windowId, const QString &
         connect(surface, &QWaylandSurface::configure, this, &LipstickCompositorWindow::committed);
 
         m_processId = surface->client()->processId();
+        if (m_processId > 1) {
+            QFile cmdline(QStringLiteral("/proc/%1/cmdline").arg(m_processId));
+            if (cmdline.open(QIODevice::ReadOnly))
+                m_appKey = QString::fromStdString(EosAppKey::fromCmdline(cmdline.read(4096).toStdString()));
+        }
         setSurface(surface);
     }
 }

@@ -32,6 +32,8 @@ class LipstickCompositorWindow : public QWaylandQuickItem
     Q_PROPERTY(QString category READ category CONSTANT)
     Q_PROPERTY(QString title READ title NOTIFY titleChanged)
     Q_PROPERTY(qint64 processId READ processId CONSTANT)
+    // eos: the program name of the process (eosappkey.h), to find a hidden window again
+    Q_PROPERTY(QString appKey READ appKey CONSTANT)
     Q_PROPERTY(qint16 windowFlags READ windowFlags NOTIFY windowFlagsChanged)
     Q_PROPERTY(bool overridesSystemGestures READ overridesSystemGestures NOTIFY overridesSystemGesturesChanged)
     /* The client allows a swipe right from anywhere to go back (it is at
@@ -61,6 +63,8 @@ public:
     bool eventFilter(QObject *object, QEvent *event);
 
     Q_INVOKABLE void terminateProcess(int killTimeout);
+
+    QString appKey() const { return m_appKey; }
 
     bool focusOnTouch() const;
     void setFocusOnTouch(bool focusOnTouch);
@@ -117,6 +121,7 @@ private:
     QString m_title;
 
     qint64 m_processId;
+    QString m_appKey;
     int m_windowId;
     QString m_category;
     bool m_delayRemove:1;

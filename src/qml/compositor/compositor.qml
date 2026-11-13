@@ -43,7 +43,7 @@ import "compositor"
  *   AppLifecycle       lipstick's Compositor, windows in front (comp)
  *   WindowTransitions  edge swipe, swipe from anywhere, crown close (transitions)
  *   OverlayArbiter     assistant, heads-up, call, alarm, power, mode, BT (arbiter)
- *   KeyRouter          crown button, side button hold
+ *   KeyRouter          crown button, side button: one key map (keymap.js)
  * This file keeps the stacking (home, scrim, launch splash, application
  * layer, overlays, swipe, corner mask) and forwards the modules' old names
  * (assistantShown, openAssistant, closeTopmost, closeProgress,
@@ -78,6 +78,28 @@ Item {
     readonly property bool anywhereActive: transitions.anywhereActive
     readonly property real anywhereValue: transitions.anywhereValue
     function closeTopmost() { transitions.closeTopmost() }
+
+    // the applications (AppLifecycle): leave to the background, come back,
+    // the one before, the list for Recents
+    function leaveApp() { comp.leaveApp(comp.topmostWindow) }
+    function resumeApp(exec) { return comp.resumeApp(exec) }
+    function previousApp() { return comp.previousApp() }
+    function recents() { return comp.recents() }
+    function closeHidden(windowId) { comp.closeHidden(windowId) }
+    readonly property bool alertShown: comp.alertShown
+    // the parts, for the tests and the other packages
+    readonly property QtObject keys: keyRouter
+    readonly property QtObject lifecycle: comp
+    readonly property Item overlays: arbiter
+
+    // The side button's Recents (KeyRouter): the home screen's Recents list,
+    // when it has one (W2-launcher-app-list); true when it opened or closed
+    property var recentsHandler: null
+    function toggleRecents() {
+        if (recentsHandler)
+            return !!recentsHandler()
+        return homeLoader.item && homeLoader.item.toggleRecents ? !!homeLoader.item.toggleRecents() : false
+    }
 
     // The home screen is a persistent item at the bottom of the z-stack, not
     // an in-process "window". Its z follows MainScreen's own z (raised while
@@ -159,7 +181,7 @@ Item {
 
     WindowTransitions { id: transitions }
 
-    KeyRouter { }
+    KeyRouter { id: keyRouter }
 
     AppLifecycle { id: comp }
 

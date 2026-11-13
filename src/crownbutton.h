@@ -31,6 +31,11 @@ public:
 signals:
     /* A short press with the display on */
     void pressed();
+    /* A short press that woke the display (mce unblanked first, then sent
+     * "asteroid-crown-wake"): stock runs Home too when the display came out of
+     * the always-on display and tilt- and touch-to-wake are both on; KeyRouter
+     * decides */
+    void wakePressed();
     /* Any other power_button_trigger argument (another dbusN action) */
     void triggered(const QString &action);
 

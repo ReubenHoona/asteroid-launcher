@@ -80,6 +80,42 @@ Item {
 
     visible: call !== null
 
+    /* What the notification server needs to know (lipstick LipstickSettings
+     * callState: 0 none, 1 ringing, 2 in progress): in a call a notification
+     * does not vibrate (stock NotificationAttentionHelper.java:1168-1171,
+     * 778-800; interruptions-07), and a phone alarm's vibration stops while a
+     * call rings (interruptions-15). */
+    readonly property int callStateValue: call === null ? 0 : (ongoing ? 2 : 1)
+    onCallStateValueChanged: {
+        try {
+            if (typeof lipstickSettings !== "undefined" && lipstickSettings !== null)
+                lipstickSettings.callState = callStateValue
+        } catch (e) {
+            console.log("IncomingCall: callState:", e)
+        }
+    }
+
+    // Answering a second call ends the one in progress: asks first (stock
+    // dialer bc25_second_incoming_call_confirmation_title / _message;
+    // interruptions-17)
+    property bool confirmingAnswer: false
+
+    function otherOngoing() {
+        for (var i = 0; i < notifModel.itemCount; i++) {
+            var n = notifModel.get(i)
+            if (n !== call && isOngoing(n))
+                return true
+        }
+        return false
+    }
+
+    function answer() {
+        if (otherOngoing())
+            confirmingAnswer = true
+        else
+            act("answer")
+    }
+
     function phoneActions(n) {
         var a = n.hints["x-asteroid-phone-actions"]
         return a ? String(a).split(",") : []
@@ -186,7 +222,11 @@ Item {
         next(call)
     }
 
-    onCallChanged: if (call === null) displayRelease()
+    onCallChanged: {
+        confirmingAnswer = false
+        if (call === null)
+            displayRelease()
+    }
 
     // mce keeps the display on for at most 30 s per request: renew it
     function displayOn() {
@@ -414,7 +454,7 @@ Item {
             //% "Answer"
             text: qsTrId("id-call-answer") + localeManager.changesObserver
             visible: incomingCall.hasAction("answer")
-            onClicked: incomingCall.act("answer")
+            onClicked: incomingCall.answer()
         }
 
         CallButton {
@@ -449,5 +489,67 @@ Item {
         anchors.bottomMargin: Dims.h(6)
         visible: incomingCall.ongoing
         onClicked: incomingCall.hide()
+    }
+
+    // "End current call?" over the ringing call (a second call, a call in
+    // progress): Answer ends the one in progress, Cancel leaves it ringing
+    Item {
+        id: confirmAnswer
+        objectName: "confirmAnswer"
+        anchors.fill: parent
+        visible: incomingCall.confirmingAnswer
+        Rectangle {
+            anchors.fill: parent
+            color: "#000000"
+        }
+        MouseArea { anchors.fill: parent }
+        Label {
+            id: confirmTitle
+            objectName: "confirmTitle"
+            //% "End current call?"
+            text: qsTrId("id-call-second-title") + localeManager.changesObserver
+            width: Dims.w(76)
+            y: Dims.h(14)
+            anchors.horizontalCenter: parent.horizontalCenter
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            maximumLineCount: 3
+            font.pixelSize: Theme.type.titleSmall.pixelSize
+        }
+        Label {
+            objectName: "confirmMessage"
+            //% "Answering new call will end current call"
+            text: qsTrId("id-call-second-message") + localeManager.changesObserver
+            width: Dims.w(76)
+            anchors.top: confirmTitle.bottom
+            anchors.topMargin: Dims.h(2)
+            anchors.horizontalCenter: parent.horizontalCenter
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            font.pixelSize: Theme.type.bodySmall.pixelSize
+            opacity: 0.7
+        }
+        Row {
+            y: Dims.h(58)
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Dims.w(14)
+            CallButton {
+                objectName: "confirmCancel"
+                iconName: "ios-close"
+                //% "Cancel"
+                text: qsTrId("id-call-cancel") + localeManager.changesObserver
+                onClicked: incomingCall.confirmingAnswer = false
+            }
+            CallButton {
+                objectName: "confirmAnswerButton"
+                iconName: "ios-call"
+                fill: "#2E7D32"
+                text: qsTrId("id-call-answer") + localeManager.changesObserver
+                onClicked: {
+                    incomingCall.confirmingAnswer = false
+                    incomingCall.act("answer")
+                }
+            }
+        }
     }
 }
