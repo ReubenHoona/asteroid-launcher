@@ -161,6 +161,14 @@ Item {
     /* A tap on the heads-up card: the notification, open, in the stream (an
      * application on the screen closes first, as the crown would) */
     property Item streamItem: null
+    /* The notification stream, as the Notifications complication opens it */
+    function openNotificationStream() {
+        if (Desktop.compositorRoot && !Lipstick.compositor.homeActive)
+            Desktop.compositorRoot.closeTopmost()
+        closeOverlays()
+        if (wearLayout)
+            grid.moveTo(0, 1)
+    }
     function openNotification(n) {
         if (Desktop.compositorRoot && !Lipstick.compositor.homeActive)
             Desktop.compositorRoot.closeTopmost()
@@ -271,6 +279,8 @@ Item {
         nightstand: nightstandMode.active
         use12h: use12H.value
         now: wallClock.time
+        unread: statusSlot.notificationIndicator.unreadCount
+        apps: launcherModel
     }
 
     LauncherModel {

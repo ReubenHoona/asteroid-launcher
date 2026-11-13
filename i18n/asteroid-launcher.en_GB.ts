@@ -760,8 +760,8 @@
         <translation>Day and date</translation>
     </message>
     <message id="id-comp-battery">
-        <source>Watch battery</source>
-        <translation>Watch battery</translation>
+        <source>Battery</source>
+        <translation>Battery</translation>
     </message>
     <message id="id-comp-phone-battery">
         <source>Phone battery</source>
@@ -770,6 +770,222 @@
     <message id="id-comp-next-event">
         <source>Next event</source>
         <translation>Next event</translation>
+    </message>
+    <message id="id-comp-day-month">
+        <source>Date</source>
+        <translation>Date</translation>
+    </message>
+    <message id="id-comp-date-month">
+        <source>Date and month</source>
+        <translation>Date and month</translation>
+    </message>
+    <message id="id-comp-weekday">
+        <source>Day of the week</source>
+        <translation>Day of the week</translation>
+    </message>
+    <message id="id-comp-time-date">
+        <source>Time and date</source>
+        <translation>Time and date</translation>
+    </message>
+    <message id="id-comp-notifications">
+        <source>Notifications</source>
+        <translation>Notifications</translation>
+    </message>
+    <message id="id-comp-health">
+        <source>Health</source>
+        <translation>Health</translation>
+    </message>
+    <message id="id-comp-uv">
+        <source>UV Index</source>
+        <translation>UV Index</translation>
+    </message>
+    <message id="id-comp-precipitation">
+        <source>Precipitation</source>
+        <translation>Precipitation</translation>
+    </message>
+    <message id="id-comp-aqi">
+        <source>Air quality index</source>
+        <translation>Air quality index</translation>
+    </message>
+    <message id="id-comp-sun">
+        <source>Sunrise and sunset</source>
+        <translation>Sunrise and sunset</translation>
+    </message>
+    <message id="id-comp-moon">
+        <source>Moon phase</source>
+        <translation>Moon phase</translation>
+    </message>
+    <message id="id-comp-stopwatch">
+        <source>Stopwatch</source>
+        <translation>Stopwatch</translation>
+    </message>
+    <message id="id-comp-media">
+        <source>Media controls</source>
+        <translation>Media controls</translation>
+    </message>
+    <message id="id-comp-assistant">
+        <source>Assistant</source>
+        <translation>Assistant</translation>
+    </message>
+    <message id="id-comp-world-clock">
+        <source>World clock</source>
+        <translation>World clock</translation>
+    </message>
+    <message id="id-comp-countdown">
+        <source>Countdown to date</source>
+        <translation>Countdown to date</translation>
+    </message>
+    <message id="id-comp-app-shortcut">
+        <source>App shortcut</source>
+        <translation>App shortcut</translation>
+    </message>
+    <message id="id-comp-none">
+        <source>None</source>
+        <translation>None</translation>
+    </message>
+    <message id="id-comp-no-events-today">
+        <source>No events today</source>
+        <translation>No events today</translation>
+    </message>
+    <message id="id-comp-now">
+        <source>Now</source>
+        <translation>Now</translation>
+    </message>
+    <message id="id-comp-today">
+        <source>Today</source>
+        <translation>Today</translation>
+    </message>
+    <message id="id-comp-tomorrow">
+        <source>Tomorrow</source>
+        <translation>Tomorrow</translation>
+    </message>
+    <message id="id-comp-in-minutes">
+        <source>in %1 min</source>
+        <translation>in %1 min</translation>
+    </message>
+    <message id="id-comp-days-short">
+        <source>%1 d</source>
+        <translation>%1 d</translation>
+    </message>
+    <message id="id-comp-sunrise">
+        <source>Sunrise</source>
+        <translation>Sunrise</translation>
+    </message>
+    <message id="id-comp-sunset">
+        <source>Sunset</source>
+        <translation>Sunset</translation>
+    </message>
+    <message id="id-comp-nothing-playing">
+        <source>Nothing playing</source>
+        <translation>Nothing playing</translation>
+    </message>
+    <message id="id-comp-wx-thunderstorm">
+        <source>Thunderstorm</source>
+        <translation>Thunderstorm</translation>
+    </message>
+    <message id="id-comp-wx-drizzle">
+        <source>Drizzle</source>
+        <translation>Drizzle</translation>
+    </message>
+    <message id="id-comp-wx-rain">
+        <source>Rain</source>
+        <translation>Rain</translation>
+    </message>
+    <message id="id-comp-wx-snow">
+        <source>Snow</source>
+        <translation>Snow</translation>
+    </message>
+    <message id="id-comp-wx-fog">
+        <source>Fog</source>
+        <translation>Fog</translation>
+    </message>
+    <message id="id-comp-wx-clear">
+        <source>Clear</source>
+        <translation>Clear</translation>
+    </message>
+    <message id="id-comp-wx-partly-cloudy">
+        <source>Partly cloudy</source>
+        <translation>Partly cloudy</translation>
+    </message>
+    <message id="id-comp-wx-cloudy">
+        <source>Cloudy</source>
+        <translation>Cloudy</translation>
+    </message>
+    <message id="id-comp-low">
+        <source>Low</source>
+        <translation>Low</translation>
+    </message>
+    <message id="id-comp-mod">
+        <source>Mod.</source>
+        <translation>Mod.</translation>
+    </message>
+    <message id="id-comp-high">
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message id="id-comp-extreme">
+        <source>Extreme</source>
+        <translation>Extreme</translation>
+    </message>
+    <message id="id-comp-slight">
+        <source>Slight</source>
+        <translation>Slight</translation>
+    </message>
+    <message id="id-comp-chance">
+        <source>Chance</source>
+        <translation>Chance</translation>
+    </message>
+    <message id="id-comp-likely">
+        <source>Likely</source>
+        <translation>Likely</translation>
+    </message>
+    <message id="id-comp-aqi-good">
+        <source>Good</source>
+        <translation>Good</translation>
+    </message>
+    <message id="id-comp-aqi-unhealthy">
+        <source>Unhealthy</source>
+        <translation>Unhealthy</translation>
+    </message>
+    <message id="id-comp-aqi-very-unhealthy">
+        <source>V. Unhealthy</source>
+        <translation>V. Unhealthy</translation>
+    </message>
+    <message id="id-comp-aqi-hazardous">
+        <source>Hazardous</source>
+        <translation>Hazardous</translation>
+    </message>
+    <message id="id-comp-moon-new">
+        <source>New moon</source>
+        <translation>New moon</translation>
+    </message>
+    <message id="id-comp-moon-waxing-crescent">
+        <source>Waxing crescent</source>
+        <translation>Waxing crescent</translation>
+    </message>
+    <message id="id-comp-moon-first-quarter">
+        <source>First quarter</source>
+        <translation>First quarter</translation>
+    </message>
+    <message id="id-comp-moon-waxing-gibbous">
+        <source>Waxing gibbous</source>
+        <translation>Waxing gibbous</translation>
+    </message>
+    <message id="id-comp-moon-full">
+        <source>Full moon</source>
+        <translation>Full moon</translation>
+    </message>
+    <message id="id-comp-moon-waning-gibbous">
+        <source>Waning gibbous</source>
+        <translation>Waning gibbous</translation>
+    </message>
+    <message id="id-comp-moon-last-quarter">
+        <source>Last quarter</source>
+        <translation>Last quarter</translation>
+    </message>
+    <message id="id-comp-moon-waning-crescent">
+        <source>Waning crescent</source>
+        <translation>Waning crescent</translation>
     </message>
     <message id="id-comp-no-events">
         <source>No events</source>

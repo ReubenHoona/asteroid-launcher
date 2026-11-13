@@ -70,6 +70,9 @@ set(QML_FILES
 	qml/complications/ComplicationSources.qml
 	qml/complications/ComplicationView.qml
 	qml/complications/AgendaSource.qml
+	qml/complications/ClockSource.qml
+	qml/complications/MediaSource.qml
+	qml/complications/complications.js
 	qml/complications/FaceEditor.qml
 	qml/assistant/AssistantOverlay.qml
 	qml/assistant/AssistantActions.qml
@@ -138,6 +141,9 @@ set_source_files_properties(qml/tiles/BatteryTile.qml                PROPERTIES 
 set_source_files_properties(qml/complications/ComplicationSources.qml PROPERTIES QT_RESOURCE_ALIAS complications/ComplicationSources.qml)
 set_source_files_properties(qml/complications/ComplicationView.qml   PROPERTIES QT_RESOURCE_ALIAS complications/ComplicationView.qml)
 set_source_files_properties(qml/complications/AgendaSource.qml       PROPERTIES QT_RESOURCE_ALIAS complications/AgendaSource.qml)
+set_source_files_properties(qml/complications/ClockSource.qml        PROPERTIES QT_RESOURCE_ALIAS complications/ClockSource.qml)
+set_source_files_properties(qml/complications/MediaSource.qml        PROPERTIES QT_RESOURCE_ALIAS complications/MediaSource.qml)
+set_source_files_properties(qml/complications/complications.js       PROPERTIES QT_RESOURCE_ALIAS complications/complications.js)
 set_source_files_properties(qml/complications/FaceEditor.qml         PROPERTIES QT_RESOURCE_ALIAS complications/FaceEditor.qml)
 set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
