@@ -963,9 +963,10 @@ Item {
             checked: modesReady && modes.bedtime
             onClicked: {
                 if (checked) {
+                    // off at once; with the screen on and the home screen
+                    // up ModeScreen shows "Turning off Bedtime mode…" (the
+                    // engine's bedtimeEnding), no toast (modes-dnd-07)
                     modes.bedtime = false
-                    //% "Bedtime mode off"
-                    modeToast.show(qsTrId("id-bedtime-off"))
                     return
                 }
                 //% "Turn on Bedtime mode?"
@@ -1014,8 +1015,13 @@ Item {
                 }
                 //% "Turn on Battery Saver mode?"
                 askFirst(askBatterySaver, qsTrId("id-saver-confirm-title"),
-                         //% "Turns off Always-on-screen and Tilt-to-wake to extend battery life"
-                         qsTrId("id-saver-confirm"),
+                         // stock battery_saver_mode_dialog_message and, with the automatic
+                         // saver on, battery_saver_mode_with_absm_dialog_message (charging-battery-16)
+                         modesReady && modes.autoSaverOn
+                         //% "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone. Automatically turns on at %1%."
+                         ? qsTrId("id-saver-confirm-auto").arg(modes.autoSaverOnLevel)
+                         //% "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone."
+                         : qsTrId("id-saver-confirm"),
                          function () { modes.batterySaver = true })
             }
         }

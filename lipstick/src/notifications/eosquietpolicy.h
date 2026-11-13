@@ -28,7 +28,8 @@ namespace EosQuiet {
 
 inline bool alertsWhileQuiet(const std::string &event)
 {
-    return event == "alarm" || event == "eos_phone_alarm" || event == "ringtone";
+    return event == "alarm" || event == "alarm_sound" || event == "alarm_vibra"
+        || event == "eos_phone_alarm" || event == "ringtone";
 }
 
 // The events of a notification's x-nemo-feedback hint (a comma-separated
@@ -87,6 +88,45 @@ inline std::string feedbackInCall(int callState, const std::string &hint)
             end = hint.size();
         const std::string item = hint.substr(start, end - start);
         if (!item.empty() && playsInCall(callState, item)) {
+            if (!out.empty())
+                out += ',';
+            out += item;
+        }
+        start = end + 1;
+    }
+    return out;
+}
+
+/*
+ * What an alarm may play in the modes that are on (Settings > <mode> >
+ * Customize > Alarms and Timers, Sound and Vibrate; stock FocusModeConstants
+ * allowAlarms(sound, vibrate), Theater: no sound): mask 1 sound, 2
+ * vibration, 3 both (nothing changes). The watch's own alarm "alarm" has
+ * both (the presenter chooses the event itself from the engine's
+ * alarm-feedback; here it is held to the mask for any poster): sound only
+ * "alarm_sound", vibration only "alarm_vibra", neither none; the phone's
+ * alarm "eos_phone_alarm" is a vibration. Audit modes-dnd-05.
+ */
+inline std::string alarmFeedback(int mask, const std::string &hint)
+{
+    if ((mask & 3) == 3)
+        return hint;
+    const bool sound = mask & 1;
+    const bool vibra = mask & 2;
+    std::string out;
+    size_t start = 0;
+    while (start <= hint.size()) {
+        size_t end = hint.find(',', start);
+        if (end == std::string::npos)
+            end = hint.size();
+        std::string item = hint.substr(start, end - start);
+        if (item == "alarm")
+            item = sound ? "alarm_sound" : vibra ? "alarm_vibra" : "";
+        else if (item == "alarm_sound" && !sound)
+            item = "";
+        else if ((item == "alarm_vibra" || item == "eos_phone_alarm") && !vibra)
+            item = "";
+        if (!item.empty()) {
             if (!out.empty())
                 out += ',';
             out += item;

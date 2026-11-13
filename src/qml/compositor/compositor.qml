@@ -68,6 +68,12 @@ Item {
         Desktop.compositorRoot = root
     }
 
+    /* Bedtime's colour filter (NightLight.qml, modes-dnd-09): the whole scene
+     * is drawn through it while it is on, and not through a layer otherwise */
+    NightLight { id: nightLight }
+    layer.enabled: nightLight.active
+    layer.effect: nightLight.effect
+
     // the overlays (OverlayArbiter)
     readonly property bool assistantShown: arbiter.assistantShown
     function openAssistant(text) { arbiter.openAssistant(text) }

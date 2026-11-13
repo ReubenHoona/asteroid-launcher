@@ -43,10 +43,16 @@ Item {
         property bool batterySaver: false
         property bool extraDim: false
         property bool charging: false
+        property bool autoSaverOn: false
+        property int autoSaverOnLevel: 15
         readonly property bool alwaysOnBlocked: bedtime || theater || batterySaver
         readonly property string alwaysOnHolder: theater ? "theater" : bedtime ? "bedtime" : batterySaver ? "battery-saver" : ""
         readonly property string brightnessHolder: bedtime ? "bedtime" : extraDim ? "extra-dim" : ""
         signal bedtimeStarting()
+        signal bedtimeSkipped()
+        signal bedtimeEnding()
+        signal transitionCancelled()
+        signal theaterStarting()
         function setRestoreValue(setting, value) {}
     }
 
@@ -164,7 +170,18 @@ Item {
             wait(100)
         }
         function dialog() { return find(panel(), "modeDialog") }
-        function yes() { tap(find(panel(), "modeDialogYes")); wait(100) }
+        // a long message (stock Battery Saver) scrolls: the buttons are at the bottom
+        function scrollDialogToEnd() {
+            var kids = dialog().children
+            for (var i = 0; i < kids.length; i++) {
+                if (kids[i].contentHeight !== undefined) {
+                    kids[i].contentY = Math.max(0, kids[i].contentHeight - kids[i].height)
+                    break
+                }
+            }
+            wait(100)
+        }
+        function yes() { scrollDialogToEnd(); tap(find(panel(), "modeDialogYes")); wait(100) }
         function no() { tap(find(panel(), "modeDialogNo")); wait(100) }
         function shot(name) {
             wait(200)
@@ -225,10 +242,10 @@ Item {
             tap(t)
             verify(!dialog().visible)
             verify(!modes.bedtime)
+            // no toast: the exit screen is ModeScreen's (modes-dnd-07)
             var toast = find(panel(), "modeToast")
-            verify(toast.visible)
-            compare(toast.text, "Bedtime mode off")
-            shot("quickpanel-05-bedtime-off-toast")
+            verify(!toast.visible)
+            shot("quickpanel-05-bedtime-off")
             verify(tile("aodToggle").enabled && tile("aodToggle").checked)
             verify(tile("brightnessToggle").enabled)
             t = tile("bedtimeToggle")
@@ -263,9 +280,18 @@ Item {
             verify(t.enabled)
             tap(t)
             compare(dialog().title, "Turn on Battery Saver mode?")
-            compare(dialog().message, "Turns off Always-on-screen and Tilt-to-wake to extend battery life")
+            compare(dialog().message, "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone.")
             yes()
             verify(modes.batterySaver && t.checked)
+            // with the automatic saver on the message says at what level (stock ..._with_absm_dialog_message)
+            modes.batterySaver = false
+            modes.autoSaverOn = true
+            t = tile("batterySaverToggle")
+            tap(t)
+            compare(dialog().message, "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone. Automatically turns on at 15%.")
+            yes()
+            verify(modes.batterySaver)
+            modes.autoSaverOn = false
             verify(!tile("aodToggle").enabled)
             verify(tile("brightnessToggle").enabled)
             t = tile("batterySaverToggle")
@@ -315,7 +341,8 @@ Item {
             verify(modeScreen.visible)
             compare(find(modeScreen, "bedtimeStarting").text, "Starting Bedtime mode…")
             shot("quickpanel-10-starting-bedtime")
-            tryCompare(modeScreen, "visible", false, 4000)
+            // 1000 in, 2000 held, 1000 out, 1000 black (modes-dnd-08)
+            tryCompare(modeScreen, "visible", false, 6000)
         }
 
         // the Flashlight tile, in the panel by default as stock's, opens the Flashlight app

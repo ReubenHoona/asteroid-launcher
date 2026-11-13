@@ -69,11 +69,15 @@ void NotificationFeedbackPlayer::addNotification(uint id)
         if (!notification->hints().value(NotificationManager::HINT_FEEDBACK_SUPPRESSED).toBool()) {
             // Play the feedback related to the notification if any (eos: in
             // Bedtime or Theater only an alarm's, eosquietpolicy.h)
+            // and an alarm only with what the modes' Customize > Alarms and
+            // Timers allow (Theater: vibration only)
             const QString feedback = QString::fromStdString(EosQuiet::feedbackInCall(
                 LipstickSettings::instance()->callState(),
-                EosQuiet::feedback(
-                    NotificationManager::instance()->quiet(),
-                    notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString())));
+                EosQuiet::alarmFeedback(
+                    NotificationManager::instance()->alarmMask(),
+                    EosQuiet::feedback(
+                        NotificationManager::instance()->quiet(),
+                        notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString()))));
             const QStringList feedbackItems = feedback.split(QStringLiteral(","), Qt::SkipEmptyParts);
             if (!feedbackItems.isEmpty()) {
                 QMap<QString, QVariant> properties;

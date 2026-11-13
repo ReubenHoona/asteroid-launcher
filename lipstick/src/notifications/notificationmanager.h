@@ -225,6 +225,10 @@ public:
     // feedback or banner but for alarms (eosquietpolicy.h), for every poster
     bool quiet() const { return m_quiet; }
     void setQuiet(bool quiet);
+    // eos: what an alarm may play in the modes that are on (eosquietpolicy.h
+    // alarmFeedback): 1 sound, 2 vibration, 3 both
+    int alarmMask() const { return m_alarmMask; }
+    void setAlarmMask(int mask) { m_alarmMask = mask & 3; }
 
 signals:
     void quietChanged();
@@ -345,6 +349,7 @@ private:
     NotificationManager(QObject *parent, bool owner);
 
     bool m_quiet = false;
+    int m_alarmMask = 3;
 
     //! Destroys the notification manager.
     virtual ~NotificationManager();

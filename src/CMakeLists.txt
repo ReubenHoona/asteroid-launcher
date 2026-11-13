@@ -42,6 +42,7 @@ set(QML_FILES
 	qml/compositor/WindowWrapperBase.qml
 	qml/compositor/CircleMaskShader.qml
 	qml/compositor/LaunchSplash.qml
+	qml/compositor/NightLight.qml
 	qml/misc/Splash.qml
 	qml/misc/PanelsGrid.qml
 	qml/misc/ShutdownScreen.qml
@@ -113,6 +114,7 @@ set_source_files_properties(qml/compositor/compositor.qml            PROPERTIES 
 set_source_files_properties(qml/compositor/WindowWrapperBase.qml     PROPERTIES QT_RESOURCE_ALIAS compositor/WindowWrapperBase.qml)
 set_source_files_properties(qml/compositor/CircleMaskShader.qml      PROPERTIES QT_RESOURCE_ALIAS compositor/CircleMaskShader.qml)
 set_source_files_properties(qml/compositor/LaunchSplash.qml          PROPERTIES QT_RESOURCE_ALIAS compositor/LaunchSplash.qml)
+set_source_files_properties(qml/compositor/NightLight.qml            PROPERTIES QT_RESOURCE_ALIAS compositor/NightLight.qml)
 set_source_files_properties(qml/misc/Splash.qml                      PROPERTIES QT_RESOURCE_ALIAS Splash.qml)
 set_source_files_properties(qml/misc/PanelsGrid.qml                  PROPERTIES QT_RESOURCE_ALIAS PanelsGrid.qml)
 set_source_files_properties(qml/misc/ShutdownScreen.qml              PROPERTIES QT_RESOURCE_ALIAS system/ShutdownScreen.qml)
@@ -182,6 +184,7 @@ qt_add_shaders(
     asteroid-launcher "asteroid-launcher_shaders"
     FILES
         "qml/compositor/circlemaskshader.frag"
+        "shaders/colorfilter.frag"
         "shaders/masked-spartan.frag"
         "shaders/speed-dial-mask.frag"
 )

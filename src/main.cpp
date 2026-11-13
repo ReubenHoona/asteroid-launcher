@@ -124,9 +124,15 @@ int main(int argc, char **argv)
     // Bedtime and Theater make the notification server quiet: no feedback or
     // banner from any poster but an alarm's (lipstick eosquietpolicy.h)
     NotificationManager *notificationManager = NotificationManager::instance();
+    // ...and an alarm only with the sound and vibration the modes' Customize
+    // pages allow (Theater: vibration only)
     QObject::connect(modes, &ModesEngine::changed, notificationManager,
-                     [modes, notificationManager] { notificationManager->setQuiet(modes->quiet()); });
+                     [modes, notificationManager] {
+                         notificationManager->setQuiet(modes->quiet());
+                         notificationManager->setAlarmMask(modes->alarmMask());
+                     });
     notificationManager->setQuiet(modes->quiet());
+    notificationManager->setAlarmMask(modes->alarmMask());
     app.engine()->rootContext()->setContextProperty("crownButton", crownButton);
     // The assistant: a hold of the side button (as the stock Pixel Watch 2;
     // mce sends power_button_trigger), and Open()/Ask() on the session bus

@@ -1127,6 +1127,26 @@
         <source>Starting Bedtime mode…</source>
         <translation>Starting Bedtime mode…</translation>
     </message>
+    <message id="id-bedtime-ending">
+        <source>Turning off Bedtime mode…</source>
+        <translation>Turning off Bedtime mode…</translation>
+    </message>
+    <message id="id-saver-auto-on">
+        <source>Low battery</source>
+        <translation>Low battery</translation>
+    </message>
+    <message id="id-saver-auto-on-body">
+        <source>Battery Saver was automatically turned on at %1%. Connect watch to charger.</source>
+        <translation>Battery Saver was automatically turned on at %1%. Connect watch to charger.</translation>
+    </message>
+    <message id="id-saver-auto-off">
+        <source>Battery Saver turned off</source>
+        <translation>Battery Saver turned off</translation>
+    </message>
+    <message id="id-saver-auto-off-body">
+        <source>Your watch is above %1%. Battery Saver is turned off.</source>
+        <translation>Your watch is above %1%. Battery Saver is turned off.</translation>
+    </message>
     <message id="id-bedtime-off">
         <source>Bedtime mode off</source>
         <translation>Bedtime mode off</translation>
@@ -1152,8 +1172,12 @@
         <translation>Turn on Battery Saver mode?</translation>
     </message>
     <message id="id-saver-confirm">
-        <source>Turns off Always-on-screen and Tilt-to-wake to extend battery life</source>
-        <translation>Turns off Always-on-screen and Tilt-to-wake to extend battery life</translation>
+        <source>Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone.</source>
+        <translation>Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone.</translation>
+    </message>
+    <message id="id-saver-confirm-auto">
+        <source>Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone. Automatically turns on at %1%.</source>
+        <translation>Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone. Automatically turns on at %1%.</translation>
     </message>
     <message id="id-dnd-confirm-title">
         <source>Turn on Do Not Disturb?</source>

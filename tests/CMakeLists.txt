@@ -8,7 +8,7 @@ target_link_libraries(tst_modescore PRIVATE Qt6::Core)
 add_executable(tst_modes tst_modes.cpp ../src/modes.cpp ../src/modescore.cpp ../src/modes.h)
 set_target_properties(tst_modes PROPERTIES AUTOMOC ON)
 target_include_directories(tst_modes PRIVATE ../src)
-target_link_libraries(tst_modes PRIVATE Qt6::Core Qt6::DBus PkgConfig::mlite6)
+target_link_libraries(tst_modes PRIVATE Qt6::Core Qt6::DBus PkgConfig::mlite6 Timed::Timed)
 
 # The display offload decisions (lipstick/src/compositor/eosoffloadpolicy.h), plain C++
 add_executable(tst_offloadpolicy tst_offloadpolicy.cpp)

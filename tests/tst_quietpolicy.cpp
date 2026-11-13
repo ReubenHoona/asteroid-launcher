@@ -76,6 +76,26 @@ int main()
     CHECK(feedbackInCall(1, feedback(true, "eos_phone_alarm")).empty());
     CHECK(playsInCall(2, "alarm") && !playsInCall(2, "notif_normal") && playsInCall(0, "x"));
 
+    // alarms in the modes (Customize > Alarms and Timers; Theater: vibration only)
+    CHECK(alarmFeedback(3, "alarm") == "alarm" && alarmFeedback(3, "eos_phone_alarm") == "eos_phone_alarm");
+    CHECK(alarmFeedback(3, "notif_strong,alarm") == "notif_strong,alarm");
+    // vibration only (mask 2): the watch's alarm is its vibration, the phone's stays
+    CHECK(alarmFeedback(2, "alarm") == "alarm_vibra");
+    CHECK(alarmFeedback(2, "eos_phone_alarm") == "eos_phone_alarm");
+    CHECK(alarmFeedback(2, "alarm_sound").empty() && alarmFeedback(2, "alarm_vibra") == "alarm_vibra");
+    // sound only (mask 1): no vibration of the phone's alarm
+    CHECK(alarmFeedback(1, "alarm") == "alarm_sound");
+    CHECK(alarmFeedback(1, "eos_phone_alarm").empty() && alarmFeedback(1, "alarm_sound") == "alarm_sound");
+    // neither: nothing plays, other events untouched
+    CHECK(alarmFeedback(0, "alarm").empty() && alarmFeedback(0, "eos_phone_alarm").empty());
+    CHECK(alarmFeedback(2, "notif_strong,alarm,ringtone") == "notif_strong,alarm_vibra,ringtone");
+    CHECK(alarmFeedback(0, "ringtone") == "ringtone" && alarmFeedback(0, "notif_normal") == "notif_normal");
+    // and the two policies together: Theater (quiet, vibration only) keeps an alarm as its vibration
+    CHECK(alarmFeedback(2, feedback(true, "notif_strong,alarm")) == "alarm_vibra");
+    CHECK(alarmFeedback(2, feedback(true, "alarm_vibra")) == "alarm_vibra");
+    CHECK(alertsWhileQuiet("alarm_sound") && alertsWhileQuiet("alarm_vibra"));
+    CHECK(previewAllowed(true, "alarm_vibra"));
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;
 }
