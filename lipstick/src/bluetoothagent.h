@@ -97,6 +97,15 @@ private:
     // Cancel): it keeps the display on while it shows
     QTimer m_windowTimeout;
 
+    // The pairing window holds the display on (mce inhibit_blank_mode 3) and gives back what mce had before,
+    // not a fixed 0: the first run setup and the "screen never off" setting hold the same value
+    // (W3-launcher-setup, setup-wizard-05).
+    bool m_inhibitHeld = false;   // the window wants the hold
+    bool m_inhibitSet = false;    // and the 3 was written
+    int m_prevInhibit = 0;
+    void holdDisplayOn();
+    void releaseDisplayHold();
+
     QString m_deviceName;
     bool m_deviceIsPhone = false;
 

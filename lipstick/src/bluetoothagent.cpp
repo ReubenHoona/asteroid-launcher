@@ -214,15 +214,52 @@ void BluetoothAgent::setWindowVisible(bool visible)
         // display is off: blank inhibition alone keeps an off display off, so
         // the code was never shown and the off touchscreen ignored the buttons.
         m_mceDbus->asyncCall("req_display_state_on");
-        m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/display/inhibit_blank_mode").path(), QVariant::fromValue(QDBusVariant(3)));
+        holdDisplayOn();
         m_mceDbus->asyncCall("req_tklock_mode_change", "unlocked");
         m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/locks/tklock_blank_disable").path(), QVariant::fromValue(QDBusVariant(1)));
     } else {
-        m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/display/inhibit_blank_mode").path(), QVariant::fromValue(QDBusVariant(0)));
+        releaseDisplayHold();
         m_mceDbus->asyncCall("req_tklock_mode_change", "locked");
         m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/locks/tklock_blank_disable").path(), QVariant::fromValue(QDBusVariant(0)));
     }
     emit windowVisibleChanged();
+}
+
+// Ask mce what inhibit_blank_mode is, then hold the display on; the answer is what releaseDisplayHold() writes back.
+// Nothing blocks: a window that closes before the answer writes nothing at all.
+void BluetoothAgent::holdDisplayOn()
+{
+    if (m_inhibitHeld)
+        return;
+    m_inhibitHeld = true;
+    QDBusMessage call = QDBusMessage::createMethodCall("com.nokia.mce", "/com/nokia/mce/request",
+                                                       "com.nokia.mce.request", "get_config");
+    call << QVariant::fromValue(QDBusObjectPath(INHIBIT_BLANK_MODE));
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(call, 1000), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *finished) {
+        finished->deleteLater();
+        const QDBusMessage reply = finished->reply();
+        m_prevInhibit = 0;
+        if (reply.type() == QDBusMessage::ReplyMessage && !reply.arguments().isEmpty())
+            m_prevInhibit = reply.arguments().first().value<QDBusVariant>().variant().toInt();
+        if (!m_inhibitHeld)
+            return;
+        m_inhibitSet = true;
+        if (m_prevInhibit != 3)
+            m_mceDbus->asyncCall("set_config", QDBusObjectPath(INHIBIT_BLANK_MODE).path(), QVariant::fromValue(QDBusVariant(3)));
+    });
+}
+
+void BluetoothAgent::releaseDisplayHold()
+{
+    if (!m_inhibitHeld)
+        return;
+    m_inhibitHeld = false;
+    if (!m_inhibitSet)
+        return;
+    m_inhibitSet = false;
+    if (m_prevInhibit != 3)
+        m_mceDbus->asyncCall("set_config", QDBusObjectPath(INHIBIT_BLANK_MODE).path(), QVariant::fromValue(QDBusVariant(m_prevInhibit)));
 }
 
 void BluetoothAgent::userAccepts()

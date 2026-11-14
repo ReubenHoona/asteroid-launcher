@@ -29,6 +29,9 @@
 
 #include "firstrun.h"
 
+#include <timed-qt6/event>
+#include <timed-qt6/interface>
+
 #include <QDateTime>
 #include <QDebug>
 #include <QDBusArgument>
@@ -36,12 +39,15 @@
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDBusPendingCallWatcher>
+#include <QDBusReply>
 #include <QDBusVariant>
 #include <QFile>
 #include <QRegularExpression>
+#include <QSysInfo>
 #include <QTimeZone>
 
 #include <cmath>
+#include <ctime>
 
 namespace {
 
@@ -73,27 +79,97 @@ FirstRun::FirstRun()
 {
     m_mceDbus = new QDBusInterface("com.nokia.mce", "/com/nokia/mce/request", "com.nokia.mce.request", QDBusConnection::systemBus());
     firstRunDone = new MDConfItem("/org/asteroidos/launcher/firstRunDone", this);
+    m_tutorialPending = new MDConfItem("/org/asteroidos/launcher/tutorialPending", this);
 }
 
 bool FirstRun::isFirstRun()
 {
-    return !firstRunDone->value(false).toBool();;
+    return !firstRunDone->value(false).toBool();
 }
 
 void FirstRun::startFirstRun()
 {
-    m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/display/inhibit_blank_mode").path(), QVariant::fromValue(QDBusVariant(3)));
+    // No permanent hold on the display any more (setup-wizard-05): each setup screen holds it for 360 s
+    // through keepScreenOn(). The lock stays off while setup runs, so the display never asks for it.
     m_mceDbus->asyncCall("req_tklock_mode_change", "unlocked");
     m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/locks/tklock_blank_disable").path(), QVariant::fromValue(QDBusVariant(1)));
 }
 
-void FirstRun::stopFirstRun()
+void FirstRun::keepScreenOn(bool on)
 {
-    m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/display/inhibit_blank_mode").path(), QVariant::fromValue(QDBusVariant(0)));
+    m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/display/inhibit_blank_mode").path(), QVariant::fromValue(QDBusVariant(on ? 3 : 0)));
+}
+
+void FirstRun::finishSetup()
+{
+    keepScreenOn(false);
     m_mceDbus->asyncCall("req_tklock_mode_change", "locked");
     m_mceDbus->asyncCall("set_config", QDBusObjectPath("/system/osso/dsm/locks/tklock_blank_disable").path(), QVariant::fromValue(QDBusVariant(0)));
+    armIdlePowerOff(0);
 
+    // the tutorial is pending before the setup counts as done: a restart in between goes on with it
+    m_tutorialPending->set(true);
     firstRunDone->set(true);
+}
+
+bool FirstRun::tutorialPending()
+{
+    // a watch that finished its first run before there was a pending flag has no tutorial to show
+    return !isFirstRun() && m_tutorialPending->value(false).toBool();
+}
+
+void FirstRun::finishTutorial()
+{
+    m_tutorialPending->set(false);
+}
+
+void FirstRun::armIdlePowerOff(int seconds)
+{
+    static const QString kind = QStringLiteral("eos-setup-poweroff");
+    Maemo::Timed::Interface timed;
+    if (!timed.isValid())
+        return;
+
+    // the events of this kind: all of them go (there is one at most)
+    QMap<QString, QVariant> match;
+    match.insert(QStringLiteral("type"), kind);
+    QDBusReply<QList<QVariant> > reply = timed.query_sync(match);
+    if (reply.isValid()) {
+        const QList<QVariant> cookies = reply.value();
+        for (const QVariant &cookie : cookies)
+            timed.cancel_sync(cookie.toUInt());
+    }
+    if (seconds <= 0)
+        return;
+
+    Maemo::Timed::Event event;
+    Maemo::Timed::Event::Action &act = event.addAction();
+    act.whenDue();
+    act.runCommand("/bin/systemctl poweroff", "root");
+    event.setAttribute(QStringLiteral("APPLICATION"), QStringLiteral("eos-setup"));
+    event.setAttribute(QStringLiteral("type"), kind);
+    event.setTicker(time(NULL) + seconds);
+    // as the ambient wake-ups: the alarm flag wakes the device from suspend at the exact time; no boot flag
+    // (a watch that is off stays off) and no reminder flag (the alarm presenter would show it)
+    event.setKeepAliveFlag();
+    event.setAlarmFlag();
+    event.setSingleShotFlag();
+    timed.add_event_sync(event);
+}
+
+QString FirstRun::bluetoothName() const
+{
+    QDBusInterface props(QStringLiteral("org.bluez"), QStringLiteral("/org/bluez/hci0"),
+                         QStringLiteral("org.freedesktop.DBus.Properties"), QDBusConnection::systemBus());
+    props.setTimeout(1000);
+    const QDBusReply<QDBusVariant> alias = props.call(QStringLiteral("Get"), QStringLiteral("org.bluez.Adapter1"),
+                                                      QStringLiteral("Alias"));
+    if (alias.isValid()) {
+        const QString name = alias.value().variant().toString();
+        if (!name.isEmpty())
+            return name;
+    }
+    return QSysInfo::machineHostName();
 }
 
 QString FirstRun::timezoneForPosition(double latitude, double longitude) const

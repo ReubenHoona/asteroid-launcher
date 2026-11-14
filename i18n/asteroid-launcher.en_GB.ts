@@ -250,11 +250,6 @@
         <source>No events today</source>
         <translation>No events today</translation>
     </message>
-    <message id="id-date-page">
-        <location filename="../src/qml/firstrun/FirstRunConfig.qml" line="+629"/>
-        <source>Date</source>
-        <translation>Date</translation>
-    </message>
     <message id="id-add-alarm">
         <location filename="../src/qml/firstrun/FakeAlarmclock.qml" line="+84"/>
         <source>Add an alarm</source>
@@ -311,116 +306,6 @@
         <location line="+2"/>
         <source>Choose your time zone</source>
         <translation>Choose your time zone</translation>
-    </message>
-    <message id="id-language-page">
-        <location line="+8"/>
-        <source>Language</source>
-        <translation>Language</translation>
-    </message>
-    <message id="id-location-page">
-        <location line="+20"/>
-        <source>Location</source>
-        <translation>Location</translation>
-    </message>
-    <message id="id-time-page">
-        <location line="+16"/>
-        <location line="+22"/>
-        <source>Time</source>
-        <translation>Time</translation>
-    </message>
-    <message id="id-timezone-page">
-        <location line="-235"/>
-        <location line="+8"/>
-        <location line="+212"/>
-        <source>Time Zone</source>
-        <oldsource>Timezone</oldsource>
-        <translation>Time zone</translation>
-    </message>
-    <message id="id-tutorial-welcome-title">
-        <location filename="../src/qml/firstrun/Tutorial.qml" line="+60"/>
-        <source>Welcome.</source>
-        <translation>Welcome.</translation>
-    </message>
-    <message id="id-tutorial-welcome-subtitle">
-        <location line="+2"/>
-        <source>This is AsteroidOS.</source>
-        <translation>This is AsteroidOS.</translation>
-    </message>
-    <message id="id-tutorial-indicators-title">
-        <location line="+11"/>
-        <source>Indicators</source>
-        <translation>Indicators</translation>
-    </message>
-    <message id="id-tutorial-indicators-subtitle">
-        <location line="+2"/>
-        <source>show you possible gestures.</source>
-        <translation>show you possible gestures.</translation>
-    </message>
-    <message id="id-tutorial-notifications-title">
-        <location line="+18"/>
-        <source>Notifications</source>
-        <translation>Notifications</translation>
-    </message>
-    <message id="id-tutorial-notifications-subtitle">
-        <location line="+2"/>
-        <source>can be accessed on the left.</source>
-        <translation>can be accessed on the left.</translation>
-    </message>
-    <message id="id-tutorial-today-title">
-        <location line="+27"/>
-        <source>Today&apos;s Events</source>
-        <translation>Today&apos;s Events</translation>
-    </message>
-    <message id="id-tutorial-today-subtitle">
-        <location line="+2"/>
-        <source>are on the right.</source>
-        <translation>are on the right.</translation>
-    </message>
-    <message id="id-tutorial-quickpanel-title">
-        <location line="+47"/>
-        <source>Quick Panel</source>
-        <translation>Quick Panel</translation>
-    </message>
-    <message id="id-tutorial-quickpanel-subtitle">
-        <location line="+2"/>
-        <source>is up here.</source>
-        <oldsource>are up here.</oldsource>
-        <translation>is up here.</translation>
-    </message>
-    <message id="id-tutorial-applications-title">
-        <location line="+47"/>
-        <source>Apps</source>
-        <translation>Apps</translation>
-    </message>
-    <message id="id-tutorial-applications-subtitle">
-        <location line="+2"/>
-        <source>are down there.</source>
-        <translation>are down there.</translation>
-    </message>
-    <message id="id-tutorial-startapp-title">
-        <location line="+47"/>
-        <source>Start an app</source>
-        <translation>Start an app</translation>
-    </message>
-    <message id="id-tutorial-startapp-subtitle">
-        <location line="+2"/>
-        <source>by pressing its icon.</source>
-        <translation>by pressing its icon.</translation>
-    </message>
-    <message id="id-tutorial-leaveapp-title">
-        <location line="+63"/>
-        <source>Leave an app</source>
-        <translation>Leave an app</translation>
-    </message>
-    <message id="id-tutorial-leaveapp-subtitle">
-        <location line="+2"/>
-        <source>following a rightward gesture.</source>
-        <translation>following a rightward gesture.</translation>
-    </message>
-    <message id="id-tutorial-enjoy-title">
-        <location line="+64"/>
-        <source>Enjoy!</source>
-        <translation>Enjoy!</translation>
     </message>
     <message id="id-brightness">
         <location filename="../src/qml/quickpanel/QuickPanel.qml" line="+702"/>
@@ -2049,6 +1934,191 @@ Only selected people and apps can reach you.</translation>
         <location filename="../src/qml/system/ThermalUi.qml"/>
         <source>Move your watch to a cooler place</source>
         <translation>Move your watch to a cooler place</translation>
+    </message>
+    <message id="id-setup-your-language">
+        <location filename="../src/qml/firstrun/FirstRunConfig.qml"/>
+        <source>Choose your language</source>
+        <translation>Choose your language</translation>
+    </message>
+    <message id="id-setup-charge-to">
+        <location filename="../src/qml/firstrun/SetupCharge.qml"/>
+        <source>Charge to %1% to get started</source>
+        <translation>Charge to %1% to get started</translation>
+    </message>
+    <message id="id-setup-code-legacy">
+        <location filename="../src/qml/firstrun/SetupCode.qml"/>
+        <source>Legacy</source>
+        <translation>Legacy</translation>
+    </message>
+    <message id="id-setup-code-secure">
+        <location filename="../src/qml/firstrun/SetupCode.qml"/>
+        <source>Secure</source>
+        <translation>Secure</translation>
+    </message>
+    <message id="id-setup-complete">
+        <location filename="../src/qml/firstrun/SetupComplete.qml"/>
+        <source>Setup complete</source>
+        <translation>Setup complete</translation>
+    </message>
+    <message id="id-setup-pairing-success">
+        <location filename="../src/qml/firstrun/SetupConnecting.qml"/>
+        <source>Pairing success</source>
+        <translation>Pairing success</translation>
+    </message>
+    <message id="id-setup-keep-close">
+        <location filename="../src/qml/firstrun/SetupFirst.qml"/>
+        <source>Keep the watch &amp; phone close</source>
+        <translation>Keep the watch &amp; phone close</translation>
+    </message>
+    <message id="id-setup-choose-language">
+        <location filename="../src/qml/firstrun/SetupFirst.qml"/>
+        <source>Choose watch language</source>
+        <translation>Choose watch language</translation>
+    </message>
+    <message id="id-setup-help-title">
+        <location filename="../src/qml/firstrun/SetupHelp.qml"/>
+        <source>On your phone</source>
+        <translation>On your phone</translation>
+    </message>
+    <message id="id-setup-help-tip-download">
+        <location filename="../src/qml/firstrun/SetupHelp.qml"/>
+        <source>1. Go to F-Droid to download the %1 app</source>
+        <translation>1. Go to F-Droid to download the %1 app</translation>
+    </message>
+    <message id="id-setup-help-tip-open">
+        <location filename="../src/qml/firstrun/SetupHelp.qml"/>
+        <source>2. Open the %1 app and connect to your watch</source>
+        <translation>2. Open the %1 app and connect to your watch</translation>
+    </message>
+    <message id="id-setup-help-tip-internet">
+        <location filename="../src/qml/firstrun/SetupHelp.qml"/>
+        <source>3. Make sure your phone is connected to the internet and Bluetooth is turned on</source>
+        <translation>3. Make sure your phone is connected to the internet and Bluetooth is turned on</translation>
+    </message>
+    <message id="id-setup-help-more">
+        <location filename="../src/qml/firstrun/SetupHelp.qml"/>
+        <source>For more help, go to this URL on your phone:</source>
+        <translation>For more help, go to this URL on your phone:</translation>
+    </message>
+    <message id="id-setup-download-open">
+        <location filename="../src/qml/firstrun/SetupInstructions.qml"/>
+        <source>On your phone, download &amp; open:</source>
+        <translation>On your phone, download &amp; open:</translation>
+    </message>
+    <message id="id-setup-connect-to">
+        <location filename="../src/qml/firstrun/SetupInstructions.qml"/>
+        <source>In the app, connect to</source>
+        <translation>In the app, connect to</translation>
+    </message>
+    <message id="id-setup-need-help">
+        <location filename="../src/qml/firstrun/SetupInstructions.qml"/>
+        <source>Need help?</source>
+        <translation>Need help?</translation>
+    </message>
+    <message id="id-tutorial-example-title">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Welcome to your watch.</source>
+        <translation>Welcome to your watch.</translation>
+    </message>
+    <message id="id-tutorial-hi-there">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Hi there</source>
+        <translation>Hi there</translation>
+    </message>
+    <message id="id-tutorial-start">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Start</source>
+        <translation>Start</translation>
+    </message>
+    <message id="id-tutorial-splash-title">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Let's review some navigation basics!</source>
+        <translation>Let's review some navigation basics!</translation>
+    </message>
+    <message id="id-tutorial-skip">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Skip</source>
+        <translation>Skip</translation>
+    </message>
+    <message id="id-tutorial-continue">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Continue</source>
+        <translation>Continue</translation>
+    </message>
+    <message id="id-tutorial-tiles-intro">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Widgets are accessed from the watch face &amp; show helpful info from your apps</source>
+        <translation>Widgets are accessed from the watch face &amp; show helpful info from your apps</translation>
+    </message>
+    <message id="id-tutorial-next">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Next</source>
+        <translation>Next</translation>
+    </message>
+    <message id="id-tutorial-all-set">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>All set</source>
+        <translation>All set</translation>
+    </message>
+    <message id="id-tutorial-explore">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Time to explore your watch!</source>
+        <translation>Time to explore your watch!</translation>
+    </message>
+    <message id="id-tutorial-done">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message id="id-tutorial-swipe-up">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Swipe up for notifications</source>
+        <translation>Swipe up for notifications</translation>
+    </message>
+    <message id="id-tutorial-swipe-down">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Swipe down for Quick Settings</source>
+        <translation>Swipe down for Quick Settings</translation>
+    </message>
+    <message id="id-tutorial-tiles-swipe">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Swipe left or right to cycle through widgets</source>
+        <translation>Swipe left or right to cycle through widgets</translation>
+    </message>
+    <message id="id-tutorial-keep-left">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Keep swiping left for more widgets</source>
+        <translation>Keep swiping left for more widgets</translation>
+    </message>
+    <message id="id-tutorial-keep-right">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Keep swiping right for more widgets</source>
+        <translation>Keep swiping right for more widgets</translation>
+    </message>
+    <message id="id-tutorial-tiles-info">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Widgets provide quick access to helpful info</source>
+        <translation>Widgets provide quick access to helpful info</translation>
+    </message>
+    <message id="id-tutorial-crown-face">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Press the crown to return to the watch face</source>
+        <translation>Press the crown to return to the watch face</translation>
+    </message>
+    <message id="id-tutorial-crown-apps">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>From the watch face, press the crown to see apps</source>
+        <translation>From the watch face, press the crown to see apps</translation>
+    </message>
+    <message id="id-tutorial-side-recents">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Press side button for recent apps</source>
+        <translation>Press side button for recent apps</translation>
+    </message>
+    <message id="id-tutorial-side-assistant">
+        <location filename="../src/qml/firstrun/Tutorial.qml"/>
+        <source>Press and hold side button for Assistant</source>
+        <translation>Press and hold side button for Assistant</translation>
     </message>
 </context>
 </TS>

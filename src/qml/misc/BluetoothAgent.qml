@@ -30,6 +30,7 @@
 import QtQuick
 import org.asteroid.controls
 import org.nemomobile.lipstick
+import "../desktop.js" as Desktop
 
 /*
  * The Bluetooth pairing dialog on the shared M3 alert dialog (W3-launcher-misc), as stock
@@ -126,8 +127,13 @@ Item {
     // 1 to 16 digits (BluetoothEnterPinActivity: 1 <= length <= 16)
     readonly property bool inputValid: inputField.text.length >= 1 && inputField.text.length <= 16
 
+    // the first run setup answers the agent itself (code screen, no buttons: setup-wizard-09)
+    // (a function, not a property: Desktop's variable does not notify, so it is read at each request)
+    function setupActive() {
+        return Desktop.setupPairing !== null && Desktop.setupPairing !== undefined && Desktop.setupPairing.active === true
+    }
     readonly property bool wanted: bluetoothAgent.windowVisible && st !== BluetoothAgent.Idle
-                                   && st !== BluetoothAgent.AuthService
+                                   && st !== BluetoothAgent.AuthService && !setupActive()
 
     // the agent answered or cancelled by itself: the dialog goes without asking again
     property bool closingByAgent: false

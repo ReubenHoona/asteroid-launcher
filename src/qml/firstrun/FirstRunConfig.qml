@@ -33,207 +33,108 @@ import org.asteroid.controls
 import org.asteroid.utils
 import org.asteroid.settings
 import Nemo.Configuration
-import "desktop.js" as Desktop
 import Nemo.DBus
+import Nemo.Mce
+import "../desktop.js" as Desktop
+import "setup.js" as Setup
 
-FlatMesh {
+/* The setup (first run) of a new watch, as stock CP3A's setup wizard (W3-launcher-setup, DECISIONS.md Q58:
+ * setup as stock, no Skip). Pairing comes first and cannot be skipped:
+ *
+ *   [low battery gate] -> first screen -> language list -> instructions (-> help)
+ *     -> (the phone bonds) code screen -> connecting
+ *     -> place and time zone (only while the zone is unknown) -> time and date (only when the phone did not
+ *        set the clock) -> Setup complete -> the tutorial
+ *
+ * The pages are in a stack: a swipe right goes back (setup.js: backAllowed), back is ignored on the first
+ * screen. The pages cross-fade (250 ms after 150 ms in, 150 ms out) on a black background.
+ *
+ * Display policy (setup-wizard-05): each time a setup screen opens, or is touched, the display is held on
+ * for 360 s (one single shot timer; then mce's normal timeout runs and the always-on face shows); in
+ * ambient the animations stop (the pages read displayOn) and on waking the first screen returns unless a
+ * code is showing. Off the charger one exact wake-up alarm powers the watch off 3600 s after the last arming
+ * (a page change, or a touch a minute after the last arming); the charger cancels it.
+ *
+ * Pairing during setup (setup-wizard-09, -14, connectivity-system-ux-04): the Bluetooth dialog stays away
+ * (Desktop.setupPairing); this item answers the agent: a numeric comparison is shown and accepted at once,
+ * a consent is accepted, a code the watch displays is shown, anything that needs typing and every request
+ * after the first bond is refused. A failed bond closes the code screen and the page before it is back.
+ *
+ * Power (M1): no polling here (battery and charger by signal, GPS only on the place page), all timers are
+ * single shots. */
+Item {
     id: config
+    objectName: "firstRunConfig"
     anchors.fill: parent
-    centerColor: "#222222"
-    outerColor: "#000000"
 
-    Component.onCompleted: {
-        firstRun.startFirstRun()
-        // search from the first page, so a fix may be ready by the time the
-        // location page is reached
-        config.startGps()
-    }
-    Component.onDestruction: config.stopGps()
+    // the display is on and not in the always-on screen (the compositor's state)
+    property bool displayOn: true
+    // the name the phone app lists (the BlueZ alias)
+    property string watchName: typeof firstRun !== "undefined" && firstRun !== null ? firstRun.bluetoothName() : ""
+    // the setup is over: the host removes it and may start the tutorial
+    signal done()
+
+    // ---- state ----
+    property var stack: []
+    readonly property string page: stack.length > 0 ? stack[stack.length - 1] : ""
+    // the page on screen (it follows `page` through the cross-fade)
+    property string shownPage: ""
+    // after the bond: the pages still to come
+    property var queue: []
+    property bool codeUp: false
+    property string codeKind: "secure"
+    property string codeValue: ""
+    // a phone has bonded: no other pairing is accepted
+    property bool bonded: false
+    // the watch has answered the pairing request (the phone's side decides now)
+    property bool accepted: false
+    property bool finished: false
+    property string currentTz: ""
+    property bool clockSet: false
+    // the language rows
+    property var languages: []
+
+    readonly property alias gps: gpsObj
+    readonly property alias stage: stageObj
+    // what moves with the swipe back and fades between pages
+    readonly property alias content: stageItem
+    readonly property alias backArea: backAreaObj
+    readonly property alias fadeOut: fadeOutObj
+    readonly property alias fadeIn: fadeInObj
+    readonly property alias bondTimer: bondTimerObj
+    readonly property alias linkTimer: linkTimerObj
+    readonly property alias screenTimer: screenTimerObj
+    readonly property alias pageLoader: pageLoaderObj
+    readonly property alias codeLoader: codeLoaderObj
+    readonly property int level: batteryLevel.valid ? batteryLevel.percent : -1
+    readonly property bool charging: chargerType.valid && chargerType.type !== MceChargerType.None
+    readonly property bool backEnabled: Setup.backAllowed(stack, codeUp)
+
+    // ---- facts ----
+    MceBatteryLevel { id: batteryLevel }
+    MceChargerType { id: chargerType }
+    BluetoothStatus { id: bluetoothStatus }
+    // the Bluetooth link (a test sets another object with `connected`)
+    property var link: bluetoothStatus
+    LanguageModel { id: langSettings }
+    // the languages (a test sets another model with rowCount(), index(), data() and setSystemLocale())
+    property var languageModel: langSettings
+    DateTimeSettings { id: dtSettings }
+    // the system's time zone now (a test replaces it)
+    property var zoneNow: function () { return dtSettings.currentTimezone() }
+    WallClock { id: wallClock }
 
     ConfigurationValue {
-        id: use12H
-        key: "/org/asteroidos/settings/use-12h-format"
+        id: clockFromPhoneObj
+        key: "/org/asteroidos/time/phone-set"
         defaultValue: false
     }
-
-    state: "LANGUAGE"
-
-    states: [
-        State { name: "LANGUAGE" },
-        State { name: "LOCATION_SOURCE" },
-        State { name: "TIMEZONE_REGION" },
-        State { name: "TIMEZONE_CITY" },
-        State { name: "TIME" },
-        State { name: "DATE" }
-    ]
-
-    LanguageModel { id: langSettings }
-    Spinner {
-        id: langLV
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: title.bottom
-        height: Dims.h(60)
-        model: langSettings
-        visible: config.state == "LANGUAGE"
-        enabled: visible
-
-        delegate: SpinnerDelegate { text: langSettings.languageName(index) }
-
-        property bool _positioned: false
-        onContentHeightChanged: {
-            if (!_positioned && contentHeight > 0) {
-                _positioned = true;
-                var i = langSettings.currentIndex;
-                if (i !== -1) {
-                    positionViewAtIndex(i, ListView.SnapPosition);
-                    currentIndex = i;
-                }
-            }
-        }
+    ConfigurationValue {
+        id: orientation
+        key: "/org/asteroidos/settings/wrist-orientation-mode"
+        defaultValue: 0
     }
-
-    DateTimeSettings { id: dtSettings }
-    WallClock { id: wallClock}
-    Row {
-        id: timeSelector
-        anchors.top: title.bottom
-        height: Dims.h(60)
-        width: parent.width
-        visible: config.state == "TIME"
-        enabled: visible
-
-        property int spinnerWidth: use12H.value ? width/3 : width/2
-
-        CircularSpinner {
-            id: hourLV
-            height: parent.height
-            width: parent.spinnerWidth
-            model: use12H.value ? 12 : 24
-            showSeparator: true
-        }
-
-        CircularSpinner {
-            id: minuteLV
-            height: parent.height
-            width: parent.spinnerWidth
-            model: 60
-            showSeparator: use12H.value
-        }
-
-        Spinner {
-            id: amPmLV
-            height: parent.height
-            width: parent.spinnerWidth
-            model: 2
-            delegate: SpinnerDelegate { text: index == 0 ? "AM" : "PM" }
-        }
-
-        Component.onCompleted: {
-            var hour = wallClock.time.getHours();
-            if(use12H.value) {
-                amPmLV.currentIndex = hour / 12;
-                hour = hour % 12;
-            }
-            hourLV.currentIndex = hour;
-            minuteLV.currentIndex = wallClock.time.getMinutes();
-        }
-    }
-
-    Row {
-        id: dateSelector
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: title.bottom
-        height: Dims.h(60)
-        visible: config.state == "DATE"
-        enabled: visible
-
-        CircularSpinner {
-            id: dayLV
-            height: parent.height
-            width: parent.width/3
-            model: 31
-            showSeparator: true
-            delegate: SpinnerDelegate { text: index+1 }
-        }
-
-        CircularSpinner {
-            id: monthLV
-            height: parent.height
-            width: parent.width/3
-            model: 12
-            showSeparator: true
-            delegate: SpinnerDelegate { text: Qt.locale().monthName(index, Locale.ShortFormat) + localeManager.changesObserver }
-        }
-
-        CircularSpinner {
-            id: yearLV
-            height: parent.height
-            width: parent.width/3
-            model: 100
-            delegate: SpinnerDelegate { text: index+2000 }
-        }
-
-        Component.onCompleted: {
-            var d = new Date();
-            dayLV.currentIndex = d.getDate()-1;
-            monthLV.currentIndex = d.getMonth();
-            yearLV.currentIndex = d.getFullYear()-2000;
-        }
-    }
-
-    property var timezoneList: []
-    property string pendingRegion: ""
-    property string currentTz: ""
-
-    onTimezoneListChanged: buildRegionModel()
-
-    function buildRegionModel() {
-        var allowlist = ["Africa", "America", "Antarctica", "Arctic", "Asia", "Atlantic", "Australia", "Europe", "Indian", "Pacific"]
-        regionModel.clear()
-        for (var i = 0; i < allowlist.length; i++) {
-            regionModel.append({ "name": allowlist[i], "visualName": allowlist[i], "isLeaf": false, "fullPath": "" })
-        }
-        regionModel.append({ "name": "Zulu", "visualName": "Zulu", "isLeaf": true, "fullPath": "Zulu" })
-        selectCurrentRegion()
-    }
-
-    // Point the region spinner at the current time zone's region (e.g. after
-    // the GPS picked it), else at the default entry.
-    function selectCurrentRegion() {
-        var index = 5
-        var region = config.currentTz.split("/")[0]
-        for (var i = 0; i < regionModel.count; i++) {
-            if (regionModel.get(i).name === region) {
-                index = i
-                break
-            }
-        }
-        regionLV.forceLayout()
-        regionLV.positionViewAtIndex(index, ListView.SnapPosition)
-        regionLV.currentIndex = index
-    }
-
-    function buildCityModel(region) {
-        cityModel.clear()
-        var prefix = region + "/"
-        var selectIdx = 0
-        var count = 0
-        for (var i = 0; i < timezoneList.length; i++) {
-            var tz = timezoneList[i]
-            if (tz.indexOf(prefix) === 0) {
-                var sub = tz.substring(prefix.length).replace(/_/g, " ")
-                cityModel.append({ "fullPath": tz, "visualName": sub })
-                if (tz === config.currentTz)
-                    selectIdx = count
-                count++
-            }
-        }
-        cityLV.forceLayout()
-        cityLV.positionViewAtIndex(selectIdx, ListView.SnapPosition)
-        cityLV.currentIndex = selectIdx
-    }
+    readonly property alias clockFromPhone: clockFromPhoneObj
 
     DBusInterface {
         id: timedateDbus
@@ -242,407 +143,593 @@ FlatMesh {
         path: "/org/freedesktop/timedate1"
         iface: "org.freedesktop.timedate1"
     }
+    property var timezoneList: []
 
-    // GPS through the GeoClue hybris provider (session bus). Positioning runs
-    // only while the location page holds a reference on the provider.
-    readonly property string gpsService: "org.freedesktop.Geoclue.Providers.Hybris"
-    readonly property string gpsPath: "/org/freedesktop/Geoclue/Providers/Hybris"
-    property bool gpsReferenced: false
-    property bool gpsAvailable: true      // false once the provider failed to answer
-    property int gpsStatus: 1             // GeoClue: 0 error, 1 unavailable, 2 acquiring, 3 available
-    property int gpsSatellitesUsed: 0
-    property int gpsSatellitesVisible: 0  // satellites with a signal
-    property bool gpsFix: false
-    property real gpsLatitude: 0
-    property real gpsLongitude: 0
-    property bool gpsWaitingForFix: false // the GPS option was picked before a fix
-    property bool gpsApplied: false
-    property real gpsClockOffset: 0       // GPS UTC time minus the system clock, in seconds
+    SetupGps {
+        id: gpsObj
+        // only the place page asks for positions, with the display on
+        searching: config.shownPage === Setup.pages.place && config.displayOn
+        onFixReady: config.applyGpsFix()
+    }
 
-    DBusInterface {
-        id: gpsProvider
-        service: config.gpsService
-        path: config.gpsPath
-        iface: "org.freedesktop.Geoclue"
+    // ---- start ----
+    Component.onCompleted: {
+        Desktop.setupPairing = config
+        firstRun.startFirstRun()
+        currentTz = zoneNow()
+        timedateDbus.call("ListTimezones", undefined, function(m) { config.timezoneList = m })
+        buildLanguages()
+        var gate = Setup.gateNeeded(level, batteryLevel.valid) ? Setup.pages.charge : Setup.pages.first
+        stack = [gate]
+        shownPage = gate
+        activity()
+        updatePowerOff(true)
     }
-    DBusInterface {
-        id: gpsPositionDbus
-        service: config.gpsService
-        path: config.gpsPath
-        iface: "org.freedesktop.Geoclue.Position"
+    Component.onDestruction: {
+        if (Desktop.setupPairing === config)
+            Desktop.setupPairing = null
+        screenTimerObj.stop()
+        firstRun.keepScreenOn(false)
+        firstRun.armIdlePowerOff(0)
     }
-    // Satellite counts; the provider's satellite structs are read in C++
-    Connections {
-        target: firstRun
-        function onGpsSatellitesChanged(used, heard) {
-            config.gpsSatellitesUsed = used
-            config.gpsSatellitesVisible = heard
+
+    // the Bluetooth dialog is not shown while this is up
+    readonly property bool active: !finished
+
+    // ---- the page stack ----
+    function go(newStack) {
+        if (newStack.join() === stack.join())
+            return
+        stack = newStack
+        activity()
+        updatePowerOff(true)
+        swap()
+    }
+    function open(p) { go(Setup.pushPage(stack, p)) }
+    function goBack() {
+        if (!backEnabled)
+            return
+        go(Setup.popPage(stack))
+    }
+    function replaceAll(p) { go([p]) }
+
+    // the cross-fade: out 150 ms, then the new page in over 250 ms
+    function swap() {
+        if (shownPage === "") {
+            shownPage = page
+            return
+        }
+        if (Motion.reduceMotion) {
+            shownPage = page
+            stageItem.opacity = 1
+            return
+        }
+        fadeInObj.stop()
+        fadeOutObj.restart()
+    }
+
+    SequentialAnimation {
+        id: fadeOutObj
+        NumberAnimation {
+            target: stageItem; property: "opacity"; to: Setup.fade.outTo
+            duration: Setup.fade.outMs
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: Setup.fade.outEasing.concat([1, 1])
+        }
+        ScriptAction {
+            script: {
+                config.shownPage = config.page
+                fadeInObj.restart()
+            }
         }
     }
-
-    function startGps() {
-        if (gpsReferenced)
-            return
-        gpsReferenced = true
-        gpsProvider.call("AddReference", undefined, undefined,
-                         function(error, message) {
-                             console.log("FirstRunConfig: GPS unavailable:", error, message)
-                             config.gpsReferenced = false
-                             config.gpsAvailable = false
-                         })
+    NumberAnimation {
+        id: fadeInObj
+        target: stageItem
+        property: "opacity"
+        from: Setup.fade.inFrom
+        to: 1
+        duration: Setup.fade.inMs
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: Setup.fade.inEasing.concat([1, 1])
     }
 
-    function stopGps() {
-        if (!gpsReferenced)
-            return
-        gpsReferenced = false
-        gpsProvider.call("RemoveReference", undefined)
-    }
+    // ---- the pages ----
+    Item {
+        id: stageObj
+        objectName: "setupStage"
+        anchors.fill: parent
 
-    function gpsStatusText() {
-        if (!gpsAvailable || gpsStatus === 0)
-            //% "Not available"
-            return qsTrId("id-gps-unavailable") + localeManager.changesObserver
-        var satellites = gpsFix && gpsSatellitesUsed > 0 ? gpsSatellitesUsed : gpsSatellitesVisible
-        if (gpsFix)
-            //% "Fix · %n satellite(s)"
-            return qsTrId("id-gps-fix", satellites) + localeManager.changesObserver
-        if (gpsWaitingForFix)
-            //% "Searching · %n satellite(s)"
-            return qsTrId("id-gps-waiting", satellites) + localeManager.changesObserver
-        //% "No fix · %n satellite(s)"
-        return qsTrId("id-gps-no-fix", satellites) + localeManager.changesObserver
-    }
+        // the swipe back follows the finger: the page moves right and shrinks as in a back transition
+        BackSwipeArea {
+            id: backAreaObj
+            anchors.fill: parent
+            swipeEnabled: config.backEnabled && !fadeOutObj.running
+            onStarted: {
+                backSpring.snapTo(backAreaObj.smoothedProgress)
+                config._dragging = true
+            }
+            onFinished: {
+                config._dragging = false
+                backSpring.snapTo(backAreaObj.smoothedProgress)
+                backSpring.animateTo(backAreaObj.committed ? 1 : 0, backAreaObj.smoothedVelocity)
+            }
 
-    function gpsSearchingState() {
-        return config.state === "LANGUAGE" || config.state === "LOCATION_SOURCE"
-    }
+            Item {
+                id: stageItem
+                objectName: "setupStageItem"
+                width: parent.width
+                height: parent.height
+                transform: Translate { x: config.backProgress * config.width }
 
-    // The provider checks the GNSS HAL once, when it starts. If it was asked
-    // before the HAL was up it stays in error, so let it go (it exits after
-    // 30 s without clients) and ask a fresh one.
-    Timer {
-        id: gpsRetry
-        interval: 35000
-        onTriggered: {
-            if (config.gpsSearchingState())
-                config.startGps()
-        }
-    }
-
-    Timer {
-        interval: 1000
-        repeat: true
-        triggeredOnStart: true
-        running: config.gpsSearchingState() && config.gpsReferenced
-        onTriggered: {
-            gpsProvider.call("GetStatus", undefined, function(status) {
-                config.gpsStatus = status
-                if (status === 0 && config.gpsReferenced) {
-                    config.stopGps()
-                    gpsRetry.restart()
+                Loader {
+                    id: pageLoaderObj
+                    objectName: "setupPageLoader"
+                    anchors.fill: parent
+                    sourceComponent: config.componentFor(config.shownPage)
                 }
-            })
-            firstRun.requestGpsSatellites()
-            gpsPositionDbus.call("GetPosition", undefined,
-                                 function(fields, timestamp, latitude, longitude) {
-                                     // fields: bit 0 latitude, bit 1 longitude
-                                     if ((fields & 3) !== 3 || timestamp <= 0)
-                                         return
-                                     config.gpsLatitude = latitude
-                                     config.gpsLongitude = longitude
-                                     config.gpsClockOffset = timestamp - Date.now() / 1000
-                                     config.gpsFix = true
-                                     if (config.gpsWaitingForFix)
-                                         config.applyGpsFix()
-                                 })
+            }
         }
     }
 
-    // Time zone, time and date from the GPS fix; the remaining pages then
-    // start pre-filled with them and only need confirming.
-    function applyGpsFix() {
-        if (gpsApplied || config.state !== "LOCATION_SOURCE")
-            return
-        var tz = firstRun.timezoneForPosition(gpsLatitude, gpsLongitude)
-        if (tz === "") {
-            chooseTimezoneManually()
+    property bool _dragging: false
+    readonly property real backProgress: _dragging ? backAreaObj.smoothedProgress : backSpring.value
+    WearSpring {
+        id: backSpring
+        stiffness: Motion.inAppBack.settle.stiffness
+        dampingRatio: Motion.inAppBack.settle.dampingRatio
+        visibilityThreshold: 0.002
+        onFinished: {
+            var popped = backSpring.value >= 0.99
+            backSpring.snapTo(0)
+            backAreaObj.reset()
+            if (popped)
+                config.goBack()
+        }
+    }
+
+    function componentFor(p) {
+        switch (p) {
+        case Setup.pages.charge: return chargePage
+        case Setup.pages.first: return firstPage
+        case Setup.pages.language: return languagePage
+        case Setup.pages.instructions: return instructionsPage
+        case Setup.pages.help: return helpPage
+        case Setup.pages.connecting: return connectingPage
+        case Setup.pages.place: return placePage
+        case Setup.pages.region: return regionPage
+        case Setup.pages.city: return cityPage
+        case Setup.pages.time: return timePage
+        case Setup.pages.date: return datePage
+        case Setup.pages.complete: return completePage
+        }
+        return null
+    }
+
+    Component {
+        id: chargePage
+        SetupCharge {
+            level: config.level
+            charging: config.charging
+        }
+    }
+    Component {
+        id: firstPage
+        SetupFirst {
+            displayOn: config.displayOn
+            active: config.displayOn && !config.codeUp
+            onChooseLanguage: config.open(Setup.pages.language)
+        }
+    }
+    Component {
+        id: languagePage
+        SetupList {
+            //% "Choose your language"
+            accessibleName: qsTrId("id-setup-your-language") + localeManager.changesObserver
+            entries: config.languages
+            onChosen: key => config.chooseLanguage(key)
+        }
+    }
+    Component {
+        id: instructionsPage
+        SetupInstructions {
+            watchName: config.watchName
+            onNeedHelp: config.open(Setup.pages.help)
+        }
+    }
+    Component { id: helpPage; SetupHelp { } }
+    Component {
+        id: connectingPage
+        SetupConnecting {
+            id: connecting
+            displayOn: config.displayOn
+            // the link is up and the first turn is shown: go on
+            readonly property bool ready: played && link.connected
+            onReadyChanged: if (ready) config.afterConnecting()
+        }
+    }
+    Component {
+        id: placePage
+        SetupList {
+            //% "Choose your time zone"
+            accessibleName: qsTrId("id-country-selection-hint") + localeManager.changesObserver
+            entries: [
+                //% "GPS"
+                { text: qsTrId("id-gps") + localeManager.changesObserver, sub: gpsObj.statusText(), key: "gps" },
+                //% "Country selection"
+                { text: qsTrId("id-country-selection") + localeManager.changesObserver,
+                  //% "Choose your time zone"
+                  sub: qsTrId("id-country-selection-hint") + localeManager.changesObserver, key: "list" }
+            ]
+            onChosen: key => config.choosePlace(key)
+        }
+    }
+    Component {
+        id: regionPage
+        SetupList {
+            accessibleName: qsTrId("id-country-selection-hint") + localeManager.changesObserver
+            entries: config.regionEntries()
+            onChosen: key => config.chooseRegion(key)
+        }
+    }
+    Component {
+        id: cityPage
+        SetupList {
+            accessibleName: qsTrId("id-country-selection-hint") + localeManager.changesObserver
+            entries: config.cityEntries(config.pendingRegion)
+            onChosen: key => config.chooseCity(key)
+        }
+    }
+    Component {
+        id: timePage
+        SetupTime {
+            hour: config.startTime().hour
+            minute: config.startTime().minute
+            onPicked: (h, m) => config.chooseTime(h, m)
+        }
+    }
+    Component {
+        id: datePage
+        SetupDate {
+            date: config.startDate()
+            onPicked: (y, m, d) => config.chooseDate(y, m, d)
+        }
+    }
+    Component {
+        id: completePage
+        SetupComplete {
+            onFinished: config.finish()
+        }
+    }
+
+    // the code screen is over the page, outside the stack
+    Loader {
+        id: codeLoaderObj
+        objectName: "setupCodeLoader"
+        anchors.fill: parent
+        active: config.codeUp
+        z: 5
+        sourceComponent: SetupCode {
+            kind: config.codeKind
+            code: config.codeValue
+            displayOn: config.displayOn
+            active: config.displayOn
+        }
+    }
+
+    // ---- the language ----
+    function buildLanguages() {
+        var rows = []
+        for (var i = 0; i < languageModel.rowCount(); i++) {
+            var ix = languageModel.index(i, 0)
+            rows.push({ name: languageModel.data(ix, LanguageModel.NameRole),
+                        locale: languageModel.data(ix, LanguageModel.LocaleRole),
+                        regionLabel: languageModel.data(ix, LanguageModel.RegionLabelRole) })
+        }
+        var ordered = Setup.languageList(rows, ["en_US", "en_GB"])
+        var entries = []
+        for (var j = 0; j < ordered.length; j++)
+            entries.push({ text: ordered[j].name, key: ordered[j].locale })
+        languages = entries
+    }
+
+    // a tap applies the language at once and goes to the instructions
+    function chooseLanguage(locale) {
+        languageModel.setSystemLocale(locale, LanguageModel.UpdateWithoutReboot)
+        open(Setup.pages.instructions)
+    }
+
+    // ---- pairing ----
+    function showCode(kind, value) {
+        codeKind = kind
+        codeValue = value
+        codeUp = true
+        activity()
+    }
+
+    function handleAgent() {
+        var st = bluetoothAgent.state
+        var action = Setup.agentAction(st, { bonded: bonded })
+        if (finished) {
             return
         }
-        gpsApplied = true
-        config.currentTz = tz
+        switch (action) {
+        case "show-accept":
+            showCode(Setup.codeKind(st), Setup.codeText(st, bluetoothAgent.passkey, bluetoothAgent.pinCode))
+            // the watch confirms its side itself (stock: the code screen has no buttons)
+            accepted = true
+            bondTimerObj.restart()
+            bluetoothAgent.userAccepts()
+            break
+        case "accept":
+            accepted = true
+            bondTimerObj.restart()
+            bluetoothAgent.userAccepts()
+            break
+        case "show":
+            showCode(Setup.codeKind(st), Setup.codeText(st, bluetoothAgent.passkey, bluetoothAgent.pinCode))
+            break
+        case "cancel":
+            bluetoothAgent.userCancels()
+            break
+        default:
+            // the agent is idle again: with a code showing that nobody answered, the phone ended it (a display
+            // only code is done on the phone's side: wait for the link as after an accept)
+            if (st === Setup.agent.Idle && codeUp && !accepted && !bonded) {
+                accepted = true
+                bondTimerObj.restart()
+            }
+        }
+    }
+
+    Connections {
+        target: bluetoothAgent
+        function onStateChanged() { config.handleAgent() }
+    }
+
+    // a failed bond: the code goes and the page before it is there again (pairing still possible)
+    function failBond() {
+        bondTimerObj.stop()
+        accepted = false
+        codeUp = false
+        activity()
+    }
+    // no link within bondWaitMs after the watch accepted: the bond failed
+    Timer {
+        id: bondTimerObj
+        interval: Setup.bondWaitMs
+        onTriggered: if (!config.bonded) config.failBond()
+    }
+
+    readonly property bool linkUp: link.connected === true
+    onLinkUpChanged: {
+        if (linkUp) {
+            if (accepted)
+                bondDone()
+            else if (!bonded && !finished && (page === Setup.pages.first || page === Setup.pages.language
+                                              || page === Setup.pages.instructions || page === Setup.pages.help))
+                linkTimerObj.restart()
+        } else {
+            linkTimerObj.stop()
+        }
+    }
+    onAcceptedChanged: if (accepted && linkUp) bondDone()
+    // a link with no pairing request: a phone that was bonded before (no code to show)
+    Timer {
+        id: linkTimerObj
+        interval: Setup.bondedLinkMs
+        onTriggered: {
+            if (config.linkUp && !config.bonded && !config.codeUp) {
+                config.accepted = true
+                config.bondDone()
+            }
+        }
+    }
+
+    function bondDone() {
+        if (bonded || finished)
+            return
+        bonded = true
+        bondTimerObj.stop()
+        linkTimerObj.stop()
+        codeUp = false
+        replaceAll(Setup.pages.connecting)
+    }
+
+    // the connecting page has run: the pages the phone could not fill in
+    function afterConnecting() {
+        queue = Setup.pagesAfterBond(zoneNow(), clockFromPhoneObj.value === true)
+        advance()
+    }
+    function advance() {
+        if (queue.length === 0)
+            return
+        var p = queue[0]
+        queue = queue.slice(1)
+        replaceAll(p)
+    }
+
+    // ---- place, time zone, time, date (setup-wizard-04) ----
+    property string pendingRegion: ""
+    property bool gpsApplied: false
+
+    function setZone(tz) {
+        currentTz = tz
         timedateDbus.typedCall("SetTimezone", [
             { "type": "s", "value": tz },
             { "type": "b", "value": false }
         ],
         function(result) { console.log("FirstRunConfig: time zone set to", tz) },
         function(error, message) { console.log("FirstRunConfig: SetTimezone failed:", error, message) })
-        stopGps()
-        selectCurrentRegion()
-        title.text = qsTrId("id-timezone-page") + localeManager.changesObserver
-        config.state = "TIMEZONE_REGION"
     }
 
-    function chooseTimezoneManually() {
-        gpsWaitingForFix = false
-        stopGps()
-        //% "Time Zone"
-        title.text = qsTrId("id-timezone-page") + localeManager.changesObserver
-        config.state = "TIMEZONE_REGION"
+    function choosePlace(key) {
+        if (key === "gps") {
+            if (!gpsObj.available || gpsObj.status === 0)
+                return
+            if (gpsObj.fix) {
+                applyGpsFix()
+            } else {
+                gpsObj.waitingForFix = true
+            }
+        } else {
+            gpsObj.waitingForFix = false
+            open(Setup.pages.region)
+        }
     }
 
-    // Local time now in the time zone picked so far: from the GPS clock after
-    // a fix, else from the system clock. The time and date pages are filled
-    // in when they are shown, not when the wizard was loaded.
+    // the time zone, and the clock's offset, from the fix; the next pages start filled in with them
+    function applyGpsFix() {
+        if (gpsApplied || page !== Setup.pages.place)
+            return
+        var tz = firstRun.timezoneForPosition(gpsObj.latitude, gpsObj.longitude)
+        if (tz === "") {
+            gpsObj.waitingForFix = false
+            open(Setup.pages.region)
+            return
+        }
+        gpsApplied = true
+        gpsObj.waitingForFix = false
+        setZone(tz)
+        advance()
+    }
+
+    function regionEntries() {
+        var allowlist = ["Africa", "America", "Antarctica", "Arctic", "Asia", "Atlantic", "Australia", "Europe", "Indian", "Pacific"]
+        var e = []
+        for (var i = 0; i < allowlist.length; i++)
+            e.push({ text: allowlist[i], key: allowlist[i] })
+        e.push({ text: "Zulu", key: "Zulu" })
+        return e
+    }
+    function cityEntries(region) {
+        var e = []
+        var prefix = region + "/"
+        for (var i = 0; i < timezoneList.length; i++) {
+            var tz = timezoneList[i]
+            if (tz.indexOf(prefix) === 0)
+                e.push({ text: tz.substring(prefix.length).replace(/_/g, " "), key: tz })
+        }
+        return e
+    }
+    function chooseRegion(key) {
+        if (key === "Zulu") {
+            setZone("Zulu")
+            advance()
+            return
+        }
+        pendingRegion = key
+        open(Setup.pages.city)
+    }
+    function chooseCity(tz) {
+        setZone(tz)
+        advance()
+    }
+
+    // local time now in the zone picked so far (the GPS clock after a fix, else the system clock)
     function localNow() {
-        if (config.currentTz === "")
+        if (currentTz === "")
             return null
-        var offset = gpsApplied ? gpsClockOffset : 0
-        var local = firstRun.localDateTime(config.currentTz, Math.round(Date.now() / 1000 + offset))
-        return local.hour === undefined ? null : local
+        var offset = gpsApplied ? gpsObj.clockOffset : 0
+        var local = firstRun.localDateTime(currentTz, Math.round(Date.now() / 1000 + offset))
+        return local && local.hour !== undefined ? local : null
     }
 
-    function prefillTime() {
-        var local = localNow()
-        if (!local)
+    // where the pickers start: the zone's local time now, else the system clock
+    function startTime() {
+        var l = localNow()
+        return l ? { hour: l.hour, minute: l.minute }
+                 : { hour: wallClock.time.getHours(), minute: wallClock.time.getMinutes() }
+    }
+    function startDate() {
+        var l = localNow()
+        return l ? new Date(l.year, l.month - 1, l.day) : new Date()
+    }
+
+    function chooseTime(h, m) {
+        dtSettings.setTime(h, m)
+        advance()
+    }
+    function chooseDate(y, m, d) {
+        dtSettings.setDate(new Date(y, m - 1, d))
+        advance()
+    }
+
+    // ---- the end ----
+    function finish() {
+        if (finished)
             return
-        var hour = local.hour
-        if (use12H.value) {
-            amPmLV.currentIndex = Math.floor(hour / 12)
-            hour = hour % 12
-        }
-        hourLV.currentIndex = hour
-        minuteLV.currentIndex = local.minute
+        finished = true
+        console.log("FirstRunConfig: setup complete, wrist orientation mode", orientation.value)
+        firstRun.finishSetup()
+        // the completion cue: the sound (3.05 s) and the 200/50/50/50 ms vibration (ngfd event, W3-launcher-setup draft)
+        Haptics.play("eos_setup_complete")
+        done()
     }
 
-    function prefillDate() {
-        var local = localNow()
-        if (!local)
+    // ---- the display policy ----
+    property real lastActivity: 0
+    property real armedAt: 0
+
+    // a setup screen opened or was touched: hold the display on for 360 s from now
+    function activity() {
+        lastActivity = Date.now()
+        if (!displayOn || finished)
             return
-        dayLV.currentIndex = local.day - 1
-        monthLV.currentIndex = local.month - 1
-        yearLV.currentIndex = local.year - 2000
-    }
-
-    ListModel {
-        id: regionModel
-        Component.onCompleted: {
-            config.currentTz = dtSettings.currentTimezone()
-            timedateDbus.call("ListTimezones", undefined, function(m) {
-                config.timezoneList = m
-            })
+        if (!held) {
+            held = true
+            firstRun.keepScreenOn(true)
         }
+        screenTimerObj.restart()
     }
-
-    ListModel { id: cityModel }
-
-    Spinner {
-        id: regionLV
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: title.bottom
-        height: Dims.h(60)
-        model: regionModel
-        visible: config.state == "TIMEZONE_REGION"
-        enabled: visible
-
-        delegate: SpinnerDelegate { text: visualName }
-    }
-
-    Spinner {
-        id: cityLV
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: title.bottom
-        height: Dims.h(60)
-        model: cityModel
-        visible: config.state == "TIMEZONE_CITY"
-        enabled: visible
-
-        delegate: SpinnerDelegate { text: visualName }
-    }
-
-    // A tappable row with an icon, a title and a status line underneath.
-    component SetupOption: Item {
-        id: option
-        property alias iconName: optionIcon.name
-        property alias title: optionTitle.text
-        property alias subtitle: optionSubtitle.text
-        signal clicked()
-
-        width: parent ? parent.width : 0
-        height: Dims.h(24)
-
-        HighlightBar { onClicked: option.clicked() }
-
-        Icon {
-            id: optionIcon
-            width: Dims.h(13)
-            height: width
-            anchors {
-                verticalCenter: parent.verticalCenter
-                left: parent.left
-                leftMargin: DeviceSpecs.hasRoundScreen ? Dims.w(16) : Dims.w(10)
-            }
-        }
-
-        Column {
-            anchors {
-                verticalCenter: parent.verticalCenter
-                left: optionIcon.right
-                leftMargin: Dims.w(4)
-                right: parent.right
-                // the rows sit near the middle, where a round screen is widest
-                rightMargin: DeviceSpecs.hasRoundScreen ? Dims.w(8) : Dims.w(6)
-            }
-            Label {
-                id: optionTitle
-                width: parent.width
-                font.pixelSize: Dims.l(8)
-                fontSizeMode: Text.HorizontalFit
-                minimumPixelSize: Dims.l(6)
-                elide: Text.ElideRight
-            }
-            Label {
-                id: optionSubtitle
-                width: parent.width
-                font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
-                fontSizeMode: Text.HorizontalFit
-                minimumPixelSize: Dims.l(4)
-                opacity: 0.75
-                elide: Text.ElideRight
-            }
+    // mce is holding the display on for us
+    property bool held: false
+    Timer {
+        id: screenTimerObj
+        objectName: "setupScreenTimer"
+        interval: Setup.screenOnSeconds * 1000
+        onTriggered: {
+            config.held = false
+            firstRun.keepScreenOn(false)
         }
     }
 
-    // Where the time zone comes from: the GPS fix, or picking a region by hand.
-    Column {
-        id: locationSource
-        anchors {
-            left: parent.left
-            right: parent.right
-            verticalCenter: parent.verticalCenter
-        }
-        visible: config.state === "LOCATION_SOURCE"
-        enabled: visible
+    // exact wake-up alarm for the idle power-off; 0 cancels
+    function updatePowerOff(force) {
+        var now = Date.now()
+        if (!force && !Setup.rearm(now, armedAt))
+            return
+        var s = Setup.powerOffSeconds(charging, finished || bonded)
+        armedAt = s > 0 ? now : 0
+        firstRun.armIdlePowerOff(s)
+    }
+    onChargingChanged: updatePowerOff(true)
 
-        SetupOption {
-            iconName: config.gpsFix ? "ios-navigate" : "ios-navigate-outline"
-            //% "GPS"
-            title: qsTrId("id-gps") + localeManager.changesObserver
-            subtitle: config.gpsStatusText()
-            onClicked: {
-                if (!config.gpsAvailable || config.gpsStatus === 0)
-                    return
-                if (config.gpsFix) {
-                    config.applyGpsFix()
-                } else {
-                    config.gpsWaitingForFix = true
-                    config.startGps()
-                }
-            }
-        }
-
-        SetupOption {
-            iconName: "ios-globe-outline"
-            //% "Country selection"
-            title: qsTrId("id-country-selection") + localeManager.changesObserver
-            //% "Choose your time zone"
-            subtitle: qsTrId("id-country-selection-hint") + localeManager.changesObserver
-            onClicked: config.chooseTimezoneManually()
+    // the display went dark: stop holding it; it came back: hold again, and the pairing pages start again
+    // at the first screen unless a code is showing
+    onDisplayOnChanged: {
+        if (!displayOn) {
+            screenTimerObj.stop()
+            held = false
+            firstRun.keepScreenOn(false)
+        } else {
+            activity()
+            if (!codeUp && !bonded && !finished
+                    && (page === Setup.pages.language || page === Setup.pages.instructions || page === Setup.pages.help))
+                replaceAll(Setup.pages.first)
         }
     }
 
-    PageHeader {
-        id: title
-        //% "Language"
-        text: qsTrId("id-language-page") + localeManager.changesObserver
+    // the low battery gate ends when the level is 20 % or more (by the battery signal)
+    onLevelChanged: {
+        if (page === Setup.pages.charge && !Setup.gateNeeded(level, batteryLevel.valid))
+            replaceAll(Setup.pages.first)
     }
 
-    IconButton {
-        id: nextButton
-        iconName: "ios-arrow-dropright"
-        // the location page is answered by tapping one of its two options
-        visible: config.state !== "LOCATION_SOURCE"
-        anchors {
-            bottom: parent.bottom
-            horizontalCenter: parent.horizontalCenter
-            bottomMargin: Dims.iconButtonMargin
-        }
-        onClicked: {
-            switch(config.state) {
-                case "LANGUAGE":
-                    var locale = langSettings.locale(langLV.currentIndex)
-                    langSettings.setSystemLocale(locale, LanguageModel.UpdateWithoutReboot)
-
-                    //% "Location"
-                    title.text = qsTrId("id-location-page") + localeManager.changesObserver
-
-                    config.state = "LOCATION_SOURCE";
-                    break;
-                case "TIMEZONE_REGION":
-                    var selectedEntry = regionModel.get(regionLV.currentIndex)
-                    if (selectedEntry.isLeaf) {
-                        config.currentTz = selectedEntry.fullPath
-                        timedateDbus.typedCall("SetTimezone", [
-                            { "type": "s", "value": selectedEntry.fullPath },
-                            { "type": "b", "value": false }
-                        ],
-                        function(result) { console.log("FirstRunConfig: time zone set to", selectedEntry.fullPath) },
-                        function(error, message) { console.log("FirstRunConfig: SetTimezone failed:", error, message) })
-
-                        //% "Time"
-                        title.text = qsTrId("id-time-page") + localeManager.changesObserver
-
-                        config.state = "TIME";
-                        config.prefillTime();
-                    } else {
-                        config.pendingRegion = selectedEntry.name
-                        buildCityModel(config.pendingRegion)
-                        title.text = qsTrId("id-timezone-page") + localeManager.changesObserver
-                        config.state = "TIMEZONE_CITY";
-                    }
-                    break;
-                case "TIMEZONE_CITY":
-                    var tzName = cityModel.get(cityLV.currentIndex).fullPath
-                    config.currentTz = tzName
-                    timedateDbus.typedCall("SetTimezone", [
-                        { "type": "s", "value": tzName },
-                        { "type": "b", "value": false }
-                    ],
-                    function(result) { console.log("FirstRunConfig: time zone set to", tzName) },
-                    function(error, message) { console.log("FirstRunConfig: SetTimezone failed:", error, message) })
-
-                    //% "Time"
-                    title.text = qsTrId("id-time-page") + localeManager.changesObserver
-
-                    config.state = "TIME";
-                    config.prefillTime();
-                    break;
-                case "TIME":
-                    var hour = hourLV.currentIndex;
-                    if(use12H.value)
-                        hour += amPmLV.currentIndex*12;
-                    dtSettings.setTime(hour, minuteLV.currentIndex)
-                    
-                    //% "Date"
-                    title.text = qsTrId("id-date-page") + localeManager.changesObserver
-                    
-                    config.state = "DATE";
-                    config.prefillDate();
-                    break;
-                case "DATE":
-                    var date = new Date();
-                    date.setDate(dayLV.currentIndex+1)
-                    date.setMonth(monthLV.currentIndex)
-                    date.setFullYear(yearLV.currentIndex+2000)
-                    dtSettings.setDate(date)
-                    
-                    config.destroy()
-                    break;
-                default:
-                    console.log("FirstRunConfig: Unhandled state detected");
-            }
-        }
+    // a touch is somebody being there (passive: it takes nothing from the pages)
+    PointHandler {
+        acceptedDevices: PointerDevice.TouchScreen | PointerDevice.Mouse
+        grabPermissions: PointerHandler.ApprovesTakeOverByAnything
+        onActiveChanged: if (active) { config.activity(); config.updatePowerOff(false) }
     }
 }

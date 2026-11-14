@@ -139,9 +139,23 @@ set(QML_FILES
 	qml/quickpanel/ModeDialog.qml
 	qml/quickpanel/StatusTray.qml
 	qml/quickpanel/qs.js
-	qml/firstrun/FakeAlarmclock.qml
 	qml/firstrun/FirstRunConfig.qml
+	qml/firstrun/SetupCharge.qml
+	qml/firstrun/SetupCheck.qml
+	qml/firstrun/SetupCode.qml
+	qml/firstrun/SetupComplete.qml
+	qml/firstrun/SetupConnecting.qml
+	qml/firstrun/SetupDate.qml
+	qml/firstrun/SetupFirst.qml
+	qml/firstrun/SetupGps.qml
+	qml/firstrun/SetupHelp.qml
+	qml/firstrun/SetupInstructions.qml
+	qml/firstrun/SetupList.qml
+	qml/firstrun/SetupTime.qml
 	qml/firstrun/Tutorial.qml
+	qml/firstrun/TutorialHint.qml
+	qml/firstrun/setup.js
+	qml/firstrun/tutorial.js
 	qml/compositor/KeyRouter.qml
 	qml/compositor/keymap.js
 	qml/compositor/lifecycle.js
@@ -211,6 +225,23 @@ set_source_files_properties(qml/system/ThermalUi.qml                 PROPERTIES 
 set_source_files_properties(qml/system/thermal.js                    PROPERTIES QT_RESOURCE_ALIAS system/thermal.js)
 set_source_files_properties(qml/system/smartlinks.js                 PROPERTIES QT_RESOURCE_ALIAS system/smartlinks.js)
 set_source_files_properties(qml/misc/desktop.js                      PROPERTIES QT_RESOURCE_ALIAS desktop.js)
+set_source_files_properties(qml/firstrun/FirstRunConfig.qml         PROPERTIES QT_RESOURCE_ALIAS firstrun/FirstRunConfig.qml)
+set_source_files_properties(qml/firstrun/SetupCharge.qml            PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupCharge.qml)
+set_source_files_properties(qml/firstrun/SetupCheck.qml             PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupCheck.qml)
+set_source_files_properties(qml/firstrun/SetupCode.qml              PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupCode.qml)
+set_source_files_properties(qml/firstrun/SetupComplete.qml          PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupComplete.qml)
+set_source_files_properties(qml/firstrun/SetupConnecting.qml        PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupConnecting.qml)
+set_source_files_properties(qml/firstrun/SetupDate.qml              PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupDate.qml)
+set_source_files_properties(qml/firstrun/SetupFirst.qml             PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupFirst.qml)
+set_source_files_properties(qml/firstrun/SetupGps.qml               PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupGps.qml)
+set_source_files_properties(qml/firstrun/SetupHelp.qml              PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupHelp.qml)
+set_source_files_properties(qml/firstrun/SetupInstructions.qml      PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupInstructions.qml)
+set_source_files_properties(qml/firstrun/SetupList.qml              PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupList.qml)
+set_source_files_properties(qml/firstrun/SetupTime.qml              PROPERTIES QT_RESOURCE_ALIAS firstrun/SetupTime.qml)
+set_source_files_properties(qml/firstrun/Tutorial.qml               PROPERTIES QT_RESOURCE_ALIAS firstrun/Tutorial.qml)
+set_source_files_properties(qml/firstrun/TutorialHint.qml           PROPERTIES QT_RESOURCE_ALIAS firstrun/TutorialHint.qml)
+set_source_files_properties(qml/firstrun/setup.js                   PROPERTIES QT_RESOURCE_ALIAS firstrun/setup.js)
+set_source_files_properties(qml/firstrun/tutorial.js                PROPERTIES QT_RESOURCE_ALIAS firstrun/tutorial.js)
 set_source_files_properties(qml/misc/tray.js                         PROPERTIES QT_RESOURCE_ALIAS tray.js)
 set_source_files_properties(qml/misc/pager.js                        PROPERTIES QT_RESOURCE_ALIAS pager.js)
 set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES QT_RESOURCE_ALIAS AppDrawer.qml)
@@ -281,9 +312,6 @@ set_source_files_properties(qml/quickpanel/QuickPanelToggle.qml      PROPERTIES 
 set_source_files_properties(qml/quickpanel/ModeDialog.qml            PROPERTIES QT_RESOURCE_ALIAS ModeDialog.qml)
 set_source_files_properties(qml/quickpanel/StatusTray.qml            PROPERTIES QT_RESOURCE_ALIAS StatusTray.qml)
 set_source_files_properties(qml/quickpanel/qs.js                     PROPERTIES QT_RESOURCE_ALIAS qs.js)
-set_source_files_properties(qml/firstrun/FakeAlarmclock.qml          PROPERTIES QT_RESOURCE_ALIAS FakeAlarmclock.qml)
-set_source_files_properties(qml/firstrun/FirstRunConfig.qml          PROPERTIES QT_RESOURCE_ALIAS FirstRunConfig.qml)
-set_source_files_properties(qml/firstrun/Tutorial.qml                PROPERTIES QT_RESOURCE_ALIAS Tutorial.qml)
 set_source_files_properties(qml/compositor/KeyRouter.qml                  PROPERTIES QT_RESOURCE_ALIAS compositor/KeyRouter.qml)
 set_source_files_properties(qml/compositor/keymap.js                      PROPERTIES QT_RESOURCE_ALIAS compositor/keymap.js)
 set_source_files_properties(qml/compositor/lifecycle.js                   PROPERTIES QT_RESOURCE_ALIAS compositor/lifecycle.js)

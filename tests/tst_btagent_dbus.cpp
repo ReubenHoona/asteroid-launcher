@@ -22,6 +22,8 @@
 #include <QDBusObjectPath>
 #include <QDBusVariant>
 #include <QEventLoop>
+#include <QMap>
+#include <QStringList>
 #include <QTimer>
 #include <QVariantMap>
 
@@ -69,6 +71,30 @@ class FakeManager : public QObject
 public slots:
     void RegisterAgent(const QDBusObjectPath &, const QString &) {}
     void RequestDefaultAgent(const QDBusObjectPath &) {}
+};
+
+// a fake mce on /com/nokia/mce/request: get_config and set_config over a map, with a record of what was set
+// (W3-launcher-setup, setup-wizard-05: the pairing window gives back what mce had, not a fixed 0)
+class FakeMce : public QObject
+{
+    Q_OBJECT
+    Q_CLASSINFO("D-Bus Interface", "com.nokia.mce.request")
+public:
+    QMap<QString, int> values;
+    QStringList sets;
+public slots:
+    QDBusVariant get_config(const QDBusObjectPath &key)
+    {
+        return QDBusVariant(values.value(key.path(), 0));
+    }
+    bool set_config(const QString &key, const QDBusVariant &value)
+    {
+        values[key] = value.variant().toInt();
+        sets << key + QLatin1Char('=') + QString::number(values[key]);
+        return true;
+    }
+    void req_display_state_on() {}
+    void req_tklock_mode_change(const QString &) {}
 };
 
 static void spin(int ms)
@@ -172,6 +198,55 @@ int main(int argc, char **argv)
     CHECK(agent.deviceName() == QLatin1String("Pixel 8"));
     agent.userCancels();
     agent.setWindowVisible(false);
+
+    // ---- the display hold of the pairing window (setup-wizard-05): mce's value is given back, not a fixed 0
+    FakeMce mce;
+    CHECK(bus.registerService(QStringLiteral("com.nokia.mce")));
+    CHECK(bus.registerObject(QStringLiteral("/com/nokia/mce/request"), &mce, QDBusConnection::ExportAllSlots));
+    const QString inhibit = QStringLiteral("/system/osso/dsm/display/inhibit_blank_mode");
+
+    // before: the display may blank (0): the window holds it on (3) and gives 0 back
+    mce.values[inhibit] = 0;
+    mce.sets.clear();
+    agent.DisplayPasskey(QDBusObjectPath(devPath), 11, 0);
+    spin(300);
+    CHECK(mce.values.value(inhibit) == 3);
+    agent.userCancels();
+    agent.setWindowVisible(false);
+    spin(300);
+    CHECK(mce.values.value(inhibit) == 0);
+
+    // before: something holds the display already (the setup, "screen never off": 3): nothing is written,
+    // and 3 stays when the window closes
+    mce.values[inhibit] = 3;
+    mce.sets.clear();
+    agent.DisplayPasskey(QDBusObjectPath(devPath), 12, 0);
+    spin(300);
+    agent.userCancels();
+    agent.setWindowVisible(false);
+    spin(300);
+    CHECK(mce.values.value(inhibit) == 3);
+    CHECK(mce.sets.filter(inhibit).isEmpty());
+
+    // another value (a held dim, 4) is given back as it was
+    mce.values[inhibit] = 4;
+    mce.sets.clear();
+    agent.DisplayPasskey(QDBusObjectPath(devPath), 13, 0);
+    spin(300);
+    CHECK(mce.values.value(inhibit) == 3);
+    agent.userCancels();
+    agent.setWindowVisible(false);
+    spin(300);
+    CHECK(mce.values.value(inhibit) == 4);
+
+    // a window that closes at once (before mce answered) writes nothing it would have to undo
+    mce.values[inhibit] = 0;
+    mce.sets.clear();
+    agent.DisplayPasskey(QDBusObjectPath(devPath), 14, 0);
+    agent.userCancels();
+    agent.setWindowVisible(false);
+    spin(300);
+    CHECK(mce.values.value(inhibit) == 0);
 
     printf("%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;

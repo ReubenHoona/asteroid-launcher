@@ -41,9 +41,26 @@ class FirstRun : public QObject
 public:
     FirstRun();
 
+    // The setup wizard has not been finished (the keys only wake, no pairing request is taken but the
+    // setup's own); the tutorial that follows it is separate (tutorialPending).
     Q_INVOKABLE bool isFirstRun();
     Q_INVOKABLE void startFirstRun();
-    Q_INVOKABLE void stopFirstRun();
+    // "Setup complete": the setup is done (firstRunDone), the display hold and the idle power-off are
+    // released, the tutorial is pending. Stock holds the display on for 360 s per setup screen
+    // (keepScreenOn), not for the whole run.
+    Q_INVOKABLE void finishSetup();
+    Q_INVOKABLE bool tutorialPending();
+    Q_INVOKABLE void finishTutorial();
+
+    // Hold the display on (mce inhibit_blank_mode 3) or let mce's normal timeout run again (0). One call
+    // when the hold starts or ends; the QML side keeps the 360 s single shot timer.
+    Q_INVOKABLE void keepScreenOn(bool on);
+    // The idle power-off of setup (stock AutoShutdownDueToWelcomeTimeout): one exact wake-up alarm of
+    // timed that runs `systemctl poweroff` in `seconds`; any earlier one of this kind is replaced; 0 or
+    // less cancels it. No periodic timer: the alarm wakes the device itself.
+    Q_INVOKABLE void armIdlePowerOff(int seconds);
+    // What the phone app lists: the BlueZ adapter alias, else the host name.
+    Q_INVOKABLE QString bluetoothName() const;
 
     // Time zone whose reference location (tzdata zone1970.tab) is nearest to
     // the given position, e.g. "Europe/Paris"; empty if none is known.
@@ -65,6 +82,7 @@ signals:
 private:
     QDBusInterface *m_mceDbus;
     MDConfItem *firstRunDone;
+    MDConfItem *m_tutorialPending;
 };
 
 #endif // FIRSTRUN_H

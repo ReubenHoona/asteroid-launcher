@@ -34,6 +34,7 @@ import org.nemomobile.lipstick
 import org.asteroid.controls
 import "../desktop.js" as Desktop
 import "../tiles"
+import "../firstrun"
 import ".."
 
 /* What opens over the home screen (split out of MainScreen.qml): the app
@@ -69,20 +70,41 @@ Item {
         displayOn: !Lipstick.compositor.displayAmbient
     }
 
+    // the setup wizard (firstrun/FirstRunConfig.qml); an ambient display keeps showing its last frame, which
+    // would be a frozen-looking wizard: the ambient watchface below shows instead
     Component {
         id: firstRunComponent
-        Item {
-            anchors.fill: parent
+        FirstRunConfig {
             z: 8
-            // An ambient display keeps showing its last frame, which would be
-            // a frozen-looking wizard: show the ambient watchface below instead
             visible: !Lipstick.compositor.displayAmbient
-            Tutorial { }
-            FirstRunConfig { }
+            // awake: the display is on, not off and not the always-on screen (the setup restarts at the first
+            // screen on each wake, the animations stop with the display)
+            displayOn: desktop.displayAwake && !Lipstick.compositor.displayAmbient
+        }
+    }
+    // the navigation tutorial, an interactive coach over the home screen (firstrun/Tutorial.qml)
+    Component {
+        id: tutorialComponent
+        Tutorial {
+            z: 8
+            visible: !Lipstick.compositor.displayAmbient
+            // awake: the display is on, not off and not the always-on screen (the setup restarts at the first
+            // screen on each wake, the animations stop with the display)
+            displayOn: desktop.displayAwake && !Lipstick.compositor.displayAmbient
         }
     }
     function startFirstRun() {
-        firstRunComponent.createObject(overlays)
+        var setup = firstRunComponent.createObject(overlays)
+        setup.done.connect(function () {
+            setup.destroy()
+            startTutorial()
+        })
+    }
+    function startTutorial() {
+        if (!firstRun.tutorialPending())
+            return
+        var coach = tutorialComponent.createObject(overlays)
+        coach.done.connect(function () { coach.destroy() })
     }
 
     // the face picker goes without applying (an application or the assistant came up)

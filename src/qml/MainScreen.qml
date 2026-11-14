@@ -344,6 +344,8 @@ Item {
         lipstickSettings.lockScreen(true)
         if(firstRun.isFirstRun())
             overlays.startFirstRun()
+        else if (firstRun.tutorialPending())
+            overlays.startTutorial()
     }
 
     // the clock of the watch face (FaceLayer.checkSeconds); its id is the
