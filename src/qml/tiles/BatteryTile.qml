@@ -4,25 +4,32 @@
  */
 
 import QtQuick
-import QtQuick.Shapes
 import Nemo.DBus
 import Nemo.Mce
 import org.asteroid.controls
 
 /*
  * The watch's battery and the phone's. Stock Wear OS has no battery tile
- * (its battery shows in quick settings and Settings > Battery: the
- * percentage on a ring, "Charging" while it charges); this is that ring,
- * as the steps tile's, with the phone's battery under it as the quick
- * settings' phone toggle shows it (asteroid-btsyncd's phone status). The
- * phone is asked when the tile comes on screen and followed while it shows.
+ * (its battery is in quick settings and Settings > Battery); the user keeps
+ * ours, in the add list only (DECISIONS Q27, tiles-individual-30,
+ * charging-battery-24). It wears the stock frame: the carousel's app icon
+ * on top, the title in white, the watch in one stadium data card (a ring of
+ * the level, the percentage and "Charging" / "Charged" / "Watch") and the
+ * phone's level as the bottom text, as the quick settings' phone toggle
+ * shows it (asteroid-btsyncd's phone status). A tap on the card opens
+ * Settings > Battery (page "battery"). The phone is asked when the tile
+ * comes on screen and followed while it shows.
  */
 TileBase {
     id: tile
     //% "Battery"
     title: qsTrId("id-tile-battery") + localeManager.changesObserver
-    accent: "#c3e88d"
-    onClicked: desktop.launchByName("asteroid-settings", tile)
+    backgroundTap: false
+    //% "Phone"
+    bottomLabel: (tile.phoneConnected && tile.phoneLevel >= 0 ? qsTrId("id-tile-phone")
+                                                               //% "Phone not connected"
+                                                               : qsTrId("id-tile-phone-disconnected")) + localeManager.changesObserver
+    bottomValue: tile.phoneConnected && tile.phoneLevel >= 0 ? tile.phoneLevel + "%" : ""
 
     MceBatteryLevel { id: mceLevel }
     MceBatteryState { id: mceState }
@@ -57,66 +64,60 @@ TileBase {
         }
     }
 
-    Item {
-        id: ring
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        anchors.topMargin: Math.round(tile.height * 0.01)
-        width: Math.round(tile.height * 0.46)
-        height: width
-        readonly property real stroke: Math.round(tile.height * 0.028)
-        readonly property color fill: tile.low ? Theme.color.error : tile.accent
+    // the watch: one stadium data card, ring left, level and state right
+    TileCard {
+        id: card
+        objectName: "batteryCard"
+        width: tile.body.width
+        height: Math.min(Theme.dp(60), tile.body.height)
+        anchors.verticalCenter: parent.verticalCenter
+        containerColor: Theme.color.surfaceContainer
+        contentColor: Theme.color.onSurface
+        accessibleName: tile.title
+        onClicked: desktop.openSettings("battery")
 
-        Shape {
-            anchors.fill: parent
-            preferredRendererType: Shape.CurveRenderer
-            ShapePath {
-                fillColor: "transparent"
-                strokeColor: "#33ffffff"
-                strokeWidth: ring.stroke
-                capStyle: ShapePath.RoundCap
-                PathAngleArc {
-                    centerX: ring.width / 2; centerY: ring.height / 2
-                    radiusX: (ring.width - ring.stroke) / 2; radiusY: radiusX
-                    startAngle: 135; sweepAngle: 270
-                }
-            }
-            ShapePath {
-                fillColor: "transparent"
-                strokeColor: ring.fill
-                strokeWidth: ring.stroke
-                capStyle: ShapePath.RoundCap
-                PathAngleArc {
-                    centerX: ring.width / 2; centerY: ring.height / 2
-                    radiusX: (ring.width - ring.stroke) / 2; radiusY: radiusX
-                    startAngle: 135; sweepAngle: Math.max(0.5, 270 * Math.max(0, tile.percent) / 100)
-                }
-            }
+        CircularProgressIndicator {
+            id: ring
+            objectName: "batteryRing"
+            x: Theme.dp(6)
+            anchors.verticalCenter: parent.verticalCenter
+            width: Theme.dp(48)
+            height: width
+            displayOn: tile.awake
+            color: tile.low ? Theme.color.error : Theme.color.primary
+            trackColor: Theme.color.surfaceContainerHigh
+            progress: Math.max(0, tile.percent) / 100
         }
-
         Column {
-            anchors.centerIn: parent
+            x: ring.x + ring.width + Theme.dp(10)
+            anchors.verticalCenter: parent.verticalCenter
+            width: parent.width - x - Theme.dp(14)
             Row {
-                anchors.horizontalCenter: parent.horizontalCenter
-                spacing: Math.round(tile.width * 0.005)
+                spacing: Theme.dp(2)
                 Icon {
                     anchors.verticalCenter: parent.verticalCenter
                     visible: tile.charging
                     name: "ios-flash"
-                    color: ring.fill
-                    width: Math.round(tile.height * 0.065)
+                    color: Theme.color.primary
+                    width: Theme.dp(12)
                     height: width
                 }
                 Label {
+                    objectName: "batteryPercent"
                     text: tile.percent >= 0 ? tile.percent + "%" : "--"
-                    font.pixelSize: Math.round(tile.height * 0.11)
-                    font.styleName: "SemiCondensed Medium"
+                    role: "displaySmall"
+                    font.weight: Font.Medium
+                    font.features: Theme.tabularNumerals
+                    color: tile.low ? Theme.color.error : Theme.color.onSurface
+                    maximumLineCount: 1
                 }
             }
             Label {
-                anchors.horizontalCenter: parent.horizontalCenter
-                opacity: 0.7
-                font.pixelSize: Math.round(tile.height * 0.045)
+                objectName: "batteryState"
+                width: parent.width
+                role: "bodyMedium"
+                color: Theme.color.onSurfaceVariant
+                maximumLineCount: 1
                 //% "Charging"
                 text: (tile.charging ? qsTrId("id-tile-charging")
                                      //% "Charged"
@@ -124,44 +125,6 @@ TileBase {
                                                  //% "Watch"
                                                  : qsTrId("id-tile-watch")) + localeManager.changesObserver
             }
-        }
-    }
-
-    // the phone, as the quick settings' toggle: its battery, or not connected
-    Row {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: ring.bottom
-        anchors.topMargin: Math.round(tile.height * 0.035)
-        spacing: Math.round(tile.width * 0.02)
-        Icon {
-            anchors.verticalCenter: parent.verticalCenter
-            name: "ios-phone-portrait"
-            width: Math.round(tile.height * 0.07)
-            height: width
-            opacity: tile.phoneConnected ? 1 : 0.6
-        }
-        Label {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: tile.phoneConnected && tile.phoneLevel >= 0
-            text: tile.phoneLevel + "%"
-            font.pixelSize: Math.round(tile.height * 0.07)
-            font.styleName: "SemiCondensed Medium"
-        }
-        Icon {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: tile.phoneConnected && tile.phoneCharging
-            name: "ios-flash"
-            color: tile.accent
-            width: Math.round(tile.height * 0.05)
-            height: width
-        }
-        Label {
-            anchors.verticalCenter: parent.verticalCenter
-            visible: !tile.phoneConnected || tile.phoneLevel < 0
-            opacity: 0.7
-            font.pixelSize: Math.round(tile.height * 0.05)
-            //% "Phone not connected"
-            text: (tile.phoneConnected ? "--" : qsTrId("id-tile-phone-disconnected")) + localeManager.changesObserver
         }
     }
 }

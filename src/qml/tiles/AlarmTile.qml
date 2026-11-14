@@ -7,248 +7,219 @@ import QtQuick
 import Nemo.Alarms
 import Nemo.Configuration
 import org.asteroid.controls
+import "clocklogic.js" as Clock
 
 /*
- * The watch's alarms (timed's, as asteroid-alarmclock sets them and the
- * alarm presenter rings them), as the stock Clock tile: the next alarm to
- * ring and the one after it, each with its days and a switch that turns it
- * on or off where it is; the time to the next ring. A tap or the chip opens
- * the alarm clock. Read when the tile shows and when the alarms change
- * (no timer: the time left is worked out when the tile comes on screen).
+ * The Alarm tile, as stock Clock's (hnv.java:44-210, hnw.java:37-56): the
+ * title "Alarm" and three states.
+ *  - next alarm: one filled card (primary / onPrimary, corner 26 dp, 14 dp
+ *    side and 12 dp top and bottom padding) for the alarm that rings next:
+ *    its repeat text ("One time", the days, "Every day") with the alarm icon
+ *    at the end, 8 dp, and the time at 40 sp weight 500 in tabular figures
+ *    with the locale's AM/PM after it. A tap on the card opens the alarm
+ *    clock; the green edge button "+" (Add alarm) opens its new-alarm picker.
+ *    No switches, no "In 2 h" line, no second alarm.
+ *  - none on: one filled button "Set new alarm" (52 dp tall, stadium) that
+ *    opens the picker; no edge button.
+ *  - snoozed (the alarm presenter re-armed it with the snooze trigger): a
+ *    data card "Snoozed", the time it rings again and "was 7:00 AM", and the
+ *    edge button "Open".
+ * Each card is its own click target (tiles-individual-32); a tap on empty
+ * black does nothing.
+ *
+ * The alarms are timed's, as the alarm clock sets them. The tile reads them
+ * when it comes on screen and when they change; there is no timer (the
+ * snooze is read from the trigger time that timed holds).
+ *
+ * Opening a page of the alarm clock: the tile writes dconf
+ * /org/asteroidos/alarmclock/open as "<route>@<ms>" before it starts the
+ * program, the way Settings is asked for a page (ui/open). Routes: "new"
+ * (the time picker of a new alarm) and "alarm:<id>" (an alarm's own page).
+ * The alarm clock reads it when it starts or comes forward; without that
+ * (an older alarm clock) it simply opens its list.
  */
 TileBase {
     id: tile
     //% "Alarm"
     title: qsTrId("id-tile-alarm") + localeManager.changesObserver
-    accent: "#fcad70"
-    //% "Alarms"
-    chipText: qsTrId("id-tile-alarms") + localeManager.changesObserver
-    onChipClicked: desktop.launchByName("asteroid-alarmclock", null)
-    onClicked: desktop.launchByName("asteroid-alarmclock", tile)
+    backgroundTap: false
+    // the green edge button of the clock tiles (tiles-individual-03)
+    chipColor: Theme.color.tertiary
+    chipContentColor: Theme.color.onTertiary
+    chipIcon: tile.mode === "next" ? "ios-add" : ""
+    //% "Open"
+    chipText: tile.mode === "snoozed" ? qsTrId("id-tile-open") + localeManager.changesObserver : ""
+    onChipClicked: tile.mode === "snoozed" ? tile.openApp("alarm:" + tile.pick.alarm.id) : tile.openApp("new")
 
-    ConfigurationValue { id: use12H; key: "/org/asteroidos/settings/use-12h-format"; defaultValue: false }
+    ConfigurationValue { id: openRequest; key: "/org/asteroidos/alarmclock/open"; defaultValue: "" }
 
     AlarmsModel {
         id: alarms
         onPopulatedChanged: if (tile.live) tile.refresh()
         onRowsInserted: if (tile.live) tile.refresh()
         onRowsRemoved: if (tile.live) tile.refresh()
+        onDataChanged: if (tile.live) tile.refresh()
+        onModelReset: if (tile.live) tile.refresh()
     }
 
-    // the alarms shown, in the order they ring (kept while the tile shows,
-    // so a row does not move under the finger that switched it)
-    property var rows: []
-    property string untilNext: ""
+    // { state: "none" | "next" | "snoozed", alarm, at, until }
+    property var pick: ({ state: "none" })
+    readonly property string mode: pick.state
     onLiveChanged: if (live) refresh()
     Component.onCompleted: refresh()
 
-    // when an alarm rings next (ms), 0 when it is off
-    function nextRing(a, now) {
-        if (!a.enabled)
-            return 0
-        if (a.triggerTime * 1000 > now.getTime())
-            return a.triggerTime * 1000
-        var codes = "mtwTfsS"
-        for (var d = 0; d < 8; d++) {
-            var t = new Date(now.getFullYear(), now.getMonth(), now.getDate() + d, a.hour, a.minute)
-            if (t <= now)
-                continue
-            if (a.daysOfWeek === "" || a.daysOfWeek.indexOf(codes[(t.getDay() + 6) % 7]) >= 0)
-                return t.getTime()
-        }
-        return 0
-    }
-
     function refresh() {
-        var now = new Date()
         var list = []
         for (var i = 0; i < alarms.rowCount(); i++) {
             var a = alarms.data(alarms.index(i, 0), 0x0100)
-            if (a && !a.countdown)
-                list.push({ alarm: a, at: nextRing(a, now) })
+            if (a)
+                list.push(a)
         }
-        // the ones on by their next ring, then the ones off by time of day
-        list.sort(function (x, y) {
-            if (x.at && y.at)
-                return x.at - y.at
-            if (x.at || y.at)
-                return x.at ? -1 : 1
-            return (x.alarm.hour * 60 + x.alarm.minute) - (y.alarm.hour * 60 + y.alarm.minute)
-        })
-        rows = list.slice(0, 2)
-        untilNext = list.length > 0 && list[0].at ? inTime(list[0].at - now.getTime()) : ""
+        pick = Clock.pick(list, Date.now())
     }
 
-    function inTime(ms) {
-        var mins = Math.max(1, Math.round(ms / 60000))
-        var h = Math.floor(mins / 60), m = mins % 60
-        //% "In %1 d %2 h"
-        if (h >= 24) return qsTrId("id-tile-alarm-in-dh").arg(Math.floor(h / 24)).arg(h % 24)
-        //% "In %1 h %2 min"
-        if (h > 0 && m > 0) return qsTrId("id-tile-alarm-in-hm").arg(h).arg(m)
-        //% "In %1 h"
-        if (h > 0) return qsTrId("id-tile-alarm-in-h").arg(h)
-        //% "In %1 min"
-        return qsTrId("id-tile-alarm-in-m").arg(m)
+    function openApp(route) {
+        if (route !== "")
+            openRequest.value = route + "@" + Date.now()
+        desktop.launchByName("asteroid-alarmclock", null)
     }
 
-    function timeText(a) {
-        if (!use12H.value)
-            return ("0" + a.hour).slice(-2) + ":" + ("0" + a.minute).slice(-2)
-        var h = a.hour % 12
-        return (h === 0 ? 12 : h) + ":" + ("0" + a.minute).slice(-2)
-    }
-    function amPm(a) {
-        return use12H.value ? (a.hour < 12 ? "AM" : "PM") : ""
-    }
-
-    function daysText(a, at) {
-        var d = a.daysOfWeek
-        if (d === "") {
-            if (!at)
-                //% "Once"
-                return qsTrId("id-tile-alarm-once")
-            var now = new Date()
-            var tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-            //% "Today"
-            return at < tomorrow.getTime() ? qsTrId("id-tile-today") : qsTrId("id-tile-tomorrow")
-        }
-        //% "Weekdays"
-        if (d === "mtwTf") return qsTrId("id-tile-alarm-weekdays")
-        //% "Weekends"
-        if (d === "sS") return qsTrId("id-tile-alarm-weekends")
-        //% "Every day"
-        if (d === "mtwTfsS") return qsTrId("id-tile-alarm-every-day")
-        var codes = "mtwTfsS"
-        var names = []
+    // the card's texts
+    readonly property var nextParts: mode === "next" ? TimeFormat.timeParts(new Date(pick.at)) : ({ time: "", marker: "", markerFirst: false })
+    readonly property var alarmParts: mode !== "none" ? TimeFormat.timeParts(Clock.clockDate(pick.alarm.hour, pick.alarm.minute)) : ({ time: "", marker: "", markerFirst: false })
+    readonly property var snoozeParts: mode === "snoozed" ? TimeFormat.timeParts(new Date(pick.until)) : ({ time: "", marker: "", markerFirst: false })
+    readonly property string repeat: mode === "next"
         // the language changed: the day names are read again (locale-formats-02)
-        void localeManager.localeRevision
-        for (var i = 0; i < 7; i++)
-            if (d.indexOf(codes[i]) >= 0)
-                names.push(Qt.locale().dayName((i + 1) % 7, Locale.ShortFormat))
-        return names.join(" ")
-    }
+        ? (localeManager.localeRevision, Clock.repeatText(pick.alarm.daysOfWeek, Qt.locale(),
+                                                          //% "One time"
+                                                          qsTrId("id-tile-alarm-one-time"), qsTrId("id-tile-alarm-every-day")))
+          + localeManager.changesObserver
+        : ""
 
-    function toggle(a) {
-        a.enabled = !a.enabled
-        a.save()
-        // a switch: stock's TOGGLE_ON / TOGGLE_OFF by the new state (haptics-sounds-03)
-        if (a.enabled)
-            Haptics.toggleOn()
-        else
-            Haptics.toggleOff()
-        // the time to the next ring changes; the rows stay where they are
-        var now = new Date()
-        var next = 0
-        for (var i = 0; i < alarms.rowCount(); i++) {
-            var b = alarms.data(alarms.index(i, 0), 0x0100)
-            var t = b && !b.countdown ? nextRing(b, now) : 0
-            if (t && (!next || t < next))
-                next = t
-        }
-        untilNext = next ? inTime(next - now.getTime()) : ""
-    }
+    // the card geometry, px (hnv.java:178 14 dp, :200 8 dp; hoa.java 40 sp)
+    readonly property real cardPadH: Theme.dp(14)
+    readonly property real cardPadV: Theme.dp(12)
+    readonly property real cardIcon: Theme.dp(24)
+    readonly property real cardGap: Theme.dp(8)
 
-    Column {
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: -Math.round(tile.height * 0.01)
-        visible: tile.rows.length > 0
-        spacing: Math.round(tile.height * 0.012)
+    // ---- next alarm ------------------------------------------------------
+    TileCard {
+        id: nextCard
+        objectName: "alarmCard"
+        visible: tile.mode === "next"
+        width: tile.body.width
+        // the content, not more than the main slot holds
+        height: Math.min(2 * tile.cardPadV + tile.cardIcon + tile.cardGap + timeRow.height, tile.body.height)
+        anchors.verticalCenter: parent.verticalCenter
+        radius: Theme.dp(26)
+        containerColor: Theme.color.primary
+        contentColor: Theme.color.onPrimary
+        accessibleName: tile.repeat + ", " + tile.nextParts.time + " " + tile.nextParts.marker
+        onClicked: tile.openApp("")
 
         Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            visible: tile.untilNext !== ""
-            text: tile.untilNext + localeManager.changesObserver
-            color: tile.accent
-            font.pixelSize: Math.round(tile.height * 0.045)
+            id: repeatLabel
+            objectName: "alarmRepeat"
+            x: tile.cardPadH
+            y: tile.cardPadV + (tile.cardIcon - height) / 2
+            width: nextCard.width - 2 * tile.cardPadH - tile.cardIcon - tile.cardGap
+            text: tile.repeat
+            role: "bodyMedium"
+            font.weight: Font.Medium
+            color: Theme.color.onPrimary
+            maximumLineCount: 1
         }
-
-        Repeater {
-            model: tile.rows
-            delegate: Item {
-                id: row
-                readonly property QtObject alarm: modelData.alarm
-                readonly property bool first: index === 0
-                width: Math.round(tile.width * 0.66)
-                height: Math.round(tile.height * (first ? 0.2 : 0.15))
-
-                Column {
-                    anchors.left: parent.left
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing: 0
-                    Row {
-                        spacing: Math.round(tile.width * 0.01)
-                        Label {
-                            id: timeLabel
-                            text: tile.timeText(row.alarm)
-                            opacity: row.alarm.enabled ? 1 : 0.55
-                            font.pixelSize: Math.round(tile.height * (row.first ? 0.115 : 0.08))
-                            font.styleName: "SemiCondensed Medium"
-                        }
-                        Label {
-                            anchors.baseline: timeLabel.baseline
-                            visible: text !== ""
-                            text: tile.amPm(row.alarm)
-                            opacity: row.alarm.enabled ? 0.8 : 0.45
-                            font.pixelSize: Math.round(tile.height * 0.045)
-                        }
-                    }
-                    Label {
-                        width: row.width - toggleSwitch.width - Math.round(tile.width * 0.03)
-                        elide: Text.ElideRight
-                        text: tile.daysText(row.alarm, modelData.at) + localeManager.changesObserver
-                        opacity: row.alarm.enabled ? 0.75 : 0.45
-                        font.pixelSize: Math.round(tile.height * 0.042)
-                    }
-                }
-
-                // the switch, as Wear OS's: a pill with its thumb
-                MouseArea {
-                    id: toggleSwitch
-                    anchors.right: parent.right
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Math.round(tile.width * 0.15)
-                    height: Math.round(tile.height * 0.12)
-                    onClicked: tile.toggle(row.alarm)
-                    Rectangle {
-                        id: track
-                        anchors.centerIn: parent
-                        width: parent.width
-                        height: Math.round(tile.height * 0.075)
-                        radius: height / 2
-                        color: row.alarm.enabled ? tile.accent : Theme.color.surfaceContainerHigh
-                        opacity: toggleSwitch.pressed ? 0.75 : 1
-                        Rectangle {
-                            width: parent.height * 0.75
-                            height: width
-                            radius: width / 2
-                            anchors.verticalCenter: parent.verticalCenter
-                            x: row.alarm.enabled ? parent.width - width - parent.height * 0.125 : parent.height * 0.125
-                            color: row.alarm.enabled ? "#000000" : "#9aa0a6"
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Column {
-        anchors.centerIn: parent
-        visible: tile.rows.length === 0
-        spacing: Math.round(tile.height * 0.02)
         Icon {
-            anchors.horizontalCenter: parent.horizontalCenter
-            name: "ios-alarm-outline"
-            width: Math.round(tile.height * 0.12)
+            id: alarmIcon
+            objectName: "alarmIcon"
+            x: nextCard.width - tile.cardPadH - width
+            y: tile.cardPadV
+            width: tile.cardIcon
             height: width
-            opacity: 0.7
+            name: "ios-alarm"
+            color: Theme.color.onPrimary
         }
+        TileTime {
+            id: timeRow
+            objectName: "alarmTimeRow"
+            x: tile.cardPadH
+            y: tile.cardPadV + tile.cardIcon + tile.cardGap
+            parts: tile.nextParts
+            color: Theme.color.onPrimary
+        }
+    }
+
+    // ---- no alarm on -----------------------------------------------------
+    TileCard {
+        id: newCard
+        objectName: "alarmNew"
+        visible: tile.mode === "none"
+        width: tile.body.width
+        height: Theme.dp(52)
+        anchors.verticalCenter: parent.verticalCenter
+        containerColor: Theme.color.primary
+        contentColor: Theme.color.onPrimary
+        //% "Add alarm"
+        accessibleName: qsTrId("id-tile-add-alarm") + localeManager.changesObserver
+        onClicked: tile.openApp("new")
+
         Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            opacity: 0.7
-            font.pixelSize: Math.round(tile.height * 0.055)
-            //% "No alarms"
-            text: qsTrId("id-tile-no-alarms") + localeManager.changesObserver
+            anchors.centerIn: parent
+            width: parent.width - 2 * Theme.dp(14)
+            horizontalAlignment: Text.AlignHCenter
+            //% "Set new alarm"
+            text: qsTrId("id-tile-set-alarm") + localeManager.changesObserver
+            role: "labelMedium"
+            color: Theme.color.onPrimary
+            maximumLineCount: 1
+        }
+    }
+
+    // ---- snoozed ---------------------------------------------------------
+    TileCard {
+        id: snoozeCard
+        objectName: "alarmSnoozed"
+        visible: tile.mode === "snoozed"
+        width: tile.body.width
+        height: Math.min(Theme.dp(90), tile.body.height)
+        anchors.verticalCenter: parent.verticalCenter
+        radius: Theme.dp(26)
+        containerColor: Theme.color.surfaceContainer
+        contentColor: Theme.color.onSurface
+        onClicked: tile.openApp("")
+
+        Column {
+            anchors.centerIn: parent
+            width: parent.width - 2 * tile.cardPadH
+            spacing: 0
+            Label {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                //% "Snoozed"
+                text: qsTrId("id-tile-snoozed") + localeManager.changesObserver
+                role: "bodyMedium"
+                color: Theme.color.onSurfaceVariant
+                maximumLineCount: 1
+            }
+            TileTime {
+                id: snoozeTime
+                objectName: "snoozeTime"
+                anchors.horizontalCenter: parent.horizontalCenter
+                parts: tile.snoozeParts
+                color: Theme.color.onSurface
+            }
+            Label {
+                objectName: "snoozeWas"
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                //% "was %1"
+                text: qsTrId("id-tile-alarm-was").arg((tile.alarmParts.markerFirst ? tile.alarmParts.marker + " " + tile.alarmParts.time
+                                                                                     : tile.alarmParts.time + " " + tile.alarmParts.marker).trim())
+                      + localeManager.changesObserver
+                role: "bodyMedium"
+                color: Theme.color.onSurfaceVariant
+                maximumLineCount: 1
+            }
         }
     }
 }

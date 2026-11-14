@@ -2120,5 +2120,105 @@ Only selected people and apps can reach you.</translation>
         <source>Press and hold side button for Assistant</source>
         <translation>Press and hold side button for Assistant</translation>
     </message>
+    <message id="id-tile-open">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>Open</source>
+        <translation>Open</translation>
+    </message>
+    <message id="id-tile-alarm-one-time">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>One time</source>
+        <translation>One time</translation>
+    </message>
+    <message id="id-tile-add-alarm">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>Add alarm</source>
+        <translation>Add alarm</translation>
+    </message>
+    <message id="id-tile-set-alarm">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>Set new alarm</source>
+        <translation>Set new alarm</translation>
+    </message>
+    <message id="id-tile-snoozed">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>Snoozed</source>
+        <translation>Snoozed</translation>
+    </message>
+    <message id="id-tile-alarm-was">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>was %1</source>
+        <translation>was %1</translation>
+    </message>
+    <message id="id-tile-hr">
+        <location filename="../src/qml/tiles/TimerTile.qml"/>
+        <source>Hr</source>
+        <translation>Hr</translation>
+    </message>
+    <message id="id-tile-min-short">
+        <location filename="../src/qml/tiles/TimerTile.qml"/>
+        <source>Min</source>
+        <translation>Min</translation>
+    </message>
+    <message id="id-tile-sec">
+        <location filename="../src/qml/tiles/TimerTile.qml"/>
+        <source>Sec</source>
+        <translation>Sec</translation>
+    </message>
+    <message id="id-tile-offer-timer">
+        <location filename="../src/qml/tiles/AssistantTile.qml"/>
+        <source>Set a 5 minute timer</source>
+        <translation>Set a 5 minute timer</translation>
+    </message>
+    <message id="id-tile-offer-alarm">
+        <location filename="../src/qml/tiles/AssistantTile.qml"/>
+        <source>Set an alarm for 7 am</source>
+        <translation>Set an alarm for 7 am</translation>
+    </message>
+    <message id="id-tile-offer-message">
+        <location filename="../src/qml/tiles/AssistantTile.qml"/>
+        <source>Send a message</source>
+        <translation>Send a message</translation>
+    </message>
+    <message id="id-tile-offer-calendar">
+        <location filename="../src/qml/tiles/AssistantTile.qml"/>
+        <source>What’s on my calendar?</source>
+        <translation>What’s on my calendar?</translation>
+    </message>
+    <message id="id-tile-asst-add">
+        <location filename="../src/qml/tiles/AssistantTile.qml"/>
+        <source>Tap to add new Assistant actions</source>
+        <translation>Tap to add new Assistant actions</translation>
+    </message>
+    <message id="id-tile-asst-added">
+        <location filename="../src/qml/tiles/AssistantTileEditor.qml"/>
+        <source>Added</source>
+        <translation>Added</translation>
+    </message>
+    <message id="id-tile-asst-exists">
+        <location filename="../src/qml/tiles/AssistantTileEditor.qml"/>
+        <source>Chip already exists</source>
+        <translation>Chip already exists</translation>
+    </message>
+    <message id="id-tile-asst-create">
+        <location filename="../src/qml/tiles/AssistantTileEditor.qml"/>
+        <source>Create your own</source>
+        <translation>Create your own</translation>
+    </message>
+    <message id="id-tile-asst-choose">
+        <location filename="../src/qml/tiles/AssistantTileEditor.qml"/>
+        <source>Or choose an action below</source>
+        <translation>Or choose an action below</translation>
+    </message>
+    <message id="id-tile-asst-done">
+        <location filename="../src/qml/tiles/AssistantTileEditor.qml"/>
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message id="id-tile-phone">
+        <location filename="../src/qml/tiles/BatteryTile.qml"/>
+        <source>Phone</source>
+        <translation>Phone</translation>
+    </message>
 </context>
 </TS>

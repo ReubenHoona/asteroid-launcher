@@ -88,6 +88,11 @@ set(QML_FILES
 	qml/notifications/NotificationConversation.qml
 	qml/notifications/NotificationBlockingMenu.qml
 	qml/tiles/TileBase.qml
+	qml/tiles/TileCard.qml
+	qml/tiles/TileTime.qml
+	qml/tiles/AssistantTileEditor.qml
+	qml/tiles/clocklogic.js
+	qml/tiles/tileactions.js
 	qml/tiles/EmptyTile.qml
 	qml/tiles/TilesEditor.qml
 	qml/tiles/HeartRateTile.qml
@@ -261,6 +266,11 @@ set_source_files_properties(qml/notifications/NotificationPicture.qml   PROPERTI
 set_source_files_properties(qml/notifications/NotificationConversation.qml PROPERTIES QT_RESOURCE_ALIAS NotificationConversation.qml)
 set_source_files_properties(qml/notifications/NotificationBlockingMenu.qml PROPERTIES QT_RESOURCE_ALIAS NotificationBlockingMenu.qml)
 set_source_files_properties(qml/tiles/TileBase.qml                   PROPERTIES QT_RESOURCE_ALIAS tiles/TileBase.qml)
+set_source_files_properties(qml/tiles/TileCard.qml                        PROPERTIES QT_RESOURCE_ALIAS tiles/TileCard.qml)
+set_source_files_properties(qml/tiles/TileTime.qml                        PROPERTIES QT_RESOURCE_ALIAS tiles/TileTime.qml)
+set_source_files_properties(qml/tiles/AssistantTileEditor.qml             PROPERTIES QT_RESOURCE_ALIAS tiles/AssistantTileEditor.qml)
+set_source_files_properties(qml/tiles/clocklogic.js                       PROPERTIES QT_RESOURCE_ALIAS tiles/clocklogic.js)
+set_source_files_properties(qml/tiles/tileactions.js                      PROPERTIES QT_RESOURCE_ALIAS tiles/tileactions.js)
 set_source_files_properties(qml/tiles/EmptyTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/EmptyTile.qml)
 set_source_files_properties(qml/tiles/TilesEditor.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/TilesEditor.qml)
 set_source_files_properties(qml/tiles/HeartRateTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/HeartRateTile.qml)
