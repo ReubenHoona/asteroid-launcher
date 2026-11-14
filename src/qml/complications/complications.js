@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2026 Reuben Horner <reubarb.scons@gmail.com>
+ * Copyright (C) 2026 eos-mainline contributors
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
