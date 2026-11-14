@@ -176,6 +176,17 @@ int main(int argc, char **argv)
     // dconf key as the phone's (btsyncd); alarms, calls and the critical battery warning pass
     notificationManager->setDnd(modes->doNotDisturb());
     notificationManager->setAlarmMask(modes->alarmMask());
+    // Settings > Apps & notifications > App notifications: the watch apps and system services whose
+    // notifications are off (dconf /org/asteroidos/notifications/disabled-apps, CR-18); the server drops
+    // their posts (lipstick eosdisabledapps.h). Follows the key on change; nothing polls.
+    {
+        MDConfItem *disabled = new MDConfItem(QStringLiteral("/org/asteroidos/notifications/disabled-apps"), &app);
+        auto applyDisabled = [disabled, notificationManager] {
+            notificationManager->setDisabledApps(disabled->value(QStringList()).toStringList());
+        };
+        QObject::connect(disabled, &MDConfItem::valueChanged, &app, applyDisabled);
+        applyDisabled();
+    }
     // Settings > Vibration > 'Silence when off wrist' (stock: no sound or vibration
     // off the wrist or charging): dconf /org/asteroidos/notifications/silence-off-wrist;
     // never set before, it takes the old 'quiet on the charger' value (eosquietpolicy.h).

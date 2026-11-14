@@ -238,6 +238,11 @@ public:
     // (eosquietpolicy.h feedbackDnd)
     bool dnd() const { return m_dnd; }
     void setDnd(bool dnd);
+    // eos: the apps whose notifications are off (Settings > App notifications, dconf
+    // /org/asteroidos/notifications/disabled-apps, CR-18): a post of theirs is dropped before it is
+    // stored, so no card, banner, sound or wake (eosdisabledapps.h; alarms and ongoing activities stay)
+    QStringList disabledApps() const { return m_disabledApps; }
+    void setDisabledApps(const QStringList &apps);
 
 signals:
     void quietChanged();
@@ -362,7 +367,11 @@ private:
     bool m_quiet = false;
     bool m_silenced = false;
     bool m_dnd = false;
+    QStringList m_disabledApps;
     int m_alarmMask = 3;
+
+    // eos: whether a post with these hints is of an app whose notifications are off (eosdisabledapps.h)
+    bool isDisabledAppPost(const QVariantHash &hints) const;
 
     //! Destroys the notification manager.
     virtual ~NotificationManager();

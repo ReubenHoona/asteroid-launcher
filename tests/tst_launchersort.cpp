@@ -153,6 +153,66 @@ int main(int argc, char **argv)
     CHECK_STR(m.get(0)->property("title").toString(), "Aaa");
     CHECK(m.itemCount() == 9);
 
+    /* CR-19 and CR-15 (FP-L3): hidden-apps and the Assistant's switch leave rows out */
+    {
+        CHECK_STR(EosLauncherSort::desktopId("/usr/share/applications/asteroid-timer.desktop"), "asteroid-timer");
+        CHECK_STR(EosLauncherSort::desktopId("asteroid-timer"), "asteroid-timer");
+        CHECK(EosLauncherSort::hidden({"asteroid-timer"}, true, "/usr/share/applications/asteroid-timer.desktop"));
+        CHECK(EosLauncherSort::hidden({"asteroid-timer.desktop"}, true, "/usr/share/applications/asteroid-timer.desktop"));
+        CHECK(!EosLauncherSort::hidden({"asteroid-timer"}, true, "/usr/share/applications/asteroid-timer2.desktop"));
+        CHECK(!EosLauncherSort::hidden({"timer"}, true, "/usr/share/applications/asteroid-timer.desktop"));
+        CHECK(!EosLauncherSort::hidden({}, true, "/usr/share/applications/asteroid-assistant.desktop"));
+        CHECK(EosLauncherSort::hidden({}, false, "/usr/share/applications/asteroid-assistant.desktop"));
+        CHECK(!EosLauncherSort::hidden({}, false, "/usr/share/applications/asteroid-timer.desktop"));
+
+        SourceModel s2;
+        const QStringList names = {"Timer", "Assistant", "Weather", "Calendar", "Settings"};
+        const QStringList ids = {"asteroid-timer", "asteroid-assistant", "asteroid-weather", "asteroid-calendar", "asteroid-settings"};
+        for (int i = 0; i < names.size(); i++)
+            s2.add(names.at(i), QString("/usr/share/applications/%1.desktop").arg(ids.at(i)));
+        LauncherSortModel f;
+        int counts = 0;
+        QObject::connect(&f, &LauncherSortModel::itemCountChanged, [&] { counts++; });
+        f.setSourceModel(&s2);
+        // nothing hidden, the Assistant on (the keys unset): every app
+        CHECK(f.itemCount() == 5 && f.assistantEnabled() && f.hiddenApps().isEmpty());
+        CHECK_STR(titles(f), "Assistant|Calendar|Settings|Timer|Weather");
+        // hidden-apps: the listed apps leave the list
+        f.setHiddenApps({"asteroid-timer", "asteroid-calendar"});
+        CHECK_STR(titles(f), "Assistant|Settings|Weather");
+        CHECK(f.itemCount() == 3);
+        // an unlisted app stays, an unknown id changes nothing
+        f.setHiddenApps({"asteroid-timer", "asteroid-calendar", "no-such-app"});
+        CHECK_STR(titles(f), "Assistant|Settings|Weather");
+        // the list emptied (Show app again): they are back in their places
+        f.setHiddenApps({});
+        CHECK_STR(titles(f), "Assistant|Calendar|Settings|Timer|Weather");
+        // assistant/enabled false: the Assistant's entry leaves, the others stay
+        f.setAssistantEnabled(false);
+        CHECK_STR(titles(f), "Calendar|Settings|Timer|Weather");
+        CHECK(f.itemCount() == 4);
+        // both at once
+        f.setHiddenApps({"asteroid-weather"});
+        CHECK_STR(titles(f), "Calendar|Settings|Timer");
+        // on again: the Assistant returns, the hidden app stays out
+        f.setAssistantEnabled(true);
+        CHECK_STR(titles(f), "Assistant|Calendar|Settings|Timer");
+        f.setHiddenApps({});
+        CHECK_STR(titles(f), "Assistant|Calendar|Settings|Timer|Weather");
+        CHECK(counts > 0);
+        // a new app of a hidden id never shows; one added while the Assistant is off stays out
+        f.setHiddenApps({"asteroid-music"});
+        f.setAssistantEnabled(false);
+        s2.add("Music", "/usr/share/applications/asteroid-music.desktop");
+        CHECK_STR(titles(f), "Calendar|Settings|Timer|Weather");
+        // get(row) is the row of the filtered list
+        CHECK_STR(f.get(0)->property("title").toString(), "Calendar");
+        CHECK(f.get(4) == nullptr);
+        // a source row removed while hidden: no change
+        f.setHiddenApps({});
+        CHECK_STR(titles(f), "Calendar|Music|Settings|Timer|Weather");
+    }
+
     /* an empty or missing source */
     LauncherSortModel m3;
     CHECK(m3.itemCount() == 0);

@@ -52,6 +52,7 @@ static const char ALS[] = "/system/osso/dsm/display/als_enabled";
 static const char LPM[] = "/system/osso/dsm/display/use_low_power_mode";
 static const char DIM[] = "/system/osso/dsm/display/display_dim_timeout";
 static const char FACE_BLANK[] = "/system/osso/dsm/display/display_blank_from_locksreen_timeout";
+static const char ROTARY[] = "/system/osso/dsm/display/rotary_wake_hold";
 
 // mce: its settings, display and charger, and what was asked of it
 class FakeMce : public QObject
@@ -64,6 +65,11 @@ public:
     QString display = QStringLiteral("on");
     QString charger = QStringLiteral("none");
     QStringList sets;
+    int setCount(const char *key)
+    {
+        QMutexLocker l(&lock);
+        return sets.count(QString::fromLatin1(key));
+    }
     int offRequests = 0;
     int onRequests = 0;
     int level = 80;
@@ -236,8 +242,9 @@ int main(int argc, char **argv)
     QObject::connect(engine, &ModesEngine::transitionCancelled, [&] { cancelled++; });
     QObject::connect(engine, &ModesEngine::theaterStarting, [&] { theaterStarting++; });
     spin(500);
-    // nothing on: nothing written
-    CHECK(mce.sets.isEmpty());
+    // nothing on: nothing written but the crown wake's hold, released once at the start (CR-47)
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false) && mce.setCount(ROTARY) == 1; }));
+    CHECK(mce.sets.size() == 1 && mce.sets.first() == ROTARY);
     CHECK(!engine->alwaysOnBlocked() && engine->tiltHolder().isEmpty());
     CHECK(!engine->quiet());
     // the battery at 80 %: nothing happens; alarms play as ever
@@ -256,6 +263,9 @@ int main(int argc, char **argv)
     spin(300);
     CHECK(mce.get(ALS).toBool());
     CHECK(waitFor([&] { return !mce.get(LPM).toBool(); }));
+    // the crown does not wake the watch in Bedtime: rotary_wake_hold true (CR-47), written once
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(true); }));
+    CHECK(mce.setCount(ROTARY) == 2);
     CHECK(waitFor([&] { return !confValue(DND).toBool(); }, ConfMs));
     CHECK(!engine->doNotDisturb());
     CHECK(engine->alwaysOnBlocked() && engine->alwaysOnHolder() == "bedtime");
@@ -299,6 +309,9 @@ int main(int argc, char **argv)
     CHECK(waitFor([&] { return confValue(M + "saved/dim-timeout").toInt() == 15; }, ConfMs));
     engine->setBedtime(false);
     CHECK(waitFor([&] { return mce.get(BRIGHTNESS).toInt() == 60 && mce.get(TOUCH).toString() == "unblank" && mce.get(ALS).toBool(); }));
+    // Bedtime ended (Battery saver is no hold of the crown): released
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false); }));
+    CHECK(mce.setCount(ROTARY) == 3);
     CHECK(waitFor([&] { return mce.get(TILT).toBool(); }));
     CHECK(engine->alwaysOnBlocked() && engine->alwaysOnHolder() == "battery-saver");
     CHECK(engine->tiltHolder().isEmpty() && engine->touchHolder().isEmpty() && engine->brightnessHolder().isEmpty());
@@ -437,6 +450,8 @@ int main(int argc, char **argv)
     CHECK(waitFor([&] { QMutexLocker l(&mce.lock); return mce.offRequests == offs + 1; }));
     CHECK(waitFor([&] { return !mce.get(TILT).toBool() && mce.get(TOUCH).toString().isEmpty(); }));
     CHECK(waitFor([&] { return mce.get(BRIGHTNESS).toInt() == 60; }));
+    // Theater holds the crown too
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(true); }));
     CHECK(waitFor([&] { return confValue(M + "theater-since").toDouble() > 0; }, ConfMs));
     CHECK(engine->alarmFeedback() == "alarm_vibra" && engine->alarmMask() == 2);
     CHECK(waitFor([&] { return confValue(M + "alarm-feedback").toString() == "alarm_vibra"; }, ConfMs));
@@ -456,10 +471,13 @@ int main(int argc, char **argv)
 
     // --- the launcher goes down in Theater; Theater ends meanwhile (by hand
     // here); a new start puts the user's settings back
+    CHECK(mce.get(ROTARY) == QVariant(true));
     delete engine;
     setConf(M + "theater", false);
     engine = new ModesEngine;
     CHECK(waitFor([&] { return userSettings(mce); }));
+    // the new launcher releases the hold the old one left behind (CR-47: false at the launcher start)
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false); }));
     CHECK(waitFor([&] { return !confValue(M + "saved/tilt-to-wake").isValid(); }, ConfMs));
 
     // --- Theater for 24 hours (started a day ago): off at the next screen on,
@@ -595,6 +613,34 @@ int main(int argc, char **argv)
     engine->setBedtime(false);
     CHECK(waitFor([&] { return cancelled == 1; }));
     CHECK(ending == 0);
+    CHECK(waitFor([&] { return userSettings(mce); }));
+
+    // --- CR-47, the crown's hold with both modes, and at a start with a mode on
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false); }));
+    engine->setTheater(true);
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(true); }));
+    int rotarySets = mce.setCount(ROTARY);
+    engine->setBedtime(true);
+    CHECK(waitFor([&] { return mce.get(BRIGHTNESS).toInt() == 8; }));
+    spin(500);
+    CHECK(mce.setCount(ROTARY) == rotarySets);                 // still held: no second write
+    engine->setTheater(false);
+    CHECK(waitFor([&] { return !engine->theater(); }));
+    spin(500);
+    CHECK(mce.get(ROTARY) == QVariant(true));                  // Bedtime still holds it
+    CHECK(mce.setCount(ROTARY) == rotarySets);
+    engine->setBedtime(false);
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false); }));
+    CHECK(mce.setCount(ROTARY) == rotarySets + 1);
+    // a start with Bedtime on (the launcher went down in it): held from the start
+    CHECK(waitFor([&] { return userSettings(mce); }));
+    delete engine;
+    setConf(M + "bedtime", true);
+    engine = new ModesEngine;
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(true); }));
+    CHECK(engine->bedtime());
+    engine->setBedtime(false);
+    CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false); }));
     CHECK(waitFor([&] { return userSettings(mce); }));
 
     delete engine;

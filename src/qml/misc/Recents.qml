@@ -55,16 +55,24 @@ AppDrawer {
         defaultValue: "[]"
     }
 
-    // all the apps of the launcher
+    // the apps the user hid leave Recents too (CR-19: the list, the grid and Recents)
+    ConfigurationValue {
+        id: hiddenApps
+        key: "/org/asteroidos/launcher/hidden-apps"
+        defaultValue: []
+    }
+
+    // all the apps of the launcher but the hidden ones
     function launcherItems() {
         var items = []
         if (typeof launcherModel === "undefined")
             return items
+        var hidden = hiddenApps.value
         for (var i = 0; i < launcherModel.itemCount; i++) {
             var it = launcherModel.get(i)
             if (it && it.object)
                 it = it.object
-            if (it)
+            if (it && !RecentsRules.hiddenApp(it.filePath, hidden))
                 items.push(it)
         }
         return items

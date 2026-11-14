@@ -9,6 +9,7 @@
 #include <QDBusConnection>
 #include <QObject>
 
+class MDConfItem;
 class QDBusServiceWatcher;
 
 /*
@@ -26,6 +27,17 @@ class QDBusServiceWatcher;
  * read once at start and when the service appears (sensorfwd restarted), then
  * follows the signal. Context property `offBody` of the launcher:
  * `known` and `offBody` (true off the wrist).
+ *
+ * The hub daemon is root and cannot write the user's dconf, so this object
+ * mirrors the state for the readers of dconf (CR-44, FP-L3): Settings'
+ * Vibration page (shows 'Silence when off wrist' only when the sensor is
+ * there) and eos-wifi-policy:
+ *   /org/asteroidos/sensors/off-body            b  true off the wrist
+ *   /org/asteroidos/sensors/off-body-available  b  true once GetOffBody
+ *                                                  answered 0 or 1 (default false)
+ * Written on change only (a start with the service not up writes false,
+ * false once: whatever an earlier launcher left behind), off-body first so a
+ * reader that sees `available` also sees the right state.
  */
 class OffBody : public QObject
 {
@@ -46,6 +58,8 @@ public:
     static constexpr const char *Service = "com.nokia.SensorService";
     static constexpr const char *Path = "/org/eos/usfhub";
     static constexpr const char *Interface = "org.eos.UsfHub";
+    static constexpr const char *OffBodyKey = "/org/asteroidos/sensors/off-body";
+    static constexpr const char *AvailableKey = "/org/asteroidos/sensors/off-body-available";
 
 signals:
     void changed();
@@ -57,8 +71,11 @@ private slots:
 
 private:
     void set(int state);
+    void mirror();
 
     QDBusConnection m_bus;
+    MDConfItem *m_offBodyKey;
+    MDConfItem *m_availableKey;
     QDBusServiceWatcher *m_watcher;
     int m_state = -1;
 };

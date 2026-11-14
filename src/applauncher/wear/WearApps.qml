@@ -32,9 +32,30 @@ WearList {
     // rows through the long press and edge button, for the tests
     property string viewKey: "/desktop/asteroid/applauncher"
 
+    // apps left out of the list and the grid (FP-L3): Settings > Apps & notifications > App info > Hide app writes
+    // the desktop ids to /org/asteroidos/launcher/hidden-apps (CR-19); Settings > Assistant > Enable Assistant
+    // (/org/asteroidos/assistant/enabled, CR-15) takes the Assistant's own entry out while it is off
+    ConfigurationValue {
+        id: hiddenApps
+        key: "/org/asteroidos/launcher/hidden-apps"
+        defaultValue: []
+    }
+    ConfigurationValue {
+        id: assistantEnabled
+        key: "/org/asteroidos/assistant/enabled"
+        defaultValue: true
+    }
+
     LauncherSortModel {
         id: sortedModel
         sourceModel: launcherModel
+        hiddenApps: root.listOf(hiddenApps.value)
+        assistantEnabled: assistantEnabled.value !== false && assistantEnabled.value !== "false"
+    }
+
+    // a dconf list as an array of strings (an unset key reads as the default)
+    function listOf(v) {
+        return Array.isArray(v) ? v.map(function (s) { return String(s) }) : []
     }
 
     // a language change: the labels and their order change

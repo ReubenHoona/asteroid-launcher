@@ -28,6 +28,7 @@
 #include "notificationmanageradaptor.h"
 #include "notificationmanager.h"
 #include "appwatcher.h"
+#include "eosdisabledapps.h"
 
 // Define this if you'd like to see debug messages from the notification manager
 #ifdef DEBUG_NOTIFICATIONS
@@ -85,6 +86,51 @@ void NotificationManager::setDnd(bool dnd)
     m_dnd = dnd;
     qInfo() << "Notifications:" << (dnd ? "do not disturb: no feedback or banner but alarms, calls, critical battery" : "alerting again");
     emit dndChanged();
+}
+// Whether a post with these hints is one of an app whose notifications are off (eosdisabledapps.h). The
+// category definition may add hints (feedback, ongoing), as applyCategoryDefinition does after.
+bool NotificationManager::isDisabledAppPost(const QVariantHash &hints) const
+{
+    if (m_disabledApps.isEmpty())
+        return false;
+    const QHash<QString, QString> categoryHints(categoryDefinitionParameters(hints));
+    auto hint = [&hints, &categoryHints](const char *name) {
+        const QString key(QString::fromLatin1(name));
+        return (hints.contains(key) ? hints.value(key).toString() : categoryHints.value(key)).toStdString();
+    };
+    EosDisabledApps::Post post;
+    post.eosApp = hint("x-eos-app");
+    post.originPackage = hint(HINT_ORIGIN_PACKAGE);
+    post.category = hint(HINT_CATEGORY);
+    post.feedback = hint(HINT_FEEDBACK);
+    post.eosOngoing = hint("x-eos-ongoing");
+    post.nemoOngoing = hint("x-nemo-ongoing");
+    post.asteroidCategory = hint("x-asteroid-category");
+    std::vector<std::string> disabled;
+    for (const QString &app : m_disabledApps)
+        disabled.push_back(app.toStdString());
+    return EosDisabledApps::dropped(disabled, post);
+}
+
+// The list changed (Settings, or the launcher's start): the cards of an app that is off now go (as Android
+// takes down the notifications of an app whose notifications are turned off); alarms and ongoing
+// activities stay
+void NotificationManager::setDisabledApps(const QStringList &apps)
+{
+    if (m_disabledApps == apps)
+        return;
+    m_disabledApps = apps;
+    qInfo() << "Notifications: apps with notifications off:" << apps.size();
+    if (apps.isEmpty())
+        return;
+    const QList<uint> ids = notifications.keys();
+    for (uint id : ids) {
+        const LipstickNotification *n = notifications.value(id);
+        if (n && isDisabledAppPost(n->hints())) {
+            qInfo() << "Notifications: card taken down, the app's notifications are off";
+            CloseNotification(id);
+        }
+    }
 }
 void NotificationManager::setSilenced(bool silenced)
 {
@@ -251,6 +297,16 @@ uint NotificationManager::Notify(const QString &appName, uint replacesId, const 
 {
     NOTIFICATIONS_DEBUG("NOTIFY:" << appName << replacesId << appIcon << summary << body << actions << hints << expireTimeout);
     uint id = replacesId != 0 ? replacesId : nextAvailableNotificationID();
+
+    // eos: an app whose notifications are off (Settings > App notifications) posts nothing: no card, no
+    // banner, no sound, no wake. The app is told it posted (the id it asked for, or one not used again);
+    // a card it posted before goes with this post. Alarms and ongoing activities pass (eosdisabledapps.h, CR-18).
+    if (isDisabledAppPost(hints)) {
+        qInfo() << "Notifications: dropped, the app's notifications are off";
+        if (replacesId != 0 && notifications.contains(replacesId))
+            CloseNotification(replacesId);
+        return id;
+    }
 
     if (replacesId == 0 || notifications.contains(id)) {
         QVariantHash hints_(hints);

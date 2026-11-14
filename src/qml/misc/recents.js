@@ -26,6 +26,23 @@ function desktopId(path) {
     return s.substring(s.lastIndexOf("/") + 1)
 }
 
+/* An app the user hid (Settings > App info > Hide app, dconf /org/asteroidos/launcher/hidden-apps, CR-19) is
+ * not in Recents either: file is a desktop file path or name, hidden the dconf list (desktop ids without the
+ * suffix; one written with it counts too) */
+function hiddenApp(file, hidden) {
+    var d = desktopId(file)
+    if (d.length > 8 && d.substring(d.length - 8) === ".desktop")
+        d = d.substring(0, d.length - 8)
+    if (d === "" || !Array.isArray(hidden))
+        return false
+    for (var i = 0; i < hidden.length; i++) {
+        var h = String(hidden[i]).trim()
+        if (h === d || h === d + ".desktop")
+            return true
+    }
+    return false
+}
+
 function recordable(desktop) {
     return desktop !== "" && NO_WINDOW.indexOf(desktop) < 0
 }

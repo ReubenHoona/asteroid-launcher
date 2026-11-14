@@ -96,6 +96,30 @@ Item {
         defaultValue: ["steps", "heartrate", "exercise", "sleep", "agenda", "assistant", "weather", "maps"]
         onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
     }
+    // /org/asteroidos/assistant/enabled false: the Assistant's tile is left out of the carousel and out of
+    // the add list (CR-15); a saved list keeps its entry, so it returns when the Assistant is switched on
+    ConfigurationValue {
+        id: assistantEnabled
+        key: "/org/asteroidos/assistant/enabled"
+        defaultValue: true
+        onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
+    }
+    // read from the key itself (a function, not a binding: it must be current inside the key's own change handler)
+    function assistantOn() {
+        var v = assistantEnabled.value
+        return v !== false && v !== "false"
+    }
+    function tileAvailable(id) {
+        return id !== "assistant" || assistantOn()
+    }
+    // the registry without the tiles that are switched off (the tiles editor lists what it holds)
+    function availableRegistry() {
+        var out = ({})
+        for (var id in tileRegistry)
+            if (tileAvailable(id))
+                out[id] = tileRegistry[id]
+        return out
+    }
     property var builtTiles: []
     readonly property int tileCount: builtTiles.length
     property bool _built: false
@@ -137,7 +161,7 @@ Item {
         var wanted = []
         var list = tilesSetting.value || []
         for (var i = 0; i < list.length; i++)
-            if (tileRegistry[list[i]] && wanted.indexOf(list[i]) < 0)
+            if (tileRegistry[list[i]] && tileAvailable(list[i]) && wanted.indexOf(list[i]) < 0)
                 wanted.push(list[i])
         if (_built && JSON.stringify(wanted) === JSON.stringify(builtTiles))
             return
@@ -173,7 +197,7 @@ Item {
     // the tile on screen (a long press on it) in the middle of the editor; addList: straight into the list of
     // widgets to add (the Quick Add tile)
     function openTilesEditor(addList) {
-        tilesEditor.registry = tileRegistry
+        tilesEditor.registry = availableRegistry()
         tilesEditor.iconOf = appIcon
         tilesEditor.open(builtTiles, Math.max(0, grid.currentHorizontalPos - 1))
         if (addList === true)

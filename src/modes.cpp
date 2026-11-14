@@ -38,6 +38,9 @@ static const char KEY_LPM[] = "/system/osso/dsm/display/use_low_power_mode";
 // mce spells the second "locksreen"
 static const char KEY_DIM[] = "/system/osso/dsm/display/display_dim_timeout";
 static const char KEY_FACE_BLANK[] = "/system/osso/dsm/display/display_blank_from_locksreen_timeout";
+// true while Bedtime or Theater is on: mce's crown wake (rotary_wake_enabled, Settings > Buttons) holds
+// (mce patch 0011, CR-47). Not one of the settings the modes hold: nothing to save, nothing enforced
+static const char KEY_ROTARY_HOLD[] = "/system/osso/dsm/display/rotary_wake_hold";
 
 static const int Modes[] = { ModesCore::Bedtime, ModesCore::Theater, ModesCore::BatterySaver, ModesCore::ExtraDim, ModesCore::TouchLock };
 static const int ModeCount = int(sizeof(Modes) / sizeof(Modes[0]));
@@ -347,6 +350,25 @@ void ModesEngine::modesChanged(int before, bool dndBefore)
     mEnforced = 0;
     apply();
     publishAlarmFeedback();
+    syncRotaryHold(false);
+}
+
+// rotary_wake_hold follows Bedtime and Theater (stock WearRotaryEncoderMediator.reconfigureRotaryInput:
+// the crown does not wake the watch in them). Written when the value changes, and once when mce is first
+// heard from at the launcher start: a hold an earlier launcher left behind (it went down in Bedtime)
+// does not stay. No timer: only a change of the modes writes.
+void ModesEngine::syncRotaryHold(bool force)
+{
+    if (!mReady)
+        return;   // the first answer from mce writes the state of the start
+    const bool hold = (mModes & (ModesCore::Bedtime | ModesCore::Theater)) != 0;
+    if (!force && mRotaryHold == int(hold))
+        return;
+    mRotaryHold = int(hold);
+    qInfo() << "Modes: crown wake" << (hold ? "held (bedtime or theater)" : "released");
+    QDBusMessage set = QDBusMessage::createMethodCall(MCE_SERVICE, MCE_REQUEST_PATH, MCE_REQUEST_IF, "set_config");
+    set << QVariant::fromValue(QDBusObjectPath(QLatin1String(KEY_ROTARY_HOLD))) << QVariant::fromValue(QDBusVariant(hold));
+    QDBusConnection::systemBus().call(set, QDBus::NoBlock);
 }
 
 int ModesEngine::apply()
@@ -381,6 +403,7 @@ void ModesEngine::loadMce()
             if (--mMcePending == 0 && !mReady) {
                 mReady = true;
                 apply();
+                syncRotaryHold(true);
                 emit changed();
             }
         });

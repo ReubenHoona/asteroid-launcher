@@ -15,6 +15,37 @@ LauncherSortModel::LauncherSortModel(QObject *parent) : QSortFilterProxyModel(pa
     connect(this, &QAbstractItemModel::modelReset, this, &LauncherSortModel::itemCountChanged);
 }
 
+void LauncherSortModel::setHiddenApps(const QStringList &apps)
+{
+    if (apps == m_hiddenApps)
+        return;
+    m_hiddenApps = apps;
+    emit hiddenAppsChanged();
+    invalidateFilter();
+}
+
+void LauncherSortModel::setAssistantEnabled(bool enabled)
+{
+    if (enabled == m_assistantEnabled)
+        return;
+    m_assistantEnabled = enabled;
+    emit assistantEnabledChanged();
+    invalidateFilter();
+}
+
+bool LauncherSortModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const
+{
+    if (m_hiddenApps.isEmpty() && m_assistantEnabled)
+        return true;
+    QAbstractItemModel *src = sourceModel();
+    if (!src)
+        return true;
+    QObject *item = itemOf(src->index(sourceRow, 0, sourceParent));
+    if (!item)
+        return true;
+    return !EosLauncherSort::hidden(m_hiddenApps, m_assistantEnabled, item->property("filePath").toString());
+}
+
 void LauncherSortModel::setObjectRole(const QString &role)
 {
     if (role == m_objectRole)

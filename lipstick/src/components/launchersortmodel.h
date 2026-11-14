@@ -25,8 +25,16 @@
  * a row (dynamicSortFilter); resort() makes the collator again and sorts
  * after a language change (the labels come from the locale's catalog).
  *
- * The comparison is EosLauncherSort::less, plain C++ for the host test
- * tests/tst_launchersort.cpp.
+ * Apps left out (FP-L3): the desktop ids in the dconf list
+ * /org/asteroidos/launcher/hidden-apps (Settings > Apps & notifications >
+ * App info > Hide app, CR-19), and the Assistant while
+ * /org/asteroidos/assistant/enabled is off (CR-15). QML sets hiddenApps and
+ * assistantEnabled from the two keys; the rows leave and come back by
+ * themselves (the list, the grid and Recents are built from this model's
+ * apps; Recents applies EosLauncherSort.hidden's rule too, recents.js).
+ *
+ * The comparison is EosLauncherSort::less, the exclusion EosLauncherSort::hidden,
+ * plain C++ for the host test tests/tst_launchersort.cpp.
  */
 namespace EosLauncherSort {
 
@@ -89,6 +97,38 @@ inline bool less(const QCollator &collator, const QString &titleA, const QString
     return pathA < pathB;
 }
 
+/* "/usr/share/applications/asteroid-timer.desktop" -> "asteroid-timer" */
+inline QString desktopId(const QString &filePath)
+{
+    QString name = filePath.mid(filePath.lastIndexOf(QLatin1Char('/')) + 1);
+    if (name.endsWith(QLatin1String(".desktop")) && name.size() > 8)
+        name.chop(8);
+    return name;
+}
+
+/* the app of the Assistant: its entry and tile are hidden while assistant/enabled is off */
+inline QString assistantId()
+{
+    return QStringLiteral("asteroid-assistant");
+}
+
+/* whether the app stays out of the list: its desktop id is in hidden-apps (a list entry may
+ * carry the ".desktop" suffix), or it is the Assistant and the Assistant is off */
+inline bool hidden(const QStringList &hiddenApps, bool assistantEnabled, const QString &filePath)
+{
+    const QString id = desktopId(filePath);
+    if (id.isEmpty())
+        return false;
+    if (!assistantEnabled && id == assistantId())
+        return true;
+    for (const QString &entry : hiddenApps) {
+        const QString e = entry.trimmed();
+        if (e == id || e == id + QLatin1String(".desktop"))
+            return true;
+    }
+    return false;
+}
+
 inline QCollator makeCollator(const QLocale &locale)
 {
     return QCollator(locale);
@@ -102,6 +142,10 @@ class LauncherSortModel : public QSortFilterProxyModel
     /* the role of the source that holds the item (a QObject with title and filePath) */
     Q_PROPERTY(QString objectRole READ objectRole WRITE setObjectRole NOTIFY objectRoleChanged)
     Q_PROPERTY(int itemCount READ itemCount NOTIFY itemCountChanged)
+    /* the desktop ids left out (dconf /org/asteroidos/launcher/hidden-apps, CR-19) */
+    Q_PROPERTY(QStringList hiddenApps READ hiddenApps WRITE setHiddenApps NOTIFY hiddenAppsChanged)
+    /* false: the Assistant is left out too (dconf /org/asteroidos/assistant/enabled, CR-15) */
+    Q_PROPERTY(bool assistantEnabled READ assistantEnabled WRITE setAssistantEnabled NOTIFY assistantEnabledChanged)
 
 public:
     explicit LauncherSortModel(QObject *parent = nullptr);
@@ -109,6 +153,10 @@ public:
     QString objectRole() const { return m_objectRole; }
     void setObjectRole(const QString &role);
     int itemCount() const { return rowCount(); }
+    QStringList hiddenApps() const { return m_hiddenApps; }
+    void setHiddenApps(const QStringList &apps);
+    bool assistantEnabled() const { return m_assistantEnabled; }
+    void setAssistantEnabled(bool enabled);
 
     /* make the collator again (the language changed) and sort */
     Q_INVOKABLE void resort();
@@ -120,9 +168,12 @@ public:
 signals:
     void objectRoleChanged();
     void itemCountChanged();
+    void hiddenAppsChanged();
+    void assistantEnabledChanged();
 
 protected:
     bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
+    bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
 
 private:
     QObject *itemOf(const QModelIndex &sourceIndex) const;
@@ -130,6 +181,8 @@ private:
 
     QString m_objectRole = QStringLiteral("object");
     QCollator m_collator;
+    QStringList m_hiddenApps;
+    bool m_assistantEnabled = true;
 };
 
 #endif // LAUNCHERSORTMODEL_H

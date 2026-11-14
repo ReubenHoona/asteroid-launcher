@@ -198,6 +198,7 @@ private:
     int apply();
     void loadMce();
     void setMce(const QString &key, const QVariant &value);
+    void syncRotaryHold(bool force);
     void displayOff();
     void theaterExpired();
     void armTheaterWake();
@@ -248,6 +249,8 @@ private:
     static const int EchoMs = 5000;
     int mMcePending = 0;
     bool mReady = false;
+    // rotary_wake_hold as last written (-1 not yet)
+    int mRotaryHold = -1;
     // writes that put a held setting back since the modes last changed
     int mEnforced = 0;
     static const int MaxEnforced = 8;

@@ -24,6 +24,13 @@ target_compile_definitions(tst_batterypolicy PRIVATE NOTIFIER_SRC="${CMAKE_CURRE
 add_executable(tst_quietpolicy tst_quietpolicy.cpp)
 target_include_directories(tst_quietpolicy PRIVATE ../lipstick/src/notifications)
 
+# The app notification switches (lipstick/src/notifications/eosdisabledapps.h, CR-18) and a lint of where the
+# notification server, the launcher and the battery notices use them: plain C++
+add_executable(tst_disabledapps tst_disabledapps.cpp)
+target_include_directories(tst_disabledapps PRIVATE ../lipstick/src/notifications)
+target_compile_definitions(tst_disabledapps PRIVATE NOTIFIER_SRC="${CMAKE_CURRENT_SOURCE_DIR}/../lipstick/src/notifications"
+	SRC_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+
 # The digits the sensor hub's atlases draw (src/eoshubdigits.h), Qt Core only
 add_executable(tst_hubdigits tst_hubdigits.cpp)
 target_include_directories(tst_hubdigits PRIVATE ../src)
@@ -33,7 +40,7 @@ target_link_libraries(tst_hubdigits PRIVATE Qt6::Core)
 #   dbus-run-session -- ./tst_offbody
 add_executable(tst_offbody tst_offbody.cpp ../src/offbody.cpp ../src/offbody.h)
 set_target_properties(tst_offbody PROPERTIES AUTOMOC ON)
-target_include_directories(tst_offbody PRIVATE ../src)
+target_include_directories(tst_offbody PRIVATE ../src stubs)
 target_link_libraries(tst_offbody PRIVATE Qt6::Core Qt6::DBus)
 
 # The screen lock: the credential store, the service and the root helper eos-lockd as a second process of the test

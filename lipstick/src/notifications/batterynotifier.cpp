@@ -442,6 +442,8 @@ void BatteryNotifier::sendNotification(BatteryNotifier::NotificationType type)
     /* Add fresh notification item */
     QVariantHash hints;
     hints.insert(NotificationManager::HINT_CATEGORY, info.category);
+    // the app of Settings > App notifications > Battery (eosdisabledapps.h, CR-18)
+    hints.insert(QStringLiteral("x-eos-app"), QStringLiteral("battery"));
     hints.insert(NotificationManager::HINT_PREVIEW_BODY, info.message);
     QueuedNotification queuedNotification;
     queuedNotification.m_type = type;
