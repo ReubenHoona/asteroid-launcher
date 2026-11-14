@@ -5,7 +5,7 @@
 
 import QtQuick
 import QtQml.Models
-import "complications"
+import "complications/faceeditor.js" as FE
 import org.asteroid.controls
 import org.asteroid.utils
 import Nemo.Configuration
@@ -149,14 +149,15 @@ Item {
     }
 
     // ---- opening and closing ---------------------------------------------------
-    // the view the crown and the idle timer act on
-    readonly property string view: options.visible ? "editor" : (addList.visible ? "add" : "carousel")
+    // the view the crown and the idle timer act on ("editor" is gone: the editor is its own layer, FaceEditor)
+    readonly property string view: addList.visible ? "add" : "carousel"
 
     function open() {
         if (!store || shown || opening)
             return
         sync()
-        options.visible = false
+        editing = false
+        hideTimer.stop()
         addList.closeNow()
         exitAnim.stop()
         closing = false
@@ -251,7 +252,8 @@ Item {
         liveResult = null
         liveUrl = ""
         addList.closeNow()
-        options.visible = false
+        editing = false
+        hideTimer.stop()
         flyer.visible = false
         flyId = ""
         closed()
@@ -281,7 +283,6 @@ Item {
             return
         tapTimer.stop()
         addList.closeNow()
-        options.visible = false
         exit(!centredIsCurrent)
     }
     function close() { dismiss() }
@@ -304,8 +305,6 @@ Item {
         case "back":
             addList.back()
             return true
-        case "editor":
-            return back()
         case "apply":
             choose(centredFid)
             return true
@@ -315,7 +314,7 @@ Item {
         }
     }
 
-    // ---- the idle timer: 15 s after the last finger lift (not while touching, not in the editor) ----
+    // ---- the idle timer: 15 s after the last finger lift (not while touching, not once the editor is open) ----
     property bool touching: false
     // (above everything and passive: the touch goes on to the item under it. A handler of the picker's own
     // item would see nothing that a MouseArea below has taken.)
@@ -332,7 +331,7 @@ Item {
         objectName: "eosFaceIdle"
         interval: FP.IDLE_MS
         running: picker.shown && !picker.closing && picker.zoom >= 1 && !picker.touching && picker.awake
-                 && !options.visible && !flyAnim.running
+                 && !picker.editing && !flyAnim.running
         onTriggered: picker.idleExpired()
     }
     function idleExpired() {
@@ -381,7 +380,7 @@ Item {
             // the two faces each side are kept ready (Qt makes an item once its start is inside the buffer)
             cacheBuffer: 2.5 * picker.pitch
             model: faceModel
-            interactive: picker.shown && picker.zoom >= 1 && !picker.closing && !addList.visible && !options.visible
+            interactive: picker.shown && picker.zoom >= 1 && !picker.closing && !addList.visible && !picker.editing
             onCurrentIndexChanged: picker.updateCentred()
             onMovementStarted: tapTimer.stop()
 
@@ -868,177 +867,29 @@ Item {
         onPicked: (file, cx, cy, size) => picker.addFace(file, cx, cy, size)
     }
 
-    // ---- the editor: Customize of stock's picker, a chip that applies, then edits --------
-    /* Wear OS's face editor: under the faces the pencil chip. Its pages,
-     * swiped through as stock's: the options every bundled face follows
-     * (the launcher applies them by the faces' item names, see
-     * WatchfaceReloader.applyFaceOptions), then the face's complications
-     * when it has slots (FaceEditor). The chip on another face than the
-     * one worn puts it on first, as stock edits the face it applies. The
-     * options are the favourite's own (FaceStyle). */
-    FaceStyle {
-        id: pickerStyle
-        faceId: picker.store ? picker.store.currentId : ""
-    }
-
-    readonly property bool hasSlots: sources !== null && liveFace !== null && sources.slotsOf(liveFace).length > 0
-
-    // the crown button: from a slot's data sources back to the slots;
-    // false when there is no level to go back to
-    function back() {
-        if (options.visible && complicationsPage.choosing) {
-            complicationsPage.chosenSlot = null
-            return true
-        }
-        return false
-    }
+    // ---- the editor: the pencil chip applies the face, then opens the editor over the picker ----
+    /* W3-launcher-face-editor: the editor is its own layer (FaceEditor, placed above the picker by
+     * HomeOverlays). The chip on another face than the one worn puts it on first, as stock edits the
+     * face it applies. Stock hides the picker 500 ms after the editor opens (kdn.java:28-32), so
+     * leaving the editor shows the face, not the carousel. */
+    property bool editing: false
+    signal editRequested()
 
     function customize() {
+        if (!shown || closing || !store)
+            return
         var id = centredFid
-        if (id !== "" && store && id !== store.currentId)
+        if (id !== "" && id !== store.currentId)
             store.choose(id)
-        pages.currentIndex = 0
-        pages.positionViewAtBeginning()
-        options.visible = true
+        tapTimer.stop()
+        editing = true
+        hideTimer.restart()
+        editRequested()
     }
-
-    Item {
-        id: options
-        objectName: "eosFaceEditor"
-        anchors.fill: parent
-        visible: false
-        onVisibleChanged: {
-            if (!visible) {
-                optionsFlick.contentY = 0
-                complicationsPage.chosenSlot = null
-            }
-        }
-
-        Rectangle { anchors.fill: parent; color: "#000000" }
-        MouseArea { anchors.fill: parent }
-
-        readonly property var styleLabels: [
-            //% "Dimmed"
-            qsTrId("id-face-ambient-dim"),
-            //% "Outline"
-            qsTrId("id-face-ambient-outline")
-        ]
-        readonly property var styleValues: ["dim", "outline"]
-        readonly property real rowHeight: Dims.h(25)
-
-        ListView {
-            id: pages
-            anchors.fill: parent
-            orientation: ListView.Horizontal
-            snapMode: ListView.SnapOneItem
-            highlightRangeMode: ListView.StrictlyEnforceRange
-            highlightMoveDuration: 250
-            boundsBehavior: Flickable.StopAtBounds
-            // the source list of a slot is a page of its own
-            interactive: picker.hasSlots && !complicationsPage.choosing
-            clip: true
-            model: ObjectModel {
-                Item {
-                    id: optionsPage
-                    width: pages.width
-                    height: pages.height
-                    Flickable {
-                        id: optionsFlick
-                        anchors.fill: parent
-                        contentHeight: optionsColumn.implicitHeight
-                        boundsBehavior: Flickable.StopAtBounds
-                        flickableDirection: Flickable.VerticalFlick
-                        Column {
-                            id: optionsColumn
-                            width: parent.width
-                            Item { width: parent.width; height: Dims.h(16) }
-                            LabeledSwitch {
-                                objectName: "eosFaceOptDate"
-                                width: parent.width
-                                height: options.rowHeight
-                                //% "Date"
-                                text: qsTrId("id-face-show-date")
-                                checked: pickerStyle.showDate
-                                onCheckedChanged: if (pickerStyle.showDate !== checked) pickerStyle.set("show-date", checked)
-                            }
-                            LabeledSwitch {
-                                objectName: "eosFaceOptSeconds"
-                                width: parent.width
-                                height: options.rowHeight
-                                //% "Seconds"
-                                text: qsTrId("id-face-show-seconds")
-                                checked: pickerStyle.showSeconds
-                                onCheckedChanged: if (pickerStyle.showSeconds !== checked) pickerStyle.set("show-seconds", checked)
-                            }
-                            OptionCycler {
-                                objectName: "eosFaceOptAmbient"
-                                width: parent.width
-                                height: options.rowHeight
-                                //% "Always-on"
-                                text: qsTrId("id-face-ambient")
-                                valueArray: options.styleLabels
-                                currentValue: options.styleLabels[Math.max(0, options.styleValues.indexOf(pickerStyle.ambientStyle))]
-                                onValueChanged: (value) => pickerStyle.set("ambient-style", options.styleValues[options.styleLabels.indexOf(value)])
-                            }
-                            Item { width: parent.width; height: Dims.h(4) }
-                            MouseArea {
-                                id: done
-                                anchors.horizontalCenter: parent.horizontalCenter
-                                width: Math.round(picker.width * 0.4)
-                                height: Math.round(picker.height * 0.15)
-                                onClicked: options.visible = false
-                                Rectangle {
-                                    anchors.fill: parent
-                                    radius: height / 2
-                                    color: Theme.color.primary
-                                    opacity: done.pressed ? 0.75 : 1
-                                }
-                                Label {
-                                    anchors.centerIn: parent
-                                    //% "Done"
-                                    text: qsTrId("id-tiles-done") + localeManager.changesObserver
-                                    color: Theme.color.onPrimary
-                                    font.pixelSize: Math.round(picker.height * 0.055)
-                                    font.styleName: "SemiCondensed Medium"
-                                }
-                            }
-                            Item { width: parent.width; height: Dims.h(16) }
-                        }
-                    }
-                    PageHeader {
-                        //% "Watch face"
-                        text: qsTrId("id-face-options")
-                    }
-                }
-                FaceEditor {
-                    id: complicationsPage
-                    width: pages.width
-                    height: pages.height
-                    face: options.visible ? picker.liveFace : null
-                    // the favourite's id: its complications' key (ComplicationSources.faceName of a bare id)
-                    faceUrl: picker.store ? picker.store.currentId : ""
-                    sources: picker.sources
-                }
-            }
-        }
-
-        // the page dots at the bottom, as stock's editor
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: Math.round(picker.height * 0.025)
-            spacing: Math.round(picker.width * 0.02)
-            visible: picker.hasSlots && !complicationsPage.choosing
-            Repeater {
-                model: 2
-                delegate: Rectangle {
-                    width: Math.round(picker.width * 0.018)
-                    height: width
-                    radius: width / 2
-                    color: "#ffffff"
-                    opacity: pages.currentIndex === index ? 0.9 : 0.35
-                }
-            }
-        }
+    Timer {
+        id: hideTimer
+        objectName: "eosFaceEditHide"
+        interval: FE.PICKER_HIDE_MS
+        onTriggered: picker.closeNow()
     }
 }

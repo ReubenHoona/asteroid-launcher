@@ -97,6 +97,16 @@ Item {
         }
     }
 
+    // the system colours follow the face on the watch (face-interaction-31): reported when the face changes,
+    // never in the always-on screen (FaceColors)
+    FaceColors {
+        id: faceColors
+        file: String(watchFaceSource.value)
+        face: desktop.centreItem ? desktop.centreItem.activeFace : null
+        awake: desktop.displayAwake
+        ambient: displayAmbient
+    }
+
     // the pictures of favourites that are gone (once, when the list is settled)
     Connections {
         target: favs

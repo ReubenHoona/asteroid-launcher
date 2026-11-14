@@ -113,6 +113,16 @@ set(QML_FILES
 	qml/complications/MediaSource.qml
 	qml/complications/complications.js
 	qml/complications/FaceEditor.qml
+	qml/complications/EditorSelector.qml
+	qml/complications/EditorListPage.qml
+	qml/complications/EditorSheet.qml
+	qml/complications/EditorOptionsList.qml
+	qml/complications/EditorProviderList.qml
+	qml/complications/EditorSlotsPage.qml
+	qml/complications/EditorBoolPage.qml
+	qml/complications/EditorDots.qml
+	qml/complications/faceeditor.js
+	qml/home/FaceColors.qml
 	qml/assistant/AssistantOverlay.qml
 	qml/assistant/AssistantActions.qml
 	qml/assistant/AssistantGlow.qml
@@ -293,6 +303,16 @@ set_source_files_properties(qml/complications/ClockSource.qml        PROPERTIES 
 set_source_files_properties(qml/complications/MediaSource.qml        PROPERTIES QT_RESOURCE_ALIAS complications/MediaSource.qml)
 set_source_files_properties(qml/complications/complications.js       PROPERTIES QT_RESOURCE_ALIAS complications/complications.js)
 set_source_files_properties(qml/complications/FaceEditor.qml         PROPERTIES QT_RESOURCE_ALIAS complications/FaceEditor.qml)
+set_source_files_properties(qml/complications/EditorSelector.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSelector.qml)
+set_source_files_properties(qml/complications/EditorListPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorListPage.qml)
+set_source_files_properties(qml/complications/EditorSheet.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSheet.qml)
+set_source_files_properties(qml/complications/EditorOptionsList.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorOptionsList.qml)
+set_source_files_properties(qml/complications/EditorProviderList.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorProviderList.qml)
+set_source_files_properties(qml/complications/EditorSlotsPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSlotsPage.qml)
+set_source_files_properties(qml/complications/EditorBoolPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorBoolPage.qml)
+set_source_files_properties(qml/complications/EditorDots.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorDots.qml)
+set_source_files_properties(qml/complications/faceeditor.js PROPERTIES QT_RESOURCE_ALIAS complications/faceeditor.js)
+set_source_files_properties(qml/home/FaceColors.qml PROPERTIES QT_RESOURCE_ALIAS home/FaceColors.qml)
 set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
 set_source_files_properties(qml/assistant/AssistantGlow.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantGlow.qml)

@@ -34,6 +34,7 @@ import org.nemomobile.lipstick
 import org.asteroid.controls
 import "../desktop.js" as Desktop
 import "../tiles"
+import "../complications"
 import "../firstrun"
 import ".."
 
@@ -55,6 +56,7 @@ Item {
 
     readonly property Item appDrawer: appDrawerItem
     readonly property Item facePicker: facePickerItem
+    readonly property Item faceEditor: faceEditorItem
     readonly property Item tilesEditor: tilesEditorItem
     readonly property Item confirmation: confirmationItem
     readonly property Item recents: recentsItem
@@ -109,6 +111,7 @@ Item {
 
     // the face picker goes without applying (an application or the assistant came up)
     function closeFacePicker() {
+        faceEditorItem.closeNow()
         if (facePickerItem.visible) facePickerItem.close()
     }
 
@@ -116,6 +119,7 @@ Item {
     function closeOverlays() {
         appDrawerItem.closeNow()
         recentsItem.closeNow()
+        faceEditorItem.closeNow()
         if (facePickerItem.visible) facePickerItem.close()
         if (tilesEditorItem.visible) tilesEditorItem.close()
     }
@@ -144,6 +148,11 @@ Item {
         // its dialog and the add list (tiles-framework-21, jif.java:196-209)
         if (tilesEditorItem.visible) {
             tilesEditorItem.crownPressed()
+            return
+        }
+        // the face editor: the crown leaves it for the face, the choices kept (face-interaction-24)
+        if (faceEditorItem.visible) {
+            faceEditorItem.crownPressed()
             return
         }
         if (facePickerItem.visible) {
@@ -237,14 +246,29 @@ Item {
         liveFace: desktop.centreItem ? desktop.centreItem.activeFace : null
         sources: complications
         awake: desktop.displayAwake && !displayAmbient
+        onEditRequested: faceEditorItem.open()
+    }
+    // the face editor (W3-launcher-face-editor): over the picker, which hides 500 ms after it opens
+    FaceEditor {
+        id: faceEditorItem
+        z: 6.5
+        store: faceLayer.favourites
+        face: desktop.centreItem ? desktop.centreItem.activeFace : null
+        sources: complications
+        awake: desktop.displayAwake && !displayAmbient
+        // leaving the editor shows the face (the picker is closed too, if it is still there)
+        onClosed: facePickerItem.closeNow()
     }
     // stock: Recents, the assistant or an application coming up closes the picker without applying
     // (face-interaction-33, ked.java:340-347)
     Connections {
         target: Lipstick.compositor
         function onHomeActiveChanged() {
-            if (!Lipstick.compositor.homeActive && facePickerItem.shown)
-                facePickerItem.closeNow()
+            if (!Lipstick.compositor.homeActive) {
+                faceEditorItem.closeNow()
+                if (facePickerItem.shown)
+                    facePickerItem.closeNow()
+            }
         }
     }
 

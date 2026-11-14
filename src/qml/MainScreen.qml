@@ -353,7 +353,7 @@ Item {
     property bool displayAwake: true
     property Item centreItem: null
     readonly property bool faceShown: centreItem !== null && centreItem.visible
-                                      && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible
+                                      && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible && !faceEditor.visible
     /* The face is the current panel with nothing over it: a new notification's
      * glanceable is for this, anywhere else it is a bubble; and the notification
      * list is the current panel: only a vibration (W2-launcher-heads-up) */
@@ -396,7 +396,7 @@ Item {
      * with the screen off or in always-on, where only the date shows */
     ComplicationSources {
         id: complications
-        active: desktop.displayAwake && !displayAmbient && (desktop.faceShown || facePicker.visible)
+        active: desktop.displayAwake && !displayAmbient && (desktop.faceShown || facePicker.visible || faceEditor.visible)
         ambient: displayAmbient
         // the sensor hub draws the always-on face: live data would go stale there (ambient-aod-11)
         hubDrawn: ambientController.hubFace && !ambientController.alwaysOnBlocked
@@ -435,6 +435,7 @@ Item {
     readonly property Item splash: overlays.splash
     readonly property Item appDrawer: overlays.appDrawer
     readonly property Item facePicker: overlays.facePicker
+    readonly property Item faceEditor: overlays.faceEditor
     readonly property Item tilesEditor: overlays.tilesEditor
     readonly property Item confirmation: overlays.confirmation
     readonly property Item recents: overlays.recents

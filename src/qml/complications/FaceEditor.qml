@@ -5,237 +5,421 @@
 
 import QtQuick
 import Nemo.Configuration
+import Nemo.KeepAlive
 import org.asteroid.controls
+import ".."
+import "faceeditor.js" as FE
 
 /*
- * The complications page of the face editor, as stock Wear OS's (long
- * press on the face, Customize, swipe to the data page): the face on
- * screen, smaller, with its complication slots outlined; a tap on a slot
- * opens the list of data sources (Empty first, the current one ticked); a
- * tap on one puts it in the slot and comes back here. The face is the live
- * one (a ShaderEffectSource of it), so the choice shows at once.
+ * The watch face editor, as stock Wear OS's (SysUI watchfaceeditor, W3-launcher-
+ * face-editor): a full-screen layer over the face. It opens from the pencil chip
+ * of the face picker; the picker under it hides itself 500 ms later, so leaving
+ * shows the face. Layers, bottom to top: black, the face at full size, the bottom
+ * fader (clear to 65.1 %, #a3000000 at 82.3 %, black at 100 %), a horizontal pager
+ * (SnapOneItem, pages without titles) and the page dots. Pages, in stock's order:
+ * a page per list setting (Always-on: Dimmed, Outline: EditorListPage), then
+ * "Complications" when the face has slots (EditorSlotsPage with the provider
+ * chooser, EditorProviderList), then "Other options" with the boolean settings
+ * three to a page (EditorBoolPage: Date, Seconds).
+ *
+ * Changes apply at once: there is no Done or Save. The editor is left by the
+ * crown button (back on the face from anywhere, as stock pops the whole stack),
+ * by a swipe right on the first page, or after 15 s without a touch or a crown
+ * turn; the choices are kept. The display is held on while the editor is open
+ * (stock FLAG_KEEP_SCREEN_ON) and the editor closes when it goes dark. The page
+ * it was left on is the page it opens on next time. The face is a favourite's own
+ * (FaceStyle for the options, the favourite id as the complications' key).
+ *
+ * Battery (M1): no timer runs while the editor is hidden or a finger is down;
+ * the pulse of the highlights runs only on the complications page with the
+ * display on; nothing is polled.
  */
 Item {
     id: editor
+    objectName: "eosFaceEditor"
+    anchors.fill: parent
+    visible: shown
 
-    // the face item on screen, its file, the home screen's sources
+    // the favourites (FaceLayer's FaceFavourites), the face item on the home screen,
+    // the home screen's ComplicationSources
+    property QtObject store: null
     property Item face: null
-    property string faceUrl: ""
     property QtObject sources: null
+    // the display is on (not asleep, not the always-on screen)
+    property bool awake: true
 
-    readonly property string faceName: sources ? sources.faceName(faceUrl) : ""
-    property var slots: []
-    function refresh() { slots = sources && face ? sources.slotsOf(face) : [] }
-    onFaceChanged: refresh()
-    Component.onCompleted: refresh()
+    // the favourite being edited: its id names the options (FaceStyle) and the complications' key
+    readonly property string faceId: store ? store.currentId : ""
+    readonly property string faceName: sources ? sources.faceName(faceId) : ""
+    property bool shown: false
+    // the page index of the last close (the next open starts there)
+    property int lastPage: 0
+    // a finger is down (the idle timer waits)
+    property bool touching: false
 
-    readonly property real scaleBy: 0.7
-    property Item chosenSlot: null
-    readonly property bool choosing: chosenSlot !== null
+    readonly property var slots: sources && face ? sources.slotsOf(face) : []
+    readonly property bool hasSlots: slots.length > 0
+    readonly property var pageSpecs: FE.pages(FE.LIST_SETTINGS, FE.BOOL_SETTINGS, hasSlots)
+    readonly property int pageCount: pageSpecs.length
+    readonly property int pageIndex: pager.currentIndex
+    readonly property var pageKinds: pageSpecs.map(function (p) { return p.kind })
+    readonly property bool choosing: chooser.shown
+    readonly property bool listing: optionsList.shown
+    readonly property Item pagerView: pager
+    readonly property Item chooserSheet: chooser
+    readonly property Item optionsSheet: optionsList
+    readonly property Item dotsItem: pageDots
+    readonly property Item faderItem: fader
 
+    signal opened()
+    signal closed()
+
+    // what the crown steers: the open list, else the stepper of a list setting page; none on the
+    // other pages (RotaryInput: a null target leaves the crown nothing to turn)
+    property Item rotaryTarget: chooser.shown ? chooser.list : (optionsList.shown ? optionsList.list
+                                : (pager.currentItem ? pager.currentItem.stepper : null))
+
+    // ---- the options of the favourite (applied at once: FaceLayer reads them) -------------
+    FaceStyle {
+        id: style
+        faceId: editor.faceId
+    }
+    readonly property var ambientLabels: [
+        //% "Dimmed"
+        qsTrId("id-face-ambient-dim") + localeManager.changesObserver,
+        //% "Outline"
+        qsTrId("id-face-ambient-outline") + localeManager.changesObserver
+    ]
+    function labelsOf(setting) {
+        if (setting.id === "ambient-style")
+            return ambientLabels
+        return setting.options
+    }
+    function nameOf(setting) {
+        //% "Always-on"
+        if (setting.id === "ambient-style")
+            return qsTrId("id-face-ambient") + localeManager.changesObserver
+        //% "Date"
+        if (setting.id === "show-date")
+            return qsTrId("id-face-show-date") + localeManager.changesObserver
+        //% "Seconds"
+        if (setting.id === "show-seconds")
+            return qsTrId("id-face-show-seconds") + localeManager.changesObserver
+        return setting.id
+    }
+    function valueOf(setting) {
+        switch (setting.id) {
+        case "ambient-style": return style.ambientStyle
+        case "show-date": return style.showDate
+        case "show-seconds": return style.showSeconds
+        }
+        return ""
+    }
+    function setOption(id, value) {
+        if (style.faceId === "")
+            return
+        style.set(id, value)
+    }
+    // the bool settings of a page with their names and values (chips read this)
+    function boolChips(settings) {
+        var out = []
+        for (var i = 0; i < settings.length; i++)
+            out.push({ id: settings[i].id, label: nameOf(settings[i]), value: valueOf(settings[i]) === true })
+        return out
+    }
+
+    // ---- the complications of the favourite ----------------------------------------------
     ConfigurationValue {
         id: config
         key: editor.sources ? editor.sources.configKey(editor.faceName) : ""
         defaultValue: []
     }
     function sourceOf(slot) {
-        return slot ? sources.sourceOf(config.value, slot.slotId, slot.defaultSource || "empty") : "empty"
+        return slot && sources ? sources.sourceOf(config.value, slot.slotId, slot.defaultSource || "empty") : "empty"
     }
-    function choose(source) {
-        if (chosenSlot)
+    property Item chosenSlot: null
+    function chooseSource(source) {
+        if (chosenSlot && sources)
             config.value = sources.withSource(config.value, chosenSlot.slotId, source)
-        Haptics.confirm()
         chosenSlot = null
+        chooser.closeNow()
+        poke()
     }
 
-    // ---- the face with its slots ------------------------------------------
-    Item {
-        id: page
-        anchors.fill: parent
-        visible: !editor.choosing
+    // ---- open, close, leave ---------------------------------------------------------------
+    function open() {
+        if (shown)
+            return
+        chooser.closeNow()
+        optionsList.closeNow()
+        chosenSlot = null
+        pager.currentIndex = FE.openPage(lastPage, pageCount)
+        pager.positionViewAtIndex(pager.currentIndex, ListView.Beginning)
+        enterAnim.stop()
+        opacity = 0
+        shown = true
+        enterAnim.restart()
+        idleTimer.restart()
+        opened()
+    }
+    // the editor goes (the choices stay): the face shows under it
+    function close() {
+        if (!shown)
+            return
+        closeNow()
+        closed()
+    }
+    function closeNow() {
+        enterAnim.stop()
+        idleTimer.stop()
+        chooser.closeNow()
+        optionsList.closeNow()
+        chosenSlot = null
+        shown = false
+        opacity = 1
+    }
+    // the crown button: back on the face from anywhere, the choices kept (stock pops the whole stack)
+    function crownPressed() {
+        if (!shown)
+            return false
+        close()
+        return true
+    }
+    // a swipe right out of a list, or the way back from the chooser to the complications page
+    function back() {
+        if (chooser.shown) {
+            chooser.back()
+            return true
+        }
+        if (optionsList.shown) {
+            optionsList.back()
+            return true
+        }
+        return false
+    }
+    // a pull to the right past the first page, let go with `velocity` px/s: leave, as stock's back swipe
+    function pullEnded(over, velocity) {
+        if (!shown || pager.currentIndex !== 0 || over <= 0)
+            return false
+        if (!Motion.backShouldCommit(over, velocity, over, editor.width, Theme.dp(1)))
+            return false
+        close()
+        return true
+    }
+    // the display went dark: the editor ends there (the faces draw the always-on screen)
+    onAwakeChanged: if (!awake && shown) close()
 
-        Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: Math.round(editor.height * 0.035)
+    // ---- 15 s idle ------------------------------------------------------------------------
+    function poke() { if (shown) idleTimer.restart() }
+    Timer {
+        id: idleTimer
+        objectName: "eosEditorIdle"
+        interval: FE.IDLE_MS
+        running: FE.idleRunning(editor.shown, editor.touching, editor.awake)
+        onTriggered: editor.close()
+    }
+    // the display stays on while the editor is open (FLAG_KEEP_SCREEN_ON)
+    Loader {
+        id: keepOn
+        objectName: "eosEditorKeepOn"
+        active: editor.shown
+        sourceComponent: Component { DisplayBlanking { preventBlanking: editor.shown && editor.awake } }
+    }
+    readonly property bool holdingDisplay: keepOn.active && editor.awake
+
+    NumberAnimation {
+        id: enterAnim
+        target: editor
+        property: "opacity"
+        from: 0
+        to: 1
+        duration: Motion.duration(FE.ENTER_MS)
+    }
+
+    // ---- the layers -----------------------------------------------------------------------
+    Rectangle { anchors.fill: parent; color: "#000000" }
+    // nothing under the editor takes a touch
+    MouseArea { anchors.fill: parent; enabled: editor.shown }
+
+    // the face at full size (a live copy of the home screen's face item)
+    ShaderEffectSource {
+        id: preview
+        objectName: "eosEditorPreview"
+        anchors.fill: parent
+        sourceItem: editor.face
+        live: editor.shown
+        hideSource: false
+        smooth: true
+        visible: editor.shown && editor.face !== null
+    }
+
+    // the bottom fader
+    Rectangle {
+        id: fader
+        objectName: "eosEditorFader"
+        anchors.fill: parent
+        gradient: Gradient {
+            GradientStop { position: FE.FADER[0].at; color: FE.FADER[0].color }
+            GradientStop { position: FE.FADER[1].at; color: FE.FADER[1].color }
+            GradientStop { position: FE.FADER[2].at; color: FE.FADER[2].color }
+            GradientStop { position: FE.FADER[3].at; color: FE.FADER[3].color }
+        }
+    }
+
+    // ---- the pager ------------------------------------------------------------------------
+    ListView {
+        id: pager
+        objectName: "eosEditorPager"
+        anchors.fill: parent
+        orientation: ListView.Horizontal
+        snapMode: ListView.SnapOneItem
+        highlightRangeMode: ListView.StrictlyEnforceRange
+        highlightMoveDuration: 250
+        // pulled past the first page the editor leaves (see pullEnded); elsewhere the ends hold
+        boundsBehavior: Flickable.DragOverBounds
+        interactive: editor.shown && !chooser.shown && !optionsList.shown
+        cacheBuffer: width
+        model: editor.pageSpecs
+        onCurrentIndexChanged: if (editor.shown) editor.lastPage = currentIndex
+        onDragEnded: editor.pullEnded(-horizontalOvershoot, -horizontalVelocity)
+        onMovementStarted: editor.poke()
+
+        delegate: Item {
+            id: cell
+            objectName: "eosEditorPage"
+            required property int index
+            required property var modelData
+            width: pager.width
+            height: pager.height
+            readonly property bool current: ListView.isCurrentItem
+            readonly property string kind: modelData.kind
+            readonly property Item page: loader.item
+            readonly property Item stepper: page && page.stepper ? page.stepper : null
+            readonly property bool active: current && editor.shown && editor.awake
+
+            Loader {
+                id: loader
+                anchors.fill: parent
+                sourceComponent: cell.kind === "list" ? listPage : (cell.kind === "slots" ? slotsPage : boolPage)
+                onLoaded: if (item && item.spec !== undefined) item.spec = cell.modelData
+            }
+
+            // the page's spoken name (stock: no title on screen, TalkBack only)
+            Accessible.role: Accessible.Pane
             //% "Complications"
-            text: qsTrId("id-face-complications") + localeManager.changesObserver
-            font.pixelSize: Math.round(editor.height * 0.05)
-            font.styleName: "SemiCondensed Medium"
-        }
+            Accessible.name: kind === "slots" ? qsTrId("id-face-complications") + localeManager.changesObserver
+                                              //% "Other options"
+                                              : (kind === "bool" ? qsTrId("id-face-other-options") + localeManager.changesObserver
+                                                                 : (modelData.setting ? editor.nameOf(modelData.setting) : ""))
 
-        Item {
-            id: preview
-            width: Math.round(editor.width * editor.scaleBy)
-            height: width
-            anchors.centerIn: parent
-
-            Rectangle {
-                anchors.fill: parent
-                radius: width / 2
-                color: "#000000"
-                border.color: Theme.color.surfaceContainerHigh
-                border.width: 2
-            }
-            ShaderEffectSource {
-                anchors.fill: parent
-                sourceItem: editor.face
-                live: true
-                hideSource: false
-                smooth: true
-                visible: editor.face !== null
-            }
-
-            // the slots: an outline each, the source's name on the chosen one
-            Repeater {
-                model: editor.slots
-                delegate: Item {
-                    id: slotOutline
-                    readonly property Item slot: modelData
-                    readonly property rect r: editor.face ? slot.mapToItem(editor.face, 0, 0, slot.width, slot.height) : Qt.rect(0, 0, 0, 0)
-                    readonly property real k: preview.width / Math.max(1, editor.face ? editor.face.width : 1)
-                    readonly property real pad: Math.round(editor.width * 0.008)
-                    x: r.x * k - pad
-                    y: r.y * k - pad
-                    width: r.width * k + 2 * pad
-                    height: r.height * k + 2 * pad
-
-                    Rectangle {
-                        anchors.fill: parent
-                        radius: slot.shape === "circle" ? width / 2 : height / 2
-                        color: area.pressed ? Qt.alpha(Theme.color.primary, 0.25) : "transparent"
-                        border.color: Theme.color.primary
-                        border.width: Math.max(2, Math.round(editor.width * 0.006))
-                    }
-                    Icon {
-                        anchors.centerIn: parent
-                        visible: editor.sourceOf(slotOutline.slot) === "empty"
-                        name: "ios-add"
-                        color: Theme.color.primary
-                        width: Math.min(parent.width, parent.height) * 0.6
-                        height: width
-                    }
-                    MouseArea {
-                        id: area
-                        // a finger-sized target round a small slot
-                        anchors.centerIn: parent
-                        width: Math.max(parent.width, editor.width * 0.16)
-                        height: Math.max(parent.height, editor.width * 0.16)
-                        onClicked: {
-                            list.positionViewAtBeginning()
-                            editor.chosenSlot = slotOutline.slot
-                        }
+            Component {
+                id: listPage
+                EditorListPage {
+                    id: lp
+                    property var spec: null
+                    settingName: spec ? editor.nameOf(spec.setting) : ""
+                    values: spec ? spec.setting.options : []
+                    labels: spec ? editor.labelsOf(spec.setting) : []
+                    current: spec ? String(editor.valueOf(spec.setting)) : ""
+                    active: cell.active
+                    onPicked: (value) => editor.setOption(spec.setting.id, value)
+                    onPoked: editor.poke()
+                    onOpenOptions: {
+                        optionsList.pageItem = lp
+                        optionsList.title = lp.settingName
+                        optionsList.labels = lp.labels
+                        optionsList.open(lp.index)
                     }
                 }
             }
-        }
-
-        Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: Math.round(editor.height * 0.06)
-            width: Math.round(editor.width * 0.6)
-            horizontalAlignment: Text.AlignHCenter
-            opacity: 0.7
-            visible: editor.slots.length > 0
-            //% "Tap to change"
-            text: qsTrId("id-face-tap-to-change") + localeManager.changesObserver
-            font.pixelSize: Math.round(editor.height * 0.045)
+            Component {
+                id: slotsPage
+                EditorSlotsPage {
+                    property var spec: null
+                    face: editor.face
+                    slots: editor.slots
+                    sources: editor.sources
+                    sourceOf: editor.sourceOf
+                    active: cell.active && !chooser.shown
+                    onSlotTapped: (slot) => {
+                        editor.chosenSlot = slot
+                        editor.poke()
+                        chooser.openFor(editor.sourceOf(slot))
+                    }
+                }
+            }
+            Component {
+                id: boolPage
+                EditorBoolPage {
+                    property var spec: null
+                    settings: spec ? editor.boolChips(spec.settings) : []
+                    active: cell.active
+                    onToggled: (id, value) => { editor.setOption(id, value); editor.poke() }
+                }
+            }
         }
     }
 
-    // ---- the data sources of a slot ---------------------------------------
-    Item {
-        id: chooser
-        anchors.fill: parent
-        visible: editor.choosing
+    EditorDots {
+        id: pageDots
+        objectName: "eosEditorDots"
+        count: editor.pageCount
+        position: pager.width > 0 ? Math.max(0, pager.contentX - pager.originX) / pager.width : 0
+        visible: count > 1 && !chooser.shown && !optionsList.shown
+    }
 
-        Rectangle { anchors.fill: parent; color: "#000000" }
-        MouseArea { anchors.fill: parent }
-
-        ListView {
-            id: list
-            anchors.fill: parent
-            readonly property real rowHeight: Math.round(editor.height * 0.19)
-            topMargin: Math.round(editor.height * 0.13)
-            bottomMargin: Math.round(editor.height * 0.2)
-            boundsBehavior: Flickable.StopAtBounds
-            clip: true
-            model: editor.sources ? editor.sources.all : []
-
-            header: Label {
-                width: list.width
-                height: Math.round(editor.height * 0.12)
-                horizontalAlignment: Text.AlignHCenter
-                verticalAlignment: Text.AlignVCenter
-                //% "Data"
-                text: qsTrId("id-face-data") + localeManager.changesObserver
-                font.pixelSize: Math.round(editor.height * 0.06)
-                font.styleName: "SemiCondensed Medium"
+    // ---- the lists over the pages ---------------------------------------------------------
+    EditorOptionsList {
+        id: optionsList
+        objectName: "eosEditorOptions"
+        property Item pageItem: null
+        onPicked: (index) => {
+            if (pageItem) {
+                pageItem.picked(String(pageItem.values[index]))
+                editor.poke()
             }
+        }
+        onPoked: editor.poke()
+    }
+    EditorProviderList {
+        id: chooser
+        objectName: "eosEditorChooser"
+        sources: editor.sources
+        appNames: editor.appNames
+        //% "Complications"
+        title: qsTrId("id-face-complications") + localeManager.changesObserver
+        onChosen: (source) => editor.chooseSource(source)
+        onBackRequested: editor.chosenSlot = null
+        onPoked: editor.poke()
+    }
+    // the app each source belongs to, the chooser's second line
+    readonly property var appNames: ({
+        //% "Settings"
+        "settings": qsTrId("id-face-app-settings") + localeManager.changesObserver,
+        //% "Health"
+        "health": qsTrId("id-face-app-health") + localeManager.changesObserver,
+        //% "Weather"
+        "weather": qsTrId("id-face-app-weather") + localeManager.changesObserver,
+        //% "Calendar"
+        "calendar": qsTrId("id-face-app-calendar") + localeManager.changesObserver,
+        //% "Clock"
+        "clock": qsTrId("id-face-app-clock") + localeManager.changesObserver,
+        //% "Media controls"
+        "media": qsTrId("id-face-app-media") + localeManager.changesObserver,
+        //% "Assistant"
+        "assistant": qsTrId("id-face-app-assistant") + localeManager.changesObserver
+    })
 
-            delegate: Item {
-                id: row
-                width: list.width
-                height: list.rowHeight
-                readonly property bool current: editor.chosenSlot !== null && editor.sourceOf(editor.chosenSlot) === modelData
-
-                EdgeEffect { id: edge; item: row }
-                transform: Scale {
-                    origin.x: row.width / 2; origin.y: row.height / 2
-                    xScale: edge.scale; yScale: edge.scale
-                }
-
-                Rectangle {
-                    id: pill
-                    anchors.fill: parent
-                    anchors.leftMargin: Math.round(editor.width * 0.1)
-                    anchors.rightMargin: Math.round(editor.width * 0.1)
-                    anchors.topMargin: Math.round(parent.height * 0.07)
-                    anchors.bottomMargin: Math.round(parent.height * 0.07)
-                    radius: height / 2
-                    color: rowArea.pressed ? Theme.color.surfaceContainerHigh : Theme.color.surfaceContainerLow
-                    border.color: row.current ? Theme.color.primary : "transparent"
-                    border.width: Math.max(2, Math.round(editor.width * 0.006))
-                    opacity: edge.alpha
-                }
-                MouseArea {
-                    id: rowArea
-                    anchors.fill: pill
-                    onClicked: editor.choose(modelData)
-                }
-                Icon {
-                    id: rowIcon
-                    anchors.left: pill.left
-                    anchors.leftMargin: pill.height * 0.3
-                    anchors.verticalCenter: pill.verticalCenter
-                    width: pill.height * 0.42
-                    height: width
-                    opacity: edge.alpha
-                    name: modelData === "empty" ? "ios-remove-circle-outline" : editor.sources.info(modelData).icon
-                }
-                Label {
-                    anchors.left: rowIcon.right
-                    anchors.leftMargin: pill.height * 0.2
-                    anchors.right: check.left
-                    anchors.verticalCenter: pill.verticalCenter
-                    elide: Text.ElideRight
-                    opacity: edge.alpha
-                    text: editor.sources.name(modelData) + localeManager.changesObserver
-                    font.pixelSize: Math.round(editor.height * 0.055)
-                    font.styleName: "SemiCondensed Medium"
-                }
-                Icon {
-                    id: check
-                    anchors.right: pill.right
-                    anchors.rightMargin: pill.height * 0.3
-                    anchors.verticalCenter: pill.verticalCenter
-                    visible: row.current
-                    width: visible ? pill.height * 0.4 : 0
-                    height: width
-                    name: "ios-checkmark"
-                    color: Theme.color.primary
-                    opacity: edge.alpha
-                }
+    // ---- touches: the idle timer's eyes (above everything, passive) -----------------------
+    Item {
+        anchors.fill: parent
+        z: 2000
+        PointHandler {
+            acceptedDevices: PointerDevice.TouchScreen | PointerDevice.Mouse
+            onActiveChanged: {
+                editor.touching = active
+                if (!active)
+                    editor.poke()
             }
         }
     }

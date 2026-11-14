@@ -2292,5 +2292,60 @@ Only selected people and apps can reach you.</translation>
         <source>Next Alarm</source>
         <translation>Next Alarm</translation>
     </message>
+    <message id="id-face-other-options">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Other options</source>
+        <translation>Other options</translation>
+    </message>
+    <message id="id-face-app-settings">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Settings</source>
+        <translation>Settings</translation>
+    </message>
+    <message id="id-face-app-health">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Health</source>
+        <translation>Health</translation>
+    </message>
+    <message id="id-face-app-weather">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Weather</source>
+        <translation>Weather</translation>
+    </message>
+    <message id="id-face-app-calendar">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Calendar</source>
+        <translation>Calendar</translation>
+    </message>
+    <message id="id-face-app-clock">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Clock</source>
+        <translation>Clock</translation>
+    </message>
+    <message id="id-face-app-media">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Media controls</source>
+        <translation>Media controls</translation>
+    </message>
+    <message id="id-face-app-assistant">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Assistant</source>
+        <translation>Assistant</translation>
+    </message>
+    <message id="id-face-add-complication">
+        <location filename="../src/qml/complications/EditorSlotsPage.qml"/>
+        <source>Add complication</source>
+        <translation>Add complication</translation>
+    </message>
+    <message id="id-face-toggle-on">
+        <location filename="../src/qml/complications/EditorBoolPage.qml"/>
+        <source>%1 On</source>
+        <translation>%1 On</translation>
+    </message>
+    <message id="id-face-toggle-off">
+        <location filename="../src/qml/complications/EditorBoolPage.qml"/>
+        <source>%1 Off</source>
+        <translation>%1 Off</translation>
+    </message>
 </context>
 </TS>
