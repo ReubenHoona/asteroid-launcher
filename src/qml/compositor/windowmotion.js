@@ -102,7 +102,7 @@ var SPLASH = {
     revealDelayMs: 50,        // starting_window_app_reveal_anim_delay
     revealMs: 200,            // starting_window_app_reveal_anim_duration
     bareIconScale: 1.25,      // splash_icon_no_background_scale_factor
-    iconFraction: 0.30,       // of the screen width (ours, as before)
+    iconDp: 48,               // starting_surface_icon_size 48dp (values-watch/dimens.xml:41; VALUES.tsv:6034) = 96 px
     background: "#000000"     // splash_window_background_default
 }
 

@@ -160,7 +160,7 @@ Item {
         Item {
             id: glyph
             anchors.centerIn: parent
-            width: splash.width * WM.SPLASH.iconFraction
+            width: Theme.dp(WM.SPLASH.iconDp)
             height: width
 
             Rectangle {
