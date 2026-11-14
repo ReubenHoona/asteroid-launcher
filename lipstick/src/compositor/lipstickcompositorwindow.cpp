@@ -282,6 +282,10 @@ void LipstickCompositorWindow::touchEvent(QTouchEvent *event)
 {
     if (touchEventsEnabled() && surface()) {
         handleTouchEvent(event);
+        // eos: a touch for this client is a ping for it (EosAnr)
+        if (event->type() == QEvent::TouchBegin)
+            if (LipstickCompositor *c = LipstickCompositor::instance())
+                c->noteTouchDelivered(this);
 
         static bool lipstick_touch_interception = qEnvironmentVariableIsEmpty("LIPSTICK_NO_TOUCH_INTERCEPTION");
         if (lipstick_touch_interception && event->type() == QEvent::TouchBegin) {

@@ -36,6 +36,7 @@ import org.asteroid.controls
 import org.asteroid.utils
 import org.nemomobile.lipstick
 import "keymap.js" as KeyMap
+import "../system/system.js" as Sys
 
 /* The hardware keys in the compositor (split out of compositor.qml): one
  * router that walks the context of the screen for each key event and stops
@@ -59,7 +60,14 @@ import "keymap.js" as KeyMap
  *   in both options, only while its shortcut is on.
  * Crown (fixed): press = close the keyboard or viewer, else the face, on
  * the face the app list; the second press of a double does nothing (stock:
- * Wallet, out of reach); held: mce's power menu.
+ * Wallet, out of reach); held 3 s (mce "asteroid-crown-long"): the power menu
+ * (W2-launcher-power-system). Five presses, each within 500 ms of the one
+ * before and over 600 ms in all, are Emergency SOS (Sys.sosPress), counted in
+ * every state of the display and of the touch lock; the presses of that
+ * burst do not run the Home action. With touch lock on the crown press, the
+ * crown hold and the side button's press only show its exit view
+ * (keymap.js touchLocked); mce's crown down and up edges drive its 2 s exit
+ * ring.
  * A ringing call is silenced by either key. A firing alarm or timer: the
  * crown sends its window away to the face and the alarm keeps ringing (no
  * snooze, DECISIONS.md Q49); the side button is the presenter's, by a claim
@@ -130,8 +138,19 @@ QtObject {
             shortcut: screenReaderShortcut,
             tiltToWake: tiltToWakeOn,
             touchToWake: touchToWakeOn,
-            fromAmbient: comp.wakeFromAmbient
+            fromAmbient: comp.wakeFromAmbient,
+            touchLocked: touchLocked(),
+            sosShown: arbiter.sosShown,
+            powerMenuShown: arbiter.powerMenuShown,
+            errorDialogShown: arbiter.errorShown,
+            errorDialogCancelable: arbiter.errorCancelable,
+            holdConsumed: false
         }
+    }
+
+    // touch lock (system/TouchLock.qml, a context id of compositor.qml)
+    function touchLocked() {
+        return typeof touchLock !== "undefined" && touchLock !== null && touchLock.locked === true
     }
 
     /* ---- the side button ---------------------------------------------- */
@@ -154,6 +173,9 @@ QtObject {
 
     function runSide(a) {
         switch (a) {
+        case "touchLockHint":
+            touchLock.showHint()
+            break
         case "silenceCall":
             arbiter.silenceCall()
             break
@@ -203,7 +225,42 @@ QtObject {
 
     property var crownCounter: KeyMap.newCounter()
 
+    // Emergency SOS: five presses (Sys.sosPress)
+    property var sosCounter: Sys.newSosCounter()
+    // the touch lock was turned off by the ring while the crown was still down:
+    // the rest of that hold (its release, the 3 s hold) is no press
+    property real consumeHoldAt: -1
+    property bool crownIsDown: false
+
+    function holdConsumed() {
+        if (consumeHoldAt < 0)
+            return false
+        var fresh = clock() - consumeHoldAt < 5000
+        consumeHoldAt = -1
+        return fresh
+    }
+
+    /* Count a press for the SOS gesture; true when it was the fifth. */
+    function sosCount() {
+        if (setupActive() || arbiter.sosShown)
+            return false
+        if (Sys.sosPress(sosCounter, clock()) !== "trigger")
+            return false
+        arbiter.sos.screenReaderExploring = typeof screenReader !== "undefined" && screenReader !== null
+                                            && screenReader.touchExploring === true
+        arbiter.triggerSos()
+        return arbiter.sosShown
+    }
+
     function crownPressed() {
+        if (holdConsumed())
+            return
+        // the fifth press: Emergency SOS, nothing else
+        if (sosCount())
+            return
+        // the presses of a burst do not toggle the app list five times
+        if (sosCounter.count >= 3)
+            return
         // the second press of a double (Wallet, out of reach) does nothing
         if (KeyMap.crownIsSecond(crownCounter, clock()))
             return
@@ -218,6 +275,15 @@ QtObject {
 
     function runCrown(a) {
         switch (a) {
+        case "touchLockHint":
+            touchLock.showHint()
+            break
+        case "closePowerMenu":
+            arbiter.closePowerMenu()
+            break
+        case "closeErrorDialog":
+            arbiter.closeError()
+            break
         case "silenceCall":
             arbiter.silenceCall()
             break
@@ -256,9 +322,20 @@ QtObject {
     // the press that woke the display: Home too, if the wake came from the
     // always-on display and tilt- and touch-to-wake are both on
     function crownWoke() {
+        if (holdConsumed())
+            return
+        if (sosCount())
+            return
+        if (sosCounter.count >= 3)
+            return
         if (KeyMap.crownIsSecond(crownCounter, clock()))
             return
-        if (KeyMap.crownWake(context()) !== "face")
+        var wake = KeyMap.crownWake(context())
+        if (wake === "touchLockHint") {
+            touchLock.showHint()
+            return
+        }
+        if (wake !== "face")
             return
         if (comp.appActive)
             comp.leaveApp(comp.topmostWindow)
@@ -266,10 +343,66 @@ QtObject {
             homeLoader.item.showWatchface()
     }
 
+    /* The crown held 3000 ms (mce long_press_delay): the power menu, from any
+     * display state, while the button is still down. */
+    function crownLong() {
+        var c = context()
+        c.holdConsumed = holdConsumed()
+        switch (KeyMap.crownLong(c)) {
+        case "powerMenu":
+            arbiter.showPowerMenu()
+            break
+        case "touchLockExit":
+            // mce without the crown edge triggers: the 3 s hold is the exit
+            touchLock.unlock()
+            break
+        default:
+            break
+        }
+    }
+
     property Connections crownButtonConnection: Connections {
         target: typeof crownButton !== "undefined" ? crownButton : null
         ignoreUnknownSignals: true
         function onPressed() { keyRouter.crownPressed() }
         function onWakePressed() { keyRouter.crownWoke() }
+        function onLongPressed() { keyRouter.crownLong() }
+        // the edges (only with the crown trigger patch of mce): touch lock's exit ring
+        function onPressStarted() {
+            keyRouter.crownIsDown = true
+            if (keyRouter.touchLocked())
+                touchLock.crownDown()
+        }
+        function onReleased() {
+            keyRouter.crownIsDown = false
+            if (typeof touchLock !== "undefined" && touchLock !== null)
+                touchLock.crownUp()
+        }
+        // mce's chord of the crown and the side button within 150 ms
+        function onScreenshotRequested() { keyRouter.screenshot() }
+    }
+
+    // Settings > Buttons > Chord press > Screenshot (default on, stock screenshot_enabled)
+    property QtObject screenshotSetting: ConfigurationValue {
+        key: "/org/asteroidos/settings/screenshot-enabled"
+        defaultValue: true
+    }
+    function screenshot() {
+        if (setupActive())
+            return
+        if (screenshotSetting.value === false || screenshotSetting.value === "false")
+            return
+        if (typeof screenshotOverlay !== "undefined" && screenshotOverlay !== null)
+            screenshotOverlay.capture()
+    }
+
+    // the ring completed with the crown still down
+    property Connections touchLockConnection: Connections {
+        target: typeof touchLock !== "undefined" ? touchLock : null
+        ignoreUnknownSignals: true
+        function onExited() {
+            if (keyRouter.crownIsDown)
+                keyRouter.consumeHoldAt = keyRouter.clock()
+        }
     }
 }

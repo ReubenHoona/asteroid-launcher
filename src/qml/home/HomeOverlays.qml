@@ -59,9 +59,14 @@ Item {
     readonly property Item recents: recentsItem
     readonly property Item splash: splashItem
 
+    // the boot hand-over (power-boot-warnings-07): the logo and the pill stay until the face
+    // is drawn, then fade to black and the black goes
     Splash {
         id: splashItem
         z: 9
+        // the face is drawn, or the setup wizard is what comes next (no face to wait for)
+        ready: desktop.faceShown || (typeof firstRun !== "undefined" && firstRun !== null && firstRun.isFirstRun())
+        displayOn: !Lipstick.compositor.displayAmbient
     }
 
     Component {

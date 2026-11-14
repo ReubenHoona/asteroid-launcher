@@ -209,7 +209,7 @@ private:
     void closeSaverNotice();
     static QString bootId();
 
-    MDConfItem *mModeConf[4];
+    MDConfItem *mModeConf[5];
     MDConfItem *mDndConf;
     MDConfItem *mSavedConf[ModesCore::SettingCount];
     MDConfItem *mIntensityConf;

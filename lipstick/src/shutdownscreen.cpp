@@ -16,10 +16,12 @@
 #include <QGuiApplication>
 #include "homeapplication.h"
 #include "shutdownscreen.h"
+#include "eosshutdown.h"
 
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusReply>
+#include <QDBusVariant>
 #include <QTimer>
 
 /*
@@ -45,6 +47,10 @@ ShutdownScreen::ShutdownScreen(QObject *parent) :
     bus.connect(kLogin1Service, kLogin1Path, kLogin1Manager,
                 QStringLiteral("PrepareForShutdown"),
                 this, SLOT(handlePrepareForShutdown(bool)));
+    // systemd 257: PrepareForShutdownWithMetadata carries the type of the shutdown
+    bus.connect(kLogin1Service, kLogin1Path, kLogin1Manager,
+                QStringLiteral("PrepareForShutdownWithMetadata"),
+                this, SLOT(handlePrepareForShutdownWithMetadata(bool,QVariantMap)));
 
     // Grab a delay inhibitor up front so logind waits for us (up to its
     // InhibitDelayMaxSec) after announcing the shutdown.
@@ -98,6 +104,25 @@ void ShutdownScreen::handlePrepareForShutdown(bool start)
     // Give the compositor a brief moment to render, then release the lock.
     QTimer::singleShot(kInhibitReleaseDelayMs, this,
                        [this]() { releaseShutdownInhibitor(); });
+}
+
+void ShutdownScreen::handlePrepareForShutdownWithMetadata(bool start, const QVariantMap &metadata)
+{
+    if (!start)
+        return;
+
+    QVariant type = metadata.value(QStringLiteral("type"));
+    if (type.canConvert<QDBusVariant>())
+        type = type.value<QDBusVariant>().variant();
+    const bool restart = EosShutdown::isRestart(type.toString().toStdString());
+    if (restart != m_restart) {
+        m_restart = restart;
+        emit restartChanged();
+    }
+
+    // the plain signal comes too; if it did not (or came later) the screen shows now
+    if (!m_visible)
+        handlePrepareForShutdown(true);
 }
 
 void ShutdownScreen::showShutdownScreen()

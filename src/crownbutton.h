@@ -36,6 +36,19 @@ signals:
      * the always-on display and tilt- and touch-to-wake are both on; KeyRouter
      * decides */
     void wakePressed();
+    /* The crown held 3000 ms (mce long_press_delay, actions_long_on=dbus2 with
+     * dbus_action2=asteroid-crown-long, also from the always-on screen with
+     * actions_long_off): the power menu, while the button is still down
+     * (power-boot-warnings-01) */
+    void longPressed();
+    /* The crown went down and came up (mce with the crown edge triggers,
+     * "asteroid-crown-down" and "asteroid-crown-up", in every display state):
+     * touch lock's 2 s exit ring follows the button (wake-sleep-display-03) */
+    void pressStarted();
+    void released();
+    /* mce's chord of the crown and the side button within 150 ms
+     * (61eos-side-key.conf): "screenshot" */
+    void screenshotRequested();
     /* Any other power_button_trigger argument (another dbusN action) */
     void triggered(const QString &action);
 

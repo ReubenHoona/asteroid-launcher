@@ -1492,5 +1492,100 @@ Only selected people and apps can reach you.</translation>
         <source>Pull call audio to watch</source>
         <translation>Pull call audio to watch</translation>
     </message>
+    <message id="id-restart">
+        <location filename="../src/qml/system/PowerMenu.qml"/>
+        <source>Restart</source>
+        <translation>Restart</translation>
+    </message>
+    <message id="id-touch-lock-on">
+        <location filename="../src/qml/system/TouchLock.qml"/>
+        <source>Touch lock on</source>
+        <translation>Touch lock on</translation>
+    </message>
+    <message id="id-touch-lock-exit">
+        <location filename="../src/qml/system/TouchLock.qml"/>
+        <source>Press &amp; hold crown 2 sec to exit touch lock</source>
+        <translation>Press &amp; hold crown 2 sec to exit touch lock</translation>
+    </message>
+    <message id="id-touch-lock-confirm-title">
+        <location filename="../src/qml/quickpanel/QuickPanel.qml"/>
+        <source>Turn on Touch lock?</source>
+        <translation>Turn on Touch lock?</translation>
+    </message>
+    <message id="id-touch-lock-confirm">
+        <location filename="../src/qml/quickpanel/QuickPanel.qml"/>
+        <source>Turns off touch screen. Press &amp; hold crown for 2 sec. to turn it back on.</source>
+        <translation>Turns off touch screen. Press &amp; hold crown for 2 sec. to turn it back on.</translation>
+    </message>
+    <message id="id-sos-calling">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>Calling</source>
+        <translation>Calling</translation>
+    </message>
+    <message id="id-sos-calling-number">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>Calling %1...</source>
+        <translation>Calling %1...</translation>
+    </message>
+    <message id="id-sos-no-phone">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>Your watch is not connected to your phone</source>
+        <translation>Your watch is not connected to your phone</translation>
+    </message>
+    <message id="id-sos-failed">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>Couldn't call</source>
+        <translation>Couldn't call</translation>
+    </message>
+    <message id="id-sos-cancel">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>Cancel</source>
+        <translation>Cancel</translation>
+    </message>
+    <message id="id-app-keeps-stopping">
+        <location filename="../src/qml/system/CrashDialog.qml"/>
+        <source>%1 keeps stopping</source>
+        <translation>%1 keeps stopping</translation>
+    </message>
+    <message id="id-app-not-responding">
+        <location filename="../src/qml/system/CrashDialog.qml"/>
+        <source>%1 isn't responding</source>
+        <translation>%1 isn't responding</translation>
+    </message>
+    <message id="id-app-info-button">
+        <location filename="../src/qml/system/CrashDialog.qml"/>
+        <source>App info</source>
+        <translation>App info</translation>
+    </message>
+    <message id="id-app-wait">
+        <location filename="../src/qml/system/CrashDialog.qml"/>
+        <source>Wait</source>
+        <translation>Wait</translation>
+    </message>
+    <message id="id-app-close">
+        <location filename="../src/qml/system/CrashDialog.qml"/>
+        <source>Close app</source>
+        <translation>Close app</translation>
+    </message>
+    <message id="id-bye">
+        <location filename="../src/qml/misc/ShutdownScreen.qml"/>
+        <source>Bye</source>
+        <translation>Bye</translation>
+    </message>
+    <message id="id-restarting">
+        <location filename="../src/qml/misc/ShutdownScreen.qml"/>
+        <source>Restarting...</source>
+        <translation>Restarting...</translation>
+    </message>
+    <message id="id-storage-low-title">
+        <location filename="../lipstick/src/notifications/diskspacenotifier.cpp"/>
+        <source>Storage space running out</source>
+        <translation>Storage space running out</translation>
+    </message>
+    <message id="id-storage-low-text">
+        <location filename="../lipstick/src/notifications/diskspacenotifier.cpp"/>
+        <source>Some system functions may not work</source>
+        <translation>Some system functions may not work</translation>
+    </message>
 </context>
 </TS>

@@ -39,7 +39,8 @@ static const char KEY_LPM[] = "/system/osso/dsm/display/use_low_power_mode";
 static const char KEY_DIM[] = "/system/osso/dsm/display/display_dim_timeout";
 static const char KEY_FACE_BLANK[] = "/system/osso/dsm/display/display_blank_from_locksreen_timeout";
 
-static const int Modes[] = { ModesCore::Bedtime, ModesCore::Theater, ModesCore::BatterySaver, ModesCore::ExtraDim };
+static const int Modes[] = { ModesCore::Bedtime, ModesCore::Theater, ModesCore::BatterySaver, ModesCore::ExtraDim, ModesCore::TouchLock };
+static const int ModeCount = int(sizeof(Modes) / sizeof(Modes[0]));
 
 static const QStringList AlarmModes = { QStringLiteral("do-not-disturb"), QStringLiteral("bedtime"), QStringLiteral("theater") };
 
@@ -62,10 +63,19 @@ static QString confKey(const QString &name)
     return QLatin1String(ModesEngine::ModesPath) + QLatin1Char('/') + name;
 }
 
+// where a mode's switch is: Touch lock's is a Settings key (Settings > Display > Touch lock
+// and the launcher's lock write it), the others' are under the modes' path
+static QString modeKey(int mode)
+{
+    if (mode == ModesCore::TouchLock)
+        return QStringLiteral("/org/asteroidos/settings/touch-lock");
+    return confKey(ModesCore::name(mode));
+}
+
 ModesEngine::ModesEngine(QObject *parent) : QObject(parent)
 {
-    for (int i = 0; i < 4; i++) {
-        mModeConf[i] = new MDConfItem(confKey(ModesCore::name(Modes[i])), this);
+    for (int i = 0; i < ModeCount; i++) {
+        mModeConf[i] = new MDConfItem(modeKey(Modes[i]), this);
         connect(mModeConf[i], &MDConfItem::valueChanged, this, &ModesEngine::modeConfChanged);
     }
     mDndConf = new MDConfItem(QLatin1String(DndKey), this);
@@ -117,7 +127,7 @@ ModesEngine::ModesEngine(QObject *parent) : QObject(parent)
     mBedtimeSkipTimer->setSingleShot(true);
     connect(mBedtimeSkipTimer, &QTimer::timeout, this, &ModesEngine::bedtimeSkipTimeout);
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < ModeCount; i++) {
         if (mModeConf[i]->value(false).toBool())
             mModes |= Modes[i];
     }
@@ -228,7 +238,7 @@ void ModesEngine::setDoNotDisturb(bool on)
 
 void ModesEngine::setMode(int mode, bool on)
 {
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < ModeCount; i++) {
         if (Modes[i] == mode)
             mModeConf[i]->set(on);
     }
@@ -250,7 +260,7 @@ void ModesEngine::modeConfChanged()
     const int before = mModes;
     const bool dndBefore = mDnd;
     mModes = 0;
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < ModeCount; i++) {
         if (mModeConf[i]->value(false).toBool())
             mModes |= Modes[i];
     }

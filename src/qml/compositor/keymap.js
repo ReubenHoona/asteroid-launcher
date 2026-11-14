@@ -78,6 +78,11 @@ function crownIsSecond(counter, now) {
 
 /* Side button press (released, display on). c:
  *   setup          first run not finished
+ *   touchLocked    touch lock is on: the press is filtered and only shows
+ *                  the exit view (config_touchLockButtonGesturesToFilter
+ *                  holds stem_primary_button_short_press)
+ *   sosShown       the Emergency SOS countdown is up: nothing else runs
+ *   powerMenuShown the power menu is up: the side button does nothing
  *   callRinging    a call view is up, ringing, not silenced
  *   claimSide      the front window (an alarm presenter, or an app that
  *                  claimed the side button) takes it
@@ -85,9 +90,14 @@ function crownIsSecond(counter, now) {
  *   option         'assistant' | 'recents' (/org/asteroidos/ux/side-button)
  *   shortcut       the screen reader shortcut is on
  * count: the press number in the sequence (press()).
- * Answers: none, silenceCall, claim, recents, previous, screenReader. */
+ * Answers: none, touchLockHint, silenceCall, claim, recents, previous,
+ * screenReader. */
 function sidePress(c, count) {
     if (c.setup)
+        return "none"
+    if (c.touchLocked)
+        return "touchLockHint"
+    if (c.sosShown || c.powerMenuShown)
         return "none"
     if (c.callRinging)
         return "silenceCall"
@@ -111,7 +121,7 @@ function sidePress(c, count) {
  * view too: calls-23, interruptions-08), but not during setup and not
  * over a firing alarm (interruptions-09). */
 function sideHold(c) {
-    if (c.setup || c.alertShown)
+    if (c.setup || c.alertShown || c.sosShown || c.powerMenuShown)
         return "none"
     return "assistant"
 }
@@ -124,11 +134,26 @@ function sideHold(c) {
  *                    the exercise; the alarm presenter does not)
  *   callShown        a call view is up (in progress, or ringing silenced)
  *   appActive        an application window is in front
- * Answers: none, silenceCall, closeAssistant, claim, hideAlert, hideCall,
- * leaveApp, home. */
+ *   touchLocked, sosShown, powerMenuShown   as for the side button
+ *   errorDialogShown, errorDialogCancelable   an app's crash or not-responding dialog
+ * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall,
+ * closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
         return "none"
+    // touch lock filters the press: the exit view shows, nothing else runs
+    if (c.touchLocked)
+        return "touchLockHint"
+    // the SOS countdown ends with its cancel button or the call
+    if (c.sosShown)
+        return "none"
+    // close-system-dialogs: the power menu goes first (above the call and alarm views)
+    if (c.powerMenuShown)
+        return "closePowerMenu"
+    // an app's error dialog: a crash dialog is cancelable (the crown closes it),
+    // an unresponsive app's is not (AppNotRespondingDialog)
+    if (c.errorDialogShown)
+        return c.errorDialogCancelable ? "closeErrorDialog" : "none"
     if (c.callRinging)
         return "silenceCall"
     if (c.assistantShown)
@@ -154,9 +179,34 @@ function crownPress(c) {
  * both on (KeyGestureUtils.java:83-103, PowerKeyRule.java:130-160). From a
  * fully dark screen the press only wakes. */
 function crownWake(c) {
-    if (c.setup || !c.fromAmbient || !c.tiltToWake || !c.touchToWake)
+    if (c.setup)
+        return "none"
+    // the press woke the screen of a locked watch: the exit view shows on it
+    if (c.touchLocked)
+        return "touchLockHint"
+    if (c.sosShown || c.powerMenuShown)
+        return "none"
+    if (!c.fromAmbient || !c.tiltToWake || !c.touchToWake)
         return "none"
     if (c.callRinging || c.callShown || c.assistantShown || c.claimCrown)
         return "none"
     return "face"
+}
+
+/* The crown held 3000 ms (mce long_press_delay, power_button_trigger
+ * "asteroid-crown-long", from any display state): the power menu while the
+ * button is still down (veryLongPressOnPowerBehavior = 1,
+ * PhoneWindowManager.java:619-626). Not during setup. With touch lock on,
+ * the hold is filtered, and since the exit ring takes 2 s it is the exit
+ * itself when the ring has not (mce without the crown edge triggers).
+ * c.holdConsumed: the hold already turned touch lock off (the same press
+ * must not open the menu). Answers: none, touchLockExit, powerMenu. */
+function crownLong(c) {
+    if (c.setup || c.holdConsumed)
+        return "none"
+    if (c.touchLocked)
+        return "touchLockExit"
+    if (c.sosShown)
+        return "none"
+    return "powerMenu"
 }

@@ -28,6 +28,7 @@
 #include <QTimer>
 #include <MDConfItem>
 #include "eosfreezer.h"
+#include "eosanr.h"
 #include <qmcedisplay.h>
 
 #include <timed-qt6/interface>
@@ -109,6 +110,13 @@ public:
      * again; false for a window that is gone or has no process. */
     Q_INVOKABLE bool freezeClientForWindowId(int id, bool freeze);
     Q_INVOKABLE bool isClientFrozen(int id) const;
+    /* eos (system-dialogs-misc-03): an app that does not answer the xdg ping
+     * sent after a touch within 5 s is not responding (clientNotResponding);
+     * Close app ends it (SIGKILL: never counted as a crash), Wait pings again. */
+    Q_INVOKABLE void killClientForWindowId(int id);
+    Q_INVOKABLE void waitForClientForWindowId(int id);
+    // a touch went to the window: ping its client, once, if none is out (never with the display off)
+    void noteTouchDelivered(LipstickCompositorWindow *window);
     // CLOCK_BOOTTIME in ms: runs while the AP sleeps (the go-to-watch-face
     // time is measured on it, no timer armed)
     Q_INVOKABLE qint64 bootTimeMs() const;
@@ -177,6 +185,8 @@ signals:
     void fullscreenSurfaceChanged();
     void directRenderingActiveChanged();
     void topmostWindowIdChanged();
+    // the app in front took no answer to its ping for 5 s (the dialog 'isn't responding')
+    void clientNotResponding(int windowId, const QString &appKey, const QString &title);
     void privateTopmostWindowProcessIdChanged(int pid);
     void topmostWindowOrientationChanged();
     void screenOrientationChanged();
@@ -216,6 +226,8 @@ private slots:
     void onVisibleChanged(bool visible);
     void onSurfaceDying();
     void initialize();
+    void onAnrPong(uint serial);
+    void onAnrTimeout();
 
     void onToplevelCreated(QWaylandXdgToplevel * topLevel, QWaylandXdgSurface * shellSurface);
 
@@ -246,6 +258,9 @@ private:
 
     int m_totalWindowCount;
     EosFreeze::Table m_freezer;
+    EosAnr::Policy m_anr;
+    QTimer *m_anrTimer = nullptr;
+    uint m_anrSerial = 0;
     QHash<int, LipstickCompositorWindow *> m_mappedSurfaces;
     QHash<int, LipstickCompositorWindow *> m_windows;
 

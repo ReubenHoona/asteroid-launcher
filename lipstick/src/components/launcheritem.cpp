@@ -26,6 +26,7 @@
 #include <mdesktopentry.h>
 
 #include "launcheritem.h"
+#include "appwatcher.h"
 #include "launchermodel.h"
 
 LauncherItem::LauncherItem(const QString &filePath, QObject *parent)
@@ -183,8 +184,13 @@ void LauncherItem::launchApplication()
     // DETAILS: http://standards.freedesktop.org/desktop-entry-spec/latest/ar01s06.html
 
     QStringList commandTokens = QProcess::splitCommand(QStringView(commandText));
-    // Launch the application
-    QProcess::startDetached(commandTokens.takeFirst(), commandTokens);
+    // Launch the application. The watcher owns the process so that how it ends is known
+    // (a repeating crash shows the 'keeps stopping' dialog); its key is the desktop file's name
+    QString key = filename();
+    if (key.endsWith(QLatin1String(".desktop")))
+        key.chop(8);
+    const QString program = commandTokens.takeFirst();
+    AppWatcher::instance()->launch(program, commandTokens, key, title());
 
     setIsLaunching(true);
 }

@@ -41,6 +41,7 @@
 #include "localemanager.h"
 #include "shutdownscreen.h"
 #include "screenshotservice.h"
+#include "appwatcher.h"
 #include "screenshotserviceadaptor.h"
 
 void HomeApplication::quitSignalHandler(int)
@@ -108,6 +109,10 @@ HomeApplication::HomeApplication(int &argc, char **argv)
     qmlEngine->rootContext()->setContextProperty("notificationPreviewPresenter", notificationPreviewPresenter);
     qmlEngine->rootContext()->setContextProperty("shutdownScreen", shutdownScreen);
     qmlEngine->rootContext()->setContextProperty("bluetoothAgent", bluetoothAgent);
+    // the screenshot overlay (system/ScreenshotOverlay.qml) and the app error dialogs
+    // (system/AppErrors.qml): a capture was saved, an app crashed twice
+    qmlEngine->rootContext()->setContextProperty("screenshotService", m_screenshotService);
+    qmlEngine->rootContext()->setContextProperty("appWatcher", AppWatcher::instance());
 
     connect(this, SIGNAL(homeReady()), this, SLOT(sendStartupNotifications()));
 }

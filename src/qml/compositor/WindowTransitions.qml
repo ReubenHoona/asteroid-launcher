@@ -315,7 +315,7 @@ Item {
 
     BorderGestureArea {
         id: edgeSwipe
-        enabled: comp ? comp.appActive && !root.assistantShown && !comp.alertShown : false
+        enabled: comp ? comp.appActive && !root.assistantShown && !comp.alertShown && !root.systemModal : false
         z: 5
         anchors.fill: parent
         // stock has no system gesture from the top edge inside an app

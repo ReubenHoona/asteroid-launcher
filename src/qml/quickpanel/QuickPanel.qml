@@ -867,9 +867,16 @@ Item {
             //% "Touch lock"
             label: qsTrId("id-qs-touch-lock")
             onActivated: {
-                touchLock.lock()
-                // the tray closes 700 ms later, without animation
-                rootitem.closeSoon(true)
+                // stock asks first: 'Turn on Touch lock?' (touch_lock_dialog_title and _message)
+                //% "Turn on Touch lock?"
+                rootitem.askFirst(null, qsTrId("id-touch-lock-confirm-title"),
+                                  //% "Turns off touch screen. Press & hold crown for 2 sec. to turn it back on."
+                                  qsTrId("id-touch-lock-confirm"),
+                                  function () {
+                                      touchLock.lock()
+                                      // the tray closes 700 ms later, without animation
+                                      rootitem.closeSoon(true)
+                                  }, "ms-screen_lock_portrait")
             }
             onLongPressed: rootitem.openSettings("touch_lock")
         }

@@ -37,6 +37,7 @@ import org.asteroid.controls
 import org.asteroid.utils
 import "desktop.js" as Desktop
 import "compositor"
+import "system"
 
 /* The compositor scene. Its parts are owned modules in compositor/
  * (W1-launcher-split):
@@ -102,6 +103,13 @@ Item {
     readonly property Item homeItem: homeLayer
     // the always-on screen over an open application (W2-launcher-ambient)
     readonly property Item ambientLite: liteLayer
+    // the power system (W2-launcher-power-system): touch lock, power menu, SOS, error
+    // dialogs, screenshot show; a surface of these takes the edge swipe away
+    readonly property bool touchLocked: touchLock.locked
+    readonly property bool systemModal: arbiter.powerMenuShown || arbiter.sosShown || arbiter.errorShown
+    readonly property Item touchLockItem: touchLock
+    readonly property Item screenshotItem: screenshotOverlay
+    function takeScreenshot() { screenshotOverlay.capture() }
     readonly property Item splash: launchSplash
 
     // The side button's Recents (KeyRouter): the home screen's Recents list,
@@ -210,6 +218,45 @@ Item {
     }
 
     OverlayArbiter { id: arbiter }
+
+    /* Emergency SOS: the quiet modes and touch lock go off (stock
+     * WearEmergencyActionsHelper: DND, Theater, Touch lock, Bedtime), and
+     * the lock's exit view and the power menu give way */
+    Connections {
+        target: arbiter
+        function onSosTriggered() {
+            touchLock.unlock()
+            arbiter.closePowerMenu()
+            if (typeof modes !== "undefined" && modes !== null) {
+                modes.bedtime = false
+                modes.theater = false
+                modes.doNotDisturb = false
+            }
+        }
+    }
+
+    /* Touch lock (wake-sleep-display-03): above the edge swipe (5) and the
+     * screenshot show, under the always-on screen; turned on, it takes the
+     * watch to the face (the quick settings tile, Settings, the power menu) */
+    TouchLock {
+        id: touchLock
+        z: arbiter.layers.touchLock
+        displayOn: comp ? !comp.displayIsOff : true
+        onFace: comp ? comp.homeActive && !arbiter.interrupting && !arbiter.powerMenuShown : true
+        onEngaged: {
+            arbiter.closePowerMenu()
+            if (comp.appActive)
+                root.closeTopmost()
+            else if (homeLoader.item)
+                homeLoader.item.showWatchface()
+        }
+    }
+
+    /* The screenshot show (system-dialogs-misc-08) */
+    ScreenshotOverlay {
+        id: screenshotOverlay
+        z: 5.6
+    }
 
     /* The always-on screen over an open application: Ambient Lite or the media
      * layout (AmbientLite.qml, ambient-aod-01, media-controls-15), under the

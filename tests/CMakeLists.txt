@@ -54,3 +54,28 @@ add_executable(tst_launchersort tst_launchersort.cpp ../lipstick/src/components/
 set_target_properties(tst_launchersort PROPERTIES AUTOMOC ON)
 target_include_directories(tst_launchersort PRIVATE ../lipstick/src/components)
 target_link_libraries(tst_launchersort PRIVATE Qt6::Core)
+
+# The crash rule of the app watcher (lipstick/src/components/eosappcrash.h), plain C++
+add_executable(tst_appcrash tst_appcrash.cpp)
+target_include_directories(tst_appcrash PRIVATE ../lipstick/src/components)
+
+# The unresponsive-app exchange (lipstick/src/compositor/eosanr.h), plain C++
+add_executable(tst_anr tst_anr.cpp)
+target_include_directories(tst_anr PRIVATE ../lipstick/src/compositor)
+
+# The screenshot file: round mask, name, folder (lipstick/src/eosscreenshot.h), Qt Gui
+add_executable(tst_screenshot tst_screenshot.cpp)
+target_include_directories(tst_screenshot PRIVATE ../lipstick/src)
+target_link_libraries(tst_screenshot PRIVATE Qt6::Gui)
+
+# The low storage rule (lipstick/src/notifications/eosstorage.h) and the shutdown type
+# (lipstick/src/eosshutdown.h), plain C++
+add_executable(tst_storage tst_storage.cpp)
+target_include_directories(tst_storage PRIVATE ../lipstick/src ../lipstick/src/notifications)
+
+# The crown's triggers (src/crownbutton.h) against a fake mce on a private bus:
+#   dbus-run-session -- sh -c 'DBUS_SYSTEM_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS tst_crownbutton'
+add_executable(tst_crownbutton tst_crownbutton.cpp ../src/crownbutton.cpp ../src/crownbutton.h)
+set_target_properties(tst_crownbutton PROPERTIES AUTOMOC ON)
+target_include_directories(tst_crownbutton PRIVATE ../src)
+target_link_libraries(tst_crownbutton PRIVATE Qt6::Core Qt6::DBus)

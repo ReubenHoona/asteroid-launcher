@@ -131,6 +131,13 @@ set(QML_FILES
 	qml/home/ambient.js
 	qml/compositor/AmbientLite.qml
 	qml/compositor/BurnInMask.qml
+	qml/system/PowerMenu.qml
+	qml/system/TouchLock.qml
+	qml/system/Sos.qml
+	qml/system/CrashDialog.qml
+	qml/system/AppErrors.qml
+	qml/system/ScreenshotOverlay.qml
+	qml/system/system.js
 )
 
 set_source_files_properties(qml/MainScreen.qml                       PROPERTIES QT_RESOURCE_ALIAS MainScreen.qml)
@@ -225,6 +232,13 @@ set_source_files_properties(qml/home/StatusSlot.qml                       PROPER
 set_source_files_properties(qml/home/ambient.js                           PROPERTIES QT_RESOURCE_ALIAS home/ambient.js)
 set_source_files_properties(qml/compositor/AmbientLite.qml                PROPERTIES QT_RESOURCE_ALIAS compositor/AmbientLite.qml)
 set_source_files_properties(qml/compositor/BurnInMask.qml                 PROPERTIES QT_RESOURCE_ALIAS compositor/BurnInMask.qml)
+set_source_files_properties(qml/system/PowerMenu.qml                PROPERTIES QT_RESOURCE_ALIAS system/PowerMenu.qml)
+set_source_files_properties(qml/system/TouchLock.qml                PROPERTIES QT_RESOURCE_ALIAS system/TouchLock.qml)
+set_source_files_properties(qml/system/Sos.qml                      PROPERTIES QT_RESOURCE_ALIAS system/Sos.qml)
+set_source_files_properties(qml/system/CrashDialog.qml              PROPERTIES QT_RESOURCE_ALIAS system/CrashDialog.qml)
+set_source_files_properties(qml/system/AppErrors.qml                PROPERTIES QT_RESOURCE_ALIAS system/AppErrors.qml)
+set_source_files_properties(qml/system/ScreenshotOverlay.qml        PROPERTIES QT_RESOURCE_ALIAS system/ScreenshotOverlay.qml)
+set_source_files_properties(qml/system/system.js                    PROPERTIES QT_RESOURCE_ALIAS system/system.js)
 
 asteroid_app_qml_module(asteroid-launcher ${QML_FILES})
 

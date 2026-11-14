@@ -23,7 +23,9 @@ QVariant ModesCore::hold(Setting s, int modes, int intensity)
             return false;
         break;
     case TouchToWake:
-        if (modes & (Bedtime | Theater))
+        // Touch lock turns the touch screen off in every display state: a touch does not wake
+        // it either (tilt and the crown still do)
+        if (modes & (Bedtime | Theater | TouchLock))
             return QStringLiteral("");
         break;
     case Brightness: {
@@ -86,7 +88,7 @@ bool ModesCore::silencesNotifications(int modes)
     return modes & (Bedtime | Theater);
 }
 
-static const int Precedence[] = { ModesCore::Theater, ModesCore::Bedtime, ModesCore::BatterySaver, ModesCore::ExtraDim };
+static const int Precedence[] = { ModesCore::Theater, ModesCore::Bedtime, ModesCore::BatterySaver, ModesCore::ExtraDim, ModesCore::TouchLock };
 
 int ModesCore::holder(Setting s, int modes)
 {
@@ -113,6 +115,7 @@ QString ModesCore::name(int mode)
     case Theater: return QStringLiteral("theater");
     case BatterySaver: return QStringLiteral("battery-saver");
     case ExtraDim: return QStringLiteral("extra-dim");
+    case TouchLock: return QStringLiteral("touch-lock");
     }
     return QString();
 }

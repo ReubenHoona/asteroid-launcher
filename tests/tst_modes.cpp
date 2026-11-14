@@ -306,6 +306,26 @@ int main(int argc, char **argv)
     CHECK(!engine->quiet());   // Battery saver alerts as ever
     CHECK(waitFor([&] { return !confValue(M + "saved/tilt-to-wake").isValid(); }, ConfMs));
     CHECK(waitFor([&] { return !confValue(M + "saved/brightness").isValid(); }, ConfMs));
+
+    // --- Touch lock (W2-launcher-power-system: the launcher's TouchLock writes the Settings key): no
+    // touch wakes the screen, tilt and the screen timeout caps are left as they are, the user's touch
+    // wake comes back when it ends
+    {
+        const QString TL = QStringLiteral("/org/asteroidos/settings/touch-lock");
+        setConf(TL, true);
+        CHECK(waitFor([&] { return mce.get(TOUCH).toString().isEmpty(); }, ConfMs));
+        CHECK(waitFor([&] { return engine->touchHolder() == "touch-lock"; }, ConfMs));
+        CHECK(mce.get(TILT).toBool());
+        CHECK(mce.get(DIM).toInt() == 10 && mce.get(FACE_BLANK).toInt() == 10);
+        CHECK(!engine->quiet());            // touch lock quiets nothing
+        CHECK(engine->alwaysOnBlocked() && engine->alwaysOnHolder() == "battery-saver");   // the saver still blocks the always-on screen
+        CHECK(waitFor([&] { return confValue(M + "saved/touch-to-wake").toString() == "unblank"; }, ConfMs));
+        setConf(TL, false);
+        CHECK(waitFor([&] { return mce.get(TOUCH).toString() == "unblank"; }, ConfMs));
+        CHECK(waitFor([&] { return engine->touchHolder().isEmpty(); }, ConfMs));
+        CHECK(waitFor([&] { return !confValue(M + "saved/touch-to-wake").isValid(); }, ConfMs));
+        CHECK(mce.get(DIM).toInt() == 10);
+    }
     // Bedtime off with the screen on: "Turning off Bedtime mode…"
     CHECK(ending == 1);
     // the user picks 30 s meanwhile: back to 10 s, the 30 s is theirs for later

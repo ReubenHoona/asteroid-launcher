@@ -27,6 +27,7 @@
 #include "categorydefinitionstore.h"
 #include "notificationmanageradaptor.h"
 #include "notificationmanager.h"
+#include "appwatcher.h"
 
 // Define this if you'd like to see debug messages from the notification manager
 #ifdef DEBUG_NOTIFICATIONS
@@ -953,6 +954,12 @@ void NotificationManager::invokeAction(const QString &action)
                 // If a remote action has been defined for the given action, trigger it
                 MRemoteAction(remoteAction).trigger();
             }
+
+            // eos: the default action of a notification that names a Settings route opens
+            // Settings there (the low storage notification: connectivity-system-ux-20)
+            const QString route = notification->hints().value(QStringLiteral("x-eos-ui-open")).toString();
+            if (!route.isEmpty() && action == QLatin1String("default"))
+                AppWatcher::instance()->openSettings(route);
 
             for (int actionIndex = 0; actionIndex < notification->actions().count() / 2; actionIndex++) {
                 // Actions are sent over as a list of pairs. Each even element in the list (starting at index 0) represents the identifier for the action. Each odd element in the list is the localized string that will be displayed to the user.

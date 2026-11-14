@@ -33,6 +33,7 @@
 import QtQuick
 import QtQuick.Window
 import org.nemomobile.lipstick
+import "../system"
 
 /* The launcher overlays over applications (split out of compositor.qml),
  * rendered directly in the compositor scene as z-ordered items instead of
@@ -49,9 +50,10 @@ import org.nemomobile.lipstick
  * -18, -20). Lowest first:
  *   assistant 2.5, heads-up card 3, shutdown 3, Bedtime start 3,
  *   Bluetooth pairing 3.3, phone alarm 3.4, the alert window (a firing
- *   alarm or timer of the watch) 3.5, call 3.6, power menu and thermal
- *   dialogs 3.8 (reserved, above the call and alarm views), touch lock 5.5
- *   (reserved, in compositor.qml above everything but the corner mask).
+ *   alarm or timer of the watch) 3.5, call 3.6, app error dialogs 3.7
+ *   (W2-launcher-power-system), power menu 3.8 (above the call and alarm
+ *   views; thermal dialogs share it), Emergency SOS 3.9, touch lock 5.5
+ *   (in compositor.qml above everything but the corner mask).
  * The call view is above the alarms: a call ringing or in progress
  * silences and dismisses a firing alarm, as stock (DeskClock hob.java:
  * 68-96). */
@@ -63,7 +65,7 @@ Item {
     readonly property var layers: ({
         assistant: 2.5, headsUp: 3, shutdown: 3, mode: 3,
         bluetooth: 3.3, phoneAlarm: 3.4, alert: 3.5, call: 3.6,
-        callAssistant: 3.65, powerMenu: 3.8, touchLock: 5.5
+        callAssistant: 3.65, errorDialog: 3.7, powerMenu: 3.8, sos: 3.9, touchLock: 5.5
     })
 
     /* The assistant over the home screen and applications (Wear OS: an
@@ -146,7 +148,7 @@ Item {
 
     // A surface of the system is up that covers the screen with something
     // that must not be covered by a mode's start screen (interruptions-16)
-    readonly property bool interrupting: callShown || phoneAlarmShown || alertShown
+    readonly property bool interrupting: callShown || phoneAlarmShown || alertShown || sosShown
 
     // A call or a firing alarm arriving closes the assistant, which stops
     // its microphone (interruptions-08, -09); the alarm also hides the
@@ -168,6 +170,48 @@ Item {
         z: arbiter.layers.shutdown
         anchors.fill: parent
         source: "../system/ShutdownScreen.qml"
+    }
+
+    /* The power menu (power-boot-warnings-01): the crown held 3 s. Above the
+     * call and alarm views; it closes with the display, the crown and a
+     * swipe back. */
+    PowerMenu {
+        id: powerMenu
+        z: arbiter.layers.powerMenu
+        touchLockAvailable: typeof touchLock !== "undefined" && touchLock !== null
+        onTouchLockRequested: touchLock.lock()
+    }
+    readonly property bool powerMenuShown: powerMenu.shown
+    function showPowerMenu() { powerMenu.show() }
+    function closePowerMenu() { powerMenu.close() }
+
+    /* Emergency SOS (apps-misc-07): five crown presses; its countdown covers
+     * everything, including the power menu. */
+    Sos {
+        id: sosScreen
+        z: arbiter.layers.sos
+        onTriggered: arbiter.sosTriggered()
+    }
+    readonly property bool sosShown: sosScreen.shown
+    readonly property Item sos: sosScreen
+    signal sosTriggered()
+    function triggerSos() { sosScreen.trigger() }
+
+    /* '%1 keeps stopping' and '%1 isn't responding' (system-dialogs-misc-01, -03) */
+    AppErrors {
+        id: appErrors
+        z: arbiter.layers.errorDialog
+    }
+    readonly property bool errorShown: appErrors.shown
+    readonly property bool errorCancelable: appErrors.cancelable
+    function closeError() { appErrors.close() }
+    readonly property Item errors: appErrors
+
+    // the display going off closes the power menu (stock: it closes on the screen turning off)
+    Connections {
+        target: typeof comp !== "undefined" ? comp : null
+        ignoreUnknownSignals: true
+        function onDisplayOff() { powerMenu.close() }
     }
 
     // Bedtime mode coming on: "Starting Bedtime mode…" (modes.h)

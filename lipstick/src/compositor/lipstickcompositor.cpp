@@ -27,6 +27,8 @@
 #include "lipsticksettings.h"
 #include "asteroidgesturesextension.h"
 #include "eosoffloadpolicy.h"
+#include "appwatcher.h"
+#include <signal.h>
 #include <qpa/qwindowsysteminterface.h>
 #include <private/qguiapplication_p.h>
 #include <QtGui/qpa/qplatformintegration.h>
@@ -74,6 +76,12 @@ LipstickCompositor::LipstickCompositor()
 
     m_xdgShell = new QWaylandXdgShell(this);
     connect(m_xdgShell, &QWaylandXdgShell::toplevelCreated, this, &LipstickCompositor::onToplevelCreated);
+    // eos: the pong of the ping sent after a touch (EosAnr)
+    connect(m_xdgShell, &QWaylandXdgShell::pong, this, &LipstickCompositor::onAnrPong);
+    m_anrTimer = new QTimer(this);
+    m_anrTimer->setSingleShot(true);
+    m_anrTimer->setInterval(int(EosAnr::TimeoutMs));
+    connect(m_anrTimer, &QTimer::timeout, this, &LipstickCompositor::onAnrTimeout);
 
     m_wm = new QWaylandQtWindowManager(this);
     connect(m_wm, &QWaylandQtWindowManager::openUrl, this, &LipstickCompositor::openUrl);
@@ -288,6 +296,64 @@ qint64 LipstickCompositor::bootTimeMs() const
     if (clock_gettime(CLOCK_BOOTTIME, &ts) != 0)
         return 0;
     return qint64(ts.tv_sec) * 1000 + ts.tv_nsec / 1000000;
+}
+
+// eos (system-dialogs-misc-03): the app in front is pinged after a touch
+void LipstickCompositor::noteTouchDelivered(LipstickCompositorWindow *window)
+{
+    if (!window || window->isInProcess() || !window->surface())
+        return;
+    // only the app in front, only with the display on
+    if (m_currentDisplayState != QMceDisplay::DisplayOn || window->windowId() != m_topmostWindowId)
+        return;
+    if (!m_anr.touched(window->windowId(), bootTimeMs()))
+        return;
+    m_anrSerial = m_xdgShell->ping(window->surface()->client());
+    m_anrTimer->start();
+}
+
+void LipstickCompositor::onAnrPong(uint serial)
+{
+    if (serial != m_anrSerial)
+        return;
+    m_anr.ponged();
+    m_anrTimer->stop();
+}
+
+void LipstickCompositor::onAnrTimeout()
+{
+    if (!m_anr.expired(m_currentDisplayState == QMceDisplay::DisplayOn, m_topmostWindowId))
+        return;
+    LipstickCompositorWindow *window = m_windows.value(m_anr.window(), 0);
+    if (!window) {
+        m_anr.closed();
+        return;
+    }
+    emit clientNotResponding(window->windowId(), window->appKey(), window->title());
+}
+
+void LipstickCompositor::waitForClientForWindowId(int id)
+{
+    LipstickCompositorWindow *window = m_windows.value(id, 0);
+    if (!window || !window->surface() || m_currentDisplayState != QMceDisplay::DisplayOn) {
+        m_anr.closed();
+        return;
+    }
+    m_anr.waited(bootTimeMs());
+    m_anrSerial = m_xdgShell->ping(window->surface()->client());
+    m_anrTimer->start();
+}
+
+void LipstickCompositor::killClientForWindowId(int id)
+{
+    LipstickCompositorWindow *window = m_windows.value(id, 0);
+    m_anr.closed();
+    m_anrTimer->stop();
+    if (!window || window->isInProcess() || window->processId() <= 1)
+        return;
+    // a stopped process takes SIGKILL too, but the launcher's own end of it is no crash
+    AppWatcher::instance()->noteDeliberate(window->processId());
+    ::kill(pid_t(window->processId()), SIGKILL);
 }
 
 QWaylandSurface *LipstickCompositor::surfaceForId(int id) const
@@ -632,6 +698,12 @@ void LipstickCompositor::reactOnDisplayStateChanges(QMceDisplay::State state)
     bool leaveAmbient = changeInAmbient && (state != QMceDisplay::DisplayOff);
 
     m_currentDisplayState = state;
+
+    // eos: no ping is waited for with the display off (a dialog that is up stays)
+    if (state != QMceDisplay::DisplayOn && !m_anr.shown()) {
+        m_anrTimer->stop();
+        m_anr.closed();
+    }
 
     if (changeInDimming) {
         emit displayDimmedChanged();

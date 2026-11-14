@@ -165,6 +165,48 @@ static void onAndOff()
     CHECK(st.saves.isEmpty());
 }
 
+// Touch lock (W2-launcher-power-system, wake-sleep-display-03): no touch wakes the screen while it is on;
+// tilt, the crown and everything else are left alone, the user's value comes back when it ends
+static void touchLock()
+{
+    CHECK(C::name(C::TouchLock) == QLatin1String("touch-lock"));
+    CHECK(C::hold(C::TouchToWake, C::TouchLock) == QVariant(QString()));
+    CHECK(C::holder(C::TouchToWake, C::TouchLock) == C::TouchLock);
+    // tilt-to-wake and the crown still wake: nothing else is held
+    CHECK(!C::hold(C::TiltToWake, C::TouchLock).isValid());
+    CHECK(!C::hold(C::Brightness, C::TouchLock).isValid());
+    CHECK(!C::hold(C::AutoBrightness, C::TouchLock).isValid());
+    CHECK(!C::hold(C::DimTimeout, C::TouchLock).isValid());
+    CHECK(!C::hold(C::FaceBlankTimeout, C::TouchLock).isValid());
+    // it is no mode that quiets or blocks the always-on screen
+    CHECK(!C::blocksAlwaysOn(C::TouchLock));
+    CHECK(!C::silencesNotifications(C::TouchLock));
+    CHECK(C::alwaysOnHolder(C::TouchLock) == 0);
+    CHECK(!C::isCap(C::TouchToWake, C::TouchLock));
+    // on and off: the user's touch wake setting back exactly
+    FakeStore st;
+    st.user();
+    st.values.insert(C::TouchToWake, QStringLiteral("unblank"));
+    C::apply(st, C::TouchLock);
+    CHECK(st.values.value(C::TouchToWake).toString() == QString());
+    CHECK(st.saves.value(C::TouchToWake).toString() == QLatin1String("unblank"));
+    CHECK(st.values.value(C::TiltToWake) == QVariant(true));
+    const int writes = st.writes;
+    CHECK(C::apply(st, C::TouchLock) == 0 && st.writes == writes);
+    C::apply(st, 0);
+    CHECK(st.values.value(C::TouchToWake).toString() == QLatin1String("unblank"));
+    CHECK(st.saves.isEmpty());
+    // with Theater too: back only when the last one ends
+    C::apply(st, C::TouchLock | C::Theater);
+    C::apply(st, C::Theater);
+    CHECK(st.values.value(C::TouchToWake).toString() == QString());
+    C::apply(st, 0);
+    CHECK(st.values.value(C::TouchToWake).toString() == QLatin1String("unblank"));
+    // the engine's names for the holder
+    CHECK(C::holder(C::TouchToWake, C::TouchLock | C::BatterySaver) == C::TouchLock);
+    CHECK(C::holder(C::TouchToWake, C::TouchLock | C::Theater) == C::Theater);
+}
+
 static void overlapping()
 {
     // Bedtime, then Battery saver; Bedtime ends: tilt, touch and brightness
@@ -506,6 +548,7 @@ int main()
     alarms();
     names();
     onAndOff();
+    touchLock();
     overlapping();
     changedWhileHeld();
     restart();

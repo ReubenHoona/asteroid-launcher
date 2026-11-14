@@ -60,6 +60,9 @@ public:
         Theater = 2,
         BatterySaver = 4,
         ExtraDim = 8,
+        // Touch lock (W2-launcher-power-system): no touch wakes the screen (the engine
+        // follows /org/asteroidos/settings/touch-lock, which the launcher's TouchLock writes)
+        TouchLock = 16,
     };
     enum Setting {
         TiltToWake,     // bool, mce wrist_sensor_enabled

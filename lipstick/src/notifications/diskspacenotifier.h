@@ -58,6 +58,9 @@ private:
     //! The disk space notification
     uint notificationId;
 
+    //! The low storage notification is up
+    bool m_lowShown = false;
+
 #ifdef UNIT_TEST
     friend class Ut_DiskSpaceNotifier;
 #endif
