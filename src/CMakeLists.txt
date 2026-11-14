@@ -99,6 +99,10 @@ set(QML_FILES
 	qml/notifications/NotificationView.qml
 	qml/notifications/NotificationsPanel.qml
 	qml/notifications/NotificationPreview.qml
+	qml/notifications/Glanceable.qml
+	qml/notifications/HunBubble.qml
+	qml/notifications/HeadsUpDetail.qml
+	qml/notifications/headsup.js
 	qml/notifications/IncomingCall.qml
 	qml/calls/InCall.qml
 	qml/calls/CallAudio.qml
@@ -205,6 +209,10 @@ set_source_files_properties(qml/notifications/NotificationIndicator.qml PROPERTI
 set_source_files_properties(qml/notifications/NotificationView.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationView.qml)
 set_source_files_properties(qml/notifications/NotificationsPanel.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationsPanel.qml)
 set_source_files_properties(qml/notifications/NotificationPreview.qml   PROPERTIES QT_RESOURCE_ALIAS notifications/NotificationPreview.qml)
+set_source_files_properties(qml/notifications/Glanceable.qml   PROPERTIES QT_RESOURCE_ALIAS notifications/Glanceable.qml)
+set_source_files_properties(qml/notifications/HunBubble.qml   PROPERTIES QT_RESOURCE_ALIAS notifications/HunBubble.qml)
+set_source_files_properties(qml/notifications/HeadsUpDetail.qml   PROPERTIES QT_RESOURCE_ALIAS notifications/HeadsUpDetail.qml)
+set_source_files_properties(qml/notifications/headsup.js   PROPERTIES QT_RESOURCE_ALIAS notifications/headsup.js)
 set_source_files_properties(qml/notifications/IncomingCall.qml          PROPERTIES QT_RESOURCE_ALIAS IncomingCall.qml)
 set_source_files_properties(qml/calls/InCall.qml                   PROPERTIES QT_RESOURCE_ALIAS InCall.qml)
 set_source_files_properties(qml/calls/CallAudio.qml                PROPERTIES QT_RESOURCE_ALIAS CallAudio.qml)

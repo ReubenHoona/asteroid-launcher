@@ -109,6 +109,28 @@ int main()
     // the old 'quiet on the charger' value carries over; never set (default on): on
     CHECK(silenceDefault(true, true) && !silenceDefault(true, false) && silenceDefault(false, false));
 
+    // Do Not Disturb (heads-up-alerts-17): the watch's own posters hold to it too
+    for (const char *e : { "notif_strong", "notif_normal", "notif_silent", "general_warning", "charging_started",
+                           "accessory_connected", "battery_low", "" }) {
+        CHECK(feedbackDnd(true, e).empty());
+        CHECK(!previewAllowedDnd(true, e));
+        CHECK(feedbackDnd(false, e) == e);
+        CHECK(previewAllowedDnd(false, e));
+    }
+    // ...but an alarm, a call ringing, and the critical battery warning
+    for (const char *e : { "alarm", "alarm_sound", "alarm_vibra", "eos_phone_alarm", "ringtone", "eos_phone_ringing", "battery_empty" }) {
+        CHECK(feedbackDnd(true, e) == e);
+        CHECK(previewAllowedDnd(true, e));
+    }
+    CHECK(feedbackDnd(true, "notif_strong,battery_empty,alarm") == "battery_empty,alarm");
+    CHECK(!previewAllowedDnd(true, "notif_strong,battery_low"));
+    CHECK(previewAllowedDnd(true, "notif_strong,eos_phone_ringing"));
+    // Bedtime and Theater stay stricter than DND: no call, no battery warning
+    CHECK(feedback(true, "eos_phone_ringing").empty());
+    CHECK(feedback(true, "battery_empty").empty());
+    // both on: what is left is what both allow
+    CHECK(feedbackDnd(true, feedback(true, "eos_phone_ringing,alarm")) == "alarm");
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;
 }

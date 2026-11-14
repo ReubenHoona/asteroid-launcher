@@ -136,8 +136,9 @@ function sideHold(c) {
  *   appActive        an application window is in front
  *   touchLocked, sosShown, powerMenuShown   as for the side button
  *   errorDialogShown, errorDialogCancelable   an app's crash or not-responding dialog
+ *   headsUpShown     a new notification's glanceable or full view is up
  * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall,
- * closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
+ * closeHeadsUp, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
         return "none"
@@ -156,6 +157,11 @@ function crownPress(c) {
         return c.errorDialogCancelable ? "closeErrorDialog" : "none"
     if (c.callRinging)
         return "silenceCall"
+    // the heads-up view (the face glanceable, the full notification view, a bubble's
+    // expanded view) closes first and leaves what is under it; a call and a firing
+    // alarm are above it (an alarm hides it)
+    if (c.headsUpShown && !c.callShown && !c.alertShown)
+        return "closeHeadsUp"
     if (c.assistantShown)
         return "closeAssistant"
     if (c.splash)

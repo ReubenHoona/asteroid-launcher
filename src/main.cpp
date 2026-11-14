@@ -136,9 +136,13 @@ int main(int argc, char **argv)
     QObject::connect(modes, &ModesEngine::changed, notificationManager,
                      [modes, notificationManager] {
                          notificationManager->setQuiet(modes->quiet());
+                         notificationManager->setDnd(modes->doNotDisturb());
                          notificationManager->setAlarmMask(modes->alarmMask());
                      });
     notificationManager->setQuiet(modes->quiet());
+    // Do Not Disturb holds the watch's own posters too (heads-up-alerts-17): the same
+    // dconf key as the phone's (btsyncd); alarms, calls and the critical battery warning pass
+    notificationManager->setDnd(modes->doNotDisturb());
     notificationManager->setAlarmMask(modes->alarmMask());
     // Settings > Vibration > 'Silence when off wrist' (stock: no sound or vibration
     // off the wrist or charging): dconf /org/asteroidos/notifications/silence-off-wrist;

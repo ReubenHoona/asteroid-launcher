@@ -79,3 +79,8 @@ add_executable(tst_crownbutton tst_crownbutton.cpp ../src/crownbutton.cpp ../src
 set_target_properties(tst_crownbutton PROPERTIES AUTOMOC ON)
 target_include_directories(tst_crownbutton PRIVATE ../src)
 target_link_libraries(tst_crownbutton PRIVATE Qt6::Core Qt6::DBus)
+
+# The alert rules (lipstick/src/notifications/eosalertpolicy.h): On wrist raise, the 10 s window, the 2 s
+# vibration limit, the queue of 5, auto-resume, plain C++
+add_executable(tst_alertpolicy tst_alertpolicy.cpp)
+target_include_directories(tst_alertpolicy PRIVATE ../lipstick/src/notifications)

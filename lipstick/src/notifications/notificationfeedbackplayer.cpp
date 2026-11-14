@@ -43,6 +43,8 @@ NotificationFeedbackPlayer::NotificationFeedbackPlayer(QObject *parent) :
     connect(NotificationManager::instance(), SIGNAL(notificationsModified(const QList<uint> &)), this, SLOT(updateNotifications(const QList<uint> &)));
     connect(NotificationManager::instance(), SIGNAL(quietChanged()), this, SLOT(quietChanged()));
     connect(NotificationManager::instance(), SIGNAL(silencedChanged()), this, SLOT(quietChanged()));
+    // eos: Do Not Disturb came on: what it does not let through stops now
+    connect(NotificationManager::instance(), SIGNAL(dndChanged()), this, SLOT(quietChanged()));
     // eos: a call came: what no longer plays in it stops now
     connect(LipstickSettings::instance(), SIGNAL(callStateChanged()), this, SLOT(callStateChanged()));
 
@@ -76,9 +78,11 @@ void NotificationFeedbackPlayer::addNotification(uint id)
                 LipstickSettings::instance()->callState(),
                 EosQuiet::alarmFeedback(
                     NotificationManager::instance()->alarmMask(),
-                    EosQuiet::feedback(
-                        NotificationManager::instance()->quiet() || NotificationManager::instance()->silenced(),
-                        notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString()))));
+                    EosQuiet::feedbackDnd(
+                        NotificationManager::instance()->dnd(),
+                        EosQuiet::feedback(
+                            NotificationManager::instance()->quiet() || NotificationManager::instance()->silenced(),
+                            notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString())))));
             const QStringList feedbackItems = feedback.split(QStringLiteral(","), Qt::SkipEmptyParts);
             if (!feedbackItems.isEmpty()) {
                 QMap<QString, QVariant> properties;
@@ -145,12 +149,14 @@ void NotificationFeedbackPlayer::callStateChanged()
 // (a call ringing on the phone) stops now
 void NotificationFeedbackPlayer::quietChanged()
 {
-    if (!NotificationManager::instance()->quiet() && !NotificationManager::instance()->silenced())
+    const bool dnd = NotificationManager::instance()->dnd();
+    const bool quiet = NotificationManager::instance()->quiet() || NotificationManager::instance()->silenced();
+    if (!quiet && !dnd)
         return;
     QMultiHash<LipstickNotification *, uint>::iterator it = idToEventId.begin();
     while (it != idToEventId.end()) {
         const std::string hint = it.key()->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString();
-        if (EosQuiet::feedback(true, hint).empty()) {
+        if (EosQuiet::feedbackDnd(dnd, EosQuiet::feedback(quiet, hint)).empty()) {
             ngfClient->stop(it.value());
             it = idToEventId.erase(it);
         } else {

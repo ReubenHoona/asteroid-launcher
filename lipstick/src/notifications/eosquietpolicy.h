@@ -156,6 +156,48 @@ inline bool silenceDefault(bool oldKeySet, bool oldKeyValue)
     return oldKeySet ? oldKeyValue : true;
 }
 
+/*
+ * Do Not Disturb holds the watch's own posters too (audit heads-up-alerts-17;
+ * stock hiw.java:31-35 matches local notifications against the interruption
+ * filter): a system notification other than an alarm or a call plays no event
+ * and shows no banner, it joins the stream. Allowed: the alarm class, a call
+ * ringing on the phone (starred callers only: modes-dnd-04), and the critical
+ * battery warnings ("battery_empty": shutdown and recharge; a safety exception
+ * the audit infers). Bedtime and Theater are stricter (quiet, above): they let
+ * no call through.
+ */
+inline bool dndAllows(const std::string &event)
+{
+    return alertsWhileQuiet(event) || event == "eos_phone_ringing" || event == "battery_empty";
+}
+
+inline std::string feedbackDnd(bool dnd, const std::string &hint)
+{
+    if (!dnd)
+        return hint;
+    std::string out;
+    size_t start = 0;
+    while (start <= hint.size()) {
+        size_t end = hint.find(',', start);
+        if (end == std::string::npos)
+            end = hint.size();
+        const std::string item = hint.substr(start, end - start);
+        if (!item.empty() && dndAllows(item)) {
+            if (!out.empty())
+                out += ',';
+            out += item;
+        }
+        start = end + 1;
+    }
+    return out;
+}
+
+// Whether the banner shows under Do Not Disturb
+inline bool previewAllowedDnd(bool dnd, const std::string &hint)
+{
+    return !dnd || !feedbackDnd(true, hint).empty();
+}
+
 // Whether the banner shows (and the screen may turn on for it)
 inline bool previewAllowed(bool quiet, const std::string &hint)
 {

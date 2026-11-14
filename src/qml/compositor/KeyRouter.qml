@@ -144,6 +144,7 @@ QtObject {
             powerMenuShown: arbiter.powerMenuShown,
             errorDialogShown: arbiter.errorShown,
             errorDialogCancelable: arbiter.errorCancelable,
+            headsUpShown: arbiter.headsUpShown,
             holdConsumed: false
         }
     }
@@ -286,6 +287,11 @@ QtObject {
             break
         case "silenceCall":
             arbiter.silenceCall()
+            break
+        case "closeHeadsUp":
+            // a new notification's view ends (alpha and scale to 0 in 300 ms); the
+            // notification stays in the list, the face or the app is under it
+            arbiter.closeHeadsUp()
             break
         case "closeAssistant":
             // the crown dismisses the assistant, wherever it was opened

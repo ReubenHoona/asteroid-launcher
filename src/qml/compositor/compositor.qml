@@ -94,6 +94,11 @@ Item {
     function recents() { return comp.recents() }
     function closeHidden(windowId) { comp.closeHidden(windowId) }
     readonly property bool alertShown: comp.alertShown
+    // the heads-up (W2-launcher-heads-up): its view is up (the crown and the edge swipe are
+    // its); what the home screen tells it
+    readonly property bool headsUpShown: arbiter.headsUpShown
+    readonly property bool faceCurrent: homeLoader.item && comp ? (comp.homeActive && homeLoader.item.faceCurrent === true) : false
+    readonly property bool streamCurrent: homeLoader.item && comp ? (comp.homeActive && homeLoader.item.streamCurrent === true) : false
     // the parts, for the tests and the other packages
     readonly property QtObject keys: keyRouter
     readonly property QtObject lifecycle: comp

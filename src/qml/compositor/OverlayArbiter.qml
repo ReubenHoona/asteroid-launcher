@@ -102,6 +102,19 @@ Item {
         z: arbiter.layers.headsUp
         anchors.fill: parent
         source: "../notifications/NotificationPreview.qml"
+        // what the home screen tells the heads-up: the face is the current panel (a
+        // glanceable, else a bubble), the notification list is (vibration only)
+        onLoaded: {
+            item.faceCurrent = Qt.binding(function () { return typeof root !== "undefined" && root !== null && root.faceCurrent === true })
+            item.streamCurrent = Qt.binding(function () { return typeof root !== "undefined" && root !== null && root.streamCurrent === true })
+        }
+    }
+    // the glanceable, the full notification view or a bubble's expanded view is up: the crown
+    // and the swipe back are its (W2-launcher-heads-up)
+    readonly property bool headsUpShown: previewLoader.item ? previewLoader.item.viewShown === true : false
+    function closeHeadsUp() {
+        if (previewLoader.item && previewLoader.item.closeFromCrown)
+            previewLoader.item.closeFromCrown()
     }
 
     // A call ringing on the phone: full screen, above the preview, the

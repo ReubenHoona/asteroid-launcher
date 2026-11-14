@@ -233,10 +233,16 @@ public:
     // alarmFeedback): 1 sound, 2 vibration, 3 both
     int alarmMask() const { return m_alarmMask; }
     void setAlarmMask(int mask) { m_alarmMask = mask & 3; }
+    // eos: Do Not Disturb is on (heads-up-alerts-17): the watch's own posters hold to it
+    // too, but for alarms, a call ringing and the critical battery warnings
+    // (eosquietpolicy.h feedbackDnd)
+    bool dnd() const { return m_dnd; }
+    void setDnd(bool dnd);
 
 signals:
     void quietChanged();
     void silencedChanged();
+    void dndChanged();
 
     /*!
      * A completed notification is one that has timed out, or has been dismissed by the user.
@@ -355,6 +361,7 @@ private:
 
     bool m_quiet = false;
     bool m_silenced = false;
+    bool m_dnd = false;
     int m_alarmMask = 3;
 
     //! Destroys the notification manager.

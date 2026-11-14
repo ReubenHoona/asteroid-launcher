@@ -78,6 +78,14 @@ void NotificationManager::setQuiet(bool quiet)
     qInfo() << "Notifications:" << (quiet ? "quiet: no feedback or banner but alarms (a mode)" : "alerting again");
     emit quietChanged();
 }
+void NotificationManager::setDnd(bool dnd)
+{
+    if (m_dnd == dnd)
+        return;
+    m_dnd = dnd;
+    qInfo() << "Notifications:" << (dnd ? "do not disturb: no feedback or banner but alarms, calls, critical battery" : "alerting again");
+    emit dndChanged();
+}
 void NotificationManager::setSilenced(bool silenced)
 {
     if (m_silenced == silenced)
