@@ -106,6 +106,9 @@ function sidePress(c, count) {
     // a firing alarm that did not claim the key: nothing happens under it
     if (c.alertShown)
         return "none"
+    // the screen is locked: the key only shows the bouncer (W3-launcher-a11y-security)
+    if (c.keyguardLocked === true)
+        return "showBouncer"
     if (c.shortcut && count >= 3)
         return "screenReader"
     if (validOption(c.option) === OPTION_RECENTS) {
@@ -121,7 +124,8 @@ function sidePress(c, count) {
  * view too: calls-23, interruptions-08), but not during setup and not
  * over a firing alarm (interruptions-09). */
 function sideHold(c) {
-    if (c.setup || c.thermalBlocking === true || c.alertShown || c.sosShown || c.powerMenuShown)
+    // (locked: the assistant would be a way round the lock)
+    if (c.setup || c.thermalBlocking === true || c.alertShown || c.sosShown || c.powerMenuShown || c.keyguardLocked === true)
         return "none"
     return "assistant"
 }
@@ -142,7 +146,9 @@ function sideHold(c) {
  *                    ThermalUiImpl; W3-launcher-misc)
  *   systemDialogShown  one of the launcher's system dialogs is up (Bluetooth pairing, Find my phone,
  *                    Phone away, smart links, live update, goal celebration; W3-launcher-misc)
- * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall,
+ *   keyguardLocked, bouncerShown   the screen lock is on, its bouncer is up (W3-launcher-a11y-security)
+ *   endCallOnPower, callInProgress  Settings > Accessibility > Power button ends call is on, a call is going on
+ * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall, endCall, showBouncer, hideBouncer,
  * closeHeadsUp, closeSystemDialog, closeCharging, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
@@ -165,6 +171,10 @@ function crownPress(c) {
         return c.errorDialogCancelable ? "closeErrorDialog" : "none"
     if (c.callRinging)
         return "silenceCall"
+    // Settings > Accessibility > Power button ends call: the crown ends a call in progress
+    // (the power button is the crown on this watch; accessibility-lock-security-22)
+    if (c.endCallOnPower === true && c.callInProgress === true)
+        return "endCall"
     // the heads-up view (the face glanceable, the full notification view, a bubble's
     // expanded view) closes first and leaves what is under it; a call and a firing
     // alarm are above it (an alarm hides it)
@@ -174,6 +184,11 @@ function crownPress(c) {
     // screen, under a call and a firing alarm
     if (c.systemDialogShown === true && !c.callShown && !c.alertShown)
         return "closeSystemDialog"
+    // the screen is locked (the lock is under the notifications, calls and alarms above, over the face,
+    // the charging screen and the applications): the press shows the bouncer, or takes it away again
+    // (W3-launcher-a11y-security, KeyguardViewController)
+    if (c.keyguardLocked === true && !c.callShown && !c.alertShown)
+        return c.bouncerShown === true ? "hideBouncer" : "showBouncer"
     // the charging screen (and its quality screen) is under every overlay of the arbiter and above
     // the assistant: the crown closes it and goes to the face (W2-launcher-charging)
     if (c.chargingShown === true && !c.callShown && !c.alertShown)
@@ -208,6 +223,9 @@ function crownWake(c) {
         return "touchLockHint"
     if (c.sosShown || c.powerMenuShown)
         return "none"
+    // the press woke a locked watch: the bouncer
+    if (c.keyguardLocked === true)
+        return "showBouncer"
     if (!c.fromAmbient || !c.tiltToWake || !c.touchToWake)
         return "none"
     if (c.callRinging || c.callShown || c.assistantShown || c.claimCrown)

@@ -3002,5 +3002,75 @@ Only selected people and apps can reach you.</translation>
         <source>Quick Add</source>
         <translation>Quick Add</translation>
     </message>
+    <message id="id-lock-delete">
+        <location filename="../src/qml/lock/PinPad.qml"/>
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message id="id-lock-enter">
+        <location filename="../src/qml/lock/PinPad.qml"/>
+        <source>Enter</source>
+        <translation>Enter</translation>
+    </message>
+    <message id="id-lock-pin-area">
+        <location filename="../src/qml/lock/PinPad.qml"/>
+        <source>PIN area</source>
+        <translation>PIN area</translation>
+    </message>
+    <message id="id-lock-draw-pattern">
+        <location filename="../src/qml/lock/PatternPad.qml"/>
+        <source>Draw pattern</source>
+        <translation>Draw pattern</translation>
+    </message>
+    <message id="id-lock-unlock-to-use">
+        <location filename="../src/qml/lock/Keyguard.qml"/>
+        <source>Unlock the watch to use %1</source>
+        <translation>Unlock the watch to use %1</translation>
+    </message>
+    <message id="id-lock-screen-locked">
+        <location filename="../src/qml/lock/Keyguard.qml"/>
+        <source>Screen locked</source>
+        <translation>Screen locked</translation>
+    </message>
+    <message id="id-lock-icon">
+        <location filename="../src/qml/lock/BootupLock.qml"/>
+        <source>Lock icon</source>
+        <translation>Lock icon</translation>
+    </message>
+    <message id="id-lock-unlock">
+        <location filename="../src/qml/lock/BootupLock.qml"/>
+        <source>Unlock</source>
+        <translation>Unlock</translation>
+    </message>
+    <message id="id-lock-try-seconds">
+        <location filename="../src/qml/lock/LockoutDialog.qml"/>
+        <source>Try again in %1 sec</source>
+        <translation>Try again in %1 sec</translation>
+    </message>
+    <message id="id-lock-try-minutes">
+        <location filename="../src/qml/lock/LockoutDialog.qml"/>
+        <source>Try again in %1 min %2 sec</source>
+        <translation>Try again in %1 min %2 sec</translation>
+    </message>
+    <message id="id-lock-try-hours">
+        <location filename="../src/qml/lock/LockoutDialog.qml"/>
+        <source>Try again in %1 hr %2 min</source>
+        <translation>Try again in %1 hr %2 min</translation>
+    </message>
+    <message id="id-lock-try-day">
+        <location filename="../src/qml/lock/LockoutDialog.qml"/>
+        <source>Try again in 24 hr</source>
+        <translation>Try again in 24 hr</translation>
+    </message>
+    <message id="id-lock-too-many">
+        <location filename="../src/qml/lock/LockoutDialog.qml"/>
+        <source>Too many attempts</source>
+        <translation>Too many attempts</translation>
+    </message>
+    <message id="id-lock-ok">
+        <location filename="../src/qml/lock/LockoutDialog.qml"/>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
 </context>
 </TS>

@@ -16,6 +16,8 @@ set(SRC
 	ongoingregistry.cpp
 	huboffload.cpp
 	offbody.cpp
+	lockservice.cpp
+	touchobserver.cpp
 	facepreviews.cpp
 	eoslayout.c)
 set(HEADERS
@@ -36,6 +38,10 @@ set(HEADERS
 	ongoingregistry.h
 	huboffload.h
 	offbody.h
+	lockservice.h
+	eoslock.h
+	touchobserver.h
+	eostouch.h
 	facepreviews.h
 	eoshubdigits.h
 	eoslayout.h)
@@ -226,6 +232,17 @@ set(QML_FILES
 	qml/system/AppErrors.qml
 	qml/system/ScreenshotOverlay.qml
 	qml/system/system.js
+	qml/lock/lock.js
+	qml/lock/PinPad.qml
+	qml/lock/PatternPad.qml
+	qml/lock/Keyguard.qml
+	qml/lock/BootupLock.qml
+	qml/lock/LockoutDialog.qml
+	qml/a11y/a11y.js
+	qml/a11y/Magnifier.qml
+	qml/a11y/ColorCorrection.qml
+	qml/a11y/VibrationWatch.qml
+	qml/a11y/ScreenReader.qml
 )
 
 set_source_files_properties(qml/MainScreen.qml                       PROPERTIES QT_RESOURCE_ALIAS MainScreen.qml)
@@ -411,6 +428,17 @@ set_source_files_properties(qml/system/CrashDialog.qml              PROPERTIES Q
 set_source_files_properties(qml/system/AppErrors.qml                PROPERTIES QT_RESOURCE_ALIAS system/AppErrors.qml)
 set_source_files_properties(qml/system/ScreenshotOverlay.qml        PROPERTIES QT_RESOURCE_ALIAS system/ScreenshotOverlay.qml)
 set_source_files_properties(qml/system/system.js                    PROPERTIES QT_RESOURCE_ALIAS system/system.js)
+set_source_files_properties(qml/lock/lock.js PROPERTIES QT_RESOURCE_ALIAS lock/lock.js)
+set_source_files_properties(qml/lock/PinPad.qml PROPERTIES QT_RESOURCE_ALIAS lock/PinPad.qml)
+set_source_files_properties(qml/lock/PatternPad.qml PROPERTIES QT_RESOURCE_ALIAS lock/PatternPad.qml)
+set_source_files_properties(qml/lock/Keyguard.qml PROPERTIES QT_RESOURCE_ALIAS lock/Keyguard.qml)
+set_source_files_properties(qml/lock/BootupLock.qml PROPERTIES QT_RESOURCE_ALIAS lock/BootupLock.qml)
+set_source_files_properties(qml/lock/LockoutDialog.qml PROPERTIES QT_RESOURCE_ALIAS lock/LockoutDialog.qml)
+set_source_files_properties(qml/a11y/a11y.js PROPERTIES QT_RESOURCE_ALIAS a11y/a11y.js)
+set_source_files_properties(qml/a11y/Magnifier.qml PROPERTIES QT_RESOURCE_ALIAS a11y/Magnifier.qml)
+set_source_files_properties(qml/a11y/ColorCorrection.qml PROPERTIES QT_RESOURCE_ALIAS a11y/ColorCorrection.qml)
+set_source_files_properties(qml/a11y/VibrationWatch.qml PROPERTIES QT_RESOURCE_ALIAS a11y/VibrationWatch.qml)
+set_source_files_properties(qml/a11y/ScreenReader.qml PROPERTIES QT_RESOURCE_ALIAS a11y/ScreenReader.qml)
 
 asteroid_app_qml_module(asteroid-launcher ${QML_FILES})
 
@@ -438,6 +466,28 @@ target_link_libraries(
 install(
 	TARGETS asteroid-launcher
 	DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+
+# eos-lockd: the root helper that keeps the screen lock credential and the count of wrong tries (lockhelper.h),
+# D-Bus activated on the system bus as org.asteroidos.LockHelper
+add_executable(eos-lockd eos-lockd.cpp lockhelper.cpp lockhelper.h eoslock.h)
+set_target_properties(eos-lockd PROPERTIES AUTOMOC ON)
+target_link_libraries(eos-lockd PRIVATE Qt6::Core Qt6::DBus)
+install(
+	TARGETS eos-lockd
+	DESTINATION ${CMAKE_INSTALL_BINDIR}
+)
+install(
+	FILES ../lockd/eos-lockd.service
+	DESTINATION ${CMAKE_INSTALL_PREFIX}/lib/systemd/system
+)
+install(
+	FILES ../lockd/org.asteroidos.LockHelper.service
+	DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system-services
+)
+install(
+	FILES ../lockd/org.asteroidos.LockHelper.conf
+	DESTINATION ${CMAKE_INSTALL_DATADIR}/dbus-1/system.d
 )
 
 install(

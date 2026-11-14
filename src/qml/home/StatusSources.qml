@@ -55,7 +55,8 @@ Item {
     property bool waterLock: false
     property bool thermal: false
     property bool safety: false
-    property bool screenLock: false
+    // the screen lock (lock/Keyguard.qml): the face says "Device is locked"
+    property bool screenLock: typeof lockService !== "undefined" && lockService !== null && lockService.locked === true
     property bool lteDisconnected: false
 
     readonly property var active: Status.evaluate({

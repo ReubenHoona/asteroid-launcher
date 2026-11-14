@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=org.asteroidos.LockHelper
+Exec=/usr/bin/eos-lockd
+User=root
+SystemdService=eos-lockd.service

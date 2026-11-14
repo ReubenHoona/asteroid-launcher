@@ -1,0 +1,12 @@
+[Unit]
+Description=Screen lock credential helper
+
+[Service]
+Type=dbus
+BusName=org.asteroidos.LockHelper
+ExecStart=/usr/bin/eos-lockd
+User=root
+StateDirectory=eos-lock
+StateDirectoryMode=0700
+ProtectHome=yes
+NoNewPrivileges=yes

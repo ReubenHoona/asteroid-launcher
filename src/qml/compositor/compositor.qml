@@ -40,6 +40,8 @@ import "compositor"
 import "system"
 import "home"
 import "charging"
+import "lock"
+import "a11y"
 
 /* The compositor scene. Its parts are owned modules in compositor/
  * (W1-launcher-split):
@@ -74,13 +76,23 @@ Item {
 
     /* Bedtime's colour filter (NightLight.qml, modes-dnd-09): the whole scene
      * is drawn through it while it is on, and not through a layer otherwise */
-    NightLight { id: nightLight }
+    ColorCorrection { id: colorCorrection }
+    NightLight { id: nightLight; extra: colorCorrection }
     layer.enabled: nightLight.active
     layer.effect: nightLight.effect
+    // magnified (a11y/Magnifier.qml), the layer is drawn at the size it is shown, not stretched
+    layer.textureSize: magnifier.magnified ? Qt.size(width * magnifier.zoom, height * magnifier.zoom) : Qt.size(0, 0)
+    // Magnification: Scale and Translate of the whole scene, in window coordinates
+    transform: magnifier.transforms
 
     // the overlays (OverlayArbiter)
     readonly property bool assistantShown: arbiter.assistantShown
-    function openAssistant(text, instant) { arbiter.openAssistant(text, instant === true) }
+    // (not while the screen is locked: the assistant would be a way round the lock)
+    function openAssistant(text, instant) {
+        if (keyguard.locked)
+            return
+        arbiter.openAssistant(text, instant === true)
+    }
     function closeAssistant() { arbiter.closeAssistant() }
     // stock: the assistant coming up closes the face picker without applying (face-interaction-33)
     onAssistantShownChanged: {
@@ -135,7 +147,12 @@ Item {
             root.claimStatus("mic", root.micInUse)
         }
     }
-    readonly property bool systemModal: arbiter.powerMenuShown || arbiter.sosShown || arbiter.errorShown || charging.up
+    readonly property bool systemModal: arbiter.powerMenuShown || arbiter.sosShown || arbiter.errorShown || charging.up || keyguard.locked
+    // the screen lock (W3-launcher-a11y-security): the keyguard item, for the other modules
+    readonly property bool keyguardLocked: keyguard.locked
+    readonly property Item keyguardItem: keyguard
+    readonly property Item magnifierItem: magnifier
+    readonly property Item screenReaderItem: screenReader
     // the charging screen (or its quality screen) is up (W2-launcher-charging): the crown closes it
     readonly property bool chargingShown: charging.up
     readonly property Item chargingItem: chargingScreen
@@ -167,7 +184,7 @@ Item {
         // and dims; on the way back (the crown) it grows from 0.5; behind a
         // back swipe it grows 0.85 -> 0.93, dimmed. Cropped to a circle while
         // it moves, as stock; at rest nothing is changed or rendered twice.
-        scale: transitions.homeScale
+        scale: transitions.homeScale * keyguard.faceZoom
         opacity: transitions.homeAlpha
         layer.enabled: transitions.homeMoving && DeviceSpecs.hasRoundScreen
         layer.effect: CircleMaskShader { }
@@ -227,8 +244,8 @@ Item {
             Scale {
                 origin.x: appLayer.width / 2
                 origin.y: appLayer.height / 2
-                xScale: transitions.appScale
-                yScale: transitions.appScale
+                xScale: transitions.appScale * keyguard.faceZoom
+                yScale: transitions.appScale * keyguard.faceZoom
             },
             Translate { x: transitions.appX }
         ]
@@ -277,6 +294,35 @@ Item {
         z: 2.45
         anchors.fill: parent
         kind: charging.problemKind
+    }
+
+    /* The screen lock (W3-launcher-a11y-security): over the face and the applications, under the
+     * notifications, calls, alarms, the power menu and SOS of the arbiter (declared after it, same z: its items draw above): the
+     * bouncer, the lockout dialog and the boot lock screen. Locked, the watch goes to the face; the
+     * face is held there (the crown cannot move it) and zooms out behind the bouncer. */
+    Keyguard {
+        id: keyguard
+        z: 2.5
+        displayOn: comp ? !comp.displayIsOff : true
+        touchLocked: touchLock.locked
+        onEngaged: {
+            root.closeAssistant()
+            arbiter.closeHeadsUp()
+            if (comp.appActive)
+                root.closeTopmost()
+            else if (homeLoader.item)
+                homeLoader.item.showWatchface()
+        }
+    }
+    // locked, the face is all that shows (a panel moved by the crown goes back at once)
+    Connections {
+        target: homeLoader.item
+        ignoreUnknownSignals: true
+        function onFaceCurrentChanged() {
+            if (keyguard.locked && homeLoader.item && !homeLoader.item.faceCurrent && !keyguard.bouncerShown
+                    && homeLoader.item.showWatchface)
+                homeLoader.item.showWatchface()
+        }
     }
 
     OverlayArbiter { id: arbiter }
@@ -336,6 +382,19 @@ Item {
     }
 
     WindowTransitions { id: transitions }
+
+    /* Accessibility (W3-launcher-a11y-security): magnification (the scene's own transform), the
+     * vibration watch, and the screen reader's state (KeyRouter reads its shortcut and toggle) */
+    Magnifier {
+        id: magnifier
+        z: 7
+    }
+    VibrationWatch {
+        id: vibrationWatch
+        displayOn: comp ? !comp.displayIsOff : true
+        onFace: root.faceCurrent
+    }
+    ScreenReader { id: screenReader }
 
     KeyRouter { id: keyRouter }
 

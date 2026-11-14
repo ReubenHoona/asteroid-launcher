@@ -583,6 +583,9 @@ Compositor {
         }
 
         if (!isDialogWindow) {
+            // opened while the watch is locked: the bouncer and "Unlock the watch to use %1"
+            if (typeof keyguard !== "undefined" && keyguard !== null && keyguard.locked)
+                keyguard.appRequested(window.title)
             closeDuplicates(window)
             // the application in front goes to the background (setCurrentWindow)
             appLayer.ready = false

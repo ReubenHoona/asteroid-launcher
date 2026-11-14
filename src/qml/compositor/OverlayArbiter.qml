@@ -141,6 +141,10 @@ Item {
     function silenceCall() { if (callView && callView.silence) callView.silence() }
     // leave the call view (the call goes on, its notification stays)
     function hideCall() { if (callView && callView.hide) callView.hide() }
+    // a call is in progress (its view may be hidden): lipstick's callState 2
+    readonly property bool callInProgress: callView ? callView.callStateValue === 2 : false
+    // end it (the crown with Settings > Accessibility > Power button ends call on)
+    function endCall() { return callView && callView.endCall ? callView.endCall() : false }
 
     // An alarm or timer ringing on the phone: full screen, above the
     // preview and under the call

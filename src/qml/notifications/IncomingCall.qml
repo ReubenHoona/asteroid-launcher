@@ -521,6 +521,25 @@ Item {
         n.actionInvoked(key)
     }
 
+    // The crown ended the call (Settings > Accessibility > Power button ends call): the End button's action;
+    // with the view hidden (the call goes on, its card stays) the phone's card is the one ended
+    function endCall() {
+        if (call !== null && liveOngoing && !hangingUp && !callEnded) {
+            act("end")
+            return true
+        }
+        for (var i = 0; i < notifModel.itemCount; i++) {
+            var n = notifModel.get(i)
+            if (n !== null && n !== undefined && isInProgress(n)) {
+                ended[n.replacesId] = true
+                n.actionInvoked("end")
+                updateCallState(n)
+                return true
+            }
+        }
+        return false
+    }
+
     function silence() {
         if (call === null || silenced)
             return

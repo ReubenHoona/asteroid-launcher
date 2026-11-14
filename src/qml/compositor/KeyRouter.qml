@@ -148,8 +148,23 @@ QtObject {
             thermalBlocking: arbiter.thermalBlocking,
             headsUpShown: arbiter.headsUpShown,
             chargingShown: root.chargingShown,
+            keyguardLocked: keyguardLocked(),
+            bouncerShown: typeof keyguard !== "undefined" && keyguard !== null && keyguard.bouncerShown === true,
+            endCallOnPower: endCallSetting.value === true || endCallSetting.value === "true",
+            callInProgress: arbiter.callInProgress,
             holdConsumed: false
         }
+    }
+
+    // Settings > Accessibility > Power button ends call (default off: the press goes to the face)
+    property QtObject endCallSetting: ConfigurationValue {
+        key: "/org/asteroidos/a11y/power-button-ends-call"
+        defaultValue: false
+    }
+
+    // the screen lock (lock/Keyguard.qml, a context id of compositor.qml)
+    function keyguardLocked() {
+        return typeof keyguard !== "undefined" && keyguard !== null && keyguard.locked === true
     }
 
     // touch lock (system/TouchLock.qml, a context id of compositor.qml)
@@ -183,6 +198,9 @@ QtObject {
             break
         case "silenceCall":
             arbiter.silenceCall()
+            break
+        case "showBouncer":
+            keyguard.requestBouncer(false)
             break
         case "recents":
             // the assistant over the face goes first
@@ -284,6 +302,15 @@ QtObject {
         case "touchLockHint":
             touchLock.showHint()
             break
+        case "showBouncer":
+            keyguard.requestBouncer(false)
+            break
+        case "hideBouncer":
+            keyguard.hideBouncer()
+            break
+        case "endCall":
+            arbiter.endCall()
+            break
         case "closePowerMenu":
             arbiter.closePowerMenu()
             break
@@ -355,6 +382,10 @@ QtObject {
         var wake = KeyMap.crownWake(context())
         if (wake === "touchLockHint") {
             touchLock.showHint()
+            return
+        }
+        if (wake === "showBouncer") {
+            keyguard.requestBouncer(false)
             return
         }
         if (wake !== "face")

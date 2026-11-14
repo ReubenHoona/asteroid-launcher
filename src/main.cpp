@@ -57,6 +57,8 @@
 #include "ongoingregistry.h"
 #include "huboffload.h"
 #include "offbody.h"
+#include "lockservice.h"
+#include "touchobserver.h"
 #include "facepreviews.h"
 #include "eosquietpolicy.h"
 
@@ -115,6 +117,14 @@ int main(int argc, char **argv)
     // only): Settings > Display > Always-on when off wrist, Silence when off wrist
     OffBody *offBody = new OffBody(&app);
     app.engine()->rootContext()->setContextProperty("offBody", offBody);
+    // the screen lock: the credential store and whether the watch is locked (qml/lock/Keyguard.qml;
+    // Settings sets the PIN or pattern over the session bus, org.asteroidos.launcher.Lock)
+    LockService *lockService = new LockService(&app);
+    app.engine()->rootContext()->setContextProperty("lockService", lockService);
+    // the multi-finger taps of the accessibility features (magnification, vibration watch); it takes
+    // no touch and is not installed while both are off
+    TouchObserver *touchObserver = new TouchObserver(&app);
+    app.engine()->rootContext()->setContextProperty("touchObserver", touchObserver);
     // the cached previews of the watch face picker (~/.cache/asteroid-launcher/face-previews)
     FacePreviews *facePreviews = new FacePreviews(QString(), &app);
     app.engine()->rootContext()->setContextProperty("facePreviews", facePreviews);

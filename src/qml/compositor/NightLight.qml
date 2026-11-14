@@ -23,13 +23,28 @@ import QtQuick
 QtObject {
     id: nightLight
 
+    // the accessibility colour correction (a11y/ColorCorrection.qml, W3-launcher-a11y-security):
+    // its matrix is applied after Bedtime's filter, in the same pass
+    property QtObject extra: null
+    readonly property bool extraActive: extra !== null && extra.active === true
+
     readonly property bool modesReady: typeof modes !== "undefined" && modes !== null
     // "", "nightlight" or "grayscale"
     readonly property string filter: modesReady ? modes.displayFilter : ""
-    readonly property bool active: filter !== ""
+    readonly property bool active: filter !== "" || extraActive
     // the 3x3 colour matrix, row-major (identity with no filter)
-    readonly property var coefficients: modesReady && modes.filterMatrix && modes.filterMatrix.length === 9
-                                        ? modes.filterMatrix : [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    readonly property var modesCoefficients: modesReady && modes.filterMatrix && modes.filterMatrix.length === 9
+                                             ? modes.filterMatrix : [1, 0, 0, 0, 1, 0, 0, 0, 1]
+    readonly property var coefficients: extraActive ? chain(modesCoefficients, extra.coefficients) : modesCoefficients
+
+    // first the 3 x 3 matrix a, then b (row-major)
+    function chain(a, b) {
+        var r = []
+        for (var i = 0; i < 3; i++)
+            for (var j = 0; j < 3; j++)
+                r.push(b[i * 3] * a[j] + b[i * 3 + 1] * a[3 + j] + b[i * 3 + 2] * a[6 + j])
+        return r
+    }
     readonly property matrix4x4 colorMatrix: Qt.matrix4x4(
         coefficients[0], coefficients[1], coefficients[2], 0,
         coefficients[3], coefficients[4], coefficients[5], 0,

@@ -36,6 +36,22 @@ set_target_properties(tst_offbody PROPERTIES AUTOMOC ON)
 target_include_directories(tst_offbody PRIVATE ../src)
 target_link_libraries(tst_offbody PRIVATE Qt6::Core Qt6::DBus)
 
+# The screen lock: the credential store, the service and the root helper eos-lockd as a second process of the test
+# (src/eoslock.h, lockservice.*, lockbackend.h, lockhelper.*), on a private bus:
+#   dbus-run-session -- ./tst_lock
+add_executable(tst_lock tst_lock.cpp ../src/lockservice.cpp ../src/lockservice.h ../src/lockbackend.h
+	../src/lockhelper.cpp ../src/lockhelper.h ../src/eoslock.h)
+set_target_properties(tst_lock PROPERTIES AUTOMOC ON)
+target_include_directories(tst_lock PRIVATE ../src)
+target_link_libraries(tst_lock PRIVATE Qt6::Core Qt6::DBus)
+
+# The multi-tap recognizer and the touch observer (src/eostouch.h, src/touchobserver.*) on synthetic touch streams:
+#   ./tst_touch
+add_executable(tst_touch tst_touch.cpp ../src/touchobserver.cpp ../src/touchobserver.h ../src/eostouch.h)
+set_target_properties(tst_touch PROPERTIES AUTOMOC ON)
+target_include_directories(tst_touch PRIVATE ../src)
+target_link_libraries(tst_touch PRIVATE Qt6::Core Qt6::Gui)
+
 # The freezer of hidden applications (lipstick/src/compositor/eosfreezer.h), plain C++
 add_executable(tst_freezer tst_freezer.cpp)
 target_include_directories(tst_freezer PRIVATE ../lipstick/src/compositor)
