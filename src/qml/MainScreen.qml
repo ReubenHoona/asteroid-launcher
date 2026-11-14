@@ -38,6 +38,7 @@ import org.asteroid.controls
 import org.asteroid.utils
 import org.asteroid.launcher
 import "desktop.js" as Desktop
+import "pager.js" as Pager
 import "tiles"
 import "complications"
 import "home"
@@ -104,13 +105,15 @@ Item {
      *    The launcher page (verOffset > 0) is intentionally not darkened unless
      *    a launcher overrides the background colours. In the Wear layout the
      *    vertical panels are trays over a still face, which is neither darkened
-     *    nor moved (the trays have their own background, PanelsGrid), so only
-     *    the sideways move to the tiles darkens.
+     *    nor moved (the trays have their own background, PanelsGrid), and the
+     *    tiles slide over a face that zooms behind a black layer of the
+     *    grid's (PanelsGrid.faceDistance), so nothing here darkens.
      *  - ambientDarken is toggled by the ambient signals (AmbientController)
      *    and fades over 300ms. */
     property real scrollDarken: displayAmbient ? 0.0
                               : (grid.normalizedVerOffset > 0 && !launcherColorOverride) ? 0.0
-                              : Math.max(Math.abs(grid.normalizedHorOffset), wearLayout ? 0 : Math.abs(grid.normalizedVerOffset)) * 0.4
+                              : wearLayout ? 0
+                              : Math.max(Math.abs(grid.normalizedHorOffset), Math.abs(grid.normalizedVerOffset)) * 0.4
     property real ambientDarken: 0.0
     Behavior on ambientDarken { NumberAnimation { duration: 300 } }
 
@@ -205,6 +208,10 @@ Item {
      * shows up, as Wear OS does. The app launchers call this as
      * desktop.launchApp(model.object, circle). */
     function launchApp(launcherItem, fromItem) {
+        // a tile's app opens as every launch does, with no origin of the tile's
+        // own (stock starts it with makeBasic options: tiles-framework-29)
+        if (fromItem && fromItem.tileFrame === true)
+            fromItem = null
         // "Assistant" in the app list is the launcher's own overlay
         if (launcherItem.filePath && launcherItem.filePath.split("/").pop() === "asteroid-assistant.desktop") {
             if (Desktop.compositorRoot && Desktop.compositorRoot.openAssistant)
@@ -342,8 +349,11 @@ Item {
     PanelsGrid {
         id: grid
         anchors.fill: parent
-        // the app list follows a swipe right on the watchface (Wear layout)
-        edgeTarget: desktop.wearLayout ? appDrawer : null
+        // no swipe opens the app list in the Wear layout (stock: the crown
+        // does); a swipe right on the face shows the last tile, the carousel
+        // being a ring (tiles-framework-01, app-launcher-28). Only an
+        // AsteroidOS-layout launcher could set an edge target.
+        edgeTarget: null
 
         Component.onCompleted: trays.build()
     }
@@ -386,9 +396,12 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         // Parallax: shift the wallpaper by 5% of the screen against the scroll
         // direction. Pure bindings on the grid offset, so they always settle to
-        // the right place no matter how the position was reached. Not up and
-        // down in the Wear layout: the trays pass over a face that stays put.
-        anchors.horizontalCenterOffset: grid.normalizedHorOffset * grid.width  * (-0.05)
+        // the right place no matter how the position was reached. Not in the
+        // Wear layout: the trays pass over a face that stays put, and so do the
+        // tiles; the face (wallpaper with it) zooms to 0.8 behind them instead
+        // (stock lcl.java:40-91; none with Reduce animations).
+        scale: wearLayout ? Pager.faceScale(grid.faceDistance, Motion.reduceMotion) : 1
+        anchors.horizontalCenterOffset: wearLayout ? 0 : grid.normalizedHorOffset * grid.width  * (-0.05)
         anchors.verticalCenterOffset:   wearLayout ? 0 : grid.normalizedVerOffset * grid.height * (-0.05)
         Behavior on opacity { NumberAnimation { duration: 400 } }
 

@@ -21,6 +21,8 @@ import org.asteroid.controls
 Item {
     id: editor
 
+    //% "Widget Management"
+    Accessible.name: qsTrId("id-tiles-management")
     property var registry: ({})
     signal changed(var tiles)
     // the editing ended on this tile (an index of the list, -1: none)
@@ -219,8 +221,8 @@ Item {
                     }
                     Label {
                         anchors.horizontalCenter: parent.horizontalCenter
-                        //% "Add tile"
-                        text: qsTrId("id-tiles-add") + localeManager.changesObserver
+                        //% "Add new"
+                        text: qsTrId("id-tiles-add-new") + localeManager.changesObserver
                         font.pixelSize: Math.round(editor.height * 0.05)
                         font.styleName: "SemiCondensed Medium"
                     }
@@ -229,6 +231,8 @@ Item {
                 MouseArea {
                     id: cardArea
                     anchors.fill: parent
+                    //% "Add widgets"
+                    Accessible.name: card.isAdd ? qsTrId("id-tiles-add-widgets") : ""
                     // a swipe up on the middle tile removes it (Pixel Watch)
                     property real startY: 0
                     property bool swiped: false
@@ -285,6 +289,8 @@ Item {
         anchors.bottomMargin: Math.round(editor.height * 0.035)
         width: editor.buttonSize
         height: width
+        //% "Delete"
+        Accessible.name: qsTrId("id-tiles-delete")
         onClicked: editor.remove(carousel.currentIndex)
         Rectangle {
             anchors.fill: parent
@@ -314,6 +320,11 @@ Item {
             x: by < 0 ? Math.round(editor.width * 0.035) : editor.width - width - Math.round(editor.width * 0.035)
             width: Math.round(editor.width * 0.13)
             height: Math.round(editor.height * 0.26)
+            //% "Move widget left"
+            readonly property string nameLeft: qsTrId("id-tiles-move-left")
+            //% "Move widget right"
+            readonly property string nameRight: qsTrId("id-tiles-move-right")
+            Accessible.name: by < 0 ? nameLeft : nameRight
             onClicked: editor.move(carousel.currentIndex, by)
             Rectangle {
                 anchors.centerIn: parent
@@ -354,7 +365,8 @@ Item {
                 height: Math.round(editor.height * 0.12)
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
-                text: qsTrId("id-tiles-add") + localeManager.changesObserver
+                //% "Widgets"
+                text: qsTrId("id-tiles-add-header") + localeManager.changesObserver
                 font.pixelSize: Math.round(editor.height * 0.06)
                 font.styleName: "SemiCondensed Medium"
             }

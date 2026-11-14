@@ -6,13 +6,19 @@
 import QtQuick
 import org.asteroid.controls
 import org.asteroid.utils
+import "../pager.js" as Pager
 
 /*
- * The frame of a tile, as Wear OS lays its tiles out: black, the time on
- * the top arc, a coloured title, the content in the middle and an optional
- * chip at the bottom edge. A tap anywhere that is not a button is clicked()
- * (as a Wear OS tile's clickable: it opens the tile's app); a long press
- * opens the tiles editor.
+ * The frame of a tile, as Wear OS lays its tiles out (protolayout-material3
+ * PrimaryLayout, "M3 primary layout"): black; at the top a 24 dp slot for
+ * the tile's app icon, which the carousel draws (TilesIndicator: no time
+ * on tiles), 3 dp from the top; under it the coloured title (titleSmall, 14 sp
+ * on a 16 sp line, 14.5 % margins either side); the content in the middle
+ * with 7.1 % side margins; and an optional edge button at the bottom (46 dp
+ * tall, 3 dp from the edge, 52 % wide, primary / onPrimary). A tap anywhere
+ * that is not a button is clicked() (as a Wear OS tile's clickable: it opens
+ * the tile's app) and shows the ripple; a long press (400 ms, the platform's
+ * long-press timeout) opens the tiles editor.
  *
  * "live" is true while the tile is on screen (the panels grid hides the
  * panels nobody sees). Tiles only read and show their data while live, so a
@@ -26,44 +32,35 @@ Item {
     readonly property bool live: visible
     property string chipText: ""
     property string chipIcon: ""
-    // drawn small as a picture of itself (the tiles editor): no curved time
+    // the edge button's colours (stock filledButtonColors: primary / onPrimary;
+    // a tile may take another container, e.g. the clock tiles' green)
+    property color chipColor: Theme.color.primary
+    property color chipContentColor: Theme.color.onPrimary
+    // drawn small as a picture of itself (the tiles editor): no press, no ripple
     property bool preview: false
     default property alias content: body.data
     readonly property alias body: body
+    readonly property alias chip: chip
+    readonly property alias titleItem: titleLabel
+    // the tap area, for the long press timeout and the tests
+    readonly property alias tapArea: bodyArea
+    readonly property bool pressed: bodyArea.pressed
+    // MainScreen.launchApp gives a launch from a tile no origin of its own
+    readonly property bool tileFrame: true
 
     signal chipClicked()
     signal clicked()
 
-    /*
-     * The page dots under the tiles (MainScreen's ArcPageIndicator: the watch
-     * face and every tile, along the bottom of the round screen): stock keeps
-     * the indicator at the bottom edge under the tile's primary chip, never
-     * over it. The chip sits above the dots under it, for as many dots as
-     * there are (the same geometry as ArcPageIndicator: 6 dp dots 4 dp apart,
-     * 6 dp from the edge), 2 dp clear; at least 6 % from the bottom as before.
-     */
-    readonly property int pageDots: typeof desktop !== "undefined" && desktop && desktop.tileCount > 0
-                                    ? desktop.tileCount + 1 : 0
-    readonly property real chipBottomMargin: {
-        var base = Math.round(height * 0.06)
-        if (pageDots <= 0 || width <= 0 || height <= 0)
-            return base
-        var s = Math.min(width, height), dp = s / 192, dot = 6 * dp, spacing = 4 * dp
-        var half = Math.round(width * 0.5) / 2 + dot / 2
-        var top = height
-        if (!DeviceSpecs.hasRoundScreen) {
-            top = height - 6 * dp - dot
-        } else {
-            var r = s / 2 - 6 * dp - dot / 2, step = (dot + spacing) / r
-            for (var i = 0; i < pageDots; i++) {
-                var a = (i - (pageDots - 1) / 2) * step
-                var x = r * Math.sin(a)
-                if (Math.abs(x) < half)
-                    top = Math.min(top, height / 2 + r * Math.cos(a) - dot / 2)
-            }
-        }
-        return Math.max(base, Math.ceil(height - top + 2 * dp))
-    }
+    // the layout, in dp (PrimaryLayout.kt HEADER_*, PrimaryLayoutMargins DEFAULT,
+    // EdgeButton.kt: EDGE_BUTTON_HEIGHT_DP 46, BOTTOM_MARGIN_DP 3,
+    // HORIZONTAL_MARGIN_PERCENT_SMALL 24; the slot above is 3 + 24 + 2 dp)
+    readonly property real titleTop: Theme.size.tileAppIconTop + Theme.size.tileAppIcon + Theme.dp(2)
+    readonly property real titleSideMargin: width * 0.145
+    readonly property real bodySideMargin: width * 0.071
+    readonly property real titleGap: Theme.dp(4)
+    readonly property real edgeHeight: Theme.size.edgeButtonExtraSmall
+    readonly property real edgeWidth: width * 0.52
+    readonly property real edgeBodyGap: Theme.dp(4)
 
     Rectangle {
         anchors.fill: parent
@@ -71,9 +68,18 @@ Item {
         color: "#000000"
     }
 
+    // the tap feedback of the renderer's theme: the shared bounded ripple
+    Ripple {
+        radius: width / 2
+        pressed: bodyArea.pressed && !tile.preview
+        pressX: bodyArea.mouseX
+        pressY: bodyArea.mouseY
+    }
+
     MouseArea {
+        id: bodyArea
         anchors.fill: parent
-        pressAndHoldInterval: 500
+        pressAndHoldInterval: Pager.LONG_PRESS_MS
         onClicked: tile.clicked()
         onPressAndHold: {
             Haptics.longPress()
@@ -82,77 +88,48 @@ Item {
         }
     }
 
-    TimeText { visible: !tile.preview }
-
     Label {
         id: titleLabel
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: Math.round(tile.height * 0.15)
-        width: Math.round(tile.width * 0.6)
+        x: tile.titleSideMargin
+        y: tile.titleTop
+        width: tile.width - 2 * tile.titleSideMargin
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
         text: tile.title
         color: tile.accent
-        // Wear OS title small, 14 sp
-        font.pixelSize: Theme.type.titleSmall.pixelSize
-        font.styleName: "SemiCondensed Medium"
+        role: "titleSmall"
     }
 
     Item {
         id: body
         anchors {
             top: titleLabel.bottom
-            topMargin: Math.round(tile.height * 0.02)
-            bottom: chip.visible ? chip.top : parent.bottom
-            bottomMargin: Math.round(tile.height * (chip.visible ? 0.02 : 0.12))
+            topMargin: tile.titleGap
+            bottom: parent.bottom
+            bottomMargin: chip.visible ? Theme.size.edgeButtonBottomGap + tile.edgeHeight + tile.edgeBodyGap
+                                       : Math.round(tile.height * 0.12)
             left: parent.left
             right: parent.right
-            leftMargin: Math.round(tile.width * 0.1)
-            rightMargin: Math.round(tile.width * 0.1)
+            leftMargin: tile.bodySideMargin
+            rightMargin: tile.bodySideMargin
         }
     }
 
-    // Wear OS's edge button: a wide pill hugging the bottom of the screen
-    MouseArea {
+    // Wear OS's edge button: hugs the round edge under the content
+    EdgeButton {
         id: chip
         objectName: "tileChip"
         visible: tile.chipText !== "" || tile.chipIcon !== ""
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: tile.chipBottomMargin
-        width: Math.round(tile.width * 0.5)
-        height: Math.round(tile.height * 0.19)
+        width: tile.edgeWidth
+        preferredHeight: tile.edgeHeight
+        text: tile.chipText
+        iconName: tile.chipIcon
+        containerColor: tile.chipColor
+        contentColor: tile.chipContentColor
         onClicked: {
             Haptics.click()
             tile.chipClicked()
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: height / 2
-            color: tile.accent
-            opacity: chip.pressed ? 0.75 : 1.0
-        }
-
-        Row {
-            anchors.centerIn: parent
-            spacing: Math.round(tile.width * 0.015)
-            Icon {
-                visible: tile.chipIcon !== ""
-                name: tile.chipIcon
-                color: "#000000"
-                width: Math.round(chip.height * 0.42)
-                height: width
-                anchors.verticalCenter: parent.verticalCenter
-            }
-            Label {
-                visible: tile.chipText !== ""
-                text: tile.chipText
-                color: "#000000"
-                font.pixelSize: Math.round(tile.height * 0.06)
-                font.styleName: "SemiCondensed Medium"
-                anchors.verticalCenter: parent.verticalCenter
-            }
         }
     }
 }

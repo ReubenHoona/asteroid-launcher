@@ -31,6 +31,7 @@ import QtQuick
 import org.asteroid.controls
 import org.asteroid.launcher
 import "tray.js" as TrayRules
+import "pager.js" as Pager
 
 /* The grid of panels. In the Wear layout (trayMode, set by Trays.build) the
  * vertical panels are trays (W2-launcher-trays, stock TrayPositionController):
@@ -51,6 +52,11 @@ import "tray.js" as TrayRules
  *  - the crown on the face opens the stream (forward) or quick settings
  *    (backward) after 150 px of rotation (RotaryInput's rotaryExit); a list
  *    in the stream at its top hands the rest of a downward drag to the tray
+ * The pages of row 0 are a ring [face, tile 1..n] (W2-launcher-tiles-carousel,
+ * "The tiles ring" below): the face stays and zooms to 0.8 behind a black
+ * layer while a tile slides over it, a release past 35 % of a page or at
+ * 400 dp/s goes one page, on a spring 1.0 / 200, round the loop at both ends;
+ * rules in misc/pager.js.
  * Without trayMode (the AsteroidOS layout) the grid is a pager as it was. */
 GestureFilterArea {
     id: panelsGrid
@@ -69,10 +75,35 @@ GestureFilterArea {
         id: content
 
         /* The watch face's parent in trayMode: it moves with the content
-         * sideways (the tiles) and not up or down, so the trays pass over it */
+         * neither up or down (the trays pass over it) nor sideways (the
+         * tiles slide over it, W2-launcher-tiles-carousel): it stays, and
+         * zooms from 1.0 to 0.8 as the pager leaves it (stock lcl.java:85-91).
+         * In ambient it follows the content, which the burn-in shift moves. */
         Item {
             id: stillHost
+            x: panelsGrid.trayMode && !displayAmbient ? -content.x : 0
             y: panelsGrid.trayMode ? -content.y : 0
+            width: panelsGrid.width
+            height: panelsGrid.height
+            scale: panelsGrid.trayMode ? Pager.faceScale(panelsGrid.faceDistance, Motion.reduceMotion) : 1
+        }
+
+        /* The black layer between the face and the tiles, alpha = how far
+         * the pager is from the face (stock hjw.java:1402-1475). It stays on
+         * the screen like the face, under the tile panels (z 2) and the
+         * trays' backgrounds (z 1, made later: same z, later in the tree). */
+        Rectangle {
+            id: ringShade
+            objectName: "ringShade"
+            x: -content.x
+            y: -content.y
+            width: panelsGrid.width
+            height: panelsGrid.height
+            radius: width / 2
+            color: "#000000"
+            z: 1
+            opacity: Pager.faceShade(panelsGrid.faceDistance)
+            visible: panelsGrid.trayMode && opacity > 0
         }
     }
     readonly property Item faceHost: stillHost
@@ -142,10 +173,13 @@ GestureFilterArea {
         // after this, away from the one the grid says it is on
         contentAnim.stop()
         stopTrays()
+        ringSpring.stop()
+        _vshift = 0
         content.x = -panelWidth*posX
         content.y = -panelHeight*posY
         currentHorizontalPos = posX
         currentVerticalPos = posY
+        ringPlace()
     }
 
     /* True while followTo() runs: the panel under the user was renumbered,
@@ -174,7 +208,13 @@ GestureFilterArea {
             revealNeighbour(c, posY === currentVerticalPos ? posY : currentVerticalPos)
         for (r = Math.min(posY, currentVerticalPos); r <= Math.max(posY, currentVerticalPos); r++)
             revealNeighbour(posX, r)
-        var horizontalMove = posX !== currentHorizontalPos
+        var horizontalMove = posX !== currentHorizontalPos || _vshift !== 0
+        if (horizontalMove && ringActive && posY === 0 && currentVerticalPos === 0) {
+            // the pager's own move: the way round that is shorter, on the
+            // programmatic spring (a swipe's spring is for fingers)
+            animateRingTo(posX)
+            return
+        }
         currentHorizontalPos = posX
         currentVerticalPos = posY
         if (horizontalMove)
@@ -192,7 +232,7 @@ GestureFilterArea {
                 rec.item.visible = false
     }
 
-    onWidthChanged:  { for(var rec of panels.values()) placeItem(rec) }
+    onWidthChanged:  { for(var rec of panels.values()) placeItem(rec); ringPlace() }
     onHeightChanged: { for(var rec of panels.values()) placeItem(rec) }
 
     /* Possible directions handling */
@@ -211,6 +251,13 @@ GestureFilterArea {
         toTopAllowed    = cellAt(currentHorizontalPos,   currentVerticalPos+1) !== undefined && current.item.forbidBottom !== true
         toRightAllowed  = cellAt(currentHorizontalPos-1, currentVerticalPos)   !== undefined && current.item.forbidLeft   !== true
         toLeftAllowed   = cellAt(currentHorizontalPos+1, currentVerticalPos)   !== undefined && current.item.forbidRight  !== true
+
+        // the tiles are a ring with the face: a swipe either way on the face or
+        // a tile goes to the next page round (the last tile's neighbour is the face)
+        if (ringActive && currentVerticalPos === 0) {
+            toRightAllowed = current.item.forbidLeft  !== true
+            toLeftAllowed  = current.item.forbidRight !== true
+        }
 
         current.item.visible = true
     }
@@ -234,7 +281,17 @@ GestureFilterArea {
     onContentXChanged: {
         if (displayAmbient) return
         panelsHideTimeout.restart()
-        var off = content.x + currentHorizontalPos * panelWidth
+        var vcol = currentHorizontalPos + _vshift
+        var off = content.x + vcol * panelWidth
+        ringPlace()
+        if (ringActive && currentVerticalPos === 0) {
+            // round the ring: the face is the neighbour of the last tile
+            if (off < -0.5)
+                revealNeighbour(Pager.realCol(vcol + 1, tilePages), 0)
+            else if (off > 0.5)
+                revealNeighbour(Pager.realCol(vcol - 1, tilePages), 0)
+            return
+        }
         if (off < -0.5)
             revealNeighbour(currentHorizontalPos+1, currentVerticalPos)
         else if (off > 0.5)
@@ -267,6 +324,12 @@ GestureFilterArea {
     onSwipeStarted: (horizontal) => {
         _edgeDrag = false
         contentAnim.stop()
+        if (horizontal && ringActive) {
+            // the finger catches a page still gliding (also one on its way
+            // round the ring: the ring is renumbered under it first)
+            ringSpring.stop()
+            normalizeRing()
+        }
         if (!horizontal) {
             // the finger catches a tray gliding in or out, as a pager's panel
             stopTrays()
@@ -283,7 +346,11 @@ GestureFilterArea {
             edgeTarget.dragBy(delta)
             return
         }
-        if(horizontal) {
+        if (horizontal && ringActive && currentVerticalPos === 0) {
+            // the finger moves the pages 1:1, at most a page either way
+            var restX = -currentHorizontalPos * panelWidth
+            contentX = Math.max(restX - panelWidth, Math.min(restX + panelWidth, content.x + delta))
+        } else if(horizontal) {
             contentX = content.x + delta
             var currentPanelX = -currentHorizontalPos*panelWidth
             contentX = Math.min(contentX, currentPanelX + (toRightAllowed ? panelWidth  : 0))
@@ -319,6 +386,11 @@ GestureFilterArea {
         }
         if (!horizontal && trayMode && trayDragging) {
             endTrayDrag()
+            animateIndicators()
+            return
+        }
+        if (horizontal && ringActive && currentVerticalPos === 0 && !tracing) {
+            releaseRing(swipeVelocityX)
             animateIndicators()
             return
         }
@@ -374,6 +446,107 @@ GestureFilterArea {
         easing.type: Easing.BezierSpline
         easing.bezierCurve: [0, 0, 0.2, 1, 1, 1]
         onStopped: panelsHideTimeout.restart()
+    }
+
+    /* ---- The tiles ring (W2-launcher-tiles-carousel) --------------------- *
+     *
+     * In the Wear layout the pages of row 0 are a ring [face, tile 1..n]
+     * (stock Compose HorizontalPager over a looped page list, hjw.java /
+     * jmv.java / jnk.java): a swipe left from the last tile shows the face, a
+     * swipe right from the face the last tile, one page per swipe at most.
+     * The face does not slide (see stillHost): the tile pages slide over it.
+     *
+     * The panels keep their columns (the face 0, tile k at k). The ring
+     * wraps by "virtual columns": the face to the right of tile n is column
+     * n + 1 and tile n to the left of the face is column -1. The content
+     * glides to the virtual column; tile n is drawn at x = -width while the
+     * content is right of the face (ringPlace), and when the glide is over
+     * the ring is renumbered without any visible change (normalizeRing: the
+     * content moves by a whole ring, tile n by one column). Until then
+     * currentHorizontalPos is already the real target column and _vshift the
+     * difference to the virtual one.
+     *
+     * Release (pager.js, stock ux.N(.., 0.35f), spring(1.0, 200)): past 35 %
+     * of a page, or a fling of 400 dp/s or more, goes one page; the settle is
+     * a spring from the finger's speed. */
+
+    /* the number of tile pages (TilesRing: the tiles, or one empty page) */
+    property int tilePages: 0
+    readonly property bool ringActive: trayMode && tilePages > 0
+    // virtual column minus real column while a glide round the ring is on
+    property int _vshift: 0
+
+    /* where the pager is, in virtual columns (0 the face, k tile k), and how
+     * far from the face page (0..1): the face's zoom, the black layer */
+    readonly property real ringPosition: panelWidth > 0 ? -content.x / panelWidth : 0
+    readonly property real faceDistance: ringActive ? Pager.faceDistance(ringPosition, tilePages) : 0
+
+    WearSpring {
+        id: ringSpring
+        target: content
+        property: "x"
+        stopAtFraction: 1
+        onFinished: panelsGrid.finishRing()
+    }
+    // its settings and state, for the tests and the diagnostics
+    readonly property QtObject ringAnimation: ringSpring
+
+    // tile n is the left neighbour of the face while the content is right of it
+    function ringPlace() {
+        if (!ringActive)
+            return
+        var rec = cellAt(tilePages, 0)
+        if (rec !== undefined)
+            rec.item.x = content.x > 0.5 ? -panelWidth : panelWidth * tilePages
+    }
+
+    // count the ring from the real column again (nothing moves on the screen)
+    function normalizeRing() {
+        if (_vshift === 0)
+            return
+        content.x = content.x - (-_vshift) * panelWidth
+        _vshift = 0
+        ringPlace()
+    }
+
+    function finishRing() {
+        normalizeRing()
+        panelsHideTimeout.restart()
+    }
+
+    /* the finger lifted on the ring: the page it goes to, then the spring */
+    function releaseRing(vx) {
+        var vcol = currentHorizontalPos
+        var d = (content.x + vcol * panelWidth) / panelWidth
+        var step = Pager.releaseStep(d, vx, Theme.dp(Pager.FLING_DP_S))
+        glideRing(vcol + step, vx, Pager.SWIPE_SPRING)
+    }
+
+    // spring the content to the virtual column, at the finger's speed
+    function glideRing(target, velocity, spec) {
+        var real = Pager.realCol(target, tilePages)
+        for (var c = Math.min(target, currentHorizontalPos); c <= Math.max(target, currentHorizontalPos); c++)
+            revealNeighbour(Pager.realCol(c, tilePages), 0)
+        _vshift = target - real
+        currentHorizontalPos = real
+        ringSpring.stiffness = spec.stiffness
+        ringSpring.dampingRatio = spec.dampingRatio
+        ringSpring.animateTo(-panelWidth * target, velocity)
+    }
+
+    // the pager's own move to a column (the crown button back to the face)
+    function animateRingTo(col) {
+        ringSpring.stop()
+        normalizeRing()
+        var from = currentHorizontalPos, m = tilePages + 1
+        // the shorter way round the ring
+        var target = col
+        if (Math.abs(col + m - from) < Math.abs(target - from))
+            target = col + m
+        if (Math.abs(col - m - from) < Math.abs(target - from) && col - m >= -1)
+            target = col - m
+        target = Math.max(-1, Math.min(tilePages + 1, target))
+        glideRing(target, 0, Pager.PROGRAMMATIC_SPRING)
     }
 
     /* ---- Trays over a still face (W2-launcher-trays) -------------------- */

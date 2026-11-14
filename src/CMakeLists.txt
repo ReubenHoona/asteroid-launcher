@@ -51,6 +51,7 @@ set(QML_FILES
 	qml/misc/BluetoothAgent.qml
 	qml/misc/desktop.js
 	qml/misc/tray.js
+	qml/misc/pager.js
 	qml/misc/AppDrawer.qml
 	qml/misc/FacePicker.qml
 	qml/notifications/NotificationStream.qml
@@ -60,6 +61,7 @@ set(QML_FILES
 	qml/notifications/NotificationConversation.qml
 	qml/notifications/NotificationBlockingMenu.qml
 	qml/tiles/TileBase.qml
+	qml/tiles/EmptyTile.qml
 	qml/tiles/TilesEditor.qml
 	qml/tiles/HeartRateTile.qml
 	qml/tiles/StepsTile.qml
@@ -105,6 +107,7 @@ set(QML_FILES
 	qml/home/FaceLayer.qml
 	qml/home/Trays.qml
 	qml/home/TilesRing.qml
+	qml/home/TilesIndicator.qml
 	qml/home/AmbientController.qml
 	qml/home/ChargingController.qml
 	qml/home/HomeOverlays.qml
@@ -126,6 +129,7 @@ set_source_files_properties(qml/misc/ModeScreen.qml                  PROPERTIES 
 set_source_files_properties(qml/misc/BluetoothAgent.qml              PROPERTIES QT_RESOURCE_ALIAS connectivity/BluetoothAgent.qml)
 set_source_files_properties(qml/misc/desktop.js                      PROPERTIES QT_RESOURCE_ALIAS desktop.js)
 set_source_files_properties(qml/misc/tray.js                         PROPERTIES QT_RESOURCE_ALIAS tray.js)
+set_source_files_properties(qml/misc/pager.js                        PROPERTIES QT_RESOURCE_ALIAS pager.js)
 set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES QT_RESOURCE_ALIAS AppDrawer.qml)
 set_source_files_properties(qml/misc/FacePicker.qml                  PROPERTIES QT_RESOURCE_ALIAS FacePicker.qml)
 set_source_files_properties(qml/notifications/NotificationStream.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationStream.qml)
@@ -135,6 +139,7 @@ set_source_files_properties(qml/notifications/NotificationPicture.qml   PROPERTI
 set_source_files_properties(qml/notifications/NotificationConversation.qml PROPERTIES QT_RESOURCE_ALIAS NotificationConversation.qml)
 set_source_files_properties(qml/notifications/NotificationBlockingMenu.qml PROPERTIES QT_RESOURCE_ALIAS NotificationBlockingMenu.qml)
 set_source_files_properties(qml/tiles/TileBase.qml                   PROPERTIES QT_RESOURCE_ALIAS tiles/TileBase.qml)
+set_source_files_properties(qml/tiles/EmptyTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/EmptyTile.qml)
 set_source_files_properties(qml/tiles/TilesEditor.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/TilesEditor.qml)
 set_source_files_properties(qml/tiles/HeartRateTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/HeartRateTile.qml)
 set_source_files_properties(qml/tiles/StepsTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/StepsTile.qml)
@@ -180,6 +185,7 @@ set_source_files_properties(qml/compositor/OverlayArbiter.qml             PROPER
 set_source_files_properties(qml/home/FaceLayer.qml                        PROPERTIES QT_RESOURCE_ALIAS home/FaceLayer.qml)
 set_source_files_properties(qml/home/Trays.qml                            PROPERTIES QT_RESOURCE_ALIAS home/Trays.qml)
 set_source_files_properties(qml/home/TilesRing.qml                        PROPERTIES QT_RESOURCE_ALIAS home/TilesRing.qml)
+set_source_files_properties(qml/home/TilesIndicator.qml                   PROPERTIES QT_RESOURCE_ALIAS home/TilesIndicator.qml)
 set_source_files_properties(qml/home/AmbientController.qml                PROPERTIES QT_RESOURCE_ALIAS home/AmbientController.qml)
 set_source_files_properties(qml/home/ChargingController.qml               PROPERTIES QT_RESOURCE_ALIAS home/ChargingController.qml)
 set_source_files_properties(qml/home/HomeOverlays.qml                     PROPERTIES QT_RESOURCE_ALIAS home/HomeOverlays.qml)

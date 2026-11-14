@@ -121,8 +121,9 @@ Item {
             desktop.streamItem = ns
             desktop.buildTiles()
             appDrawer.source = Qt.binding(function() { return appLauncherSource.value })
-            rightIndicator.visible  = Qt.binding(function() { return grid.toLeftAllowed && !displayAmbient })
-            leftIndicator.visible   = Qt.binding(function() { return grid.toRightAllowed && !displayAmbient && !appDrawer.isOpen })
+            // the face's hints stay; tiles have none (stock draws only the page and its app icon)
+            rightIndicator.visible  = Qt.binding(function() { return grid.toLeftAllowed && !displayAmbient && grid.currentHorizontalPos === 0 })
+            leftIndicator.visible   = Qt.binding(function() { return grid.toRightAllowed && !displayAmbient && !appDrawer.isOpen && grid.currentHorizontalPos === 0 })
             topIndicator.visible    = Qt.binding(function() { return grid.toBottomAllowed && !displayAmbient })
             // Wear OS has no swipe hint on the face (E35); the unread bar
             // (NotificationIndicator) says what waits below
