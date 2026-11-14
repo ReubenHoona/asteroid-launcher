@@ -9,15 +9,19 @@ import org.asteroid.controls
 import "desktop.js" as Desktop
 
 /*
- * The notifications of a phone app on or off, as Wear OS's long press on a
- * notification (ClockworkSysUiGoogle's BlockingNotificationMenuActivity,
- * layout blocking_notification_menu): the title "Notifications", a switch
- * chip with the app's name, and "Get notifications from APP on your watch.
- * Manage settings in the Gadgetbridge app on your phone." under it. A tap
- * on the chip turns them off (the phone stops sending them: asteroid-btsyncd's
- * SetAppNotifications, feedback mute) or on again (unmute); the card stays.
- * Without a phone nothing changes and Wear OS's "Can't finish action. Please
- * check your connection." shows.
+ * The page of a long press on a notification, as Wear OS CP3A has it
+ * (BlockingNotificationMenuActivity, sysui kxr.java:520-560, kga.java:44):
+ * the app's name as the title, the subtitle "Notifications", the text
+ * "Notifications from APP won't appear on your watch." and a "Turn off"
+ * button with an icon (filled tonal). The button asks "Turn off APP
+ * notifications?" / "You can still manage settings in the Gadgetbridge app on
+ * your phone" (the shared alert dialog, a cross and a tick); the tick tells the
+ * phone to stop sending the app's notifications (asteroid-btsyncd's
+ * SetAppNotifications false, feedback mute) and closes the page. An app that
+ * cannot be turned off (mutable false) shows "Notifications from APP can't be
+ * turned off" and no button. There is no switch back on: that stays in
+ * Gadgetbridge. Without a phone nothing changes and the stream's failure dialog
+ * ("Can't finish action", "Please check your connection") shows.
  */
 Item {
     id: menu
@@ -30,8 +34,13 @@ Item {
     // card goes meanwhile
     property int notificationId: 0
     property string appName: ""
-    property bool appEnabled: true
+    // the phone can stop this app's notifications (the phone-actions hint has mute)
+    property bool mutable: true
     property bool pending: false
+    // the stream's NotificationRemote: its failure dialog (else the shared confirmation)
+    property QtObject remote: null
+    // the phone took the app off: the page goes
+    signal turnedOff()
 
     // How far the page is scrolled (the time scrolls away with it)
     readonly property real scrolled: Math.max(0, flick.contentY - flick.originY)
@@ -76,29 +85,32 @@ Item {
             armSoon()
     }
 
-    function toggle() {
-        if (pending || notificationId === 0)
+    function failed() {
+        pending = false
+        if (remote)
+            remote.showFailure()
+        //% "Can't finish action. Please check your connection."
+        else if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-action-error"), false)
+    }
+
+    // the tick of the dialog: mute the app
+    function turnOff() {
+        if (pending || notificationId === 0 || !mutable)
             return
-        var wanted = !appEnabled
         pending = true
-        var failed = function () {
-            pending = false
-            //% "Can't finish action. Please check your connection."
-            if (Desktop.confirmation) Desktop.confirmation.show(qsTrId("id-action-error"), false)
-        }
         btsyncd.typedCall("SetAppNotifications",
                           [{ "type": "u", "value": notificationId },
-                           { "type": "b", "value": wanted }],
+                           { "type": "b", "value": false }],
                           function (done) {
                               if (!done) {
-                                  failed()
+                                  menu.failed()
                                   return
                               }
                               pending = false
-                              appEnabled = wanted
                               Haptics.click()
+                              menu.turnedOff()
                           },
-                          failed)
+                          function () { menu.failed() })
     }
 
     DBusInterface {
@@ -131,11 +143,12 @@ Item {
         Column {
             id: column
             objectName: "blockingColumn"
-            anchors.horizontalCenter: parent.horizontalCenter
+            x: menu.sidePadding
             y: menu.belowTimeText ? Dims.h(16) : Dims.h(12)
-            width: Dims.w(76)
+            width: parent.width - 2 * menu.sidePadding
             spacing: 0
 
+            // the app's name
             Label {
                 id: title
                 objectName: "blockingTitle"
@@ -144,86 +157,68 @@ Item {
                 wrapMode: Text.Wrap
                 maximumLineCount: 2
                 elide: Text.ElideRight
-                //% "Notifications"
-                text: qsTrId("id-notifications-menu-title") + localeManager.changesObserver
-                font.pixelSize: Dims.l(7)
-                font.styleName: "SemiCondensed Medium"
+                text: menu.appName
+                role: "titleMedium"
+                color: Theme.color.onSurface
             }
-
-            Item { width: 1; height: Dims.h(4) }
-
-            // the switch chip (Wear Material: label left, switch right)
-            MouseArea {
-                id: chip
-                objectName: "blockingChip"
-                width: parent.width
-                height: Math.max(Dims.h(17), appLabel.implicitHeight + Dims.h(6))
-                onClicked: menu.toggle()
-
-                Rectangle {
-                    anchors.fill: parent
-                    radius: Theme.shape.clamp(Theme.shape.large, height)
-                    color: chip.pressed ? Qt.tint(Theme.color.surfaceContainer, Qt.alpha(Theme.color.onSurface, Theme.alpha.pressed)) : Theme.color.surfaceContainer
-                }
-
-                Label {
-                    id: appLabel
-                    objectName: "blockingApp"
-                    anchors.left: parent.left
-                    anchors.leftMargin: Dims.w(6)
-                    anchors.right: track.left
-                    anchors.rightMargin: Dims.w(3)
-                    anchors.verticalCenter: parent.verticalCenter
-                    wrapMode: Text.Wrap
-                    maximumLineCount: 3
-                    elide: Text.ElideRight
-                    text: menu.appName
-                    font.pixelSize: Dims.l(6.6)
-                    font.styleName: "SemiCondensed Medium"
-                }
-
-                Rectangle {
-                    id: track
-                    objectName: "blockingSwitch"
-                    readonly property bool on: menu.appEnabled
-                    anchors.right: parent.right
-                    anchors.rightMargin: Dims.w(5)
-                    anchors.verticalCenter: parent.verticalCenter
-                    width: Dims.l(12)
-                    height: Dims.l(7)
-                    radius: height / 2
-                    color: on ? Theme.color.primary : "transparent"
-                    border.width: on ? 0 : Math.max(1, Dims.l(0.6))
-                    border.color: Theme.color.outline
-                    opacity: menu.pending ? 0.6 : 1
-
-                    Rectangle {
-                        width: track.on ? track.height * 0.72 : track.height * 0.5
-                        height: width
-                        radius: width / 2
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: track.on ? track.width - width - (track.height - width) / 2
-                                    : (track.height - width) / 2
-                        color: track.on ? Theme.color.onPrimary : Theme.color.outline
-                    }
-                }
-            }
-
-            Item { width: 1; height: Dims.h(2) }
 
             Label {
-                id: subtext
-                objectName: "blockingSubtext"
+                id: subtitle
+                objectName: "blockingSubtitle"
                 width: parent.width
-                leftPadding: Dims.w(3.5)
-                rightPadding: Dims.w(3.5)
-                wrapMode: Text.Wrap
-                horizontalAlignment: Text.AlignLeft
+                horizontalAlignment: Text.AlignHCenter
+                //% "Notifications"
+                text: qsTrId("id-notifications-menu-title") + localeManager.changesObserver
+                role: "labelMedium"
                 color: Theme.color.onSurfaceVariant
-                //% "Get notifications from %1 on your watch. Manage settings in the %2 app on your phone."
-                text: qsTrId("id-notifications-menu-subtext").arg(menu.appName).arg("Gadgetbridge") + localeManager.changesObserver
-                font.pixelSize: Dims.l(5.4)
+            }
+
+            Item { width: 1; height: Theme.dp(8) }
+
+            Label {
+                id: description
+                objectName: "blockingText"
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                text: (menu.mutable
+                       //% "Notifications from %1 won’t appear on your watch."
+                       ? qsTrId("id-blocking-text").arg(menu.appName)
+                       //% "Notifications from %1 can’t be turned off"
+                       : qsTrId("id-blocking-immutable").arg(menu.appName)) + localeManager.changesObserver
+                role: "bodyMedium"
+                color: Theme.color.onSurfaceVariant
+            }
+
+            Item { width: 1; height: menu.mutable ? Theme.dp(12) : 0 }
+
+            Button {
+                id: turnOffButton
+                objectName: "blockingTurnOff"
+                visible: menu.mutable
+                height: visible ? implicitHeight : 0
+                width: parent.width
+                variant: "tonal"
+                centered: true
+                iconName: "ios-notifications-off-outline"
+                enabled: !menu.pending
+                //% "Turn off"
+                text: qsTrId("id-blocking-turn-off") + localeManager.changesObserver
+                onClicked: confirmDialog.open()
             }
         }
     }
+
+    // "Turn off APP notifications?" (kxr.java:550-560)
+    AlertDialog {
+        id: confirmDialog
+        objectName: "blockingConfirm"
+        //% "Turn off %1 notifications?"
+        title: qsTrId("id-blocking-confirm-title").arg(menu.appName) + localeManager.changesObserver
+        //% "You can still manage settings in the %1 app on your phone"
+        text: qsTrId("id-blocking-confirm-text").arg("Gadgetbridge") + localeManager.changesObserver
+        onConfirmed: menu.turnOff()
+    }
+
+    readonly property real sidePadding: Math.ceil(0.052 * (width > 0 ? width : 384))
 }

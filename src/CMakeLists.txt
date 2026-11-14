@@ -89,6 +89,11 @@ set(QML_FILES
 	qml/assistant/AssistantGlow.qml
 	qml/assistant/AssistantSpark.qml
 	qml/notifications/NotificationActions.qml
+	qml/notifications/NotificationActionsPage.qml
+	qml/notifications/NotificationRemote.qml
+	qml/notifications/NotificationInputButton.qml
+	qml/notifications/NotificationPhoneIcon.qml
+	qml/notifications/NotificationProgress.qml
 	qml/notifications/NotificationButton.qml
 	qml/notifications/NotificationIndicator.qml
 	qml/notifications/NotificationView.qml
@@ -190,6 +195,11 @@ set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES 
 set_source_files_properties(qml/assistant/AssistantGlow.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantGlow.qml)
 set_source_files_properties(qml/assistant/AssistantSpark.qml         PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantSpark.qml)
 set_source_files_properties(qml/notifications/NotificationActions.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationActions.qml)
+set_source_files_properties(qml/notifications/NotificationActionsPage.qml PROPERTIES QT_RESOURCE_ALIAS NotificationActionsPage.qml)
+set_source_files_properties(qml/notifications/NotificationRemote.qml PROPERTIES QT_RESOURCE_ALIAS NotificationRemote.qml)
+set_source_files_properties(qml/notifications/NotificationInputButton.qml PROPERTIES QT_RESOURCE_ALIAS NotificationInputButton.qml)
+set_source_files_properties(qml/notifications/NotificationPhoneIcon.qml PROPERTIES QT_RESOURCE_ALIAS NotificationPhoneIcon.qml)
+set_source_files_properties(qml/notifications/NotificationProgress.qml PROPERTIES QT_RESOURCE_ALIAS NotificationProgress.qml)
 set_source_files_properties(qml/notifications/NotificationButton.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationButton.qml)
 set_source_files_properties(qml/notifications/NotificationIndicator.qml PROPERTIES QT_RESOURCE_ALIAS NotificationIndicator.qml)
 set_source_files_properties(qml/notifications/NotificationView.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationView.qml)

@@ -26,9 +26,11 @@ import org.asteroid.controls
  * (ownBackground). A long press on a phone app's card opens the menu for
  * that app's notifications (NotificationBlockingMenu); other cards ignore
  * it, as stock ("Cannot block notifications from ... Ignoring long press").
- * The replies, voice and app actions of an open card are the actions page
- * (NotificationActions) behind its "More" button until they are inside the
- * card (W2-launcher-notif-detail).
+ * The open card lists, below its text, the input row (emoji, voice, keyboard),
+ * the replies, the app's actions and Open on phone (NotificationActions); the
+ * keyboard, emoji and voice pages are layers of this stack, the phone round trip
+ * and its result dialogs are the NotificationRemote below. A swipe clears an
+ * open card as any other, a long press on its text turns the app off.
  * Battery: no timer runs while the display is off or in ambient, however
  * long the stream stays open (stock keeps it open for the go-to-watch-face
  * time, AppLifecycle brings the face back).
@@ -358,10 +360,9 @@ Item {
     // as before the cards opened in place (MainScreen still calls this)
     function openDetail(n) { expand(n) }
 
-    // The card's actions page (reply, voice, snooze, ...): a layer over the stream
-    function openActions(n) {
-        stack.push(detailPage, { notification: n })
-    }
+    // what the open cards send to the phone and what comes back (replies, actions,
+    // results, the keyboard layers); the card says it is gone through isActive
+    readonly property QtObject remote: transport
 
     // A phone app's notification whose app the phone can stop sending
     function canBlock(n) {
@@ -402,7 +403,7 @@ Item {
         if (!canBlock(n))
             return false
         Haptics.longPress()
-        stack.push(blockingPage, { notification: n, openingCard: card || null })
+        stack.push(blockingPage, { notification: n, openingCard: card || null, remote: transport })
         return true
     }
 
@@ -595,7 +596,11 @@ Item {
                         // top down: a button of the open card first, then this one (so it sits
                         // under the card)
                         MouseArea {
-                            anchors.fill: card
+                            anchors.top: card.top
+                            anchors.left: card.left
+                            anchors.right: card.right
+                            // the card's surface; the buttons below it are their own
+                            height: card.surfaceHeight
                             onClicked: if (!row.longFired && !stream.clearing) card.tapped()
                         }
 
@@ -605,11 +610,12 @@ Item {
                             notification: row.notification
                             expanded: row.expanded
                             timestamp: stream.ago(row.notification, stream.clockTick)
+                            remote: transport
+                            layerHost: stack
                             pressed: row.down
                             pressPoint: pointer.point.position
                             onTapped: stream.cardTapped(row.notification)
                             onLongPressed: stream.openBlockingMenu(row.notification, card)
-                            onOpenActions: stream.openActions(row.notification)
                             onClearRequested: stream.dismiss([row.notification])
                         }
                     }
@@ -617,8 +623,10 @@ Item {
                     // The finger on an uncovered card (ripple, held, long press). A
                     // PointHandler over the swipe-to-reveal only watches: SwipeToReveal's own
                     // area keeps the press for the swipe (a tap handler there would take it)
+                    // (a finger on the buttons of an open card is theirs, not the card's)
                     readonly property bool down: pointer.active && swipe.state_ === "covered"
                                                  && !swipe.dragging && !stream.clearing
+                                                 && !card.onActions(pointer.point.position)
                     property bool longFired: false
                     onDownChanged: if (down) longFired = false
                     Item {
@@ -701,6 +709,7 @@ Item {
             property int depth
             property QtObject notification
             property Item openingCard: null
+            property QtObject remote: null
 
             Rectangle {
                 anchors.fill: parent
@@ -714,6 +723,8 @@ Item {
                 // the long press's finger is still down: its lift is not a tap here
                 openedByHold: blocking.openingCard !== null
                 holding: blocking.openingCard !== null && blocking.openingCard.held
+                remote: blocking.remote
+                onTurnedOff: blocking.pop()
             }
 
             // Wear OS: the time scrolls away with the page
@@ -724,46 +735,11 @@ Item {
         }
     }
 
-    Component {
-        id: detailPage
-
-        Item {
-            id: detail
-            property var pop
-            property int depth
-            property QtObject notification
-            // pages open inside the notification (reply, voice, snooze)
-            readonly property int innerDepth: actionsPage.forbidBottom ? 1 : 0
-
-            Rectangle {
-                anchors.fill: parent
-                color: "#000000"
-            }
-
-            NotificationActions {
-                id: actionsPage
-                anchors.fill: parent
-                showText: true
-                notification: detail.notification
-                notificationModel: notifModel
-                panelsGrid: null
-            }
-
-            // Wear OS: the time scrolls away with the notification
-            TimeText {
-                visible: !actionsPage.fullScreenLayer
-                opacity: Math.max(0, 1 - actionsPage.scrolled / Dims.h(10))
-                transform: Translate { y: -actionsPage.scrolled }
-            }
-
-            // the phone closed it, or it was dismissed: back to the stream
-            Connections {
-                target: notifModel
-                function onRowsRemoved() {
-                    if (notifModel.indexOf(detail.notification) < 0 && stack.currentLayer === detail)
-                        stack.popAnim()
-                }
-            }
-        }
+    // The phone round trip of the open cards and its dialogs, over the whole stream
+    NotificationRemote {
+        id: transport
+        anchors.fill: parent
+        z: 20
+        isActive: function (id) { return stream.byId[id] !== undefined }
     }
 }

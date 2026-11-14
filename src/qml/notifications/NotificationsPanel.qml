@@ -217,7 +217,7 @@ Item {
 
     Component {
         id: notificationActionsComp
-        NotificationActions {}
+        NotificationActionsPage {}
     }
     Component {
         id: notificationViewComp

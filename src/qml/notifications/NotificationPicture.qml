@@ -20,7 +20,6 @@ import org.nemomobile.lipstick
  *              full view shows the whole picture
  *   showError  when it will not come: Wear OS's "Can't display image" (the
  *              full view) instead of nothing (cards, the heads-up)
- *   tappable   a tap on it says tapped() (the full view opens it full screen)
  * Nothing of it on the always-on display (the space stays): hidden as soon as
  * the display dims, so the frame the low-power panel keeps after the blank
  * has no picture (stock Wear OS shows only the watch face in ambient).
@@ -30,16 +29,13 @@ Item {
 
     property QtObject notification
     property real maxHeight: width * 2
-    property real radius: Dims.l(8)
+    // the open card's corners: 22 dp (grw.java:7870-7905, full_view_message_image_corner_radius)
+    property real radius: Theme.dp(22)
     property bool showError: false
-    // a tap on it opens it (the full view); elsewhere the tap is the card's
-    property bool tappable: false
     // 0 on its way, 1 shown, 2 will not come
     property int pictureState: 0
     // a new load of the same file (the file arrived after a failed load)
     property int attempt: 0
-
-    signal tapped()
 
     // A picture of its own (a message's, in its bubble; the full screen view of one), else
     // the notification's (x-asteroid-picture): its file and its size "WxH"
@@ -68,8 +64,12 @@ Item {
     // blank and the first ambient update), or in ambient
     readonly property bool ambient: Lipstick.compositor.displayAmbient || Lipstick.compositor.displayDimmed
 
-    visible: wanted && (!failed || showError)
-    height: !visible ? 0 : failed ? errorColumn.height : Math.round(Math.min(maxHeight, width * aspect))
+    // (the size follows this, not `visible`: that is false for the whole card while it is
+    // still closed, and the card needs its height to open)
+    property bool suppressed: false
+    readonly property bool shown: wanted && !suppressed && (!failed || showError)
+    visible: shown
+    height: !shown ? 0 : failed ? errorColumn.height : Math.round(Math.min(maxHeight, width * aspect))
 
     onPathChanged: {
         pictureState = 0
@@ -113,19 +113,14 @@ Item {
         }
     }
 
-    // The placeholder: the picture's size, dim (Wear OS: "Loading Image")
+    // The placeholder while it loads: a plain surfaceContainer rounded rectangle of the
+    // size the phone said (stock kmy.java:52), no icon
     Rectangle {
+        objectName: "picturePlaceholder"
         anchors.fill: parent
         visible: pic.wanted && pic.pictureState === 0 && !pic.ambient
         radius: pic.radius
-        color: "#1affffff"
-        Icon {
-            anchors.centerIn: parent
-            width: Math.min(parent.width, parent.height) * 0.3
-            height: width
-            name: "ios-image-outline"
-            opacity: 0.35
-        }
+        color: Theme.color.surfaceContainer
     }
 
     Item {
@@ -159,34 +154,21 @@ Item {
         }
     }
 
-    // Wear OS's load error: an icon and "Can't display image"
+    // Wear OS's load error: the caption "Can't display image"
     Column {
         id: errorColumn
         width: parent.width
         visible: pic.failed && pic.showError && !pic.ambient
-        spacing: Dims.h(1)
-        topPadding: Dims.h(2)
-        bottomPadding: Dims.h(2)
-        Icon {
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: Dims.l(10)
-            height: width
-            name: "ios-image-outline"
-            opacity: 0.6
-        }
+        topPadding: Theme.dp(8)
+        bottomPadding: Theme.dp(8)
         Label {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
             wrapMode: Text.Wrap
             //% "Can't display image"
             text: qsTrId("id-picture-error") + localeManager.changesObserver
-            opacity: 0.6
-            font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
+            role: "bodySmall"
+            color: Theme.color.onSurfaceVariant
         }
-    }
-
-    TapHandler {
-        enabled: pic.tappable && pic.pictureState === 1
-        onTapped: pic.tapped()
     }
 }

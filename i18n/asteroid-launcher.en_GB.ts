@@ -1587,5 +1587,90 @@ Only selected people and apps can reach you.</translation>
         <source>Some system functions may not work</source>
         <translation>Some system functions may not work</translation>
     </message>
+    <message id="id-action-success">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Success</source>
+        <translation>Success</translation>
+    </message>
+    <message id="id-action-failed-title">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Can’t finish action</source>
+        <translation>Can’t finish action</translation>
+    </message>
+    <message id="id-action-failed-text">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Please check your connection</source>
+        <translation>Please check your connection</translation>
+    </message>
+    <message id="id-action-slow-title">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Slow connection</source>
+        <translation>Slow connection</translation>
+    </message>
+    <message id="id-action-slow-text">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Check back soon</source>
+        <translation>Check back soon</translation>
+    </message>
+    <message id="id-action-gone-title">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Action not completed</source>
+        <translation>Action not completed</translation>
+    </message>
+    <message id="id-action-gone-text">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Notification is no longer active</source>
+        <translation>Notification is no longer active</translation>
+    </message>
+    <message id="id-voice-unavailable">
+        <location filename="../src/qml/notifications/NotificationRemote.qml"/>
+        <source>Voice input not available</source>
+        <translation>Voice input not available</translation>
+    </message>
+    <message id="id-input-emoji">
+        <location filename="../src/qml/notifications/NotificationActions.qml"/>
+        <source>Emoji input</source>
+        <translation>Emoji input</translation>
+    </message>
+    <message id="id-input-voice">
+        <location filename="../src/qml/notifications/NotificationActions.qml"/>
+        <source>Voice input</source>
+        <translation>Voice input</translation>
+    </message>
+    <message id="id-input-keyboard">
+        <location filename="../src/qml/notifications/NotificationActions.qml"/>
+        <source>Keyboard input</source>
+        <translation>Keyboard input</translation>
+    </message>
+    <message id="id-stop-sound">
+        <location filename="../src/qml/notifications/NotificationActions.qml"/>
+        <source>Stop sound</source>
+        <translation>Stop sound</translation>
+    </message>
+    <message id="id-blocking-text">
+        <location filename="../src/qml/notifications/NotificationBlockingMenu.qml"/>
+        <source>Notifications from %1 won’t appear on your watch.</source>
+        <translation>Notifications from %1 won’t appear on your watch.</translation>
+    </message>
+    <message id="id-blocking-immutable">
+        <location filename="../src/qml/notifications/NotificationBlockingMenu.qml"/>
+        <source>Notifications from %1 can’t be turned off</source>
+        <translation>Notifications from %1 can’t be turned off</translation>
+    </message>
+    <message id="id-blocking-turn-off">
+        <location filename="../src/qml/notifications/NotificationBlockingMenu.qml"/>
+        <source>Turn off</source>
+        <translation>Turn off</translation>
+    </message>
+    <message id="id-blocking-confirm-title">
+        <location filename="../src/qml/notifications/NotificationBlockingMenu.qml"/>
+        <source>Turn off %1 notifications?</source>
+        <translation>Turn off %1 notifications?</translation>
+    </message>
+    <message id="id-blocking-confirm-text">
+        <location filename="../src/qml/notifications/NotificationBlockingMenu.qml"/>
+        <source>You can still manage settings in the %1 app on your phone</source>
+        <translation>You can still manage settings in the %1 app on your phone</translation>
+    </message>
 </context>
 </TS>

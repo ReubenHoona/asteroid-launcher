@@ -21,6 +21,12 @@ import org.asteroid.controls
  * handler over the swipe-to-reveal (a handler there sees the press while
  * SwipeToReveal's own area keeps the swipe) and says pressed / pressPoint,
  * tapped() and longPressed() here. A swipe to the left is SwipeToReveal's.
+ *
+ * Opened, the card's own surface holds the header, title, messages or body and
+ * the picture; what follows (the input row, the replies, the app's actions,
+ * Open on phone: NotificationActions) hangs below it on the list's black, as
+ * separate items as in stock (grw.java:2245-2424): the surface ends where the
+ * text does, the whole opens and closes on the one spring.
  */
 Item {
     id: card
@@ -37,11 +43,9 @@ Item {
     signal longPressed()
     // the screen reader's "Clear notification"
     signal clearRequested()
-    // the full actions of the open card (replies, app and system actions) are
-    // a page of their own until they are inside the card (W2-launcher-notif-detail)
-    signal openActions()
-    // a message's picture in the open card was tapped
-    signal pictureTapped(string path, string size)
+    // the stream's phone-action transport and the stack that takes the keyboard layers
+    property QtObject remote: null
+    property var layerHost: null
 
     // the finger that pressed the card is still down (after a long press too)
     readonly property bool held: pressed
@@ -50,6 +54,8 @@ Item {
     readonly property real sidePad: Theme.dp(10)
     readonly property real vPad: Theme.dp(10)
     readonly property real pictureGap: Theme.dp(4)
+    // the open card's text items sit 7 dp from its edge, the header 10 dp (grw.java)
+    readonly property real textInset: Theme.dp(7)
     readonly property real pictureInset: Theme.dp(4)
     readonly property real pictureHeight: Theme.dp(60)
     readonly property real pictureRadius: Theme.dp(22)
@@ -58,11 +64,14 @@ Item {
     readonly property int springStiffness: 800
     readonly property real springDamping: 0.8
 
-    readonly property bool hasPicture: collapsedPicture.visible
+    readonly property bool hasPicture: collapsedPicture.shown
     readonly property real collapsedHeight: Math.max(minHeight,
         hasPicture ? vPad + collapsedText.height + pictureGap + collapsedPicture.height + pictureGap
                    : vPad + collapsedText.height + vPad)
-    readonly property real fullHeight: fullLoader.item ? fullLoader.item.fullContentHeight : collapsedHeight
+    // the open card: its surface (header ... picture) and what hangs below it
+    readonly property real surfaceFullHeight: fullLoader.item ? fullLoader.item.fullContentHeight : collapsedHeight
+    readonly property real actionsFullHeight: actionsLoader.item ? actionsLoader.item.height : 0
+    readonly property real fullHeight: surfaceFullHeight + actionsFullHeight
 
     // the height shown now: the spring's (the card is as tall as this)
     property real shownHeight: 0
@@ -72,6 +81,21 @@ Item {
         return Math.max(0, Math.min(1, (shownHeight - collapsedHeight) / span))
     }
     readonly property bool animating: heightSpring.running
+    // The surface's height: the whole while nothing hangs below it, else its share
+    // of the spring's travel (collapsed .. surface), so the actions slide down with it
+    readonly property real surfaceHeight: {
+        if (actionsFullHeight <= 0)
+            return shownHeight
+        var span = Math.max(1, fullHeight - collapsedHeight)
+        var surface = Math.max(collapsedHeight, surfaceFullHeight)
+        return collapsedHeight + (shownHeight - collapsedHeight) / span * (surface - collapsedHeight)
+    }
+
+    // A point of the card (its own coordinates) over what hangs below the surface: the
+    // stream's long press is the surface's (the buttons are not)
+    function onActions(p) {
+        return actionsLoader.item !== null && actionsLoader.visible && p.y >= actionsLoader.y
+    }
 
     height: shownHeight
     // a notification the user is told to touch exists for the screen reader
@@ -89,7 +113,7 @@ Item {
     }
 
     property bool _ready: false
-    function fullH() { return fullLoader.item ? fullLoader.item.fullContentHeight : collapsedHeight }
+    function fullH() { return surfaceFullHeight + actionsFullHeight }
     function currentTarget() { return expanded ? Math.max(collapsedHeight, fullH()) : collapsedHeight }
     // A height that changed by itself: an open card (or one still moving)
     // follows on the spring, a closed one just takes it (a text that grew)
@@ -109,13 +133,16 @@ Item {
     onExpandedChanged: {
         if (!_ready)
             return
-        if (expanded)
+        if (expanded) {
             fullLoader.active = true
+            actionsLoader.active = true
+        }
         heightSpring.animateTo(currentTarget())
     }
     Component.onCompleted: {
         // created open (a heads-up tap opened it first): no animation
         fullLoader.active = expanded
+        actionsLoader.active = expanded
         heightSpring.snapTo(currentTarget())
         _ready = true
     }
@@ -128,13 +155,16 @@ Item {
         property: "shownHeight"
         stiffness: card.springStiffness
         dampingRatio: card.springDamping
-        onFinished: if (!card.expanded) fullLoader.active = false
+        onFinished: if (!card.expanded) {
+            fullLoader.active = false
+            actionsLoader.active = false
+        }
     }
 
     Rectangle {
         id: bg
         width: parent.width
-        height: card.shownHeight
+        height: card.surfaceHeight
         radius: card.radius
         color: card.mix(Theme.color.surfaceContainer, Theme.color.surfaceContainerLow, card.expandProgress)
         clip: true
@@ -193,33 +223,61 @@ Item {
 
                 Column {
                     id: fullColumn
-                    x: card.sidePad
                     y: card.vPad
-                    width: parent.width - 2 * card.sidePad
-                    spacing: card.pictureGap
+                    width: parent.width
+                    spacing: 0
 
                     NotificationText {
                         id: fullText
                         width: parent.width
                         compact: false
+                        headerInset: card.sidePad
+                        textInset: card.textInset
                         notification: card.notification
                         timestamp: card.timestamp
-                        onPictureTapped: (path, size) => card.pictureTapped(path, size)
+                    }
+                    // the notification's own picture: 4 dp above, 16 dp below (the card's
+                    // bottom padding is part of it), 22 dp corners, the card's text width
+                    Item {
+                        width: 1
+                        height: bigPicture.shown ? card.pictureGap : 0
                     }
                     NotificationPicture {
-                        width: parent.width
+                        id: bigPicture
+                        objectName: "bigPicture"
+                        x: card.textInset
+                        width: parent.width - 2 * card.textInset
                         maxHeight: width * 2
                         radius: card.pictureRadius
                         notification: card.notification
-                        visible: wanted && !fullText.bubblePictures.length
+                        showError: true
+                        // (not a conversation's: its messages show theirs)
+                        suppressed: fullText.bubblePictures.length > 0
                     }
-                    FilledTonalButton {
-                        width: parent.width
-                        text: qsTrId("id-more") + localeManager.changesObserver
-                        onClicked: card.openActions()
+                    Item {
+                        width: 1
+                        height: bigPicture.shown ? Math.max(0, Theme.dp(16) - card.vPad) : 0
                     }
                 }
             }
+        }
+    }
+
+    // what follows the surface of the open card, on the list's black: the replies and
+    // the actions (only while the card is open or moving)
+    Loader {
+        id: actionsLoader
+        objectName: "actionsLoader"
+        y: bg.height
+        width: parent.width
+        active: false
+        opacity: card.expandProgress
+        visible: active && opacity > 0
+        sourceComponent: NotificationActions {
+            width: actionsLoader.width
+            notification: card.notification
+            remote: card.remote
+            layerHost: card.layerHost
         }
     }
 }

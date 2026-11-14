@@ -7,19 +7,26 @@ import QtQuick
 import org.asteroid.controls
 
 /*
- * A conversation in the full view, as Wear OS 4 shows a MessagingStyle
- * notification (ClockworkSysUiGoogle full_view_nonuser_message,
- * full_view_user_message, full_view_message_person): one bubble per message,
- * the others' at the start in a dark bubble, the user's own at the end in
- * the accent colour; the sender's name above a run of messages of a group
- * (not in a one to one conversation, whose title is the person); bubbles of
- * a run joined with small corners on the sender's side (24 dp corners, 4 dp
- * where they join, 12 x 8 dp padding, 2 dp between them, 8 dp between runs).
+ * A conversation in the open card, as Wear OS CP3A shows a MessagingStyle
+ * notification (SysUI grw.java:7040-7329, khb.java:15-40, kqr.java, kqq.java):
+ * one bubble per message, the others' at the start, the user's own at the end;
+ * the sender's name above a run of messages of a group (not in a one to one
+ * conversation, whose title is the person); the bubbles of a run joined with
+ * small corners on the sender's side. All numbers are px at 2 px per dp
+ * (Theme.dp):
+ *  - others: surfaceContainer, text onSurface; own: primaryDim, text onPrimary;
+ *  - text bodyLarge (16 sp, 32 px); padding 12 x 10 dp (24 x 20 px);
+ *  - corners 22 dp (44 px), 4 dp (8 px) on the sender's side where a run joins
+ *    (full_view_message_text_large/small_corner_radius);
+ *  - a bubble is at most the column's width less 5.52 % of 192 dp (21 px), left
+ *    free on the far side (full_view_message_bubble_padding_percentage);
+ *  - the sender's name labelSmall (13 sp, 26 px), onSurface, two lines at most,
+ *    8 dp above a run (inferred 2 dp between the name and the bubble);
+ *  - a message's picture is an item of its own before its text bubble, on the
+ *    sender's side, 22 dp corners, no bubble behind it (MessageImageModel,
+ *    full_view_message_image_corner_radius); it is not tappable (no viewer).
  * The messages come from asteroid-btsyncd's x-asteroid-messages hint (JSON:
  * s sender, t text, me the user's own, p the file of its picture with w, h).
- * A message's picture shows in its bubble, above its text, as stock keeps a
- * message's image with the message (full_view_message_picture); a tap on it
- * is pictureTapped (the full screen view).
  */
 Column {
     id: conversation
@@ -27,10 +34,9 @@ Column {
     property QtObject notification
     // [{ s, t, me, p, size }] oldest first, [] when the notification has none
     readonly property var messages: parse(notification)
-    // the pictures the bubbles show
+    // the pictures the messages show
     readonly property var picturePaths: messages.filter(function (m) { return m.p !== "" }).map(function (m) { return m.p })
 
-    signal pictureTapped(string path, string size)
     // a group, or a conversation whose senders are not only its title
     readonly property bool showSenders: {
         var title = notification ? notification.summary : ""
@@ -69,9 +75,14 @@ Column {
         return a.me || a.s === b.s
     }
 
-    // stock: 24 dp corners, 4 dp joins (the launcher's 24 dp card is Dims.l(8))
-    readonly property real largeRadius: Dims.l(8)
-    readonly property real smallRadius: Dims.l(1.4)
+    readonly property real largeRadius: Theme.dp(22)      // 44 px
+    readonly property real smallRadius: Theme.dp(4)       // 8 px
+    readonly property real padX: Theme.dp(12)             // 24 px
+    readonly property real padY: Theme.dp(10)             // 20 px
+    readonly property real farInset: Math.round(0.0552 * Theme.dp(192))   // 21 px
+    readonly property real bubbleMax: width - farInset
+    readonly property real joinGap: Theme.dp(2)           // inside a run
+    readonly property real runGap: Theme.dp(8)            // before a run (before its name)
 
     spacing: 0
 
@@ -88,77 +99,84 @@ Column {
             readonly property bool joinedBelow: conversation.sameRun(m, next)
             readonly property bool own: m.me
             readonly property bool named: conversation.showSenders && !own && !joinedAbove && m.s !== ""
+            readonly property bool hasText: m.t.length > 0
+            readonly property bool hasPicture: m.p !== ""
+            readonly property real topGap: index === 0 ? 0 : joinedAbove ? conversation.joinGap : conversation.runGap
             readonly property alias bubble: bubbleRect
             readonly property alias label: textLabel
+            readonly property alias sender: senderLabel
+            readonly property alias picture: bubblePicture
 
             width: conversation.width
-            height: (index === 0 ? 0 : joinedAbove ? Dims.l(0.7) : Dims.l(2.6))
-                    + (named ? senderLabel.height + Dims.l(0.7) : 0) + bubbleRect.height
+            height: topGap + parts.height
 
-            Label {
-                id: senderLabel
-                visible: message.named
-                y: index === 0 ? 0 : Dims.l(2.6)
-                x: Dims.l(1.4)
-                width: conversation.width - 2 * x
-                text: message.m.s
-                color: Theme.color.primary
-                wrapMode: Text.Wrap
-                maximumLineCount: 2
-                elide: Text.ElideRight
-                font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
-                font.styleName: "SemiCondensed Medium"
-            }
+            Column {
+                id: parts
+                y: message.topGap
+                width: parent.width
+                spacing: conversation.joinGap
 
-            Rectangle {
-                id: bubbleRect
-                readonly property real padX: Dims.l(3.9)
-                readonly property real padY: Dims.l(2.6)
-                readonly property bool hasText: message.m.t.length > 0
-                readonly property bool hasPicture: message.m.p !== ""
-                // a picture message is as wide as the bubbles get
-                readonly property real pictureWidth: conversation.width * 0.86 - 2 * padY
-                y: message.height - height
-                width: hasPicture ? conversation.width * 0.86 : textLabel.width + 2 * padX
-                height: (hasPicture ? bubblePicture.height + padY : 0) + (hasText ? textLabel.height + padY : 0) + padY
-                x: message.own ? conversation.width - width : 0
-                color: message.own ? Theme.color.primary : "#303033"
-                readonly property real r: Math.min(conversation.largeRadius, height / 2)
-                // the corners on the sender's side are small where the run goes on
-                topLeftRadius: !message.own && message.joinedAbove ? conversation.smallRadius : r
-                bottomLeftRadius: !message.own && message.joinedBelow ? conversation.smallRadius : r
-                topRightRadius: message.own && message.joinedAbove ? conversation.smallRadius : r
-                bottomRightRadius: message.own && message.joinedBelow ? conversation.smallRadius : r
+                Label {
+                    id: senderLabel
+                    visible: message.named
+                    x: conversation.padX
+                    width: conversation.width - 2 * conversation.padX
+                    height: message.named ? implicitHeight : 0
+                    text: message.m.s
+                    color: Theme.color.onSurface
+                    wrapMode: Text.Wrap
+                    maximumLineCount: 2
+                    elide: Text.ElideRight
+                    role: "labelSmall"
+                }
 
+                // the picture, before the text, on the sender's side
                 NotificationPicture {
                     id: bubblePicture
                     objectName: "bubblePicture"
-                    visible: bubbleRect.hasPicture
-                    x: bubbleRect.padY
-                    y: bubbleRect.padY
-                    width: bubbleRect.pictureWidth
-                    // at most square in the bubble (the full screen view shows all of it)
+                    visible: message.hasPicture
+                    width: conversation.bubbleMax
+                    x: message.own ? conversation.width - width : 0
+                    // at most square
                     maxHeight: width
-                    radius: Math.max(0, bubbleRect.r - bubbleRect.padY)
+                    radius: conversation.largeRadius
                     picturePath: message.m.p
                     pictureSize: message.m.size
                     showError: true
-                    tappable: true
-                    onTapped: conversation.pictureTapped(message.m.p, message.m.size)
                 }
 
-                Label {
-                    id: textLabel
-                    visible: bubbleRect.hasText
-                    x: bubbleRect.padX
-                    y: bubbleRect.hasPicture ? bubblePicture.y + bubblePicture.height + bubbleRect.padY : bubbleRect.padY
-                    // as wide as the text, at most 86 % of the column
-                    width: Math.min(implicitWidth, conversation.width * 0.86 - 2 * bubbleRect.padX)
-                    text: message.m.t
-                    textFormat: Text.PlainText
-                    wrapMode: Text.Wrap
-                    color: message.own ? Theme.color.onPrimary : "#e3e3e3"
-                    font.pixelSize: Theme.type.bodySmall.pixelSize
+                Rectangle {
+                    id: bubbleRect
+                    visible: message.hasText
+                    width: textLabel.width + 2 * conversation.padX
+                    height: message.hasText ? textLabel.height + 2 * conversation.padY : 0
+                    x: message.own ? conversation.width - width : 0
+                    color: message.own ? Theme.color.primaryDim : Theme.color.surfaceContainer
+                    // the corners on the sender's side are small where the run goes on
+                    readonly property real tl0: !message.own && message.joinedAbove && !message.hasPicture ? conversation.smallRadius : conversation.largeRadius
+                    readonly property real bl0: !message.own && message.joinedBelow ? conversation.smallRadius : conversation.largeRadius
+                    readonly property real tr0: message.own && message.joinedAbove && !message.hasPicture ? conversation.smallRadius : conversation.largeRadius
+                    readonly property real br0: message.own && message.joinedBelow ? conversation.smallRadius : conversation.largeRadius
+                    // as Compose's rounded shape: corners that would meet on a side shrink together
+                    readonly property real fit: Math.min(1, height / Math.max(1, Math.max(tl0 + bl0, tr0 + br0)),
+                                                         width / Math.max(1, Math.max(tl0 + tr0, bl0 + br0)))
+                    topLeftRadius: tl0 * fit
+                    bottomLeftRadius: bl0 * fit
+                    topRightRadius: tr0 * fit
+                    bottomRightRadius: br0 * fit
+
+                    Label {
+                        id: textLabel
+                        x: conversation.padX
+                        y: conversation.padY
+                        // as wide as the text, at most the bubble's maximum
+                        width: Math.min(implicitWidth, conversation.bubbleMax - 2 * conversation.padX)
+                        text: message.m.t
+                        textFormat: Text.PlainText
+                        wrapMode: Text.Wrap
+                        role: "bodyLarge"
+                        color: message.own ? Theme.color.onPrimary : Theme.color.onSurface
+                    }
                 }
             }
         }
