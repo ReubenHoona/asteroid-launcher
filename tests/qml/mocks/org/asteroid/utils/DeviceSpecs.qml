@@ -8,6 +8,8 @@ QtObject {
     readonly property int flatTireHeight: 0
     readonly property bool needsBurnInProtection: true
     readonly property bool hasWlan: true
+    // a watch with a modem (the Mobile tile); tests set it
+    property bool hasCellular: false
     readonly property bool hasSpeaker: true
     readonly property string hostname: "asteroid"
     readonly property string machineName: "eos"

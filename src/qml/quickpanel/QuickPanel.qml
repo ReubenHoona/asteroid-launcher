@@ -30,17 +30,33 @@
  */
 
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import org.asteroid.controls
 import org.asteroid.utils
 import org.asteroid.launcher
-import org.asteroid.settings
 import Nemo.Configuration
 import Nemo.Mce
 import Nemo.DBus
 import Nemo.Ngf
 import Connman
+import "qs.js" as QS
+import "tray.js" as TrayRules
 
+/*
+ * The quick settings panel, as stock CP3A's (W2-launcher-quick-settings): a
+ * vertical list of rows of three buttons (the top row holds count mod 3), the
+ * battery button first, the status tray last; it opens showing the bottom of
+ * the list; the crown scrolls it and, pushed past its end, closes the tray;
+ * the rows shrink and fade at the screen edges. SysUI lah.java, kxx.java,
+ * kxr.java; the numbers and where they come from are in qs.js.
+ *
+ * The buttons: QuickPanelToggle.qml. The questions before a mode comes on:
+ * ModeDialog.qml. The status pill and its popups: StatusTray.qml.
+ *
+ * Which tiles: /desktop/asteroid/quickpanel/tiles (a list of ids; unset is
+ * stock's list, QS.DEFAULT_TILES). The older fixed / slider / enabled keys of
+ * the editor are no longer read: stock has no editor (DECISIONS Q30).
+ * Nothing here polls: the pill and the battery button follow signals.
+ */
 Item {
     id: rootitem
     width: parent.width
@@ -48,116 +64,29 @@ Item {
 
     property bool forbidLeft: true
     property bool forbidRight: true
-    property int toggleSize: Dims.l(28)
 
-    // Set true while a range toggle is scrubbing. Single source of truth that
-    // drives all simultaneous panel fades via Behavior on opacity bindings.
-    property bool activeScrub: false
+    // sizes, px (stock dp x Theme.dp)
+    readonly property real tileSize: Theme.dp(52)
+    readonly property real tileGap: Theme.dp(4)
+    readonly property real rowSpacing: Theme.dp(4)
+    readonly property real topPadding: Theme.dp(20)
+    /*! A second tap on a tile within this many ms is ignored (tests set 0). */
+    property int tapDebounce: QS.TAP_DEBOUNCE_MS
 
-    // scrubEventGuard stays true for guardTimer interval after scrub ends.
-    // The MouseArea on scrubCover uses this to swallow stray touch events that
-    // Qt may deliver to underlying toggles after preventStealing is released.
-    // This is the primary fix for spurious toggle-on-scrub-release — wasScrubbing
-    // in the toggle is a backup for the short-drag case where onClicked fires.
-    property bool scrubEventGuard: false
+    // ---- the crown and the tray ------------------------------------------------
 
-    Timer {
-        id: guardTimer
-        interval: 250
-        onTriggered: scrubEventGuard = false
-    }
+    /* The crown pushed past the end of the list closes the tray (stock closes a
+     * crown-opened tray at the end of its list): the grid decides (crownScrolled),
+     * this item is the receiver RotaryInput finds first. Past the top nothing
+     * happens (the end bump plays). */
+    signal rotaryExit(int direction)
+    property int rotaryExitEdge: grid.rotaryExitEdge === 1 ? 1 : 2
+    onRotaryExit: (direction) => { if (grid.crownScrolled) grid.crownScrolled(direction) }
 
-    // Tracks which toggle is scrubbing so scrubFill and scrubCaptionLabel
-    // know which value and string to display
-    property string scrubMode: ""
-
-    // scrubRangeWidth defines both the visual scrubber width and the effective
-    // input range. The 0.15 margin on each side of rootitem.width matches the
-    // margin formula in QuickPanelToggle.updateValue so the visual bar
-    // boundaries and finger position always correspond truthfully.
-    readonly property real scrubRangeWidth: width * 0.80
-    readonly property real scrubCoverHeight: Dims.l(20)
-
-    readonly property real scrubCoverX: (width - scrubRangeWidth) / 2
-    readonly property real scrubCoverY: (height - scrubCoverHeight) / 2
-
-    // Stored valueMeter geometry captured at scrub start for symmetric reverse morph
-    property real morphStartX: 0
-    property real morphStartY: 0
-    property real morphStartW: 0
-    property real morphStartH: 0
-    property color morphStartColor: Qt.rgba(1, 1, 1, 0.3)
-
-    // -- Morph animation orchestration --
-    // On scrub start: snapshot valueMeter position, set morphRect there, then
-    // animate it to scrubCover geometry while the panel fades out via Behaviors.
-    // scrubCover fades in after the morph is nearly complete.
-    // On scrub end: reverse — scrubCover fades out, morphRect shrinks back to
-    // valueMeter geometry as panel fades back in.
-    onActiveScrubChanged: {
-        if (activeScrub) {
-            scrubEventGuard = true
-            guardTimer.stop()
-            scrubEndAnim.stop()
-            var pos = valueMeter.mapToItem(rootitem, 0, 0)
-            morphStartX = pos.x
-            morphStartY = pos.y
-            morphStartW = valueMeter.width
-            morphStartH = valueMeter.height
-            morphRect.x = morphStartX
-            morphRect.y = morphStartY
-            morphRect.width = morphStartW
-            morphRect.height = morphStartH
-            // onActiveScrubChanged — start morph at valueMeter fillColor
-            morphRect.color = Qt.rgba(valueMeter.fillColor.r, valueMeter.fillColor.g, valueMeter.fillColor.b, 1.0)
-            morphRect.opacity = valueMeter.fillColor.a
-            morphRect.visible = true
-            scrubCover.opacity = 0.0
-            scrubStartAnim.start()
-        } else {
-            scrubStartAnim.stop()
-            scrubEndAnim.start()
-            guardTimer.restart()
-        }
-    }
-
-    ParallelAnimation {
-        id: scrubStartAnim
-        NumberAnimation { target: morphRect; property: "opacity"; to: 0.75; duration: 250 }
-        NumberAnimation { target: morphRect; property: "x"; to: scrubCoverX; duration: 250; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: morphRect; property: "y"; to: scrubCoverY; duration: 250; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: morphRect; property: "width"; to: scrubRangeWidth; duration: 250; easing.type: Easing.InOutQuad }
-        NumberAnimation { target: morphRect; property: "height"; to: scrubCoverHeight; duration: 250; easing.type: Easing.InOutQuad }
-        // Color transitions from valueMeter fill light to scrubCover dark during expand
-        ColorAnimation { target: morphRect; property: "color"; to: Qt.rgba(0.13, 0.13, 0.13, 0.75); duration: 250 }
-        SequentialAnimation {
-            // scrubCover fades in after morphRect has nearly reached final geometry
-            PauseAnimation { duration: 150 }
-            NumberAnimation { target: scrubCover; property: "opacity"; to: 1.0; duration: 100 }
-        }
-    }
-
-    SequentialAnimation {
-        id: scrubEndAnim
-        ParallelAnimation {
-            NumberAnimation { target: scrubCover; property: "opacity"; to: 0.0; duration: 100 }
-            SequentialAnimation {
-                PauseAnimation { duration: 50 }
-                ParallelAnimation {
-                    NumberAnimation { target: morphRect; property: "x"; to: morphStartX; duration: 250; easing.type: Easing.InOutQuad }
-                    NumberAnimation { target: morphRect; property: "y"; to: morphStartY; duration: 250; easing.type: Easing.InOutQuad }
-                    NumberAnimation { target: morphRect; property: "width"; to: morphStartW; duration: 250; easing.type: Easing.InOutQuad }
-                    NumberAnimation { target: morphRect; property: "height"; to: morphStartH; duration: 250; easing.type: Easing.InOutQuad }
-                    ColorAnimation { target: morphRect; property: "color"; to: morphStartColor; duration: 250 }
-                    NumberAnimation { target: morphRect; property: "opacity"; to: valueMeter.fillColor.a; duration: 250 }
-                }
-            }
-        }
-        ScriptAction { script: morphRect.visible = false }
-    }
+    /*! The list a drag is handed over to the tray from (PanelsGrid nested scroll): at its end, the finger going up. */
+    readonly property Item handOverView: list
 
     MceBatteryLevel { id: batteryChargePercentage }
-    MceBatteryState { id: batteryChargeState }
     MceChargerType { id: mceChargerType }
 
     readonly property int volume: volumeControl ? (volumeControl.maximumVolume ? Math.round((volumeControl.volume / volumeControl.maximumVolume) * 100) : 0) : 0
@@ -167,6 +96,13 @@ Item {
     }
 
     readonly property bool isCharging: mceChargerType.type != MceChargerType.None
+    readonly property bool modesReady: typeof modes !== "undefined" && modes !== null
+    // the charger, as the modes engine sees it (it turns the saver off there)
+    readonly property bool charging: modesReady ? modes.charging : isCharging
+    readonly property bool saverOn: modesReady && modes.batterySaver && !charging
+    readonly property bool touchLockAvailable: typeof touchLock !== "undefined" && touchLock !== null && typeof touchLock.lock === "function"
+    // the Mobile tile is for a watch with a modem (machine.conf); the state is a key until the modem work reads it
+    readonly property bool mobileAvailable: !!DeviceSpecs.hasCellular
 
     AppLauncher { id: appLauncher }
 
@@ -177,59 +113,33 @@ Item {
     }
 
     ConfigurationValue {
-        id: fixedToggles
-        key: "/desktop/asteroid/quickpanel/fixed"
-        defaultValue: ["lockButton", "settingsButton"]
+        id: tilesValue
+        key: "/desktop/asteroid/quickpanel/tiles"
+        defaultValue: QS.DEFAULT_TILES
+    }
+
+    // Settings > Battery > Show percentage (asteroid-settings BatteryPage); on as stock's battery button
+    ConfigurationValue {
+        id: showBatteryPercent
+        key: "/org/asteroidos/quickpanel/show-battery-percent"
+        defaultValue: true
     }
 
     ConfigurationValue {
-        id: sliderToggles
-        key: "/desktop/asteroid/quickpanel/slider"
-        defaultValue: ["brightnessToggle", "bluetoothToggle", "hapticsToggle", "wifiToggle", "soundToggle", "bedtimeToggle", "dndToggle", "cinemaToggle", "batterySaverToggle", "extraDimToggle", "aodToggle", "findPhoneButton", "powerOffToggle", "rebootToggle", "musicButton", "flashlightButton"]
+        id: mobileEnabled
+        key: "/org/asteroidos/settings/mobile-enabled"
+        defaultValue: true
     }
 
+    // Settings asks for a page with the launcher writing "<page>@<ms>" here (asteroid-settings main.qml openRequested)
     ConfigurationValue {
-        id: toggleEnabled
-        key: "/desktop/asteroid/quickpanel/enabled"
-        defaultValue: {
-            "lockButton": true,
-            "settingsButton": true,
-            "brightnessToggle": true,
-            "bluetoothToggle": true,
-            "hapticsToggle": true,
-            "wifiToggle": true,
-            "soundToggle": true,
-            "cinemaToggle": true,
-            "aodToggle": true,
-            "powerOffToggle": true,
-            "rebootToggle": true,
-            "musicButton": false,
-            "flashlightButton": true,
-            "findPhoneButton": true,
-            "dndToggle": true,
-            "bedtimeToggle": true,
-            "batterySaverToggle": true,
-            "extraDimToggle": true
-        }
+        id: settingsRequest
+        key: "/org/asteroidos/settings/ui/open"
+        defaultValue: ""
     }
-
-    ConfigurationValue {
-        id: options
-        key: "/desktop/asteroid/quickpanel/options"
-        defaultValue: {
-            "batteryBottom": true,
-            "batteryAnimation": true,
-            "batteryColored": false,
-            "particleDesign": "diamonds"
-        }
-    }
-
-    DBusInterface {
-        id: mce_dbus
-        service: "com.nokia.mce"
-        path: "/com/nokia/mce/request"
-        iface: "com.nokia.mce.request"
-        bus: DBus.SystemBus
+    function openSettings(page) {
+        settingsRequest.value = page + "@" + Date.now()
+        appLauncher.launchApp("asteroid-settings")
     }
 
     DBusInterface {
@@ -239,15 +149,21 @@ Item {
         path: "/org/freedesktop/login1"
         iface: "org.freedesktop.login1.Manager"
     }
+    DBusInterface {
+        id: mce_dbus
+        service: "com.nokia.mce"
+        path: "/com/nokia/mce/request"
+        iface: "com.nokia.mce.request"
+        bus: DBus.SystemBus
+    }
 
-    // a short, crisp click (ui_click, about 20 ms) instead of the 80 ms "press" buzz
+    // a short, crisp click (ui_click, about 20 ms) for the haptics tile
     NonGraphicalFeedback { id: feedback; event: "ui_click" }
     ConfigurationValue {
         id: vibrationEnabled
         key: "/desktop/asteroid/vibration"
         defaultValue: true
     }
-    DisplaySettings { id: displaySettings }
 
     NonGraphicalFeedback {
         id: unmuteSound
@@ -258,666 +174,507 @@ Item {
         id: wifiStatus
         path: "/net/connman/technology/wifi"
     }
+    NetworkManager { id: connman }
+    BluetoothStatus { id: btStatus }
 
-    states: [
-        State {
-            name: "batteryBottom"
-            when: options.value.batteryBottom
+    // ---- the tiles -------------------------------------------------------------
 
-            AnchorChanges {
-                target: fixedRow
-                anchors.top: undefined
-                anchors.bottom: slidingRow.top
-            }
-            PropertyChanges {
-                target: fixedRow
-                anchors.topMargin: 0
-                anchors.bottomMargin: 0
-            }
+    // which tiles exist on this watch; the ones not in the default list stay for a list that names them
+    readonly property var availability: ({
+        "battery": true,
+        "settingsButton": true,
+        "soundToggle": DeviceSpecs.hasSpeaker,
+        "bedtimeToggle": true,
+        "dndToggle": true,
+        "cinemaToggle": true,
+        "airplaneToggle": true,
+        "flashlightButton": true,
+        "brightnessButton": true,
+        "touchLockToggle": touchLockAvailable,
+        "mobileToggle": mobileAvailable,
+        "findPhoneButton": true,
+        "lockButton": true,
+        "bluetoothToggle": true,
+        "hapticsToggle": true,
+        "wifiToggle": DeviceSpecs.hasWlan,
+        "extraDimToggle": true,
+        "aodToggle": true,
+        "powerOffToggle": true,
+        "rebootToggle": true,
+        "musicButton": true
+    })
 
-            AnchorChanges {
-                target: valueMeter
-                anchors.top: slidingRow.bottom
-                anchors.bottom: undefined
-            }
-            PropertyChanges {
-                target: valueMeter
-                anchors.topMargin: Dims.l(12)
-                anchors.bottomMargin: 0
-            }
+    readonly property var tileIds: QS.visibleTiles(tilesValue.value, availability)
+    readonly property var rowIds: QS.rows(tileIds)
 
-            AnchorChanges {
-                target: valueMeterCaption
-                anchors.top: valueMeter.bottom
-                anchors.bottom: undefined
-            }
-            PropertyChanges {
-                target: valueMeterCaption
-                anchors.topMargin: Dims.l(1)
-                anchors.bottomMargin: 0
-            }
-
-            AnchorChanges {
-                target: pageDots
-                anchors.top: slidingRow.bottom
-                anchors.bottom: undefined
-            }
-            PropertyChanges {
-                target: pageDots
-                anchors.topMargin: Dims.l(4)
-                anchors.bottomMargin: 0
-            }
-        },
-        State {
-            name: "batteryTop"
-            when: !options.value.batteryBottom
-
-            AnchorChanges {
-                target: fixedRow
-                anchors.top: slidingRow.bottom
-                anchors.bottom: undefined
-            }
-            PropertyChanges {
-                target: fixedRow
-                anchors.topMargin: Dims.l(4)
-                anchors.bottomMargin: 0
-            }
-
-            AnchorChanges {
-                target: valueMeter
-                anchors.top: undefined
-                anchors.bottom: slidingRow.top
-            }
-            PropertyChanges {
-                target: valueMeter
-                anchors.topMargin: 0
-                anchors.bottomMargin: Dims.l(12)
-            }
-
-            AnchorChanges {
-                target: valueMeterCaption
-                anchors.top: undefined
-                anchors.bottom: valueMeter.top
-            }
-            PropertyChanges {
-                target: valueMeterCaption
-                anchors.topMargin: 0
-                anchors.bottomMargin: Dims.l(1)
-            }
-
-            AnchorChanges {
-                target: pageDots
-                anchors.top: undefined
-                anchors.bottom: slidingRow.top
-            }
-            PropertyChanges {
-                target: pageDots
-                anchors.topMargin: 0
-                anchors.bottomMargin: Dims.l(4)
-            }
+    function componentOf(id) {
+        switch (id) {
+        case "battery": return batteryComponent
+        case "settingsButton": return settingsButtonComponent
+        case "soundToggle": return soundToggleComponent
+        case "bedtimeToggle": return bedtimeToggleComponent
+        case "dndToggle": return dndToggleComponent
+        case "cinemaToggle": return cinemaToggleComponent
+        case "airplaneToggle": return airplaneToggleComponent
+        case "flashlightButton": return flashlightButtonComponent
+        case "brightnessButton": return brightnessButtonComponent
+        case "touchLockToggle": return touchLockComponent
+        case "mobileToggle": return mobileToggleComponent
+        case "findPhoneButton": return findPhoneButtonComponent
+        case "lockButton": return lockButtonComponent
+        case "bluetoothToggle": return bluetoothToggleComponent
+        case "hapticsToggle": return hapticsToggleComponent
+        case "wifiToggle": return wifiToggleComponent
+        case "extraDimToggle": return extraDimToggleComponent
+        case "aodToggle": return aodToggleComponent
+        case "powerOffToggle": return powerOffToggleComponent
+        case "rebootToggle": return rebootToggleComponent
+        case "musicButton": return musicButtonComponent
         }
-    ]
-
-    // (the Flashlight tile too: stock's quick settings have it by default)
-    readonly property var newToggles: ["findPhoneButton", "dndToggle", "bedtimeToggle", "batterySaverToggle", "extraDimToggle", "flashlightButton"]
-
-    readonly property var toggleRegistry: {
-        const map = {
-            "lockButton": lockButtonComponent,
-            "settingsButton": settingsButtonComponent,
-            "brightnessToggle": brightnessToggleComponent,
-            "bluetoothToggle": bluetoothToggleComponent,
-            "hapticsToggle": hapticsToggleComponent,
-            "cinemaToggle": cinemaToggleComponent,
-            "aodToggle": aodToggleComponent,
-            "powerOffToggle": powerOffToggleComponent,
-            "rebootToggle": rebootToggleComponent,
-            "musicButton": musicButtonComponent,
-            "flashlightButton": flashlightButtonComponent,
-            "findPhoneButton": findPhoneButtonComponent,
-            "dndToggle": dndToggleComponent,
-            "bedtimeToggle": bedtimeToggleComponent,
-            "batterySaverToggle": batterySaverToggleComponent,
-            "extraDimToggle": extraDimToggleComponent
-        };
-
-        if (DeviceSpecs.hasWlan) {
-            map["wifiToggle"] = wifiToggleComponent;
-        }
-        if (DeviceSpecs.hasSpeaker) {
-            map["soundToggle"] = soundToggleComponent;
-        }
-
-        const toggles = {};
-        for (const key in map) {
-            // Find phone and the modes are newer than the saved settings of
-            // most watches: on unless switched off
-            if (toggleEnabled.value[key] || (newToggles.indexOf(key) >= 0 && toggleEnabled.value[key] === undefined)) {
-                toggles[key] = map[key];
-            }
-        }
-
-        return toggles;
+        return null
     }
 
-    ListView {
-        id: fixedRow
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: toggleSize * 2 + spacing
-        height: toggleSize
-        orientation: ListView.Horizontal
-        snapMode: ListView.SnapOneItem
-        clip: true
-        interactive: false
-        boundsBehavior: Flickable.StopAtBounds
-        spacing: Dims.l(4)
-        opacity: activeScrub ? 0.0 : 1.0
-        Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-        }
+    // ---- the list --------------------------------------------------------------
 
-        readonly property var allToggles: {
-            return fixedToggles.value
-                .map(id => toggleRegistry[id])
-                .filter(Boolean)
-        }
-
-        model: [allToggles]
-
-        contentWidth: width
-
-        delegate: Item {
-            id: pageItem
-            width: fixedRow.width
-            height: fixedRow.height
-
-            Row {
-                id: toggleRow
-                spacing: Dims.l(8)
-                Repeater {
-                    model: modelData
-                    delegate: Loader {
-                        width: toggleSize - Dims.l(4)
-                        height: width
-                        sourceComponent: modelData
-                    }
-                }
-                anchors.horizontalCenter: parent.horizontalCenter
-            }
-        }
-
-        Component.onCompleted: positionViewAtBeginning()
+    function toEnd() {
+        list.contentY = Math.max(0, list.contentHeight - list.height)
     }
-
-    // Live value label shown in the fixedRow area during scrub
-    Label {
-        id: scrubValueLabel
-        anchors.centerIn: options.value.batteryBottom ? fixedRow : valueMeter
-        opacity: activeScrub ? 0.9 : 0.0
-        text: scrubMode === "brightness" ? displaySettings.brightness + "%" : volume + "%"
-        font {
-            pixelSize: Dims.l(12)
-            family: "Noto Sans"
-            styleName: "SemiCondensed SemiBold"
-        }
-        Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-        }
-    }
-
+    // stock scrolls the list to its last item each time the tray moves, so it opens at the bottom
     Connections {
         target: grid
         function onCurrentVerticalPosChanged() {
-            if (grid.currentVerticalPos === -1) {
-                slidingRow.positionViewAtBeginning()
-            }
+            if (grid.currentVerticalPos === -1)
+                rootitem.toEnd()
+        }
+        function onTopTrayFractionChanged() {
+            if (!list.dragging && !list.flicking && !grid.handingOver)
+                rootitem.toEnd()
         }
     }
+    Component.onCompleted: {
+        toEnd()
+        if (visible)
+            _everShown = true
+    }
 
-    ListView {
-        id: slidingRow
-        anchors.centerIn: parent
-        width: toggleSize * 3 + spacing * 2
-        height: toggleSize
-        orientation: ListView.Horizontal
-        snapMode: ListView.SnapOneItem
-        clip: true
-        interactive: true
+    Flickable {
+        id: list
+        objectName: "qsList"
+        anchors.fill: parent
+        contentWidth: width
+        contentHeight: Math.max(height, col.height)
+        flickableDirection: Flickable.VerticalFlick
         boundsBehavior: Flickable.StopAtBounds
-        spacing: Dims.l(4)
-        opacity: activeScrub ? 0.0 : 1.0
-        Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-        }
+        onContentHeightChanged: if (!dragging && !flicking) rootitem.toEnd()
 
-        readonly property var allToggles: {
-            // A saved list from before find phone existed gets it at the end
-            var ids = sliderToggles.value.slice()
-            if (ids.indexOf("findPhoneButton") < 0 && fixedToggles.value.indexOf("findPhoneButton") < 0)
-                ids.push("findPhoneButton")
-            // ...and Do Not Disturb
-            if (ids.indexOf("dndToggle") < 0 && fixedToggles.value.indexOf("dndToggle") < 0)
-                ids.push("dndToggle")
-            // ...and the modes: Bedtime before Do Not Disturb (stock's
-            // order), Battery saver and Extra dim after Theater
-            function missing(id) { return ids.indexOf(id) < 0 && fixedToggles.value.indexOf(id) < 0 }
-            if (missing("bedtimeToggle"))
-                ids.splice(Math.max(0, ids.indexOf("dndToggle")), 0, "bedtimeToggle")
-            var after = ids.indexOf("cinemaToggle") >= 0 ? ids.indexOf("cinemaToggle") + 1 : ids.length
-            if (missing("extraDimToggle"))
-                ids.splice(after, 0, "extraDimToggle")
-            if (missing("batterySaverToggle"))
-                ids.splice(after, 0, "batterySaverToggle")
-            // ...and the Flashlight at the end (stock has it by default)
-            if (missing("flashlightButton"))
-                ids.push("flashlightButton")
-            return ids
-                .map(id => toggleRegistry[id])
-                .filter(Boolean)
-        }
+        Column {
+            id: col
+            objectName: "qsColumn"
+            width: list.width
+            spacing: rootitem.rowSpacing
+            topPadding: rootitem.topPadding + QS.topSpacer(rootitem.rowIds.length > 0 ? rootitem.rowIds[0].length : 3, rootitem.height)
 
-        property int rowCount: Math.ceil(allToggles.length / 3)
+            Repeater {
+                model: rootitem.rowIds
+                delegate: Item {
+                    id: rowItem
+                    objectName: "qsRow" + index
+                    readonly property var ids: modelData
+                    width: col.width
+                    height: rootitem.tileSize
+                    // the row in the viewport, for the edge morph
+                    readonly property var m: QS.morph(y - list.contentY, height, list.height)
 
-        model: {
-            const rows = [];
-            for (let i = 0; i < allToggles.length; i += 3) {
-                rows.push(allToggles.slice(i, i + 3));
-            }
-            return rows;
-        }
-
-        contentWidth: width * rowCount
-
-        delegate: Item {
-            id: pageItem
-            width: slidingRow.width
-            height: slidingRow.height
-
-            Row {
-                id: toggleRow
-                spacing: slidingRow.spacing
-                Repeater {
-                    model: modelData
-                    delegate: Loader {
-                        width: toggleSize
-                        height: toggleSize
-                        sourceComponent: modelData
+                    Repeater {
+                        model: rowItem.ids
+                        delegate: Loader {
+                            id: tileLoader
+                            objectName: "qsSlot-" + modelData
+                            readonly property string tileId: modelData
+                            width: rootitem.tileSize
+                            height: width
+                            x: QS.sidePadding(rowItem.ids.length, rowItem.width, rootitem.tileSize, rootitem.tileGap)
+                               + index * (rootitem.tileSize + rootitem.tileGap)
+                               + QS.slide(index, rowItem.ids.length, rootitem.tileSize, rowItem.m.scale)
+                            scale: rowItem.m.scale
+                            sourceComponent: rootitem.componentOf(modelData)
+                            Binding { target: tileLoader.item; property: "containerAlpha"; value: rowItem.m.container; when: tileLoader.item !== null }
+                            Binding { target: tileLoader.item; property: "contentAlpha"; value: rowItem.m.content; when: tileLoader.item !== null }
+                            Binding { target: tileLoader.item; property: "debounce"; value: rootitem.tapDebounce; when: tileLoader.item !== null }
+                        }
                     }
                 }
-                anchors.horizontalCenter: parent.horizontalCenter
             }
-        }
 
-        Component.onCompleted: positionViewAtBeginning()
-
-        onContentXChanged: {
-            const newIndex = Math.round(contentX / width)
-            if (newIndex >= 0 && newIndex < rowCount) currentIndex = newIndex
+            // the status tray: a box 21.8 % of the height, the pill bottom-centred with 5.2 % under it
+            Item {
+                id: statusBox
+                width: col.width
+                height: Math.max(QS.statusBoxHeight(rootitem.height), list.height - y)
+                StatusTray {
+                    id: statusTray
+                    objectName: "statusTray"
+                    dialogHost: rootitem
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: QS.statusBottomPadding(rootitem.height)
+                    phoneKnown: findPhone.known
+                    phoneConnected: findPhone.connected
+                    btPowered: btStatus.powered
+                    wifiConnected: wifiStatus.powered && wifiStatus.connected
+                    wifiName: connman.connectedWifi ? connman.connectedWifi.name : ""
+                    alarmMs: rootitem.nextAlarmMs
+                    scale: QS.pillScale((statusBox.y - list.contentY + statusBox.height - QS.statusBottomPadding(rootitem.height) - height / 2) / Math.max(1, list.height))
+                    onSettingsRequested: (page) => rootitem.openSettings(page)
+                }
+            }
         }
     }
 
-    // morphRect — plain pill that animates between valueMeter geometry and
-    // scrubCover geometry during scrub start/end transitions. Color animates
-    // from valueMeter fill light to scrubCover dark on expand, and reverse on
-    // collapse. Declared before scrubCover so scrubCover paints on top.
-    Rectangle {
-        id: morphRect
-        visible: false
-        color: "#eee0e0e0"
-        radius: height / 2
-        // x, y, width, height are set imperatively in onActiveScrubChanged
+    // the next alarm for the pill: read when the panel is shown and when the alarms change
+    // (timed's signals; no timer). The source is made the first time the panel is shown.
+    property bool _everShown: false
+    readonly property real nextAlarmMs: clockLoader.item ? clockLoader.item.nextAlarmMs : 0
+    Loader {
+        id: clockLoader
+        active: rootitem._everShown
+        source: "complications/ClockSource.qml"
+        onLoaded: item.active = Qt.binding(function () { return rootitem.visible })
+    }
+    onVisibleChanged: {
+        if (visible) {
+            _everShown = true
+            if (clockLoader.item) {
+                clockLoader.item.now = new Date()
+                clockLoader.item.refresh()
+            }
+        }
     }
 
-    // scrubCover — the actual interactive scrubber display. Position and size
-    // are fixed at scrubRangeWidth/scrubCoverHeight; only opacity is animated
-    // by scrubStartAnim/scrubEndAnim. Declared after morphRect so it paints
-    // above and cleanly takes over at morph completion.
-    Rectangle {
-        id: scrubCover
-        x: scrubCoverX
-        y: scrubCoverY
-        width: scrubRangeWidth
-        height: scrubCoverHeight
-        radius: height / 2
-        color: Qt.rgba(0, 0, 0, 0)
-        opacity: 0 // managed exclusively by scrubStartAnim / scrubEndAnim
+    // ---- the questions and the caption -------------------------------------------
 
-        layer.enabled: true
-        layer.effect: OpacityMask {
-            maskSource: Rectangle {
-                width: scrubCover.width
-                height: scrubCover.height
-                radius: scrubCover.radius
+    /*
+     * The modes, as the stock quick settings (STOCK-MODES.md): the launcher's modes
+     * engine (modes.h) does what each changes. Bedtime, Theater, Battery saver, the
+     * first Do Not Disturb and Airplane mode ask first, with "Don't show again";
+     * turning one off is at once. "cinemaToggle" keeps its id (saved panels) and
+     * is Theater mode.
+     */
+    ConfigurationValue { id: askDnd; key: "/org/asteroidos/modes/ask/do-not-disturb"; defaultValue: true }
+    ConfigurationValue { id: askBedtime; key: "/org/asteroidos/modes/ask/bedtime"; defaultValue: true }
+    ConfigurationValue { id: askTheater; key: "/org/asteroidos/modes/ask/theater"; defaultValue: true }
+    ConfigurationValue { id: askBatterySaver; key: "/org/asteroidos/modes/ask/battery-saver"; defaultValue: true }
+    ConfigurationValue { id: askAirplane; key: "/org/asteroidos/modes/ask/airplane"; defaultValue: true }
+
+    // ask (a ConfigurationValue: with "Don't show again", or null: no such row); apply runs on yes
+    function askFirst(ask, title, message, apply, iconName) {
+        if (ask && !ask.value) {
+            apply()
+            return
+        }
+        modeDialog.ask(title, message, function (dontShowAgain) {
+            if (ask && dontShowAgain)
+                ask.value = false
+            apply()
+        }, iconName, ask !== null)
+    }
+
+    ModeDialog { id: modeDialog; objectName: "modeDialog" }
+
+    /* The state caption after Do Not Disturb, Theater, Notifications and ring, Airplane
+     * mode and Mobile change (SysUI kzp.java, qss2_toggle_overlay.xml): bodySmall (12 sp)
+     * centred between 24 % and 76 % of the width, 6 % of the width above the bottom,
+     * over a black gradient (#FF000000, #FF000000, #1E000000) rising 41 sp (65 sp for
+     * more than two lines) above the margin. In 375 ms (PathInterpolator 0.4, 0, 1, 1),
+     * 3000 ms, out 375 ms; a new text crosses over, 150 ms out and 225 ms in after a
+     * 150 ms delay. */
+    Item {
+        id: caption
+        objectName: "qsCaption"
+        property string text: ""
+        property string _next: ""
+        readonly property real margin: QS.CAPTION.bottomFraction * rootitem.width
+        // the gradient rises 41 sp (65 sp for more than two lines) above the margin and the text
+        readonly property real gradientHeight: margin + captionLabel.height
+                                               + Theme.dp(captionLabel.lineCount > 2 ? QS.CAPTION.gradientLongDp : QS.CAPTION.gradientDp)
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: gradientHeight
+        z: 950
+        visible: opacity > 0
+        opacity: 0
+        enabled: false
+
+        function show(message) {
+            if (message === "")
+                return
+            if (visible && opacity > 0.01 && text !== message) {
+                // a new text while one shows: it crosses over
+                _next = message
+                hold.stop()
+                fadeInOut.stop()
+                swap.restart()
+                return
             }
+            text = message
+            captionLabel.opacity = 1
+            swap.stop()
+            hold.stop()
+            fadeOutAnim.stop()
+            fadeInOut.restart()
         }
 
         Rectangle {
-            anchors.fill: parent
-            color: Qt.rgba(0.13, 0.13, 0.13, 0.75)
-        }
-
-        // Value fill — width tracks current brightness or volume fraction.
-        // Color matches ValueMeter: white when batteryColored off, accent when on.
-        Rectangle {
-            id: scrubFill
-            height: parent.height
-            width: parent.width * Math.max(0, Math.min(1,
-                (scrubMode === "brightness" ? displaySettings.brightness : volume) / 100))
-            color: !options.value.batteryColored ? Qt.rgba(1, 1, 1, 0.3) : "#4CA6005F"
-            Behavior on width {
-                NumberAnimation { duration: 80; easing.type: Easing.OutQuad }
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            height: caption.gradientHeight
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: "#1E000000" }
+                GradientStop { position: 0.5; color: "#FF000000" }
+                GradientStop { position: 1.0; color: "#FF000000" }
             }
         }
-
-        // Event-swallowing MouseArea covering the full scrubCover area.
-        // Enabled by scrubEventGuard which outlives activeScrub by guardTimer
-        // interval, covering the fade-out window where stray Qt touch events
-        // could otherwise reach the toggles underneath.
-        MouseArea {
-            anchors.fill: parent
-            enabled: scrubEventGuard
-            // No handlers needed — default MouseArea behaviour accepts and
-            // swallows all mouse/touch events when enabled
+        Label {
+            id: captionLabel
+            objectName: "qsCaptionText"
+            x: QS.CAPTION.widthFrom * rootitem.width
+            width: (QS.CAPTION.widthTo - QS.CAPTION.widthFrom) * rootitem.width
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: caption.margin
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.Wrap
+            role: "bodySmall"
+            text: caption.text
+            color: Theme.color.onBackground
         }
-    }
 
-    ValueMeter {
-        id: valueMeter
-        width: toggleSize * 1.8
-        height: Dims.l(8)
-        valueLowerBound: 0
-        valueUpperBound: 100
-        anchors.horizontalCenter: parent.horizontalCenter
-
-        // Always shows battery. Fades out during scrub while scrubCover takes over.
-        value: batteryChargePercentage.percent
-        opacity: activeScrub ? 0.0 : 1.0
-
-        // Disable value animation during scrub — the fill would constantly
-        // restart the 250ms animation and permanently lag behind the label
-        Behavior on value {
-            enabled: !activeScrub
+        SequentialAnimation {
+            id: fadeInOut
             NumberAnimation {
-                duration: 250
-                easing.type: Easing.InOutQuad
+                target: caption; property: "opacity"; to: 1
+                duration: Motion.duration(QS.CAPTION.fadeIn)
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: [QS.CAPTION.easing[0], QS.CAPTION.easing[1], QS.CAPTION.easing[2], QS.CAPTION.easing[3], 1, 1]
+            }
+            PauseAnimation { duration: Motion.duration(QS.CAPTION.hold) }
+            NumberAnimation {
+                target: caption; property: "opacity"; to: 0
+                duration: Motion.duration(QS.CAPTION.fadeOut)
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: [QS.CAPTION.easing[0], QS.CAPTION.easing[1], QS.CAPTION.easing[2], QS.CAPTION.easing[3], 1, 1]
             }
         }
-
-        isIncreasing: isCharging
-        enableAnimations: options.value.batteryAnimation
-        // a short show when the panel opens or charging starts, then still:
-        // a static screen draws nothing (it drew 59 fps while charging)
-        animationDuration: 2000
-        particleDesign: options.value.particleDesign
-
-        fillColor: {
-            if (!options.value.batteryColored) return Qt.rgba(1, 1, 1, 0.3)
-            const percent = batteryChargePercentage.percent
-            if (percent <= 20) {
-                const t = (20 - percent) / 20
-                return Qt.rgba(1, 0.65 * (1 - t), 0, 0.3)
-            }
-            if (percent <= 50) {
-                const t = (50 - percent) / 30
-                return Qt.rgba(t, 1 - (t * 0.35), 0, 0.3)
-            }
-            return Qt.rgba(0, 1, 0, 0.3)
+        SequentialAnimation {
+            id: swap
+            NumberAnimation { target: captionLabel; property: "opacity"; to: 0; duration: Motion.duration(QS.CAPTION.swapOut) }
+            ScriptAction { script: caption.text = caption._next }
+            PauseAnimation { duration: Motion.duration(QS.CAPTION.swapDelay - QS.CAPTION.swapOut > 0 ? QS.CAPTION.swapDelay - QS.CAPTION.swapOut : 0) }
+            NumberAnimation { target: captionLabel; property: "opacity"; to: 1; duration: Motion.duration(QS.CAPTION.swapIn) }
+            // the hold starts again for the new text
+            ScriptAction { script: hold.restart() }
         }
-
-        Behavior on fillColor {
-            ColorAnimation { duration: 300 }
+        Timer {
+            id: hold
+            interval: Motion.duration(QS.CAPTION.hold)
+            onTriggered: fadeOutAnim.start()
         }
-
-        Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
+        NumberAnimation {
+            id: fadeOutAnim
+            target: caption; property: "opacity"; to: 0
+            duration: Motion.duration(QS.CAPTION.fadeOut)
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: [QS.CAPTION.easing[0], QS.CAPTION.easing[1], QS.CAPTION.easing[2], QS.CAPTION.easing[3], 1, 1]
         }
     }
+    function showCaption(message) { caption.show(message) }
 
-    // flashIcon cannot share a Behavior on opacity with its own
-    // SequentialAnimation on opacity, so visibility is toggled instead
-    Icon {
-        id: flashIcon
-        width: Dims.l(8)
-        height: Dims.l(8)
-        name: "ios-flash"
-        anchors.centerIn: valueMeter
-        y: -Dims.l(10)
-        visible: isCharging && !activeScrub
-        opacity: 1.0
-
-        // Only pulse while the panel is on screen. The panels grid toggles
-        // rootitem.visible per panel, so this stops the infinite animation
-        // from waking the CPU every 1.5s while charging on another panel.
-        // One pulse with the meter's show, ending at full opacity
-        SequentialAnimation on opacity {
-            running: rootitem.visible && isCharging && options.value.batteryAnimation && valueMeter.animating
-            alwaysRunToEnd: true
-            NumberAnimation { to: 0.7; duration: 1000; easing.type: Easing.InOutQuad }
-            NumberAnimation { to: 1.0; duration: 1000; easing.type: Easing.InOutQuad }
+    // after Theater mode or Touch lock the tray closes 700 ms later (Touch lock without animation)
+    property bool _closeInstantly: false
+    Timer {
+        id: autoClose
+        interval: QS.AUTO_CLOSE_MS
+        onTriggered: {
+            if (rootitem._closeInstantly)
+                grid.moveTo(0, 0)
+            else if (grid.trayMode)
+                grid.closeTray(TrayRules.REASON.nonDrag)
+            else
+                grid.animateTo(0, 0)
         }
     }
-
-    Label {
-        id: valueMeterCaption
-        anchors.horizontalCenter: parent.horizontalCenter
-        opacity: activeScrub ? 0.0 : 1.0
-
-        font {
-            pixelSize: Dims.l(9)
-            family: "Noto Sans"
-            styleName: "Condensed Medium"
-        }
-
-        text: batteryChargePercentage.percent + "%"
-
-        Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-        }
+    function closeSoon(instantly) {
+        _closeInstantly = instantly
+        autoClose.restart()
     }
 
-    // Mode caption shown in place of valueMeterCaption during scrub.
-    // anchors.centerIn: valueMeterCaption tracks the batteryBottom/batteryTop
-    // layout state automatically without needing its own AnchorChanges entries.
-    Label {
-        id: scrubCaptionLabel
-        anchors{
-            centerIn: options.value.batteryBottom ? valueMeter : fixedRow            
-            verticalCenterOffset: -Dims.l(3)
-        }
-        opacity: activeScrub ? 0.9 : 0.0
+    // ---- the tiles' components ---------------------------------------------------
 
-        font {
-            pixelSize: Dims.l(12)
-            family: "Noto Sans"
-            styleName: "Condensed Medium"
-        }
-
-        //% "Brightness"
-        text: scrubMode === "brightness" ? qsTrId("id-brightness") :
-        //% "Volume"
-              qsTrId("id-volume")
-
-        Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-        }
-    }
-
-    PageDot {
-        id: pageDots
-        height: Dims.l(4)
-        anchors.horizontalCenter: parent.horizontalCenter
-        currentIndex: slidingRow.currentIndex
-        dotNumber: slidingRow.rowCount
-        opacity: activeScrub ? 0.0 : 0.5
-        Behavior on opacity {
-            NumberAnimation { duration: 200; easing.type: Easing.InOutQuad }
-        }
-    }
-
-    RemorseTimer {
-        id: remorseTimer
-        duration: 3000
-        gaugeSegmentAmount: 6
-        gaugeStartDegree: -130
-        gaugeEndFromStartDegree: 265
-        //% "Tap to cancel"
-        cancelText: qsTrId("id-tap-to-cancel")
-    }
-
+    // the battery button (kxx.java:293-347, kxb.java:36-190): the first button
     Component {
-        id: brightnessToggleComponent
+        id: batteryComponent
         QuickPanelToggle {
-            id: brightnessToggle
-            objectName: "brightnessToggle"
-            icon: "ios-sunny"
+            id: bt
+            objectName: "batteryButton"
+            readonly property int percent: batteryChargePercentage.percent
+            readonly property int step: QS.batteryStep(percent)
             checkable: true
-            enabled: !modesReady || modes.brightnessHolder === ""
-            rangeBased: true
-            rangeMin: 10
-            rangeMax: 100
-            rangeStepSize: 10
-            scrubWidth: rootitem.width
+            checked: rootitem.saverOn
+            // plugged in: the button is greyed out (stock disables it)
+            enabled: !rootitem.charging
+            iconSize: Theme.dp(32)
+            checkedContainer: QS.SAVER_CONTAINER
+            checkedContent: QS.SAVER_CONTENT
+            tinted: QS.batteryLow(percent)
+            label: QS.batteryDescription(percent, rootitem.saverOn, rootitem.charging, {
+                //% "Battery %1%."
+                battery: qsTrId("id-qs-a11y-battery"),
+                //% "Charging."
+                charging: qsTrId("id-qs-a11y-charging"),
+                //% "Battery saver on."
+                saverOn: qsTrId("id-qs-a11y-saver-on"),
+                //% "Battery saver off."
+                saverOff: qsTrId("id-qs-a11y-saver-off")
+            })
 
-            checked: displaySettings.brightness > 10
-            
-            onClicked: {
-                if (wasScrubbing) { wasScrubbing = false; return }
+            // the glyph, 32 x 14 dp, filled to the level; own design
+            Item {
+                id: glyph
+                objectName: "batteryGlyph"
+                width: Theme.dp(32)
+                height: Theme.dp(14)
+                x: (parent.width - width) / 2
+                y: parent.height / 2 - Theme.dp(15)
+                readonly property real bodyWidth: width - Theme.dp(3)
+                Rectangle {
+                    id: body
+                    width: glyph.bodyWidth
+                    height: glyph.height
+                    radius: Theme.dp(3.5)
+                    color: "transparent"
+                    border.width: Theme.dp(1.5)
+                    border.color: bt.contentColor
+                }
+                Rectangle {
+                    x: glyph.bodyWidth
+                    y: (glyph.height - height) / 2
+                    width: Theme.dp(2.5)
+                    height: Theme.dp(6)
+                    radius: Theme.dp(1)
+                    color: bt.contentColor
+                }
+                Rectangle {
+                    objectName: "batteryFill"
+                    x: Theme.dp(3.5)
+                    y: Theme.dp(3.5)
+                    width: Math.max(Theme.dp(2), (glyph.bodyWidth - Theme.dp(7)) * bt.step / 100)
+                    height: glyph.height - Theme.dp(7)
+                    radius: Theme.dp(1.5)
+                    color: bt.contentColor
+                    visible: !rootitem.charging
+                }
+                Icon {
+                    objectName: "batteryBolt"
+                    visible: rootitem.charging
+                    anchors.centerIn: body
+                    width: Theme.dp(12)
+                    height: width
+                    name: "ios-flash"
+                    color: bt.contentColor
+                }
+            }
+            // the percent under it: digits 15 dp, "%" 10 dp, shifted +2 dp x and -8 dp y
+            Row {
+                id: percentRow
+                objectName: "batteryPercent"
+                visible: showBatteryPercent.value !== false
+                x: (parent.width - width) / 2 + Theme.dp(2)
+                y: glyph.y + glyph.height + Theme.dp(1)
+                spacing: 0
+                Label {
+                    objectName: "batteryDigits"
+                    text: bt.percent
+                    font.pixelSize: Theme.dp(15)
+                    font.weight: Font.DemiBold
+                    color: bt.contentColor
+                }
+                Label {
+                    anchors.bottom: parent.bottom
+                    anchors.bottomMargin: Theme.dp(1)
+                    text: "%"
+                    font.pixelSize: Theme.dp(10)
+                    color: bt.contentColor
+                }
+            }
+
+            onActivated: {
+                if (!rootitem.modesReady)
+                    return
                 if (checked) {
-                    displaySettings.brightness = rangeMin
-                } else {
-                    displaySettings.brightness = rangeMax
+                    // saver on -> off at once
+                    modes.batterySaver = false
+                    return
                 }
+                //% "Turn on Battery Saver mode?"
+                rootitem.askFirst(askBatterySaver, qsTrId("id-saver-confirm-title"),
+                         // stock battery_saver_mode_dialog_message and, with the automatic
+                         // saver on, battery_saver_mode_with_absm_dialog_message
+                         rootitem.modesReady && modes.autoSaverOn
+                         //% "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone. Automatically turns on at %1%."
+                         ? qsTrId("id-saver-confirm-auto").arg(modes.autoSaverOnLevel)
+                         //% "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone."
+                         : qsTrId("id-saver-confirm"),
+                         function () { modes.batterySaver = true }, "ms-battery_saver")
             }
-
-            // binding keeps rangeValue current so scrub always starts from the
-            // real current brightness, not a snapshot from a previous interaction
-            rangeValue: displaySettings.brightness
-            onRangeValueChanged: displaySettings.brightness = rangeValue
-
-            onScrubbingChanged: {
-                if (scrubbing) {
-                    rootitem.scrubMode = "brightness"
-                    rootitem.activeScrub = true
-                } else {
-                    rootitem.activeScrub = false
-                }
-            }
+            onLongPressed: rootitem.openSettings("battery_saver")
         }
     }
 
     Component {
-        id: hapticsToggleComponent
+        id: settingsButtonComponent
         QuickPanelToggle {
-            icon: "ios-watch-vibrating"
-            checkable: true
-            checked: vibrationEnabled.value
-
-            onClicked: {
-                if (checked) {
-                    vibrationEnabled.value = false
-                } else {
-                    vibrationEnabled.value = true;
-                    feedbackDelayTimer.start();
-                }
-            }
-
-            Timer {
-                id: feedbackDelayTimer
-                interval: 125
-                repeat: false
-                onTriggered: feedback.play()
-            }
+            objectName: "settingsButton"
+            icon: "ios-settings"
+            //% "Settings"
+            label: qsTrId("id-qs-settings")
+            onActivated: appLauncher.launchApp("asteroid-settings")
         }
     }
 
-    Component {
-        id: wifiToggleComponent
-        QuickPanelToggle {
-            icon: wifiStatus.connected ? "ios-wifi" : "ios-wifi-outline"
-
-            checkable: true
-            // checked binds directly to the system source of truth. No Connections
-            // block needed to stay in sync with external state changes.
-            checked: wifiStatus.powered
-
-            // !checked reads the value before the click flips it, so this is
-            // effectively: set powered to whatever it currently isn't
-            onClicked: {
-                wifiStatus.powered = !checked
-            }
-        }
-    }
-
-    Component {
-        id: bluetoothToggleComponent
-        QuickPanelToggle {
-            id: bluetoothToggle
-
-            icon: btStatus.connected ? "ios-bluetooth-connected" : "ios-bluetooth"
-
-            checkable: true
-            checked: btStatus.powered
-            BluetoothStatus {
-                id: btStatus
-            }
-
-            onClicked: {
-                btStatus.powered = !checked
-            }
-        }
-    }
-
+    // Notifications and ring (kxx.java:358-369, 704-730): checked = not muted
     Component {
         id: soundToggleComponent
         QuickPanelToggle {
             id: soundToggle
+            objectName: "soundToggle"
             checkable: true
-            rangeBased: true
-            rangeMin: 0
-            rangeMax: 100
-            rangeStepSize: 10
-            scrubWidth: rootitem.width
+            //% "Notifications and ring"
+            label: qsTrId("id-qs-sound")
 
             icon: preMuteLevel.value > 0 || volume === 0 ? "ios-sound-indicator-mute" :
                   volume > 70 ? "ios-sound-indicator-high" :
                   volume > 30 ? "ios-sound-indicator-mid" :
                   volume > 0 ? "ios-sound-indicator-low" : "ios-sound-indicator-off"
 
-            // checked reflects mute state only — volume at 0% while unmuted
+            // checked reflects mute state only: volume at 0% while unmuted
             // is silent but not muted and should not deactivate the toggle
             checked: !(preMuteLevel.value > 0 || volume === 0)
 
-            onClicked: {
-                if (wasScrubbing) { wasScrubbing = false; return }
+            onActivated: {
                 const tempVolume = volume
                 let targetVolume = preMuteLevel.value
                 if (tempVolume === 0 && targetVolume === 0) targetVolume = 100
                 setVolume(targetVolume)
                 preMuteLevel.value = tempVolume
                 if (targetVolume > 0) soundDelayTimer.start()
+                rootitem.showCaption(targetVolume > 0
+                    //% "Ring & notifications on"
+                    ? qsTrId("id-qs-sound-on")
+                    //% "Ring & notifications off"
+                    : qsTrId("id-qs-sound-off"))
             }
-
-            rangeValue: volume
-            onRangeValueChanged: {
-                if (scrubbing) {
-                    // Scrubbing to any value > 0 while muted clears the mute
-                    // state — the user is explicitly setting a volume level
-                    if (rangeValue > 0 && preMuteLevel.value > 0) {
-                        preMuteLevel.value = 0
-                    }
-                    setVolume(rangeValue)
-                }
-            }
-
-            onScrubbingChanged: {
-                if (scrubbing) {
-                    rootitem.scrubMode = "volume"
-                    rootitem.activeScrub = true
-                } else {
-                    rootitem.activeScrub = false
-                    if (rangeValue > 0) soundDelayTimer.start()
-                }
-            }
+            onLongPressed: rootitem.openSettings("sound")
 
             Timer {
                 id: soundDelayTimer
@@ -928,53 +685,30 @@ Item {
         }
     }
 
-    /*
-     * The modes, as the stock quick settings (STOCK-MODES.md): the
-     * launcher's modes engine (modes.h) does what each changes. Bedtime,
-     * Theater, Battery saver and the first Do Not Disturb ask first, with
-     * "Don't show again"; turning one off is at once. "cinemaToggle" keeps
-     * its id (saved panels) and is Theater mode now.
-     */
-    ConfigurationValue { id: askDnd; key: "/org/asteroidos/modes/ask/do-not-disturb"; defaultValue: true }
-    ConfigurationValue { id: askBedtime; key: "/org/asteroidos/modes/ask/bedtime"; defaultValue: true }
-    ConfigurationValue { id: askTheater; key: "/org/asteroidos/modes/ask/theater"; defaultValue: true }
-    ConfigurationValue { id: askBatterySaver; key: "/org/asteroidos/modes/ask/battery-saver"; defaultValue: true }
-
-    readonly property bool modesReady: typeof modes !== "undefined" && modes !== null
-
-    function askFirst(ask, title, message, apply) {
-        if (!ask.value) {
-            apply()
-            return
-        }
-        modeDialog.ask(title, message, function (dontShowAgain) {
-            if (dontShowAgain)
-                ask.value = false
-            apply()
-        })
-    }
-
     Component {
         id: bedtimeToggleComponent
         QuickPanelToggle {
             objectName: "bedtimeToggle"
             icon: checked ? "ios-moon" : "ios-moon-outline"
             checkable: true
-            checked: modesReady && modes.bedtime
-            onClicked: {
+            checked: rootitem.modesReady && modes.bedtime
+            //% "Bedtime mode"
+            label: qsTrId("id-qs-bedtime")
+            onActivated: {
                 if (checked) {
                     // off at once; with the screen on and the home screen
                     // up ModeScreen shows "Turning off Bedtime mode…" (the
-                    // engine's bedtimeEnding), no toast (modes-dnd-07)
+                    // engine's bedtimeEnding), no caption (stock has none)
                     modes.bedtime = false
                     return
                 }
                 //% "Turn on Bedtime mode?"
-                askFirst(askBedtime, qsTrId("id-bedtime-confirm-title"),
-                         //% "Watch screen, tilt-to-wake, and touch are turned off. Only alarms and timers will notify you."
+                rootitem.askFirst(askBedtime, qsTrId("id-bedtime-confirm-title"),
+                         //% "Wind down for sleep.\n\nOnly selected sources such as alarms will reach you. Turns off watch screen wake gestures, and reduces brightness."
                          qsTrId("id-bedtime-confirm"),
-                         function () { modes.bedtime = true })
+                         function () { modes.bedtime = true }, "ios-moon")
             }
+            onLongPressed: rootitem.openSettings("bedtime")
         }
     }
 
@@ -984,84 +718,29 @@ Item {
             objectName: "theaterToggle"
             icon: checked ? "ios-film" : "ios-film-outline"
             checkable: true
-            checked: modesReady && modes.theater
-            onClicked: {
+            checked: rootitem.modesReady && modes.theater
+            //% "Theater mode"
+            label: qsTrId("id-qs-theater")
+            onActivated: {
                 if (checked) {
                     modes.theater = false
+                    //% "Theater mode off"
+                    rootitem.showCaption(qsTrId("id-qs-theater-off"))
                     return
                 }
                 //% "Turn on Theater mode?"
-                askFirst(askTheater, qsTrId("id-theater-confirm-title"),
-                         //% "Turns off screen and screen wake gestures, silences alerts."
+                rootitem.askFirst(askTheater, qsTrId("id-theater-confirm-title"),
+                         //% "Silences everything including alarms.\n\nTurns off screen and wake gestures completely."
                          qsTrId("id-theater-confirm"),
-                         function () { modes.theater = true })
+                         function () {
+                             modes.theater = true
+                             //% "Theater mode on"
+                             rootitem.showCaption(qsTrId("id-qs-theater-on"))
+                             // the tray closes 700 ms later
+                             rootitem.closeSoon(false)
+                         }, "ios-film")
             }
-        }
-    }
-
-    Component {
-        id: batterySaverToggleComponent
-        QuickPanelToggle {
-            objectName: "batterySaverToggle"
-            icon: checked ? "ios-leaf" : "ios-leaf-outline"
-            checkable: true
-            // off and greyed out on the charger, as stock
-            enabled: modesReady && !modes.charging
-            checked: modesReady && modes.batterySaver
-            onClicked: {
-                if (checked) {
-                    modes.batterySaver = false
-                    return
-                }
-                //% "Turn on Battery Saver mode?"
-                askFirst(askBatterySaver, qsTrId("id-saver-confirm-title"),
-                         // stock battery_saver_mode_dialog_message and, with the automatic
-                         // saver on, battery_saver_mode_with_absm_dialog_message (charging-battery-16)
-                         modesReady && modes.autoSaverOn
-                         //% "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone. Automatically turns on at %1%."
-                         ? qsTrId("id-saver-confirm-auto").arg(modes.autoSaverOnLevel)
-                         //% "Limits background activity and turns off always-on-screen. When needed, GPS will be used from the phone."
-                         : qsTrId("id-saver-confirm"),
-                         function () { modes.batterySaver = true })
-            }
-        }
-    }
-
-    // Extra dim: this watch's own (Android's on the phone cannot be read):
-    // the screen under the lowest brightness, at once as Android's tile
-    Component {
-        id: extraDimToggleComponent
-        QuickPanelToggle {
-            objectName: "extraDimToggle"
-            icon: "ios-contrast"
-            checkable: true
-            checked: modesReady && modes.extraDim
-            onClicked: modes.extraDim = !checked
-        }
-    }
-
-    Component {
-        id: lockButtonComponent
-        QuickPanelToggle {
-            id: lockedToggle
-            icon: "ios-unlock"
-            onClicked: mce_dbus.call("req_display_state_lpm", undefined)
-        }
-    }
-
-    Component {
-        id: settingsButtonComponent
-        QuickPanelToggle {
-            icon: "ios-settings"
-            onClicked: appLauncher.launchApp("asteroid-settings")
-        }
-    }
-
-    Component {
-        id: musicButtonComponent
-        QuickPanelToggle {
-            icon: "ios-musical-notes-outline"
-            onClicked: appLauncher.launchApp("asteroid-music")
+            onLongPressed: rootitem.openSettings("theater")
         }
     }
 
@@ -1082,17 +761,149 @@ Item {
             icon: checked ? "ios-remove-circle" : "ios-remove-circle-outline"
             checkable: true
             checked: doNotDisturb.value
-            onClicked: {
+            //% "Do Not Disturb"
+            label: qsTrId("id-qs-dnd")
+            onActivated: {
                 if (checked) {
                     doNotDisturb.value = false
+                    //% "Do Not Disturb off"
+                    rootitem.showCaption(qsTrId("id-qs-dnd-off"))
                     return
                 }
                 //% "Turn on Do Not Disturb?"
-                askFirst(askDnd, qsTrId("id-dnd-confirm-title"),
-                         //% "Only alarms and timers will notify you."
+                rootitem.askFirst(askDnd, qsTrId("id-dnd-confirm-title"),
+                         //% "Silences watch to minimize interruptions.\n\nOnly selected people and apps can reach you."
                          qsTrId("id-dnd-confirm"),
-                         function () { doNotDisturb.value = true })
+                         function () {
+                             doNotDisturb.value = true
+                             //% "Do Not Disturb on"
+                             rootitem.showCaption(qsTrId("id-qs-dnd-on"))
+                         }, "ios-remove-circle")
             }
+            onLongPressed: rootitem.openSettings("dnd")
+        }
+    }
+
+    // Airplane mode (equ.java cases 3-4, kxx.java:229-243): connman's offline mode
+    // turns the radios off. Stock: Bluetooth stays on during airplane mode
+    // (bluetooth_airplane_mode_toast), so it is switched back on after.
+    Timer {
+        id: restoreBluetooth
+        interval: 1500
+        onTriggered: if (connman.offlineMode && !btStatus.powered) btStatus.powered = true
+    }
+    property bool _btWasOn: false
+    Component {
+        id: airplaneToggleComponent
+        QuickPanelToggle {
+            objectName: "airplaneToggle"
+            icon: "ms-airplanemode_active"
+            checkable: true
+            checked: connman.offlineMode
+            //% "Airplane mode"
+            label: qsTrId("id-qs-airplane")
+            onActivated: {
+                if (checked) {
+                    connman.offlineMode = false
+                    //% "Airplane mode off"
+                    rootitem.showCaption(qsTrId("id-qs-airplane-off"))
+                    return
+                }
+                //% "Turn on Airplane mode?"
+                rootitem.askFirst(askAirplane, qsTrId("id-qs-airplane-title"),
+                         //% "When airplane mode is on, Wi-Fi and mobile networks are turned off"
+                         qsTrId("id-qs-airplane-message"),
+                         function () {
+                             rootitem._btWasOn = btStatus.powered
+                             connman.offlineMode = true
+                             if (rootitem._btWasOn)
+                                 restoreBluetooth.restart()
+                             //% "Airplane mode on"
+                             rootitem.showCaption(qsTrId("id-qs-airplane-on"))
+                         }, "ms-airplanemode_active")
+            }
+            // there is no Airplane page in Settings: the info dialog
+            onLongPressed: modeDialog.info(qsTrId("id-qs-airplane"), qsTrId("id-qs-airplane-message"), "ms-airplanemode_active")
+        }
+    }
+
+    // Flashlight: opens the Flashlight app, as the stock quick settings'
+    // Flashlight button starts FlashlightActivity (STOCK-FLASHLIGHT.md); its
+    // icon is the stock tile's (quantum_gm_ic_flashlight_on)
+    Component {
+        id: flashlightButtonComponent
+        QuickPanelToggle {
+            objectName: "flashlightButton"
+            icon: "gm-flashlight-on"
+            iconSize: Theme.dp(27)
+            //% "Flashlight"
+            label: qsTrId("id-qs-flashlight")
+            onActivated: appLauncher.launchApp("asteroid-flashlight")
+            onLongPressed: modeDialog.info(qsTrId("id-qs-flashlight"),
+                                           //% "Lights up your watch screen"
+                                           qsTrId("id-qs-flashlight-info"), "gm-flashlight-on")
+        }
+    }
+
+    // Brightness: the tap opens the Settings Brightness page (wake-sleep-display-14; stock
+    // BrightnessTileUserActionInteractor); no long press
+    Component {
+        id: brightnessButtonComponent
+        QuickPanelToggle {
+            objectName: "brightnessButton"
+            icon: "ios-sunny"
+            //% "Brightness"
+            label: qsTrId("id-brightness")
+            onActivated: rootitem.openSettings("brightness")
+        }
+    }
+
+    // Touch lock: the power system's lock (W2-launcher-power-system) once it is there
+    Component {
+        id: touchLockComponent
+        QuickPanelToggle {
+            objectName: "touchLockToggle"
+            icon: "ms-screen_lock_portrait"
+            //% "Touch lock"
+            label: qsTrId("id-qs-touch-lock")
+            onActivated: {
+                touchLock.lock()
+                // the tray closes 700 ms later, without animation
+                rootitem.closeSoon(true)
+            }
+            onLongPressed: rootitem.openSettings("touch_lock")
+        }
+    }
+
+    // Mobile (kxx.java:381-395): off -> on at once; on -> asks first. The state is a
+    // key; the modem is not touched (DECISIONS Q61: it waits for the LTE milestone).
+    Component {
+        id: mobileToggleComponent
+        QuickPanelToggle {
+            objectName: "mobileToggle"
+            icon: "ios-radio-outline"
+            checkable: true
+            checked: mobileEnabled.value
+            //% "Mobile"
+            label: qsTrId("id-qs-mobile")
+            onActivated: {
+                if (!checked) {
+                    mobileEnabled.value = true
+                    //% "Mobile auto"
+                    rootitem.showCaption(qsTrId("id-qs-mobile-on"))
+                    return
+                }
+                //% "Turn off mobile networks?"
+                rootitem.askFirst(null, qsTrId("id-qs-mobile-title"),
+                         //% "Calls, messages, and mobile data will not be available when watch is disconnected from phone."
+                         qsTrId("id-qs-mobile-message"),
+                         function () {
+                             mobileEnabled.value = false
+                             //% "Mobile off"
+                             rootitem.showCaption(qsTrId("id-qs-mobile-off"))
+                         }, "ios-radio-outline")
+            }
+            onLongPressed: rootitem.openSettings("connectivity")
         }
     }
 
@@ -1131,14 +942,13 @@ Item {
             findPhoneDBus.typedCall("FindingPhone", [],
                                     function (r) { findPhone.ringing = r },
                                     function () { findPhone.ringing = false })
-            phoneDBus.typedCall("Connected", [], function (c) { findPhone.connected = c })
-            phoneDBus.typedCall("BatteryLevel", [], function (l) { findPhone.battery = l })
+            phoneDBus.typedCall("Connected", [], function (c) { findPhone.connected = c; findPhone.known = true })
         }
 
-        // The phone's link and battery (asteroid-btsyncd's phone status),
-        // shown on the toggle
+        // The phone's link (asteroid-btsyncd's phone status): the pill's phone icon and
+        // the Find my phone tile's enabled state; `known` once btsyncd has answered
         property bool connected: false
-        property int battery: -1
+        property bool known: false
 
         DBusInterface {
             id: phoneDBus
@@ -1150,9 +960,7 @@ Item {
 
             function rcConnectedChanged(connected: bool) {
                 findPhone.connected = connected
-            }
-            function rcBatteryChanged(level: int, charging: bool) {
-                findPhone.battery = level
+                findPhone.known = true
             }
         }
     }
@@ -1166,8 +974,8 @@ Item {
         visible: false
         z: 10
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: slidingRow.bottom
-        anchors.topMargin: Dims.l(2)
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Theme.dp(60)
         color: Theme.color.error
         font.pixelSize: Theme.type.bodySmall.pixelSize
         // The voice reply page's string
@@ -1179,34 +987,22 @@ Item {
         }
     }
 
+    // Find My Phone (krv.java cases 17-18): greyed out while the phone is not connected
     Component {
         id: findPhoneButtonComponent
         QuickPanelToggle {
+            objectName: "findPhoneButton"
             icon: "ios-phone-portrait"
+            iconSize: Theme.dp(32)
             checkable: true
             checked: findPhone.ringing
-            onClicked: findPhone.toggle()
-
-            // The phone's battery, or a cross while it is not connected
-            Label {
-                visible: findPhone.connected && findPhone.battery >= 0
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.bottom: parent.bottom
-                anchors.bottomMargin: parent.height * 0.06
-                font.pixelSize: parent.height * 0.15
-                opacity: 0.8
-                text: findPhone.battery + "%"
-            }
-            Icon {
-                visible: !findPhone.connected
-                name: "ios-close-circle"
-                width: parent.width * 0.26
-                height: width
-                anchors.right: parent.right
-                anchors.top: parent.top
-                anchors.margins: parent.width * 0.1
-                color: Theme.color.error
-            }
+            enabled: findPhone.connected
+            //% "Find My Phone"
+            label: qsTrId("id-qs-find-phone")
+            onActivated: findPhone.toggle()
+            onLongPressed: modeDialog.info(qsTrId("id-qs-find-phone"),
+                                           //% "Rings your phone even when the phone is muted or on vibrate"
+                                           qsTrId("id-qs-find-phone-info"), "ios-phone-portrait")
 
             // Ringing: the icon pulses, only while the panel is on screen
             SequentialAnimation on opacity {
@@ -1219,46 +1015,115 @@ Item {
         }
     }
 
-    // Flashlight: opens the Flashlight app, as the stock quick settings'
-    // Flashlight button starts FlashlightActivity (STOCK-FLASHLIGHT.md); its
-    // icon is the stock tile's (quantum_gm_ic_flashlight_on)
+    // ---- tiles that are not in stock's list: only a list that names them shows them ----
+
     Component {
-        id: flashlightButtonComponent
+        id: lockButtonComponent
         QuickPanelToggle {
-            objectName: "flashlightButton"
-            icon: "gm-flashlight-on"
-            onClicked: appLauncher.launchApp("asteroid-flashlight")
+            icon: "ios-unlock"
+            onActivated: mce_dbus.call("req_display_state_lpm", undefined)
         }
     }
 
     Component {
-        id: aodToggleComponent
+        id: musicButtonComponent
         QuickPanelToggle {
-            objectName: "aodToggle"
-            readonly property bool blocked: modesReady && modes.alwaysOnBlocked
-            icon: checked ? "ios-watch-aod-on" : "ios-watch-aod-off"
-            checkable: true
-            enabled: !blocked
-            checked: alwaysOnDisplay.value && !blocked
+            icon: "ios-musical-notes-outline"
+            onActivated: appLauncher.launchApp("asteroid-music")
+        }
+    }
 
-            onClicked: {
-                alwaysOnDisplay.value = !checked;
-                displaySettings.lowPowerModeEnabled = alwaysOnDisplay.value;
+    Component {
+        id: hapticsToggleComponent
+        QuickPanelToggle {
+            objectName: "hapticsToggle"
+            icon: "ios-watch-vibrating"
+            checkable: true
+            // the master "Vibration & haptics": the crown ticks need it and haptics-crown;
+            // this tile never writes haptics-crown (choice-settings-13)
+            checked: vibrationEnabled.value
+
+            onActivated: {
+                if (checked) {
+                    vibrationEnabled.value = false
+                } else {
+                    vibrationEnabled.value = true;
+                    feedbackDelayTimer.start();
+                }
+            }
+
+            Timer {
+                id: feedbackDelayTimer
+                interval: 125
+                repeat: false
+                onTriggered: feedback.play()
             }
         }
     }
 
     Component {
+        id: wifiToggleComponent
+        QuickPanelToggle {
+            icon: wifiStatus.connected ? "ios-wifi" : "ios-wifi-outline"
+            checkable: true
+            checked: wifiStatus.powered
+            onActivated: wifiStatus.powered = !checked
+        }
+    }
+
+    Component {
+        id: bluetoothToggleComponent
+        QuickPanelToggle {
+            icon: btStatus.connected ? "ios-bluetooth-connected" : "ios-bluetooth"
+            checkable: true
+            checked: btStatus.powered
+            onActivated: btStatus.powered = !checked
+        }
+    }
+
+    // Extra dim: this watch's own (Android's on the phone cannot be read):
+    // the screen under the lowest brightness, at once as Android's tile
+    Component {
+        id: extraDimToggleComponent
+        QuickPanelToggle {
+            objectName: "extraDimToggle"
+            icon: "ios-contrast"
+            checkable: true
+            checked: rootitem.modesReady && modes.extraDim
+            onActivated: modes.extraDim = !checked
+        }
+    }
+
+    // Always-on: writes only the key; the launcher's applyLowPower() turns the low power
+    // mode on and off, so the off-wrist rule and the holds stay in one place
+    // (choice-settings-13)
+    Component {
+        id: aodToggleComponent
+        QuickPanelToggle {
+            objectName: "aodToggle"
+            readonly property bool blocked: rootitem.modesReady && modes.alwaysOnBlocked
+            icon: checked ? "ios-watch-aod-on" : "ios-watch-aod-off"
+            checkable: true
+            enabled: !blocked
+            checked: alwaysOnDisplay.value && !blocked
+            onActivated: alwaysOnDisplay.value = !checked
+        }
+    }
+
+    // Power off and Restart ask "Are you sure?" (stock's power entries; DECISIONS Q31).
+    // One dialog with one pending answer: asking again replaces it (the old
+    // RemorseTimer connected a handler for every tap, dialogs-pickers-feedback-20).
+    Component {
         id: powerOffToggleComponent
         QuickPanelToggle {
+            objectName: "powerOffToggle"
             icon: "ios-power-outline"
-            onClicked: {
-                //% "Powering off in"
-                remorseTimer.action = qsTrId("id-power-off");
-                remorseTimer.onTriggered.connect(function() {
-                    login1DBus.call("PowerOff", [false]);
-                });
-                remorseTimer.start();
+            onActivated: {
+                //% "Power off"
+                rootitem.askFirst(null, qsTrId("id-power-off"),
+                                  //% "Are you sure?"
+                                  qsTrId("id-qs-are-you-sure"),
+                                  function () { login1DBus.call("PowerOff", [false]) }, "ios-power-outline")
             }
         }
     }
@@ -1266,55 +1131,16 @@ Item {
     Component {
         id: rebootToggleComponent
         QuickPanelToggle {
+            objectName: "rebootToggle"
             icon: "ios-sync"
-            onClicked: {
-                //% "Rebooting in"
-                remorseTimer.action = qsTrId("id-reboot");
-                remorseTimer.onTriggered.connect(function() {
-                    login1DBus.call("SetRebootParameter", [""]);
-                    login1DBus.call("Reboot", [false]);
-                });
-                remorseTimer.start();
-            }
-        }
-    }
-
-    ModeDialog { id: modeDialog; objectName: "modeDialog" }
-
-    // a short line near the bottom, as stock's toast ("Bedtime mode off")
-    Item {
-        id: modeToast
-        objectName: "modeToast"
-        property string text: ""
-        anchors.fill: parent
-        z: 950
-        visible: opacity > 0
-        opacity: 0
-        function show(message) {
-            text = message
-            toastFade.stop()
-            opacity = 1
-            toastTimer.restart()
-        }
-        Timer { id: toastTimer; interval: 2000; onTriggered: toastFade.start() }
-        NumberAnimation { id: toastFade; target: modeToast; property: "opacity"; to: 0; duration: 200 }
-        Rectangle {
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: Dims.h(12)
-            width: Math.min(Dims.w(70), toastLabel.implicitWidth + Dims.w(10))
-            height: toastLabel.height + Dims.h(5)
-            radius: Theme.shape.clamp(Theme.shape.large, height)
-            color: Theme.color.surfaceContainerHigh
-            Label {
-                id: toastLabel
-                anchors.centerIn: parent
-                width: Math.min(Dims.w(60), implicitWidth)
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.Wrap
-                clip: false
-                text: modeToast.text
-                font.pixelSize: Theme.type.labelSmall.pixelSize
+            onActivated: {
+                //% "Restart device?"
+                rootitem.askFirst(null, qsTrId("id-qs-restart-title"),
+                                  qsTrId("id-qs-are-you-sure"),
+                                  function () {
+                                      login1DBus.call("SetRebootParameter", [""])
+                                      login1DBus.call("Reboot", [false])
+                                  }, "ios-sync")
             }
         }
     }

@@ -45,6 +45,10 @@ QtObject {
     property bool btConnected: true
     property bool wifiPowered: true
     property bool wifiConnected: true
+    // connman's offline mode (Airplane mode), the connected Wi-Fi's name, the next alarm (ms, 0 none)
+    property bool offline: false
+    property string wifiName: ""
+    property real nextAlarmMs: 0
     property var wifiServices: []
 
     // time and language
@@ -79,6 +83,7 @@ QtObject {
         batteryPercent = 57; batteryState = 2; chargerType = 0
         volume = 70
         btPowered = true; btConnected = true; wifiPowered = true; wifiConnected = true; wifiServices = []
+        offline = false; wifiName = ""; nextAlarmMs = 0
         timezone = "Europe/London"; languageIndex = 1
         replies = {
             "org.asteroidos.btsyncd.Phone.Connected": true,

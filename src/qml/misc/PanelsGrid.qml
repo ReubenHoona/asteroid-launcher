@@ -589,37 +589,46 @@ GestureFilterArea {
 
     /* -- a list at its end hands a drag over to its tray (stock nested scroll) --
      *
-     * The stream's list owns a drag that starts on it (GestureFilterArea
-     * leaves it alone), and the list stops at its top. A finger that goes on
-     * down from there pulls the tray down instead (the list stays at its top
-     * meanwhile), as one gesture; lifted, the release rules above apply. The
-     * stream offers the list as its handOverView. */
+     * The tray's list owns a drag that starts on it (GestureFilterArea leaves
+     * it alone), and the list stops at its edge: the top for the stream, the
+     * end for quick settings (which opens at the bottom of its list). A finger
+     * that goes on from there pulls the tray in instead (the list stays at its
+     * edge meanwhile), as one gesture; lifted, the release rules above apply.
+     * The tray offers the list as its handOverView. */
     property bool handingOver: false
     property real _hoY: NaN
     property int _hoBounds: 0
     property var _hoView: null
+    property int _hoRow: 0
 
     function nestedView() {
-        if (!trayMode || currentVerticalPos !== 1)
+        if (!trayMode || currentVerticalPos === 0)
             return null
-        var rec = cellAt(0, 1)
+        var rec = cellAt(0, currentVerticalPos)
         return rec && rec.item && rec.item.handOverView ? rec.item.handOverView : null
     }
 
-    function pinList(v) {
-        v.contentY = v.originY - v.topMargin
+    // the list at its edge: the stream's top, the end of the quick settings list
+    function atTrayEdge(v, row) {
+        return row === 1 ? v.atYBeginning : v.atYEnd
     }
 
-    function beginHandOver(v) {
+    function pinList(v, row) {
+        v.contentY = row === 1 ? v.originY - v.topMargin
+                               : v.originY + v.contentHeight + v.bottomMargin - v.height
+    }
+
+    function beginHandOver(v, row) {
         handingOver = true
         _hoView = v
+        _hoRow = row
         _hoBounds = v.boundsBehavior
         v.boundsBehavior = Flickable.StopAtBounds
         v.cancelFlick()
         traySpring.stop()
         contentAnim.stop()
         panelsHideTimeout.stop()
-        trayRow = 1
+        trayRow = row
         _trayStartedOpen = true
     }
 
@@ -641,29 +650,34 @@ GestureFilterArea {
                 endHandOver()
             return
         }
+        var row = handingOver ? _hoRow : currentVerticalPos
+        // the finger direction that pulls the tray in: down for the stream, up for quick settings
+        var closing = row === 1 ? 1 : -1
         if (!handingOver) {
-            // the list is at its top and the finger goes on down
-            if (dy <= 0 || !v.atYBeginning)
+            // the list is at its edge and the finger goes on that way
+            if (dy * closing <= 0 || !atTrayEdge(v, row))
                 return
-            beginHandOver(v)
+            beginHandOver(v, row)
         }
-        // all the way out again and the finger still going up: the list has it back
-        if (dy < 0 && content.y <= -panelHeight + 0.5) {
+        // all the way out again and the finger still going the other way: the list has it back
+        if (dy * closing < 0 && trayFraction(row) >= 1 - 0.5 / panelHeight) {
             endHandOver()
             return
         }
-        pinList(v)
-        contentY = Math.max(-panelHeight, Math.min(0, content.y + dy))
+        pinList(v, row)
+        contentY = row === 1 ? Math.max(-panelHeight, Math.min(0, content.y + dy))
+                             : Math.max(0, Math.min(panelHeight, content.y + dy))
     }
 
     function handOverEnded() {
         _hoY = NaN
         if (!handingOver)
             return
+        var row = _hoRow
         endHandOver()
         var vy = swipeVelocityY
-        var open = TrayRules.releaseOpens(true, trayFraction(1), TrayRules.sign(1) * vy)
-        currentVerticalPos = open ? 1 : 0
+        var open = TrayRules.releaseOpens(true, trayFraction(row), TrayRules.sign(row) * vy)
+        currentVerticalPos = open ? row : 0
         settleTray(TrayRules.REASON.drag, vy)
     }
 

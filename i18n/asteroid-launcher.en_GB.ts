@@ -434,8 +434,8 @@
     </message>
     <message id="id-power-off">
         <location line="+277"/>
-        <source>Powering off in</source>
-        <translation>Powering off in</translation>
+        <source>Power off</source>
+        <translation>Power off</translation>
     </message>
     <message id="id-tap-to-cancel">
         <location line="-251"/>
@@ -1156,16 +1156,24 @@
         <translation>Turn on Bedtime mode?</translation>
     </message>
     <message id="id-bedtime-confirm">
-        <source>Watch screen, tilt-to-wake, and touch are turned off. Only alarms and timers will notify you.</source>
-        <translation>Watch screen, tilt-to-wake, and touch are turned off. Only alarms and timers will notify you.</translation>
+        <source>Wind down for sleep.
+
+Only selected sources such as alarms will reach you. Turns off watch screen wake gestures, and reduces brightness.</source>
+        <translation>Wind down for sleep.
+
+Only selected sources such as alarms will reach you. Turns off watch screen wake gestures, and reduces brightness.</translation>
     </message>
     <message id="id-theater-confirm-title">
         <source>Turn on Theater mode?</source>
         <translation>Turn on Theater mode?</translation>
     </message>
     <message id="id-theater-confirm">
-        <source>Turns off screen and screen wake gestures, silences alerts.</source>
-        <translation>Turns off screen and screen wake gestures, silences alerts.</translation>
+        <source>Silences everything including alarms.
+
+Turns off screen and wake gestures completely.</source>
+        <translation>Silences everything including alarms.
+
+Turns off screen and wake gestures completely.</translation>
     </message>
     <message id="id-saver-confirm-title">
         <source>Turn on Battery Saver mode?</source>
@@ -1184,8 +1192,12 @@
         <translation>Turn on Do Not Disturb?</translation>
     </message>
     <message id="id-dnd-confirm">
-        <source>Only alarms and timers will notify you.</source>
-        <translation>Only alarms and timers will notify you.</translation>
+        <source>Silences watch to minimize interruptions.
+
+Only selected people and apps can reach you.</source>
+        <translation>Silences watch to minimize interruptions.
+
+Only selected people and apps can reach you.</translation>
     </message>
     <message id="id-theater-expired">
         <source>Theater mode off</source>
@@ -1194,6 +1206,178 @@
     <message id="id-theater-expired-body">
         <source>Theater mode is turned off after 24 hours</source>
         <translation>Theater mode is turned off after 24 hours</translation>
+    </message>
+    <message id="id-qs-a11y-battery">
+        <source>Battery %1%.</source>
+        <translation>Battery %1%.</translation>
+    </message>
+    <message id="id-qs-a11y-charging">
+        <source>Charging.</source>
+        <translation>Charging.</translation>
+    </message>
+    <message id="id-qs-a11y-saver-on">
+        <source>Battery saver on.</source>
+        <translation>Battery saver on.</translation>
+    </message>
+    <message id="id-qs-a11y-saver-off">
+        <source>Battery saver off.</source>
+        <translation>Battery saver off.</translation>
+    </message>
+    <message id="id-qs-settings">
+        <source>Settings</source>
+        <translation>Settings</translation>
+    </message>
+    <message id="id-qs-sound">
+        <source>Notifications and ring</source>
+        <translation>Notifications and ring</translation>
+    </message>
+    <message id="id-qs-sound-on">
+        <source>Ring &amp; notifications on</source>
+        <translation>Ring &amp; notifications on</translation>
+    </message>
+    <message id="id-qs-sound-off">
+        <source>Ring &amp; notifications off</source>
+        <translation>Ring &amp; notifications off</translation>
+    </message>
+    <message id="id-qs-bedtime">
+        <source>Bedtime mode</source>
+        <translation>Bedtime mode</translation>
+    </message>
+    <message id="id-qs-theater">
+        <source>Theater mode</source>
+        <translation>Theater mode</translation>
+    </message>
+    <message id="id-qs-theater-off">
+        <source>Theater mode off</source>
+        <translation>Theater mode off</translation>
+    </message>
+    <message id="id-qs-theater-on">
+        <source>Theater mode on</source>
+        <translation>Theater mode on</translation>
+    </message>
+    <message id="id-qs-dnd">
+        <source>Do Not Disturb</source>
+        <translation>Do Not Disturb</translation>
+    </message>
+    <message id="id-qs-dnd-off">
+        <source>Do Not Disturb off</source>
+        <translation>Do Not Disturb off</translation>
+    </message>
+    <message id="id-qs-dnd-on">
+        <source>Do Not Disturb on</source>
+        <translation>Do Not Disturb on</translation>
+    </message>
+    <message id="id-qs-airplane">
+        <source>Airplane mode</source>
+        <translation>Airplane mode</translation>
+    </message>
+    <message id="id-qs-airplane-off">
+        <source>Airplane mode off</source>
+        <translation>Airplane mode off</translation>
+    </message>
+    <message id="id-qs-airplane-title">
+        <source>Turn on Airplane mode?</source>
+        <translation>Turn on Airplane mode?</translation>
+    </message>
+    <message id="id-qs-airplane-message">
+        <source>When airplane mode is on, Wi-Fi and mobile networks are turned off</source>
+        <translation>When airplane mode is on, Wi-Fi and mobile networks are turned off</translation>
+    </message>
+    <message id="id-qs-airplane-on">
+        <source>Airplane mode on</source>
+        <translation>Airplane mode on</translation>
+    </message>
+    <message id="id-qs-flashlight">
+        <source>Flashlight</source>
+        <translation>Flashlight</translation>
+    </message>
+    <message id="id-qs-flashlight-info">
+        <source>Lights up your watch screen</source>
+        <translation>Lights up your watch screen</translation>
+    </message>
+    <message id="id-qs-touch-lock">
+        <source>Touch lock</source>
+        <translation>Touch lock</translation>
+    </message>
+    <message id="id-qs-mobile">
+        <source>Mobile</source>
+        <translation>Mobile</translation>
+    </message>
+    <message id="id-qs-mobile-on">
+        <source>Mobile auto</source>
+        <translation>Mobile auto</translation>
+    </message>
+    <message id="id-qs-mobile-title">
+        <source>Turn off mobile networks?</source>
+        <translation>Turn off mobile networks?</translation>
+    </message>
+    <message id="id-qs-mobile-message">
+        <source>Calls, messages, and mobile data will not be available when watch is disconnected from phone.</source>
+        <translation>Calls, messages, and mobile data will not be available when watch is disconnected from phone.</translation>
+    </message>
+    <message id="id-qs-mobile-off">
+        <source>Mobile off</source>
+        <translation>Mobile off</translation>
+    </message>
+    <message id="id-qs-find-phone">
+        <source>Find My Phone</source>
+        <translation>Find My Phone</translation>
+    </message>
+    <message id="id-qs-find-phone-info">
+        <source>Rings your phone even when the phone is muted or on vibrate</source>
+        <translation>Rings your phone even when the phone is muted or on vibrate</translation>
+    </message>
+    <message id="id-qs-are-you-sure">
+        <source>Are you sure?</source>
+        <translation>Are you sure?</translation>
+    </message>
+    <message id="id-qs-restart-title">
+        <source>Restart device?</source>
+        <translation>Restart device?</translation>
+    </message>
+    <message id="id-qs-connected-to">
+        <source>Connected to</source>
+        <translation>Connected to</translation>
+    </message>
+    <message id="id-qs-disconnected-phone">
+        <source>Disconnected from phone</source>
+        <translation>Disconnected from phone</translation>
+    </message>
+    <message id="id-qs-bluetooth-off">
+        <source>Bluetooth is off</source>
+        <translation>Bluetooth is off</translation>
+    </message>
+    <message id="id-qs-upcoming-alarm">
+        <source>Upcoming alarm</source>
+        <translation>Upcoming alarm</translation>
+    </message>
+    <message id="id-qs-phone">
+        <source>Phone</source>
+        <translation>Phone</translation>
+    </message>
+    <message id="id-qs-phone-nearby">
+        <source>Make sure your phone is nearby and Bluetooth is turned on</source>
+        <translation>Make sure your phone is nearby and Bluetooth is turned on</translation>
+    </message>
+    <message id="id-qs-wifi">
+        <source>wi-fi</source>
+        <translation>wi-fi</translation>
+    </message>
+    <message id="id-qs-disambig-phone">
+        <source>Connected to phone</source>
+        <translation>Connected to phone</translation>
+    </message>
+    <message id="id-qs-disambig-wifi">
+        <source>Connected to Wifi</source>
+        <translation>Connected to Wifi</translation>
+    </message>
+    <message id="id-qs-bluetooth-settings">
+        <source>Bluetooth Settings</source>
+        <translation>Bluetooth Settings</translation>
+    </message>
+    <message id="id-qs-close">
+        <source>Close</source>
+        <translation>Close</translation>
     </message>
 </context>
 </TS>

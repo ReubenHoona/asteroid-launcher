@@ -91,6 +91,8 @@ set(QML_FILES
 	qml/quickpanel/QuickPanel.qml
 	qml/quickpanel/QuickPanelToggle.qml
 	qml/quickpanel/ModeDialog.qml
+	qml/quickpanel/StatusTray.qml
+	qml/quickpanel/qs.js
 	qml/firstrun/FakeAlarmclock.qml
 	qml/firstrun/FirstRunConfig.qml
 	qml/firstrun/Tutorial.qml
@@ -164,6 +166,8 @@ set_source_files_properties(qml/notifications/PhoneAlarm.qml            PROPERTI
 set_source_files_properties(qml/quickpanel/QuickPanel.qml            PROPERTIES QT_RESOURCE_ALIAS QuickPanel.qml)
 set_source_files_properties(qml/quickpanel/QuickPanelToggle.qml      PROPERTIES QT_RESOURCE_ALIAS QuickPanelToggle.qml)
 set_source_files_properties(qml/quickpanel/ModeDialog.qml            PROPERTIES QT_RESOURCE_ALIAS ModeDialog.qml)
+set_source_files_properties(qml/quickpanel/StatusTray.qml            PROPERTIES QT_RESOURCE_ALIAS StatusTray.qml)
+set_source_files_properties(qml/quickpanel/qs.js                     PROPERTIES QT_RESOURCE_ALIAS qs.js)
 set_source_files_properties(qml/firstrun/FakeAlarmclock.qml          PROPERTIES QT_RESOURCE_ALIAS FakeAlarmclock.qml)
 set_source_files_properties(qml/firstrun/FirstRunConfig.qml          PROPERTIES QT_RESOURCE_ALIAS FirstRunConfig.qml)
 set_source_files_properties(qml/firstrun/Tutorial.qml                PROPERTIES QT_RESOURCE_ALIAS Tutorial.qml)

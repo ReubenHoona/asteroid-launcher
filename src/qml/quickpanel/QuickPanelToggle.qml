@@ -29,102 +29,155 @@
 
 import QtQuick
 import org.asteroid.controls
+import "qs.js" as QS
 
+/*
+ * A quick settings button, as stock CP3A's M3 IconToggleButton (SysUI lah.java:744-824,
+ * dcw.java:954-972; androidx IconToggleButton.kt):
+ *  - off: surfaceContainer container, onSurface icon, a circle; on: primaryDim
+ *    container, onPrimary icon, a rounded square of Theme.shape.medium (18 dp);
+ *  - pressed: the corners x 0.66, on a spring of stiffness 1400 (press) and
+ *    500 (release), damping 1.0; the colours tween 250 ms, CubicBezier(0, 0, 0, 1);
+ *  - disabled: onSurface 12 % container, 38 % icon;
+ *  - a second tap within 300 ms is ignored (lah.java:22-31), a long press (400 ms)
+ *    is its own signal and no tap;
+ *  - the panel's edge morph sets containerAlpha / contentAlpha.
+ * The panel's size is the item's width (52 dp); the icon 26 dp (battery and phone
+ * 32 dp, flashlight 27 dp).
+ *
+ * A tap is `activated()`, not `clicked()`: clicked() is the raw mouse signal.
+ */
 MouseArea {
     id: ma
 
-    width: parent.width
+    width: parent ? parent.width : Theme.dp(52)
     height: width
-    // greyed out while a mode holds its setting (stock disables the tile)
-    opacity: enabled ? 1.0 : 0.38
 
     property alias icon: ic.name
     property bool checkable: false
     property bool checked: false
+    /*! The icon, px. */
+    property real iconSize: Theme.dp(26)
+    /*! What the screen reader says. */
+    property string label: ""
 
-    property bool rangeBased: false
-    property int rangeMin: 0
-    property int rangeMax: 100
-    property int rangeStepSize: 10
-    property int rangeValue: 0
+    /* the stock colour roles; the battery saver uses its own */
+    property color checkedContainer: Theme.color.primaryDim
+    property color checkedContent: Theme.color.onPrimary
+    property color uncheckedContainer: Theme.color.surfaceContainer
+    property color uncheckedContent: Theme.color.onSurface
+    /*! Colour the icon with tintColor when it is off and enabled (the battery at 15 % or less). */
+    property bool tinted: false
+    property color tintColor: Theme.color.errorDim
 
-    pressAndHoldInterval: 300
+    /* the edge morph of the panel */
+    property real containerAlpha: 1
+    property real contentAlpha: 1
 
-    // -- Scrub interaction --
-    // scrubWidth must be set by the caller to the available drag distance
-    // (typically rootitem.width) so the full range maps across the panel.
-    property bool scrubbing: false
-    property int scrubWidth: 0
+    property int debounce: QS.TAP_DEBOUNCE_MS
+    /*! ms; tests replace it. */
+    property var clock: function () { return Date.now() }
+    property real _last: -1e12
+    property bool _held: false
 
-    // wasScrubbing is a backup guard for the case where onClicked does fire
-    // after a short drag. For long drags Qt may not fire onClicked at all,
-    // in which case scrubEventGuard on rootitem swallows the stray event.
-    property bool wasScrubbing: false
+    /*! The tap, once the debounce has let it through. */
+    signal activated()
+    /*! A press held for 400 ms. */
+    signal longPressed()
 
-    // Clear wasScrubbing at the start of a new press so the next full
-    // click cycle works normally after a long drag that skipped onClicked
-    onPressed: {
-        if (wasScrubbing) wasScrubbing = false
-    }
-    
+    /*! What the icon sits in, on top of it: the battery's glyph and percent. */
+    default property alias content: _content.data
+
+    pressAndHoldInterval: QS.LONG_PRESS_MS
+
+    readonly property bool lit: checkable && checked
+    function _a(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
+
+    readonly property color containerColor: !enabled ? _a(Theme.color.onSurface, Theme.alpha.disabledContainer)
+                                            : lit ? checkedContainer : uncheckedContainer
+    readonly property color contentColor: !enabled ? _a(Theme.color.onSurface, Theme.alpha.disabledContent)
+                                          : lit ? checkedContent : tinted ? tintColor : uncheckedContent
+    /*! The corner radius the spring is heading for. */
+    readonly property real targetRadius: (lit ? Theme.shape.medium : width / 2) * (pressed ? 0.66 : 1)
+    readonly property real radius: _morph.value
+    readonly property alias shape: _shape
+
+    Accessible.role: Accessible.Button
+    Accessible.name: label
+    Accessible.checkable: checkable
+    Accessible.checked: checked
+    Accessible.onPressAction: _tap()
+
+    onPressed: _held = false
+    onCanceled: _held = false
     onPressAndHold: {
-        if (!rangeBased) return
-        scrubbing = true
-        wasScrubbing = true
-        preventStealing = true
-        // haptic confirms the scrub is armed the moment the hold is
-        // detected — input sensing leads, the visual morph follows
-        feedback.play()
-        updateValue(mapToItem(rootitem, mouseX, 0).x)
+        _held = true
+        longPressed()
     }
-
-    onPositionChanged: {
-        // Before hold is confirmed, preventStealing is false so the parent
-        // ListView steals horizontal swipes naturally. Once scrubbing is
-        // active, all position events are ours.
-        if (!scrubbing) return
-        updateValue(mapToItem(rootitem, mouseX, 0).x)
+    function _tap() {
+        var now = clock()
+        if (!QS.acceptTap(now, _last, debounce))
+            return
+        _last = now
+        activated()
     }
-
-    // onReleased is the unconditional cleanup — clears scrub state regardless
-    // of which path activated it. wasScrubbing intentionally NOT cleared here
-    // since onClicked fires after onReleased and needs to read it.
-    onReleased: {
-        scrubbing = false
-        preventStealing = false
-    }
-
-    onCanceled: {
-        scrubbing = false
-        wasScrubbing = false
-        preventStealing = false
-    }
-
-    // Snap-to-position with fat-finger margins: maps absolute panel x to the
-    // value range. The 0.15 margin on each side matches scrubRangeWidth in
-    // QuickPanel so the visual bar boundaries and finger position correspond.
-    function updateValue(mx) {
-        var margin = scrubWidth * 0.15
-        var f = Math.max(0, Math.min(1, (mx - margin) / Math.max(1, scrubWidth - 2 * margin)))
-        var newVal = rangeMin + f * (rangeMax - rangeMin)
-        // | 0 casts to int — Qt6 rejects assigning a JS Number (double) to a
-        // property int even when the value is whole (Math.round returns double)
-        rangeValue = Math.max(rangeMin, Math.min(rangeMax, Math.round(newVal / rangeStepSize) * rangeStepSize)) | 0
+    onClicked: {
+        if (_held) {
+            _held = false
+            return
+        }
+        _tap()
     }
 
     Rectangle {
+        id: _shape
         anchors.fill: parent
-        radius: width/2
-        color: Theme.color.surfaceContainerLow
-        opacity: ma.pressed ? 0.6 : ma.checked ?  0.75 : (ma.checkable ? 0.2 : 1)
+        radius: ma.radius
+        color: ma.containerColor
+        opacity: ma.containerAlpha
+        Behavior on color {
+            ColorAnimation {
+                duration: Motion.duration(250)
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Motion.easing.standardDecelerate
+            }
+        }
+
+        WearSpring {
+            id: _morph
+            to: ma.targetRadius
+            stiffness: ma.pressed ? Motion.standard.fastSpatial.stiffness : Motion.standard.defaultSpatial.stiffness
+            dampingRatio: 1.0
+        }
+
+        Ripple {
+            radius: ma.radius
+            color: ma.contentColor
+            pressed: ma.pressed
+            pressX: ma.mouseX
+            pressY: ma.mouseY
+        }
+    }
+
+    Item {
+        id: _content
+        anchors.fill: parent
+        opacity: ma.contentAlpha
     }
 
     Icon {
         id: ic
-        width: parent.width*0.5
+        width: ma.iconSize
         height: width
         anchors.centerIn: parent
-        color: ma.pressed ? "lightgrey" : "white"
-        opacity: ma.pressed ? 0.5 : ma.checked ? 1 : (ma.checkable ? 0.3 : 1)
+        color: ma.contentColor
+        opacity: ma.contentAlpha
+        Behavior on color {
+            ColorAnimation {
+                duration: Motion.duration(250)
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Motion.easing.standardDecelerate
+            }
+        }
     }
 }
