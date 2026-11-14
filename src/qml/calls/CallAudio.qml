@@ -102,7 +102,8 @@ QtObject {
         path: "/org/asteroidos/btsyncd/callaudio"
         iface: "org.asteroidos.btsyncd.CallAudio"
         signalsEnabled: audio.active
-        function stateChanged(state) {
+        // Nemo.DBus calls the handler of the bus signal StateChanged(a{sv}) "rc" + its name (CR-07)
+        function rcStateChanged(state) {
             audio.take(state)
         }
     }

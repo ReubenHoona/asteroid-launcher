@@ -67,6 +67,25 @@ set_target_properties(tst_keyclaims PROPERTIES AUTOMOC ON)
 target_include_directories(tst_keyclaims PRIVATE ../src)
 target_link_libraries(tst_keyclaims PRIVATE Qt6::Core Qt6::DBus)
 
+# The call state service (src/callstate.h, CR-03 and CR-09) on a private bus, with a stand-in for mlite's MDConfItem
+# (tests/stubs/MDConfItem):
+#   dbus-run-session -- ./tst_callstate
+add_executable(tst_callstate tst_callstate.cpp ../src/callstate.cpp ../src/callstate.h)
+set_target_properties(tst_callstate PROPERTIES AUTOMOC ON)
+target_include_directories(tst_callstate PRIVATE ../src stubs)
+target_link_libraries(tst_callstate PRIVATE Qt6::Core Qt6::DBus)
+
+# The launcher's session bus surface by the name org.asteroidos.launcher (CR-01 to CR-06): every exported object
+# called and introspected by the name on a private bus, and a lint of the name's registration in lipstick:
+#   dbus-run-session -- sh -c 'DBUS_SYSTEM_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS ./tst_launcherbus'
+add_executable(tst_launcherbus tst_launcherbus.cpp ../src/keyclaims.cpp ../src/keyclaims.h ../src/ongoingregistry.cpp
+	../src/ongoingregistry.h ../src/callstate.cpp ../src/callstate.h ../src/assistantkey.cpp ../src/assistantkey.h
+	../src/lockservice.cpp ../src/lockservice.h ../src/lockhelper.cpp ../src/lockhelper.h ../src/lockbackend.h ../src/eoslock.h)
+set_target_properties(tst_launcherbus PROPERTIES AUTOMOC ON)
+target_include_directories(tst_launcherbus PRIVATE ../src ../lipstick/src/notifications stubs)
+target_compile_definitions(tst_launcherbus PRIVATE SRC_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(tst_launcherbus PRIVATE Qt6::Core Qt6::DBus)
+
 # The ongoing activity registry (src/ongoingregistry.h, lipstick/src/notifications/eosongoing.h): the rules and the
 # table, and the bus object on a private bus:
 #   dbus-run-session -- ./tst_ongoing

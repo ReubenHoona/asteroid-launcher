@@ -71,6 +71,29 @@ QtObject {
     }
     function clearCalls() { calls = [] }
 
+    // D-Bus signals: the DBusInterface mocks that listen (signalsEnabled), and the bus that sends to them.
+    // emitSignal calls rc<Name>(args) of every listener of that service and interface; the number called.
+    property var listeners: []
+    function listen(obj) { if (listeners.indexOf(obj) < 0) listeners.push(obj) }
+    function unlisten(obj) {
+        var i = listeners.indexOf(obj)
+        if (i >= 0) listeners.splice(i, 1)
+    }
+    function emitSignal(service, iface, name, args) {
+        var n = 0
+        var l = listeners.slice()
+        for (var i = 0; i < l.length; i++) {
+            if (l[i].service !== service || l[i].iface !== iface || !l[i].signalsEnabled)
+                continue
+            var f = l[i]["rc" + name]
+            if (typeof f === "function") {
+                f.apply(l[i], args || [])
+                n++
+            }
+        }
+        return n
+    }
+
     // D-Bus replies, "interface.method" -> value
     property var replies: ({})
 

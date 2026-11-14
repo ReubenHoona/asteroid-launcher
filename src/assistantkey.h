@@ -29,7 +29,7 @@
  *   reader. A press with the display off only wakes it.
  *
  * Also on the session bus, on the launcher's connection
- * (org.nemomobile.lipstick): /org/asteroidos/launcher/assistant,
+ * (org.asteroidos.launcher, CR-01): /org/asteroidos/launcher/assistant,
  * org.asteroidos.launcher.Assistant: Open() and Ask(s text) open the
  * overlay (tests, the app list's .desktop Exec).
  */

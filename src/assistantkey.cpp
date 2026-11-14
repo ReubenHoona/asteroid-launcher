@@ -23,7 +23,7 @@ AssistantKey::AssistantKey(QObject *parent) : QObject(parent)
                                                       this, SLOT(onTrigger(QString)));
     if (!mAvailable)
         qWarning() << "AssistantKey: cannot listen to mce for the side button";
-    // the launcher's own session bus name is lipstick's
+    // on the session bus name org.asteroidos.launcher (CR-01), which HomeApplication registers
     QDBusConnection::sessionBus().registerObject(QStringLiteral("/org/asteroidos/launcher/assistant"), this,
                                                  QDBusConnection::ExportScriptableSlots);
 }

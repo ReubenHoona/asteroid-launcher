@@ -13,6 +13,7 @@ set(SRC
 	modes.cpp
 	assistantkey.cpp
 	keyclaims.cpp
+	callstate.cpp
 	ongoingregistry.cpp
 	huboffload.cpp
 	offbody.cpp
@@ -36,6 +37,7 @@ set(HEADERS
 	modes.h
 	assistantkey.h
 	keyclaims.h
+	callstate.h
 	ongoingregistry.h
 	huboffload.h
 	offbody.h

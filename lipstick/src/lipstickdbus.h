@@ -20,6 +20,8 @@
 /* Global definitions for Lipstick's D-Bus service */
 
 #define LIPSTICK_DBUS_SERVICE_NAME "org.nemomobile.lipstick"
+// the launcher's well-known name on the SESSION bus (CR-01); LIPSTICK_DBUS_SERVICE_NAME is the system bus one
+#define LAUNCHER_SESSION_SERVICE_NAME "org.asteroidos.launcher"
 
 #define LIPSTICK_DBUS_LAUNCHER_MODEL_PATH "/LauncherModel"
 #define LIPSTICK_DBUS_LAUNCHER_MODEL_INTERFACE "org.nemomobile.lipstick.LauncherModel"

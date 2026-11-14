@@ -39,6 +39,7 @@
 
 #include <lipstickqmltypes.h>
 #include <homeapplication.h>
+#include <lipsticksettings.h>
 #include <notificationmanager.h>
 #include <localemanager.h>
 
@@ -54,6 +55,7 @@
 #include "modes.h"
 #include "assistantkey.h"
 #include "keyclaims.h"
+#include "callstate.h"
 #include "ongoingregistry.h"
 #include "huboffload.h"
 #include "offbody.h"
@@ -203,6 +205,15 @@ int main(int argc, char **argv)
     // the session bus: org.asteroidos.launcher.Keys at /org/asteroidos/launcher/keys
     KeyClaims *keyClaims = new KeyClaims(&app);
     app.engine()->rootContext()->setContextProperty("keyClaims", keyClaims);
+
+    // The state of the phone call (0 none, 1 ringing, 2 in progress: lipstickSettings.callState,
+    // set by IncomingCall.qml) for the apps that stay quiet in a call: the session bus object
+    // org.asteroidos.launcher.Call at /org/asteroidos/launcher/call (CR-03) and the dconf key
+    // /org/asteroidos/phone/call-active (CR-09). Event driven: only a change of the state sends.
+    CallStateService *callState = new CallStateService(&app);
+    QObject::connect(LipstickSettings::instance(), &LipstickSettings::callStateChanged, callState,
+                     [callState] { callState->setState(LipstickSettings::instance()->callState()); });
+    callState->setState(LipstickSettings::instance()->callState());
 
     // The ongoing activities (a running timer or stopwatch, a call, media, a workout): the face
     // chip, the privacy status icons. Apps publish on the session bus, org.asteroidos.launcher.Ongoing

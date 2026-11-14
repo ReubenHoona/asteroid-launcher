@@ -1,0 +1,31 @@
+/*
+ * Copyright (C) 2026 eos-mainline contributors
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
+ * Test stand-in for mlite's MDConfItem (mlite is not on the host): a process-wide store, so a test
+ * sees what the code under test wrote. Only what the tests use.
+ */
+
+#ifndef STUB_MDCONFITEM_H
+#define STUB_MDCONFITEM_H
+
+#include <QHash>
+#include <QObject>
+#include <QString>
+#include <QVariant>
+
+class MDConfItem : public QObject
+{
+public:
+    explicit MDConfItem(const QString &key, QObject *parent = nullptr) : QObject(parent), m_key(key) {}
+    QVariant value(const QVariant &def = QVariant()) const { return store().value(m_key, def); }
+    void set(const QVariant &v) { store().insert(m_key, v); ++writes(); }
+
+    static QHash<QString, QVariant> &store() { static QHash<QString, QVariant> s; return s; }
+    static int &writes() { static int n = 0; return n; }
+
+private:
+    QString m_key;
+};
+
+#endif

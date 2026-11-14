@@ -9,6 +9,7 @@
 
 #include "eosongoing.h"
 #include "ongoingregistry.h"
+#include "dbusintrospect.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>
@@ -251,7 +252,17 @@ int main(int argc, char **argv)
         CHECK(client.isConnected());
         Receiver rx;
         const QString svc = QDBusConnection::sessionBus().baseService();
-        CHECK(client.connect(svc, OngoingRegistry::Path, "org.asteroidos.launcher.Ongoing", "Activated", &rx, SLOT(Activated(QString))));
+        // What Nemo.DBus sees (CR-04): the owner's handler rcActivated is connected only when the
+        // introspection lists <signal name="Activated"> with one string
+        const QString oi = QStringLiteral("org.asteroidos.launcher.Ongoing");
+        const Introspected intro = introspect(client, svc, QLatin1String(OngoingRegistry::Path));
+        CHECK(intro.hasSignal(oi + ".Activated"));
+        CHECK(intro.signalsOf.value(oi + ".Activated") == QStringList({ "s" }));
+        CHECK(intro.methodsOf.value(oi + ".Publish") == QStringList({ "s", "a{sv}" }));
+        CHECK(intro.methodsOf.value(oi + ".Remove") == QStringList({ "s" }));
+        CHECK(intro.methodsOf.value(oi + ".SetInUse") == QStringList({ "s", "b" }));
+        CHECK(intro.hasSignal(oi + ".Activated")
+              && client.connect(svc, OngoingRegistry::Path, "org.asteroidos.launcher.Ongoing", "Activated", &rx, SLOT(Activated(QString))));
         const int before = reg.count();
         changedN = 0;
         QVariantMap p = props("stopwatch", "asteroid-stopwatch", "%t");

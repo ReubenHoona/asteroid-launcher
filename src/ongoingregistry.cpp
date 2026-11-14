@@ -229,7 +229,8 @@ OngoingRegistry::OngoingRegistry(QObject *parent, const QDBusConnection &bus) :
     mWatcher->setConnection(mBus);
     mWatcher->setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
     connect(mWatcher, &QDBusServiceWatcher::serviceUnregistered, this, &OngoingRegistry::serviceGone);
-    if (!mBus.registerObject(QLatin1String(Path), this, QDBusConnection::ExportScriptableSlots))
+    if (!mBus.registerObject(QLatin1String(Path), this,
+                            QDBusConnection::ExportScriptableSlots | QDBusConnection::ExportScriptableSignals))
         qWarning() << "OngoingRegistry: cannot register" << Path;
 }
 

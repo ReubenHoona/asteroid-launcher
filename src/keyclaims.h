@@ -24,15 +24,17 @@ class QDBusServiceWatcher;
  * is on). The key router (KeyRouter.qml) asks claimed("side") before the
  * global key map and hands the press over with offer().
  *
- * An application claims on the launcher's session bus connection
- * (org.nemomobile.lipstick), /org/asteroidos/launcher/keys, interface
+ * An application claims on the launcher's session bus name
+ * (org.asteroidos.launcher, CR-01), /org/asteroidos/launcher/keys, interface
  * org.asteroidos.launcher.Keys:
  *   Claim(s keys)   "side", "crown" or "side,crown"; replaces the caller's
  *                   earlier claim;
  *   Release()       gives the keys back (a claim also ends when the caller
  *                   leaves the bus);
- * and listens to the signal Key(s key, i count), which only the claimant
- * gets (a targeted signal): count is the press number of a side button
+ * and listens to the signal Key(s key, i count) (Nemo.DBus handler rcKey),
+ * which only the claimant gets (a targeted signal; the signal is declared
+ * Q_SCRIPTABLE and exported, so that the introspection lists it and Nemo.DBus
+ * connects it, CR-02): count is the press number of a side button
  * sequence (1, 2, 3), always 1 for the crown.
  * A claim holds only while the claimant's window is the one in front: the
  * claimant is the process of the bus caller, the window's process is
@@ -102,6 +104,8 @@ public slots:
 
 signals:
     void frontPidChanged();
+    // Declared for the introspection (CR-02); delivered with createTargetedSignal by offer(), never emitted
+    Q_SCRIPTABLE void Key(const QString &key, int count);
 
 private slots:
     void serviceGone(const QString &service);

@@ -93,6 +93,16 @@ HomeApplication::HomeApplication(int &argc, char **argv)
         qWarning("Unable to register D-Bus service %s: %s", LIPSTICK_DBUS_SERVICE_NAME, systemBus.lastError().message().toUtf8().constData());
     }
 
+    // The launcher's own services for the apps live on the SESSION bus under org.asteroidos.launcher
+    // (CR-01): Keys, Ongoing, Assistant, Lock, Call and the launcher model. The objects are exported on
+    // this connection by the launcher (src/main.cpp); without the name they would be reachable only
+    // under the unique name, which no app can know.
+    QDBusConnection sessionBus = QDBusConnection::sessionBus();
+    if (!sessionBus.registerService(QLatin1String(LAUNCHER_SESSION_SERVICE_NAME))) {
+        qWarning("Unable to register D-Bus service %s on the session bus: %s", LAUNCHER_SESSION_SERVICE_NAME,
+                 sessionBus.lastError().message().toUtf8().constData());
+    }
+
     registerDBusObject(systemBus, LIPSTICK_DBUS_SCREENLOCK_PATH, screenLock);
 
     m_screenshotService = new ScreenshotService(this);

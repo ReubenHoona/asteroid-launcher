@@ -55,7 +55,8 @@ KeyClaims::KeyClaims(QObject *parent, const QDBusConnection &bus) :
     mWatcher->setConnection(mBus);
     mWatcher->setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
     connect(mWatcher, &QDBusServiceWatcher::serviceUnregistered, this, &KeyClaims::serviceGone);
-    if (!mBus.registerObject(QLatin1String(KEYS_PATH), this, QDBusConnection::ExportScriptableSlots))
+    if (!mBus.registerObject(QLatin1String(KEYS_PATH), this,
+                            QDBusConnection::ExportScriptableSlots | QDBusConnection::ExportScriptableSignals))
         qWarning() << "KeyClaims: cannot register" << KEYS_PATH;
 }
 

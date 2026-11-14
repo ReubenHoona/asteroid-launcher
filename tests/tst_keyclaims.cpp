@@ -11,6 +11,7 @@
  */
 
 #include "keyclaims.h"
+#include "dbusintrospect.h"
 
 #include <QCoreApplication>
 #include <QDBusConnection>
@@ -33,7 +34,8 @@ class Receiver : public QObject
 public:
     QStringList got;
 public slots:
-    void Key(const QString &key, int count) { got << QStringLiteral("%1:%2").arg(key).arg(count); }
+    // the handler a Nemo.DBus DBusInterface has for the signal Key: "rc" + the name (CR-02)
+    void rcKey(const QString &key, int count) { got << QStringLiteral("%1:%2").arg(key).arg(count); }
 };
 
 static void spin(int ms)
@@ -86,7 +88,15 @@ int main(int argc, char **argv)
     Receiver receiver;
     const QString path = QStringLiteral("/org/asteroidos/launcher/keys");
     const QString iface = QStringLiteral("org.asteroidos.launcher.Keys");
-    CHECK(client.connect(session.baseService(), path, iface, QStringLiteral("Key"), &receiver, SLOT(Key(QString,int))));
+    // What Nemo.DBus sees (CR-02): it connects only the signals the introspection lists, so the claimant's
+    // handler gets nothing unless <signal name="Key"> with a string and an int is there
+    const Introspected intro = introspect(client, session.baseService(), path);
+    CHECK(intro.hasSignal(iface + ".Key"));
+    CHECK(intro.signalsOf.value(iface + ".Key") == QStringList({ "s", "i" }));
+    CHECK(intro.hasMethod(iface + ".Claim") && intro.methodsOf.value(iface + ".Claim") == QStringList({ "s" }));
+    CHECK(intro.hasMethod(iface + ".Release") && intro.methodsOf.value(iface + ".Release").isEmpty());
+    CHECK(intro.hasSignal(iface + ".Key")
+          && client.connect(session.baseService(), path, iface, QStringLiteral("Key"), &receiver, SLOT(rcKey(QString,int))));
 
     claims.setFrontPid(getpid());
     CHECK(!claims.claimed("side"));

@@ -32,7 +32,7 @@ class QDBusServiceWatcher;
  *    notifications): the launcher's OngoingFeed.qml hands the notification list
  *    to syncNotifications() at each change;
  *  - an application on the launcher's session bus connection
- *    (org.nemomobile.lipstick), /org/asteroidos/launcher/ongoing, interface
+ *    (org.asteroidos.launcher, CR-01), /org/asteroidos/launcher/ongoing, interface
  *    org.asteroidos.launcher.Ongoing:
  *        Publish(s id, a{sv} props)   adds or replaces the caller's entry `id`;
  *        Remove(s id)                 withdraws it (an entry also ends when
@@ -159,6 +159,9 @@ signals:
     void inUseChanged();
     // The user tapped the entry `key`; `app` is the desktop file id it opens ("" none)
     void activated(const QString &key, const QString &app);
+    // The bus signal to the owner of the tapped entry (id = the id it published; sent with
+    // createTargetedSignal by activate(), never emitted): declared for the introspection (CR-04)
+    Q_SCRIPTABLE void Activated(const QString &id);
 
 private slots:
     void serviceGone(const QString &service);

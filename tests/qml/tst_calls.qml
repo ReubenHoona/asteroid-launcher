@@ -763,6 +763,33 @@ Item {
             compare(calls(btsyncd, audioIface + "SetMuted")[1].args[0], false)
         }
 
+        // CR-07: Nemo.DBus calls the handler "rc" + the signal name: btsyncd's StateChanged(a{sv}) reaches
+        // rcStateChanged of the call audio, which keeps muted, route, callState (and the rest) of the call
+        function test_24b_the_state_signal_of_btsyncd_reaches_the_call_audio() {
+            inCall(82, 1000)
+            settle(screen())
+            var iface = "org.asteroidos.btsyncd.CallAudio"
+            compare(view.audio.active, true)
+            compare(view.audio.muted, false)
+            compare(view.audio.route, "phone")
+            compare(Backend.emitSignal(btsyncd, iface, "StateChanged",
+                                       [{ "available": true, "muted": true, "route": "watch", "volume": 7, "volumeMax": 15,
+                                          "callState": "active" }]), 1)
+            compare(view.audio.available, true)
+            compare(view.audio.muted, true)
+            compare(view.audio.route, "watch")
+            compare(view.audio.callState, "active")
+            compare(view.audio.volume, 7)
+            compare(view.audio.volumeMax, 15)
+            compare(Backend.emitSignal(btsyncd, iface, "StateChanged", [{ "muted": false, "route": "phone", "callState": "held" }]), 1)
+            compare(view.audio.muted, false)
+            compare(view.audio.route, "phone")
+            compare(view.audio.callState, "held")
+            // the old spelling of the handler is not dispatched: no other name is a handler
+            compare(Backend.emitSignal(btsyncd, iface, "stateChanged", [{ "muted": true }]), 0)
+            compare(view.audio.muted, false)
+        }
+
         /* ---- calls-11: Keypad, Audio ---- */
 
         function test_25_more_options_with_call_audio() {

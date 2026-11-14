@@ -6,11 +6,18 @@ import QtQuick
 import LauncherTest
 
 QtObject {
+    id: self
     property int bus
     property string service
     property string path
     property string iface
     property bool signalsEnabled: false
+    // Like Nemo.DBus: while signals are enabled the object takes the bus signals of its service and
+    // interface, and calls the handler named "rc" + the signal name (Backend.emitSignal plays the bus).
+    // A function with any other name is never called.
+    onSignalsEnabledChanged: signalsEnabled ? Backend.listen(self) : Backend.unlisten(self)
+    Component.onCompleted: if (signalsEnabled) Backend.listen(self)
+    Component.onDestruction: Backend.unlisten(self)
     function typedCall(method, args, callback, errorCallback) {
         var plain = []
         if (args)
