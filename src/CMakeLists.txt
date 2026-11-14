@@ -161,6 +161,7 @@ set(QML_FILES
 	qml/home/OngoingFeed.qml
 	qml/home/MediaOngoing.qml
 	qml/home/LiveChips.qml
+	qml/home/LiveMenu.qml
 	qml/compositor/AmbientLite.qml
 	qml/compositor/BurnInMask.qml
 	qml/system/PowerMenu.qml
@@ -290,6 +291,7 @@ set_source_files_properties(qml/home/LiveSpace.qml                PROPERTIES QT_
 set_source_files_properties(qml/home/OngoingFeed.qml              PROPERTIES QT_RESOURCE_ALIAS home/OngoingFeed.qml)
 set_source_files_properties(qml/home/MediaOngoing.qml             PROPERTIES QT_RESOURCE_ALIAS home/MediaOngoing.qml)
 set_source_files_properties(qml/home/LiveChips.qml                PROPERTIES QT_RESOURCE_ALIAS home/LiveChips.qml)
+set_source_files_properties(qml/home/LiveMenu.qml                 PROPERTIES QT_RESOURCE_ALIAS home/LiveMenu.qml)
 set_source_files_properties(qml/compositor/AmbientLite.qml                PROPERTIES QT_RESOURCE_ALIAS compositor/AmbientLite.qml)
 set_source_files_properties(qml/compositor/BurnInMask.qml                 PROPERTIES QT_RESOURCE_ALIAS compositor/BurnInMask.qml)
 set_source_files_properties(qml/system/PowerMenu.qml                PROPERTIES QT_RESOURCE_ALIAS system/PowerMenu.qml)

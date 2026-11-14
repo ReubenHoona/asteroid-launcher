@@ -34,6 +34,28 @@ Item {
         defaultValue: []
     }
 
+    // the apps whose chip shows the icon only (the menu's Show on watch face > Icon only; the
+    // others show icon and text, stock's default)
+    ConfigurationValue {
+        id: iconOnlyValue
+        key: "/org/asteroidos/ongoing/icon-only-apps"
+        defaultValue: []
+    }
+    readonly property var iconOnlyApps: iconOnlyValue.value ? iconOnlyValue.value : []
+    function isIconOnly(app) { return !!app && iconOnlyApps.indexOf(app) >= 0 }
+    function setIconOnly(app, on) {
+        if (!app)
+            return
+        var list = []
+        var cur = iconOnlyValue.value
+        for (var i = 0; cur && i < cur.length; i++)
+            if (cur[i] !== app)
+                list.push(cur[i])
+        if (on)
+            list.push(app)
+        iconOnlyValue.value = list
+    }
+
     // a mute of the registry's `mutedApps` follows the setting
     Binding {
         target: feed.registry

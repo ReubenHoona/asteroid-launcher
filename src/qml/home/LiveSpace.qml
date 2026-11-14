@@ -28,6 +28,8 @@ Item {
     // the registry's first entry ({key, app, title, category, icon, staticIcon, status, when, ...})
     property var entry: ({})
     property bool interactive: true
+    // the user chose "Icon only" for this app (the long press menu's Show on watch face)
+    property bool iconOnly: false
     // the clock, for the tests
     property var clock: function () { return Date.now() }
     property real now: 0
@@ -40,7 +42,7 @@ Item {
     readonly property bool present: shown && shown.key !== undefined && shown.key !== ""
     readonly property bool wanted: entry && entry.key !== undefined && entry.key !== ""
     readonly property bool animated: interactive && Motion.animationScale > 0
-    readonly property bool expanded: interactive && present && Ongoing.expanded(shown, now)
+    readonly property bool expanded: interactive && present && !iconOnly && Ongoing.expanded(shown, now)
     readonly property string label: present ? Ongoing.text(shown, now) : ""
     readonly property string iconName: present ? Ongoing.staticIcon(shown) : ""
     //% "Ongoing %1 running in the background"

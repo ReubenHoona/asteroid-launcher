@@ -108,6 +108,7 @@ Item {
             id: chip
             entry: ongoingFeed.registry ? ongoingFeed.registry.top : ({})
             interactive: statusSlot.interactive
+            iconOnly: ongoingFeed.isIconOnly(entry && entry.app ? entry.app : "")
             onTapped: function (key, app) {
                 if (ongoingFeed.registry)
                     ongoingFeed.registry.activate(key)
@@ -116,8 +117,11 @@ Item {
         }
     }
 
-    // ask whether to turn the app's live updates off (the chip's and the stream's long press)
+    // the long press menu of a live update (the chip's and the stream's): stock's list with the
+    // display style and the mute button (LiveMenu); `who` is the entry's title (the app's name)
     function openLiveMenu(app, who) {
+        if (!app)
+            return
         liveMenu.app = app
         liveMenu.who = who
         liveMenu.open()
@@ -126,19 +130,28 @@ Item {
     OngoingFeed { id: ongoingFeed }
     MediaOngoing { id: mediaOngoing }
 
-    // long press on the chip: turn the app's live updates off (stock ini.java:160-230;
-    // mute_live_update_confirmation_dialog_title, watch_face_overlay_live_update_mute_button_description)
-    AlertDialog {
+    // long press on a live update: stock ini.java:160-230 (jfm), hdw.java:1170-1262
+    LiveMenu {
         id: liveMenu
-        objectName: "liveMenu"
-        z: 30
-        property string app: ""
-        property string who: ""
+        iconOnly: ongoingFeed.isIconOnly(app)
+        companion: "Gadgetbridge"
+        onStyleChosen: function (only) { ongoingFeed.setIconOnly(app, only) }
+        onMuteRequested: muteConfirm.open()
+    }
+
+    // the button asked: confirm first (jfi, ini.java:226: mute_live_update_confirmation_dialog_title /
+    // _description; the description names the phone app)
+    AlertDialog {
+        id: muteConfirm
+        objectName: "liveMuteConfirm"
         //% "Turn off %1 live updates?"
-        title: qsTrId("id-live-turn-off-title").arg(who)
-        //% "Ongoing notifications from %1 won’t appear on your watch"
-        text: qsTrId("id-live-turn-off-text").arg(who)
-        onConfirmed: ongoingFeed.mute(app)
+        title: qsTrId("id-live-turn-off-title").arg(liveMenu.who)
+        //% "You can still manage settings in the %1 app on your phone"
+        text: qsTrId("id-live-turn-off-text").arg(liveMenu.companion)
+        onConfirmed: {
+            ongoingFeed.mute(liveMenu.app)
+            liveMenu.close()
+        }
     }
 
     // the edge hints belong to the AsteroidOS layout; the Wear layout's face has none

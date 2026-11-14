@@ -1812,8 +1812,38 @@ Only selected people and apps can reach you.</translation>
     </message>
     <message id="id-live-turn-off-text">
         <location filename="../src/qml/home/StatusSlot.qml"/>
-        <source>Ongoing notifications from %1 won’t appear on your watch</source>
-        <translation>Ongoing notifications from %1 won’t appear on your watch</translation>
+        <source>You can still manage settings in the %1 app on your phone</source>
+        <translation>You can still manage settings in the %1 app on your phone</translation>
+    </message>
+    <message id="id-live-menu-show-on-watch">
+        <location filename="../src/qml/home/LiveMenu.qml"/>
+        <source>Show on watch face</source>
+        <translation>Show on watch face</translation>
+    </message>
+    <message id="id-live-menu-icon-and-text">
+        <location filename="../src/qml/home/LiveMenu.qml"/>
+        <source>Icon and text</source>
+        <translation>Icon and text</translation>
+    </message>
+    <message id="id-live-menu-icon-only">
+        <location filename="../src/qml/home/LiveMenu.qml"/>
+        <source>Icon only</source>
+        <translation>Icon only</translation>
+    </message>
+    <message id="id-live-menu-mute-title">
+        <location filename="../src/qml/home/LiveMenu.qml"/>
+        <source>%1 live updates</source>
+        <translation>%1 live updates</translation>
+    </message>
+    <message id="id-live-menu-turn-off">
+        <location filename="../src/qml/home/LiveMenu.qml"/>
+        <source>Turn off</source>
+        <translation>Turn off</translation>
+    </message>
+    <message id="id-live-menu-mute-description">
+        <location filename="../src/qml/home/LiveMenu.qml"/>
+        <source>Ongoing notifications from %1 won’t appear on your watch face</source>
+        <translation>Ongoing notifications from %1 won’t appear on your watch face</translation>
     </message>
 </context>
 </TS>
