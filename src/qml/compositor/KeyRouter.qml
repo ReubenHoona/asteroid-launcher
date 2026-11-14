@@ -145,6 +145,7 @@ QtObject {
             errorDialogShown: arbiter.errorShown,
             errorDialogCancelable: arbiter.errorCancelable,
             headsUpShown: arbiter.headsUpShown,
+            chargingShown: root.chargingShown,
             holdConsumed: false
         }
     }
@@ -292,6 +293,14 @@ QtObject {
             // a new notification's view ends (alpha and scale to 0 in 300 ms); the
             // notification stays in the list, the face or the app is under it
             arbiter.closeHeadsUp()
+            break
+        case "closeCharging":
+            // the charging screen (or its quality screen) closes, to the face, until the next screen off
+            root.dismissCharging()
+            if (comp.appActive)
+                root.closeTopmost()
+            else if (homeLoader.item)
+                homeLoader.item.showWatchface()
             break
         case "closeAssistant":
             // the crown dismisses the assistant, wherever it was opened

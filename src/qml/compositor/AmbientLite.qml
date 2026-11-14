@@ -87,6 +87,7 @@ Item {
         var w = frontWindow
         return Ambient.mode({
             alwaysOn: true,
+            charging: typeof root !== "undefined" && root !== null && root.chargingShown === true,
             appOpen: !!comp && comp.appActive && w !== null,
             handlesAmbient: !!w && !!w.window && w.window.handlesAmbient === true,
             mediaApp: mediaOnTop,

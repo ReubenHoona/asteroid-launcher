@@ -149,6 +149,12 @@ Item {
     readonly property bool hubFace: desktop.centreItem !== null && desktop.centreItem.activeFace
                                     ? hubOffload.eligible(desktop.centreItem.activeFace) : false
 
+    // the charging screen is up (compositor.qml, W2-launcher-charging): the main CPU draws the
+    // always-on screen then (stock holds a display control lock), never the sensor hub
+    function chargingUp() {
+        return Desktop.compositorRoot ? Desktop.compositorRoot.chargingShown === true : false
+    }
+
     // Ambient Lite or the media layout over an open application (compositor.qml)
     function litePart() {
         return Desktop.compositorRoot ? Desktop.compositorRoot.ambientLite : null
@@ -175,8 +181,8 @@ Item {
             // The face has drawn this minute in its ambient style: give its
             // layout to the sensor hub, which then draws the time while the
             // AP sleeps (stock display offload; kept while unchanged). Not in
-            // nightstand: on the charger the AP does not sleep anyway, and
-            // the face shows the charge
+            // charging screen: on the charger the AP does not sleep anyway (USB keeps it
+            // awake), and the screen shows the charge
             if (Lipstick.compositor.displayAmbient) {
                 var lite = ambientController.litePart()
                 if (!Lipstick.compositor.homeActive) {
@@ -187,7 +193,7 @@ Item {
                     else
                         hubOffload.clear()
                 } else if (desktop.centreItem) {
-                    if (desktop.nightstand)
+                    if (desktop.nightstand || ambientController.chargingUp())
                         hubOffload.clear()
                     else
                         hubOffload.update(desktop.centreItem.activeFace, use12H.value,

@@ -21,16 +21,8 @@
 #include "notificationmanager.h"
 #include "lipsticknotification.h"
 #include "batterynotifier.h"
+#include "eosbatterypolicy.h"
 #include <time.h>
-#include <keepalive/backgroundactivity.h>
-
-// How much slack to include in keepalive wakeup ranges [s]
-static const int HEARTBEAT_INTERVAL = 12;
-
-// Delay range for repeating battery low warnings [s]
-static const int LOW_BATTERY_INTERVAL_LOW = 30 * 60;
-static const int LOW_BATTERY_INTERVAL_HIGH = (LOW_BATTERY_INTERVAL_LOW
-                                              + HEARTBEAT_INTERVAL);
 
 // Maximum expected delay between charger connect and start of charging [ms]
 static const int CHARGING_FAILURE_DELAY = 3 * 1000;
@@ -40,19 +32,34 @@ static const int STATE_EVALUATION_DELAY = 100;
 
 BatteryNotifier::BatteryNotifier(QObject *parent)
     : QObject(parent)
-    , m_lowBatteryRepeatLevel(0)
     , m_notificationManager(NotificationManager::instance())
-    , m_mceChargerType(new QMceChargerType(this))
-    , m_mceChargerState(new QMceChargerState(this))
-    , m_mceBatteryStatus(new QMceBatteryStatus(this))
-    , m_mceBatteryLevel(new QMceBatteryLevel(this))
-    , m_mcePowerSaveMode(new QMcePowerSaveMode(this))
-    , m_mceDisplay(new QMceDisplay(this))
-    , m_mceTkLock(new QMceTkLock(this))
-    , m_mceCallState(new QMceCallState(this))
-    , m_usbModed(new QUsbModed(this))
-    , m_lowBatteryRepeatActivity(new BackgroundActivity(this))
+    , m_mceChargerType(nullptr)
+    , m_mceChargerState(nullptr)
+    , m_mceBatteryStatus(nullptr)
+    , m_mceBatteryLevel(nullptr)
+    , m_mcePowerSaveMode(nullptr)
+    , m_mceDisplay(nullptr)
+    , m_mceTkLock(nullptr)
+    , m_mceCallState(nullptr)
+    , m_usbModed(nullptr)
 {
+    static_assert(int(NotificationFirst) == int(EosBattery::First) && int(NotificationLast) == int(EosBattery::Last),
+                  "the table is the policy's");
+    // Stock posts none of these notices (eosbatterypolicy.h): no mce signal is listened to, no timer
+    // runs, nothing is scheduled (the 30 minute low battery repeat woke the system from suspend)
+    if (!EosBattery::anyWanted())
+        return;
+
+    m_mceChargerType = new QMceChargerType(this);
+    m_mceChargerState = new QMceChargerState(this);
+    m_mceBatteryStatus = new QMceBatteryStatus(this);
+    m_mceBatteryLevel = new QMceBatteryLevel(this);
+    m_mcePowerSaveMode = new QMcePowerSaveMode(this);
+    m_mceDisplay = new QMceDisplay(this);
+    m_mceTkLock = new QMceTkLock(this);
+    m_mceCallState = new QMceCallState(this);
+    m_usbModed = new QUsbModed(this);
+
     connect(m_notificationManager, &NotificationManager::NotificationClosed,
             this, &BatteryNotifier::onNotificationClosed);
     connect(m_mceChargerType, &QMceChargerType::validChanged,
@@ -101,11 +108,6 @@ BatteryNotifier::BatteryNotifier(QObject *parent)
     m_chargingFailureTimer.setSingleShot(true);
     connect(&m_chargingFailureTimer, &QTimer::timeout,
             this, &BatteryNotifier::onChargingFailureTimeout);
-
-    m_lowBatteryRepeatActivity->setWakeupRange(LOW_BATTERY_INTERVAL_LOW,
-                                               LOW_BATTERY_INTERVAL_HIGH);
-    connect(m_lowBatteryRepeatActivity, &BackgroundActivity::running,
-            this, &BatteryNotifier::onBatteryLowTimeout);
 
     scheduleStateEvaluation();
 }
@@ -200,13 +202,6 @@ void BatteryNotifier::onTargetUsbModeChanged()
     }
 }
 
-void BatteryNotifier::onBatteryLowTimeout()
-{
-    sendNotification(NotificationLowBattery);
-    m_lowBatteryRepeatLevel = m_currentState.m_batteryLevel - 2;
-    m_lowBatteryRepeatActivity->wait();
-}
-
 void BatteryNotifier::onChargingFailureTimeout()
 {
     sendNotification(NotificationChargingNotStarted);
@@ -225,7 +220,6 @@ void BatteryNotifier::onEvaluateStateTimeout()
     foreach(NotificationType type, toSend)
         sendNotification(type);
     m_previousState = m_currentState;
-    updateLowBatteryNotifier();
 }
 
 void BatteryNotifier::scheduleStateEvaluation()
@@ -353,14 +347,13 @@ void BatteryNotifier::evaluateNotificationTriggering(NotificationType type,
                                                      NotificationTypeSet &toRemove,
                                                      NotificationTypeList &toSend)
 {
+    if (!EosBattery::wanted(static_cast<EosBattery::Notice>(type)))
+        return;
     bool previousLevel = evaluateNotificationLevel(type, previousState);
     bool currentLevel = evaluateNotificationLevel(type, currentState);
     if (previousLevel != currentLevel) {
         if (currentLevel == notificationTriggeringEdge(type)) {
             switch (type) {
-            case NotificationLowBattery:
-                startLowBatteryNotifier();
-                break;
             case NotificationChargingNotStarted:
                 m_chargingFailureTimer.start();
                 break;
@@ -376,9 +369,6 @@ void BatteryNotifier::evaluateNotificationTriggering(NotificationType type,
             }
         } else {
             switch (type) {
-            case NotificationLowBattery:
-                stopLowBatteryNotifier();
-                break;
             case NotificationChargingNotStarted:
                 m_chargingFailureTimer.stop();
                 break;
@@ -476,34 +466,6 @@ void BatteryNotifier::removeNotifications(const NotificationTypeSet &toRemove)
             m_notificationManager->CloseNotification(id);
         } else {
             ++queuedNotification;
-        }
-    }
-}
-
-void BatteryNotifier::startLowBatteryNotifier()
-{
-    m_lowBatteryRepeatActivity->run();
-}
-
-void BatteryNotifier::stopLowBatteryNotifier()
-{
-    m_lowBatteryRepeatActivity->stop();
-}
-
-void BatteryNotifier::updateLowBatteryNotifier()
-{
-    if (m_lowBatteryRepeatActivity->isWaiting()) {
-        /* We have ongoing battery low warning repeat cycle */
-        bool active = (m_currentState.m_displayState != QMceDisplay::DisplayOff
-                       && m_currentState.m_tkLock == false);
-        bool incall = m_currentState.m_callState != QMceCallState::None;
-        if (active || incall) {
-            /* Device is in "active use" */
-            if (m_currentState.m_batteryLevel <= m_lowBatteryRepeatLevel) {
-                /* Significant battery level drop since the last warning
-                 * -> repeat the warning immediately. */
-                m_lowBatteryRepeatActivity->run();
-            }
         }
     }
 }

@@ -137,6 +137,10 @@ set(QML_FILES
 	qml/home/TilesIndicator.qml
 	qml/home/AmbientController.qml
 	qml/home/ChargingController.qml
+	qml/charging/charging.js
+	qml/charging/Bolt.qml
+	qml/charging/ChargingScreen.qml
+	qml/charging/ChargerProblem.qml
 	qml/home/HomeOverlays.qml
 	qml/home/StatusSlot.qml
 	qml/home/ambient.js
@@ -256,6 +260,10 @@ set_source_files_properties(qml/home/TilesRing.qml                        PROPER
 set_source_files_properties(qml/home/TilesIndicator.qml                   PROPERTIES QT_RESOURCE_ALIAS home/TilesIndicator.qml)
 set_source_files_properties(qml/home/AmbientController.qml                PROPERTIES QT_RESOURCE_ALIAS home/AmbientController.qml)
 set_source_files_properties(qml/home/ChargingController.qml               PROPERTIES QT_RESOURCE_ALIAS home/ChargingController.qml)
+set_source_files_properties(qml/charging/charging.js                      PROPERTIES QT_RESOURCE_ALIAS charging/charging.js)
+set_source_files_properties(qml/charging/Bolt.qml                         PROPERTIES QT_RESOURCE_ALIAS charging/Bolt.qml)
+set_source_files_properties(qml/charging/ChargingScreen.qml               PROPERTIES QT_RESOURCE_ALIAS charging/ChargingScreen.qml)
+set_source_files_properties(qml/charging/ChargerProblem.qml               PROPERTIES QT_RESOURCE_ALIAS charging/ChargerProblem.qml)
 set_source_files_properties(qml/home/HomeOverlays.qml                     PROPERTIES QT_RESOURCE_ALIAS home/HomeOverlays.qml)
 set_source_files_properties(qml/home/StatusSlot.qml                       PROPERTIES QT_RESOURCE_ALIAS home/StatusSlot.qml)
 set_source_files_properties(qml/home/ambient.js                           PROPERTIES QT_RESOURCE_ALIAS home/ambient.js)

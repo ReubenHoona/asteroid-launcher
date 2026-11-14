@@ -103,6 +103,9 @@ function localizeDigits(s, zero) {
 function mode(o) {
     if (!o.alwaysOn)
         return "none"
+    // the charging screen is over everything: the main CPU draws it, no Lite (W2-launcher-charging)
+    if (o.charging === true)
+        return "charging"
     if (!o.appOpen)
         return "face"
     if (o.handlesAmbient === true)

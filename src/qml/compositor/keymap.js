@@ -137,8 +137,9 @@ function sideHold(c) {
  *   touchLocked, sosShown, powerMenuShown   as for the side button
  *   errorDialogShown, errorDialogCancelable   an app's crash or not-responding dialog
  *   headsUpShown     a new notification's glanceable or full view is up
+ *   chargingShown    the charging screen or its quality screen is up
  * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall,
- * closeHeadsUp, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
+ * closeHeadsUp, closeCharging, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
         return "none"
@@ -162,6 +163,10 @@ function crownPress(c) {
     // alarm are above it (an alarm hides it)
     if (c.headsUpShown && !c.callShown && !c.alertShown)
         return "closeHeadsUp"
+    // the charging screen (and its quality screen) is under every overlay of the arbiter and above
+    // the assistant: the crown closes it and goes to the face (W2-launcher-charging)
+    if (c.chargingShown === true && !c.callShown && !c.alertShown)
+        return "closeCharging"
     if (c.assistantShown)
         return "closeAssistant"
     if (c.splash)

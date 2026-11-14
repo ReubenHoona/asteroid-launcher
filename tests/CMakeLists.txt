@@ -14,6 +14,12 @@ target_link_libraries(tst_modes PRIVATE Qt6::Core Qt6::DBus PkgConfig::mlite6 Ti
 add_executable(tst_offloadpolicy tst_offloadpolicy.cpp)
 target_include_directories(tst_offloadpolicy PRIVATE ../lipstick/src/compositor)
 
+# The battery notices of the notification server (lipstick/src/notifications/eosbatterypolicy.h) and a lint of
+# batterynotifier.cpp (no keepalive wake-up): plain C++
+add_executable(tst_batterypolicy tst_batterypolicy.cpp)
+target_include_directories(tst_batterypolicy PRIVATE ../lipstick/src/notifications)
+target_compile_definitions(tst_batterypolicy PRIVATE NOTIFIER_SRC="${CMAKE_CURRENT_SOURCE_DIR}/../lipstick/src/notifications")
+
 # The notification server in Bedtime and Theater (lipstick/src/notifications/eosquietpolicy.h), plain C++
 add_executable(tst_quietpolicy tst_quietpolicy.cpp)
 target_include_directories(tst_quietpolicy PRIVATE ../lipstick/src/notifications)

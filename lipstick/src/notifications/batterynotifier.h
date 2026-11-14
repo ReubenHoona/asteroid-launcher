@@ -31,7 +31,6 @@
 #include <qusbmoded.h>
 
 class NotificationManager;
-class BackgroundActivity;
 
 /*!
  * Implements the configuration and state for the battery, the power save mode.
@@ -64,7 +63,6 @@ private slots:
     void onTkLockChanged();
     void onCallStateChanged();
     void onTargetUsbModeChanged();
-    void onBatteryLowTimeout();
     void onChargingFailureTimeout();
     void onEvaluateStateTimeout();
 
@@ -112,15 +110,6 @@ private:
     //! Removes any active notifications in the given type set
     void removeNotifications(const NotificationTypeSet &toRemove);
 
-    //! Starts the low battery notifier if not already started
-    void startLowBatteryNotifier();
-
-    //! Stops the low battery notifier if not already stopped
-    void stopLowBatteryNotifier();
-
-    //! Adjust delay for the next repeated low battery warning
-    void updateLowBatteryNotifier();
-
     static bool notificationTriggeringEdge(NotificationType type);
     static bool evaluateNotificationLevel(NotificationType type,
                                           const State &state);
@@ -137,7 +126,6 @@ private:
     QTimer m_chargingFailureTimer;
     State m_currentState;
     State m_previousState;
-    int m_lowBatteryRepeatLevel;
     NotificationManager *m_notificationManager;
     QMceChargerType *m_mceChargerType;
     QMceChargerState *m_mceChargerState;
@@ -148,6 +136,5 @@ private:
     QMceTkLock *m_mceTkLock;
     QMceCallState *m_mceCallState;
     QUsbModed *m_usbModed;
-    BackgroundActivity *m_lowBatteryRepeatActivity;
 };
 #endif

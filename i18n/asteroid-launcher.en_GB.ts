@@ -1707,6 +1707,26 @@ Only selected people and apps can reach you.</translation>
         <source>Charging</source>
         <translation>Charging</translation>
     </message>
+    <message id="id-charging-percent">
+        <location filename="../src/qml/charging/ChargingScreen.qml"/>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message id="id-charging-problem-misaligned">
+        <location filename="../src/qml/charging/ChargerProblem.qml"/>
+        <source>Check if charger is aligned and has power</source>
+        <translation>Check if charger is aligned and has power</translation>
+    </message>
+    <message id="id-charging-problem-moisture">
+        <location filename="../src/qml/charging/ChargerProblem.qml"/>
+        <source>Dry watch and charger, wait 1 min for charging to resume</source>
+        <translation>Dry watch and charger, wait 1 min for charging to resume</translation>
+    </message>
+    <message id="id-charging-problem-unsupported">
+        <location filename="../src/qml/charging/ChargerProblem.qml"/>
+        <source>Unsupported charger</source>
+        <translation>Unsupported charger</translation>
+    </message>
     <message id="id-status-airplane">
         <location filename="../src/qml/home/FaceStatusIcon.qml"/>
         <source>Airplane mode on</source>

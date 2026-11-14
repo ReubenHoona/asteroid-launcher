@@ -38,6 +38,8 @@ import org.asteroid.utils
 import "desktop.js" as Desktop
 import "compositor"
 import "system"
+import "home"
+import "charging"
 
 /* The compositor scene. Its parts are owned modules in compositor/
  * (W1-launcher-split):
@@ -45,6 +47,7 @@ import "system"
  *   WindowTransitions  edge swipe, swipe from anywhere, crown close (transitions)
  *   OverlayArbiter     assistant, heads-up, call, alarm, power, mode, BT (arbiter)
  *   KeyRouter          crown button, side button: one key map (keymap.js)
+ *   ChargingController the charger: charging screen, plug and unplug wake (charging)
  * This file keeps the stacking (home, scrim, launch splash, application
  * layer, overlays, swipe, corner mask) and forwards the modules' old names
  * (assistantShown, openAssistant, closeTopmost, closeProgress,
@@ -127,7 +130,11 @@ Item {
             root.claimStatus("mic", root.micInUse)
         }
     }
-    readonly property bool systemModal: arbiter.powerMenuShown || arbiter.sosShown || arbiter.errorShown
+    readonly property bool systemModal: arbiter.powerMenuShown || arbiter.sosShown || arbiter.errorShown || charging.up
+    // the charging screen (or its quality screen) is up (W2-launcher-charging): the crown closes it
+    readonly property bool chargingShown: charging.up
+    readonly property Item chargingItem: chargingScreen
+    function dismissCharging() { return charging.dismiss() }
     readonly property Item touchLockItem: touchLock
     readonly property Item screenshotItem: screenshotOverlay
     function takeScreenshot() { screenshotOverlay.capture() }
@@ -236,6 +243,35 @@ Item {
 
         // Let app deal with rotation themselves
         rotation: Screen.angleBetween(Lipstick.compositor.screenOrientation, Screen.primaryScreen)
+    }
+
+    /* The charger (W2-launcher-charging): the charging screen over the home screen and the
+     * applications, under every overlay of the arbiter (z 2.5: the assistant, notifications,
+     * calls and alarms draw above it); the charging quality screen above it. The controller
+     * holds the rules, the screens only draw. */
+    ChargingController {
+        id: charging
+        displayOff: comp ? comp.displayIsOff : false
+        // the plug-in vibration (ngfd charging_started, hardware class = the Using crown switch, as
+        // stock); it came with lipstick's 'Charging' banner, which is gone
+        onPlugFeedback: Haptics.playAs("charging_started", Haptics.Crown)
+    }
+    ChargingScreen {
+        id: chargingScreen
+        z: 2.4
+        anchors.fill: parent
+        shown: charging.shown
+        plugIntro: charging.intro
+        fade: charging.fade
+        awake: comp ? !comp.displayIsOff : true
+        unread: homeLoader.item && homeLoader.item.unreadCount !== undefined ? homeLoader.item.unreadCount > 0 : false
+        onIntroFinished: charging.intro = false
+    }
+    ChargerProblem {
+        id: chargerProblem
+        z: 2.45
+        anchors.fill: parent
+        kind: charging.problemKind
     }
 
     OverlayArbiter { id: arbiter }

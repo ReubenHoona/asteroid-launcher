@@ -49,7 +49,7 @@ import "compositor"
  *   Trays              the panels around the face, the layout (trays)
  *   TilesRing          the tiles, their dconf list, page dots (tilesRing)
  *   AmbientController  display state, always-on, burn-in, hub, modes (ambientController)
- *   ChargingController the nightstand                         (nightstandMode)
+ *   (the nightstand is gone: DECISIONS.md Q34; ChargingController is the compositor's)
  *   HomeOverlays       app list, face picker, tiles editor, splash, first run (overlays)
  *   StatusSlot         unread indicator, edge hints           (statusSlot)
  * This file keeps what the panels, faces, app launchers and the compositor
@@ -146,8 +146,11 @@ Item {
     property bool aboutToClose: false
     property bool aboutToMinimize: false
 
-    // for the watchfaces: on the charger (ChargingController)
+    // for the watchfaces: no nightstand mode any more (the stock charging screen is the
+    // compositor's, W2-launcher-charging); the name stays so the faces keep loading
     property alias nightstand: nightstandMode.active
+    // the charging screen's unread dot
+    readonly property int unreadCount: statusSlot.notificationIndicator.unreadCount
 
     onAboutToCloseChanged: {
         grid.moveTo(0, 0)
@@ -426,7 +429,17 @@ Item {
     readonly property Item bottomIndicator: statusSlot.bottomIndicator
 
     FaceLayer { id: faceLayer }
-    ChargingController { id: nightstandMode }
+    // The nightstand mode is gone (DECISIONS.md Q34, charging-battery-10): the faces, the face
+    // layer and the always-on rules still read these names, which now say 'not active'
+    QtObject {
+        id: nightstandMode
+        readonly property bool active: false
+        readonly property var watchfaceSource: ""
+        readonly property var useCustomWatchface: false
+        readonly property var alwaysOnDisplayValue: true
+        function enter() {}
+        function leave() {}
+    }
     AmbientController { id: ambientController }
     Trays { id: trays }
 
