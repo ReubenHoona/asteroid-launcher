@@ -58,14 +58,27 @@ TileBase {
                  + localeManager.changesObserver
     bottomValue: other.kind !== "none" ? TimeFormat.time(new Date(other.at * 1000)) : ""
 
-    // one single shot to the next whole minute, only while the tile shows with the display on
+    // one single shot to the next whole minute, only while the tile shows with the display on. A single-shot Timer
+    // whose running is a binding is not restarted by the binding after it fired (its inputs do not change), so each
+    // tick sets the time, works out the next interval and restarts itself (the reviewer's defect, W3 review fixes).
+    // tickMs > 0 is a test hook: a fixed interval instead of the whole minute.
+    property int tickMs: 0
+    function msToNextMinute() {
+        return tile.tickMs > 0 ? tile.tickMs : Math.max(1000, 60000 - (Date.now() % 60000) + 200)
+    }
     Timer {
         id: minute
         objectName: "solarMinute"
-        interval: Math.max(1000, 60000 - (Date.now() % 60000) + 200)
+        interval: tile.msToNextMinute()
         repeat: false
         running: tile.awake && !tile.preview && tile.known
-        onTriggered: src.now = new Date()
+        onRunningChanged: if (running) interval = tile.msToNextMinute()
+        onTriggered: {
+            src.now = new Date()
+            interval = tile.msToNextMinute()
+            if (tile.awake && !tile.preview && tile.known)
+                restart()
+        }
     }
 
     TileCard {

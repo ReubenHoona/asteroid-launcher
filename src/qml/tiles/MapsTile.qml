@@ -23,8 +23,8 @@ import "tilecontent.js" as TC
 TileBase {
     id: tile
     objectName: "mapsTile"
-    //% "Maps"
-    title: qsTrId("id-tile-maps") + localeManager.changesObserver
+    //% "Search & go"
+    title: qsTrId("id-tile-maps-title") + localeManager.changesObserver
     backgroundTap: false
     //% "Map"
     chipText: qsTrId("id-tile-map") + localeManager.changesObserver

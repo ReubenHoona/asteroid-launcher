@@ -3072,5 +3072,10 @@ Only selected people and apps can reach you.</translation>
         <source>OK</source>
         <translation>OK</translation>
     </message>
+    <message id="id-tile-maps-title">
+        <location filename="../src/qml/tiles/MapsTile.qml"/>
+        <source>Search &amp; go</source>
+        <translation>Search &amp; go</translation>
+    </message>
 </context>
 </TS>
