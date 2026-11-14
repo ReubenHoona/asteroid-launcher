@@ -107,7 +107,18 @@ Compositor {
 
     // The wrapper of the alert window, or null
     property Item alertWindow: null
-    readonly property bool alertShown: alertWindow !== null
+    // The crown sent the alert to the face: the alarm keeps ringing in its
+    // own process, its window is no longer in front (DECISIONS.md Q49; stock
+    // DeskClock keeps ringing when the activity leaves, buttons-navigation-22)
+    property bool alertHidden: false
+    readonly property bool alertShown: alertWindow !== null && !alertHidden
+    function hideAlert() {
+        if (!alertShown)
+            return
+        alertHidden = true
+        if (topmostWindow && topmostWindow.window)
+            topmostWindow.window.takeFocus()
+    }
 
     function isSystemAlert(window) {
         return window.systemAlert === true || window.category === "alert"
@@ -553,6 +564,7 @@ Compositor {
 
         if (isAlert) {
             alertWindow = w
+            alertHidden = false
             w.smoothBorders = false
             w.visible = true
             w.animateIn(false)
@@ -580,6 +592,7 @@ Compositor {
         var id = window.windowId
         if (alertWindow == w) {
             alertWindow = null
+            alertHidden = false
             // the application under it is there again
             if (topmostWindow && topmostWindow.window)
                 topmostWindow.window.takeFocus()

@@ -139,7 +139,8 @@ int main(int argc, char **argv)
     AssistantKey *assistantKey = new AssistantKey(&app);
     app.engine()->rootContext()->setContextProperty("assistantKey", assistantKey);
     // Which key the window in front takes for itself (the alarm presenter:
-    // side = dismiss, crown = snooze; an exercise app: its side button), on
+    // its side button = dismiss, the crown is not its: it goes to the face and
+    // the alarm keeps ringing, Q49; an exercise app: its side button), on
     // the session bus: org.asteroidos.launcher.Keys at /org/asteroidos/launcher/keys
     KeyClaims *keyClaims = new KeyClaims(&app);
     app.engine()->rootContext()->setContextProperty("keyClaims", keyClaims);

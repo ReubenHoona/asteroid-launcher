@@ -83,9 +83,18 @@ Item {
     /* What the notification server needs to know (lipstick LipstickSettings
      * callState: 0 none, 1 ringing, 2 in progress): in a call a notification
      * does not vibrate (stock NotificationAttentionHelper.java:1168-1171,
-     * 778-800; interruptions-07), and a phone alarm's vibration stops while a
-     * call rings (interruptions-15). */
-    readonly property int callStateValue: call === null ? 0 : (ongoing ? 2 : 1)
+     * 778-800, 843-846: it gates on the call being in progress, not on the
+     * call screen being shown; interruptions-07), and a phone alarm's
+     * vibration stops while a call rings (interruptions-15).
+     * It follows the phone's call notifications in the model, not the view:
+     * hiding the call view (Hide, the crown) leaves the call going, and the
+     * state stays 2 until the phone closes the notification or the user ends
+     * the call. Recomputed when the model or the view changes, no timer. */
+    property int phoneCallState: 0
+    // Calls known not to be going on: ended by the user, or a restored card
+    // too old to be a call
+    property var ended: ({})
+    readonly property int callStateValue: (call !== null && !ongoing) ? 1 : (ongoing ? 2 : phoneCallState)
     onCallStateValueChanged: {
         try {
             if (typeof lipstickSettings !== "undefined" && lipstickSettings !== null)
@@ -107,6 +116,22 @@ Item {
                 return true
         }
         return false
+    }
+
+    function updateCallState(except) {
+        var s = 0
+        for (var i = 0; i < notifModel.itemCount; i++) {
+            var n = notifModel.get(i)
+            if (n === except || n === null || n === undefined)
+                continue
+            if (isRinging(n)) {
+                s = 1
+                break
+            }
+            if (isInProgress(n))
+                s = 2
+        }
+        phoneCallState = s
     }
 
     function answer() {
@@ -135,7 +160,13 @@ Item {
     // A call in progress from the phone: it offers `end` and is not ringing.
     // Calls last long, so a restored one up to four hours old still counts.
     function isOngoing(n) {
-        if (n === null || n === undefined || handled[n.replacesId])
+        return n !== null && n !== undefined && !handled[n.replacesId] && isInProgress(n)
+    }
+
+    // The phone says this call is going on, whether or not its view is
+    // shown or was hidden (not once the user ended it)
+    function isInProgress(n) {
+        if (n === null || n === undefined || ended[n.replacesId])
             return false
         if (new Date().getTime() - n.timestamp.getTime() > 4 * 3600000)
             return false
@@ -216,6 +247,7 @@ Item {
         call = null
         if (n !== null)
             show(n)
+        updateCallState(null)
     }
 
     function hide() {
@@ -247,6 +279,8 @@ Item {
 
     function act(key) {
         var n = call
+        if (key === "end")
+            ended[n.replacesId] = true
         next(n)
         // Lipstick reports it to asteroid-btsyncd, which tells the phone;
         // the notification then closes
@@ -268,6 +302,7 @@ Item {
             if (staleRestored(item)) {
                 // Not now, nor by a later look at the list
                 handled[item.replacesId] = true
+                ended[item.replacesId] = true
                 console.log("IncomingCall: restored call card", item.replacesId, "from", item.timestamp, "is too old to show")
                 return
             }
@@ -275,16 +310,19 @@ Item {
                 show(item)
             else if (isOngoing(item) && (call === null || incomingCall.ongoing))
                 showOngoing(item)
+            updateCallState(null)
         }
         onItemRemoved: function (item) {
             if (item === call)
                 hide()
+            updateCallState(item)
         }
         // The launcher restarted while a call rang
         onPopulatedChanged: {
             var n = newestCall(null)
             if (notifModel.populated && n !== null)
                 show(n)
+            updateCallState(null)
         }
     }
 

@@ -14,8 +14,10 @@
  *      :2290-2298, 5152-5160, 5962-5968);
  *   2. a call ringing: a press silences the ringer
  *      (PhoneWindowManager.java:5004-5010, 1499-1512);
- *   3. a firing alarm or timer takes the key (AlarmDismisser.java:25-46:
- *      crown 26 = snooze, side 264 = dismiss); the presenter claims both;
+ *   3. a firing alarm or timer: the side button is the presenter's (stock
+ *      DeskClock maps only KEYCODE_STEM_1 = dismiss: it claims "side"); the
+ *      crown is not: it goes to the face and the alarm keeps ringing, no
+ *      snooze on the crown (DECISIONS.md Q49, buttons-navigation-22);
  *   4. the app in front may claim the side button (exercise pause/resume:
  *      OVERRIDE_SYSTEM_KEY_BEHAVIOR_IN_FOCUSED_WINDOW);
  *   5. the global map: side press = Recents, double = previous app,
@@ -118,10 +120,12 @@ function sideHold(c) {
  *   setup, callRinging
  *   assistantShown   the assistant is open
  *   splash           the launch splash is up
- *   claimCrown       the front window claimed the crown (alarm: snooze)
+ *   claimCrown       the front window claimed the crown (an app such as
+ *                    the exercise; the alarm presenter does not)
  *   callShown        a call view is up (in progress, or ringing silenced)
  *   appActive        an application window is in front
- * Answers: none, silenceCall, closeAssistant, claim, hideCall, leaveApp, home. */
+ * Answers: none, silenceCall, closeAssistant, claim, hideAlert, hideCall,
+ * leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
         return "none"
@@ -133,10 +137,10 @@ function crownPress(c) {
         return "none"
     if (c.claimCrown)
         return "claim"
-    // a firing alarm that did not claim the key (the presenter then reads
-    // mce's own alarm_ui_feedback_ind): nothing happens under it
+    // a firing alarm: its window leaves, the alarm keeps ringing, and the
+    // press goes on to the face (Q49: stock Home; no snooze on the crown)
     if (c.alertShown)
-        return "none"
+        return "hideAlert"
     if (c.callShown)
         return "hideCall"
     if (c.appActive)

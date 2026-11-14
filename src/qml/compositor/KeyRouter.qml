@@ -60,10 +60,12 @@ import "keymap.js" as KeyMap
  * Crown (fixed): press = close the keyboard or viewer, else the face, on
  * the face the app list; the second press of a double does nothing (stock:
  * Wallet, out of reach); held: mce's power menu.
- * A ringing call is silenced by either key; a firing alarm or timer (a
- * claim by the presenter) takes both, an app in front may claim the side
- * button (KeyClaims, D-Bus org.asteroidos.launcher.Keys); during setup the
- * keys only wake.
+ * A ringing call is silenced by either key. A firing alarm or timer: the
+ * crown sends its window away to the face and the alarm keeps ringing (no
+ * snooze, DECISIONS.md Q49); the side button is the presenter's, by a claim
+ * ("side", KeyClaims, D-Bus org.asteroidos.launcher.Keys; dismiss is the
+ * presenter's job, W2-app-alarms). An app in front may claim the keys too
+ * (exercise); during setup the keys only wake.
  *
  * Reads compositor.qml's ids (root, comp, launchSplash, homeLoader, arbiter)
  * through the context. */
@@ -221,6 +223,14 @@ QtObject {
         case "closeAssistant":
             // the crown dismisses the assistant, wherever it was opened
             root.closeAssistant()
+            break
+        case "hideAlert":
+            // the alarm keeps ringing, only its window goes: Home
+            comp.hideAlert()
+            if (comp.appActive)
+                root.closeTopmost()
+            else if (homeLoader.item)
+                homeLoader.item.showWatchface()
             break
         case "hideCall":
             // a call in progress goes on, only its view goes: Home
