@@ -254,6 +254,30 @@ Item {
         next(call)
     }
 
+    // A tap on the call's card in the notification stream (its content intent is
+    // the in-call activity, stock dialer jgv.java:128-130; calls-17): the call
+    // view again, its 'handled' mark cleared. False when the card is no call, or
+    // a call that is over (an old ringing card, one the user ended): the stream
+    // then opens the card in place.
+    function reopen(n) {
+        if (n === null || n === undefined || !isCall(n))
+            return false
+        var was = handled[n.replacesId]
+        delete handled[n.replacesId]
+        if (isInProgress(n)) {
+            showOngoing(n)
+            updateCallState(null)
+            return true
+        }
+        if (isRinging(n)) {
+            show(n)
+            return true
+        }
+        if (was)
+            handled[n.replacesId] = true
+        return false
+    }
+
     onCallChanged: {
         confirmingAnswer = false
         if (call === null)

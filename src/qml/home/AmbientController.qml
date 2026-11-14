@@ -281,7 +281,13 @@ Item {
     Connections {
         target: Lipstick.compositor
         function onDisplayOff() {
-            lockscreenDelay.start()
+            // The Wear layout stays where it is: a tray (the stream, quick settings) or a
+            // tile stays out across the screen off, as stock, and the face comes back with
+            // Settings > Display > Go to watch face (AppLifecycle.goToFace; stock
+            // ihh.java:97-110 retracts the tray without animation on the auto-resume).
+            // No timer here: the time off is judged at the wake (notif-stream-16)
+            if (!grid.trayMode)
+                lockscreenDelay.start()
             // the overlays (app list, face picker, tiles editor) stay until
             // Settings > Display > Go to watch face has passed; the wake
             // closes them then (AppLifecycle.goToFace, interruptions-14)

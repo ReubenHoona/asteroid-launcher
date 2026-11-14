@@ -124,8 +124,9 @@ Item {
             rightIndicator.visible  = Qt.binding(function() { return grid.toLeftAllowed && !displayAmbient })
             leftIndicator.visible   = Qt.binding(function() { return grid.toRightAllowed && !displayAmbient && !appDrawer.isOpen })
             topIndicator.visible    = Qt.binding(function() { return grid.toBottomAllowed && !displayAmbient })
-            // Wear OS: the unread notification dot (NotificationIndicator) says what waits below
-            bottomIndicator.visible = Qt.binding(function() { return grid.toTopAllowed && !displayAmbient && statusSlot.notificationIndicator.unreadCount === 0 })
+            // Wear OS has no swipe hint on the face (E35); the unread bar
+            // (NotificationIndicator) says what waits below
+            bottomIndicator.visible = false
             return
         }
         desktop.centreItem = grid.addPanel(0, 0, faceLayer.panel)

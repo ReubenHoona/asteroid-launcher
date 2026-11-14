@@ -635,6 +635,10 @@
         <source>Clear all</source>
         <translation>Clear all</translation>
     </message>
+    <message id="id-all-caught-up">
+        <source>You're all caught up</source>
+        <translation>You're all caught up</translation>
+    </message>
     <message id="id-reply-sent">
         <source>Sent</source>
         <translation>Sent</translation>

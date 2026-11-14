@@ -151,5 +151,61 @@ Item {
             verify(view.call === null)
             compare(model.itemCount, 1)
         }
+
+        function test_07_tap_on_the_ongoing_call_card_reopens_the_call() {
+            // calls-17: the view was left (Hide, the crown): the call goes on and its
+            // card stays in the stream; a tap on the card brings the call view back
+            model.populated = true
+            var n = card(8, "end", 1000)
+            model.add(n)
+            verify(view.call === n)
+            view.hide()
+            verify(view.call === null)
+            compare(view.visible, false)
+            verify(view.handled[8] === true)
+            verify(view.reopen(n))
+            verify(view.call === n)
+            verify(view.ongoing)
+            verify(view.visible)
+            verify(view.handled[8] !== true)
+            // the call view shows its elapsed time and the End button again
+            verify(view.hasAction("end"))
+        }
+
+        function test_08_reopen_ringing_and_not_a_call() {
+            model.populated = true
+            var r = card(9, "answer,reject", 1000)
+            model.add(r)
+            view.hide()
+            verify(view.call === null)
+            verify(view.reopen(r))
+            verify(view.call === r)
+            verify(!view.ongoing)
+            view.hide()
+            // a ringing card older than two minutes is no ringing call any more: the stream
+            // opens it in place instead, and it stays handled
+            var old = card(10, "answer,reject", 5 * 60000)
+            model.add(old)
+            view.handled[10] = true
+            verify(!view.reopen(old))
+            verify(view.handled[10] === true)
+            verify(view.call === null)
+            // a plain notification
+            var plain = card(11, "reply,open,mute", 10)
+            model.add(plain)
+            verify(!view.reopen(plain))
+            verify(!view.reopen(null))
+        }
+
+        function test_09_reopen_not_a_call_that_the_user_ended() {
+            model.populated = true
+            var n = card(12, "end", 1000)
+            model.add(n)
+            view.act("end")
+            verify(view.call === null)
+            // its card has not closed yet (the phone's answer is on its way)
+            verify(!view.reopen(n))
+            verify(view.call === null)
+        }
     }
 }

@@ -8,18 +8,30 @@ import org.nemomobile.lipstick
 import org.asteroid.controls
 
 /*
- * The notification stream of the Wear layout, under the watchface (swipe
- * up), as Wear OS shows it: one card per app, newest first, the crown and a
- * finger scroll it, the cards shrink and fade at the round edges. An app
- * with several notifications (asteroid-btsyncd already makes one card per
- * conversation, with its messages) shows its newest with "+N"; a tap opens
- * the group, a tap on a card opens the whole notification with its
- * actions, replies and voice replies (NotificationActions), a swipe right
- * from the edge comes back. A card swiped sideways is dismissed (a closed
- * group: all of it), "Clear all" at the end dismisses everything. A long
- * press on a phone app's card opens Wear OS's menu for that app's
- * notifications (NotificationBlockingMenu); other cards ignore it, as stock
- * ("Cannot block notifications from ... Ignoring long press").
+ * The notification stream of the Wear layout, the tray under the watchface
+ * (swipe up), as Wear OS CP3A shows it (stock sysui kwf.java, kvy.java):
+ *  - one card per notification, newest first (no grouping by app, no "+N":
+ *    asteroid-btsyncd already makes one card per conversation);
+ *  - a tap opens the card in place, inside the list, one at a time; a tap
+ *    on the open card closes it. Opening scrolls first (preScroll);
+ *  - a swipe to the left reveals "Clear" and "Settings" (SwipeToReveal);
+ *  - "Clear all" is an edge button that grows out of the bottom edge as the
+ *    end of the list comes up, 70 dp; a tap slides every clearable card off
+ *    to the left (300 ms) while the list goes back to the top (250 ms);
+ *  - the list is a ScalingList (rows shrink and fade towards the round
+ *    edges, packed), 21.88 % of the height free at the top, cards 5.2 %
+ *    of the width from the sides, 4 dp between cards;
+ *  - nothing to show: a trophy and "You're all caught up", no clock.
+ * The crown and a finger scroll it; the tray's background is the grid's
+ * (ownBackground). A long press on a phone app's card opens the menu for
+ * that app's notifications (NotificationBlockingMenu); other cards ignore
+ * it, as stock ("Cannot block notifications from ... Ignoring long press").
+ * The replies, voice and app actions of an open card are the actions page
+ * (NotificationActions) behind its "More" button until they are inside the
+ * card (W2-launcher-notif-detail).
+ * Battery: no timer runs while the display is off or in ambient, however
+ * long the stream stays open (stock keeps it open for the go-to-watch-face
+ * time, AppLifecycle brings the face back).
  */
 Item {
     id: stream
@@ -38,7 +50,9 @@ Item {
     readonly property Item listView: stack.firstPageItem ? stack.firstPageItem.list : null
 
     // The list a downward drag that reaches its top hands over to the tray
-    // (PanelsGrid.handOverMoved, stock nested scroll); none in a detail page
+    // (PanelsGrid.handOverMoved, stock nested scroll); none in a page. The
+    // grid sets the list's boundsBehavior for the hand-over and puts it back:
+    // the list keeps it writable (nothing here binds it).
     readonly property Item handOverView: stack.layers.length === 0 ? listView : null
 
     // The stream draws its own black background unless it sits in a tray
@@ -46,20 +60,61 @@ Item {
     // between 25 % and 50 % out, PanelsGrid.attachTray)
     property bool ownBackground: true
 
-    // the groups, newest first: key -> notifications, newest first
-    property var groupItems: ({})
-    property int revision: 0
-    property string expandedKey: ""
-    // the relative times are worked out again when the stream shows, and
-    // every minute while it does
-    property int clockTick: 0
+    /* ---- geometry (kwf.java:684-714; VALUES.tsv trayview_*) -------------- */
+    readonly property real topPadding: Math.round(0.2188 * height)       // 21.88 %
+    readonly property real sideMargin: Math.round(0.052 * width)         // 5.2 %
+    readonly property real cardSpacing: Theme.dp(4)
+    readonly property real cardWidth: width - 2 * sideMargin
+    // the empty state's column sits between 7.1 % and 16 % of the height
+    readonly property real emptyTop: Math.round(0.071 * height)
+    readonly property real emptyBottom: Math.round(0.16 * height)
 
-    function keyOf(n) {
-        return n && n.appName ? n.appName : "?"
+    // the notifications by id, and the ids in the list, newest first
+    property var byId: ({})
+    property int revision: 0
+    // the card open in place (its notification's id), -1: none
+    property int expandedId: -1
+    // the relative times are worked out again when the stream shows, and
+    // every minute while it does and the screen is on
+    property int clockTick: 0
+    // the display is on and not in ambient: nothing refreshes otherwise
+    property bool awake: true
+    readonly property bool screenOn: awake && !Lipstick.compositor.displayAmbient
+
+    // "Clear all" in progress: the cards of notifications that can be cleared
+    // slide off (clearProgress 0 -> 1)
+    property bool clearing: false
+    property real clearProgress: 0
+
+    // Screen reader on: no swipe to reveal (kwb.java:114). The screen
+    // reader's own switch is a context object once it exists.
+    readonly property bool touchExploration: typeof screenReader !== "undefined" && screenReader !== null
+                                             && (screenReader.enabled === true || screenReader.active === true)
+
+    // rows by notification id, for the pre-scroll
+    property var rowItems: ({})
+    // the notifications that came in after the first ones: their cards fade in
+    property var freshIds: ({})
+    // item animations in ms (see the list)
+    readonly property int addMs: 450
+    readonly property int removeMs: 50
+    readonly property int displacedMs: 70
+
+    function idOf(n) { return n ? n.replacesId : -1 }
+
+    function notificationOf(nid, rev) {
+        return byId[nid] || null
     }
 
-    function itemsOf(key, rev) {
-        return groupItems[key] || []
+    // Something in the stream can be cleared (Clear all is enabled, kwf.java:988)
+    readonly property bool hasClearable: {
+        revision
+        for (var i = 0; i < notifModel.itemCount; i++) {
+            var n = notifModel.get(i)
+            if (n && n.userRemovable)
+                return true
+        }
+        return false
     }
 
     function rebuild() {
@@ -69,33 +124,35 @@ Item {
             var n = notifModel.get(i)
             if (!n)
                 continue
-            var k = keyOf(n)
-            if (!map[k]) {
-                map[k] = []
-                order.push(k)
-            }
-            map[k].push(n)
+            map[idOf(n)] = n
+            order.push(idOf(n))
         }
-        groupItems = map
+        byId = map
+        freshIds = {}
         // move the list model to the new order with the least changes, so
         // cards that stay keep their delegates (and nothing jumps)
-        for (var r = groups.count - 1; r >= 0; r--) {
-            if (order.indexOf(groups.get(r).key) < 0)
-                groups.remove(r)
+        for (var r = rows.count - 1; r >= 0; r--) {
+            if (order.indexOf(rows.get(r).nid) < 0)
+                rows.remove(r)
         }
         for (var j = 0; j < order.length; j++) {
             var at = -1
-            for (var m = j; m < groups.count; m++) {
-                if (groups.get(m).key === order[j]) { at = m; break }
+            for (var m = j; m < rows.count; m++) {
+                if (rows.get(m).nid === order[j]) { at = m; break }
             }
-            if (at < 0)
-                groups.insert(j, { key: order[j] })
+            if (at < 0) {
+                if (revision > 0)
+                    freshIds[order[j]] = true
+                rows.insert(j, { nid: order[j] })
+            }
             else if (at !== j)
-                groups.move(at, j, 1)
+                rows.move(at, j, 1)
         }
-        if (expandedKey !== "" && !map[expandedKey])
-            expandedKey = ""
+        if (expandedId >= 0 && !map[expandedId])
+            expandedId = -1
         revision++
+        if (clearing && clearDismissed)
+            endClear()
     }
 
     function dismiss(list) {
@@ -105,15 +162,204 @@ Item {
         }
     }
 
+    /* ---- Clear all (kwf.java:972-986, jsm.java:388-420) ----------------- */
+
+    // No confirmation. Every clearable card slides left by the width of the
+    // screen (300 ms, FastOutSlowIn) and fades 1 -> 0 while the list scrolls
+    // to the top (250 ms); then the notifications are cleared and the empty
+    // state shows. Cards that cannot be cleared stay.
     function clearAll() {
+        if (clearing || !hasClearable)
+            return
+        clearing = true
+        clearProgress = 0
+        if (expandedId >= 0)
+            expandedId = -1
+        scrollToTop(Motion.duration(250))
+        clearAnim.restart()
+    }
+
+    // the slide is over: the notifications are asked to go; the cards stay
+    // off screen until the model has dropped them (rebuild)
+    function clearedAll() {
         var all = []
         for (var i = 0; i < notifModel.itemCount; i++)
             all.push(notifModel.get(i))
+        clearDismissed = true
+        failsafe.restart()
         dismiss(all)
-        Haptics.click()
     }
 
-    function openDetail(n) {
+    function endClear() {
+        failsafe.stop()
+        clearing = false
+        clearDismissed = false
+        clearProgress = 0
+    }
+    property bool clearDismissed: false
+
+    NumberAnimation {
+        id: clearAnim
+        target: stream
+        property: "clearProgress"
+        from: 0
+        to: 1
+        duration: Motion.duration(300)
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: Motion.easing.legacy
+        onFinished: if (stream.clearing) stream.clearedAll()
+    }
+    // phone notifications close through the phone: a round trip is not awaited
+    // for ever (single shot, only during a clear)
+    Timer {
+        id: failsafe
+        interval: 1000
+        onTriggered: stream.endClear()
+    }
+
+    /* ---- scrolling ------------------------------------------------------ */
+
+    // Scroll the list in ms to where goalFn() says (a contentY, asked again at
+    // every step). The list is packed: a card is laid out at its scaled height,
+    // and the scale follows its place on the screen, so the cards under the ones
+    // that scroll into view move as they do. The goal is therefore asked live, and
+    // asked again at the end until the list is where it is told to be.
+    property real scrollProgress: 0
+    property real scrollStart: 0
+    property var scrollGoalFn: null
+    // The card to open or close once the scroll is over (stock scrolls first,
+    // then changes the card, kvy.java:98-99); -2: none
+    property int pendingExpanded: -2
+    function scrollGoal(goalFn, ms, thenExpanded) {
+        var lv = listView
+        if (!lv)
+            return
+        lv.cancelFlick()
+        if (lv.physics)
+            lv.physics.stop()
+        scrollAnim.stop()
+        scrollGoalFn = goalFn
+        scrollStart = lv.contentY
+        scrollProgress = 0
+        pendingExpanded = thenExpanded === undefined ? -2 : thenExpanded
+        scrollAnim.duration = ms
+        scrollAnim.restart()
+    }
+    function scrollToTop(ms) {
+        scrollGoal(function () { return listView.originY - listView.topMargin }, ms)
+    }
+    // the contentY that puts the card of notification nid at y in the list
+    function cardTopGoal(nid, y) {
+        var lv = listView
+        var row = rowItems[nid]
+        if (!lv || !row)
+            return lv ? lv.contentY : 0
+        var want = lv.contentY + (row.mapToItem(lv, 0, 0).y - y)
+        var lo = lv.originY - lv.topMargin
+        var hi = Math.max(lo, lv.originY + lv.contentHeight + lv.bottomMargin - lv.height)
+        return Math.max(lo, Math.min(hi, want))
+    }
+    onScrollProgressChanged: {
+        if (listView && scrollGoalFn)
+            listView.contentY = scrollStart + (scrollGoalFn() - scrollStart) * scrollProgress
+    }
+    NumberAnimation {
+        id: scrollAnim
+        target: stream
+        property: "scrollProgress"
+        from: 0
+        to: 1
+        easing.type: Easing.OutCubic
+        onFinished: {
+            var lv = stream.listView
+            for (var i = 0; lv && stream.scrollGoalFn && i < 4; i++) {
+                var g = stream.scrollGoalFn()
+                if (Math.abs(g - lv.contentY) < 0.5)
+                    break
+                lv.contentY = g
+            }
+            stream.scrollGoalFn = null
+            if (stream.pendingExpanded !== -2) {
+                stream.expandedId = stream.pendingExpanded
+                stream.pendingExpanded = -2
+            }
+        }
+    }
+
+    function rowIndex(nid) {
+        for (var i = 0; i < rows.count; i++)
+            if (rows.get(i).nid === nid)
+                return i
+        return -1
+    }
+
+    /*
+     * The scroll before a card opens or closes (kvy.java, ComposeN10NTrayList
+     * handlePreScrollOnClick; the decompile of the first branch is partial,
+     * the gap text's reading is used):
+     *  - opening a card whose bottom is in the upper half of the list: scroll
+     *    so its top is at a quarter of the list's height;
+     *  - opening a card (not the first on the screen) right under the one that
+     *    closes as this opens: scroll so its top is where the list starts (the
+     *    closing card above gives its height up);
+     *  - closing a card whose top is more than two screen widths above the
+     *    list: scroll back to it (200 ms).
+     * The card changes after the scroll (200 ms). Returns where the card's top
+     * is to be in the list (px from its top), or NaN for no scroll.
+     */
+    function preScrollTop(nid, opening) {
+        var lv = listView
+        var row = rowItems[nid]
+        if (!lv || !row)
+            return NaN
+        var top = row.mapToItem(lv, 0, 0).y
+        var bottom = row.mapToItem(lv, 0, row.height).y
+        var h = lv.height
+        if (opening) {
+            var want = NaN
+            if (bottom < h / 2)
+                want = h / 4
+            var i = rowIndex(nid)
+            // the card above is the one that closes as this one opens: this card goes
+            // to where the list starts (the list keeps what is in view while the
+            // card above, out of view, closes)
+            if (i > 0 && expandedId === rows.get(i - 1).nid && i !== lv.indexAt(1, lv.contentY + 1))
+                want = lv.topMargin
+            return want
+        }
+        if (top < -2 * stream.width)
+            return lv.topMargin
+        return NaN
+    }
+
+    // A tap on a card: open it, or close it when it is the open one
+    function toggleCard(nid) {
+        var opening = expandedId !== nid
+        var y = preScrollTop(nid, opening)
+        if (isNaN(y))
+            expandedId = opening ? nid : -1
+        else
+            scrollGoal(function () { return cardTopGoal(nid, y) }, Motion.duration(200), opening ? nid : -1)
+    }
+
+    // The heads-up card was tapped (MainScreen.openNotification): that
+    // notification opens in place
+    function expand(n) {
+        if (!n)
+            return
+        var nid = idOf(n)
+        if (expandedId === nid)
+            return
+        if (listView && !modelEmpty)
+            toggleCard(nid)
+        else
+            expandedId = nid
+    }
+    // as before the cards opened in place (MainScreen still calls this)
+    function openDetail(n) { expand(n) }
+
+    // The card's actions page (reply, voice, snooze, ...): a layer over the stream
+    function openActions(n) {
         stack.push(detailPage, { notification: n })
     }
 
@@ -121,6 +367,34 @@ Item {
     function canBlock(n) {
         var a = n && n.hints ? n.hints["x-asteroid-phone-actions"] : ""
         return a ? String(a).split(",").indexOf("mute") >= 0 : false
+    }
+
+    // A call from the phone: ringing, or in progress
+    function callActionsOf(n) {
+        var a = n && n.hints ? n.hints["x-asteroid-phone-actions"] : ""
+        return a ? String(a).split(",") : []
+    }
+    function isCall(n) {
+        var a = callActionsOf(n)
+        return a.indexOf("end") >= 0 || a.indexOf("answer") >= 0 || a.indexOf("reject") >= 0
+    }
+
+    // The call view (IncomingCall, a layer of the compositor's overlays)
+    function reopenCall(n) {
+        var c = Lipstick.compositor
+        var arbiter = c && c.overlays ? c.overlays : null
+        var view = arbiter && arbiter.callView ? arbiter.callView : null
+        return view && typeof view.reopen === "function" ? view.reopen(n) === true : false
+    }
+
+    // A tap on a call card reopens the call (its content intent is the
+    // in-call activity, jgv.java:128-130); any other card opens in place
+    function cardTapped(n) {
+        if (!n)
+            return
+        if (isCall(n) && reopenCall(n))
+            return
+        toggleCard(idOf(n))
     }
 
     // card: the card whose long press (its finger still down) opens it
@@ -153,7 +427,9 @@ Item {
     function reset() {
         while (stack.layers.length > 0)
             stack.pop(stack.currentLayer)
-        expandedKey = ""
+        expandedId = -1
+        pendingExpanded = -2
+        scrollAnim.stop()
         // the top with its margin (positionViewAtBeginning() goes past it,
         // and the list would then not be at its beginning)
         if (listView && !listView.atYBeginning) {
@@ -162,7 +438,7 @@ Item {
         }
     }
     function needsReset() {
-        return stack.layers.length > 0 || expandedKey !== "" || (listView !== null && !listView.atYBeginning)
+        return stack.layers.length > 0 || expandedId >= 0 || (listView !== null && !listView.atYBeginning)
     }
 
     onVisibleChanged: {
@@ -171,11 +447,17 @@ Item {
         else if (needsReset())
             reset()
     }
+    // One timer, only while the stream shows with the screen on
     Timer {
         interval: 60000
         repeat: true
-        running: stream.visible && !stream.modelEmpty
+        running: stream.visible && !stream.modelEmpty && stream.screenOn
         onTriggered: stream.clockTick++
+    }
+    Connections {
+        target: Lipstick.compositor
+        function onDisplayAboutToBeOff() { stream.awake = false }
+        function onDisplayAboutToBeOn() { stream.awake = true; if (stream.visible) stream.clockTick++ }
     }
 
     Connections {
@@ -185,7 +467,7 @@ Item {
         }
     }
 
-    ListModel { id: groups }
+    ListModel { id: rows }
 
     NotificationListModel {
         id: notifModel
@@ -222,139 +504,190 @@ Item {
         Item {
             property alias list: lv
 
-            ListView {
+            ScalingList {
                 id: lv
                 anchors.fill: parent
-                model: groups
-                spacing: Math.round(stream.height * 0.02)
-                topMargin: Math.round(stream.height * 0.15)
-                bottomMargin: Math.round(stream.height * 0.1)
-                boundsBehavior: Flickable.DragOverBounds
+                model: rows
+                packed: true
+                // the stream's edge values (notif-stream-11): 0.6, [0, 0, 0.6, 1]
+                edgeScale: Motion.list.streamEdgeScale
+                edgeEasing: Motion.list.streamEdgeEasing
+                spacing: stream.cardSpacing
+                topMargin: stream.topPadding
+                // the last card ends 16 dp above Clear all (70 dp)
+                bottomMargin: clearAllButton.contentPadding
+                sideMargin: stream.sideMargin
                 cacheBuffer: stream.height
                 visible: !stream.modelEmpty
+                // No stretch at the top (stock shows none: the tray takes that
+                // edge, PanelsGrid.handOverMoved); the end stretches as in any list
+                physics.stretchEnabled: !(lv.atYBeginning && !lv.atYEnd)
 
-                add: Transition {
-                    NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 200 }
-                }
+                // animateItem (kwf.java:106-114, 632-633): fade in on a spring of
+                // stiffness 200 (~0.45 s: the row's fadeIn), moves on 1.0 / 10000
+                // (~0.07 s), fade out on 10000 (near instant); none under reduce
+                // motion. No ListView.add transition: a view that has one keeps the
+                // positions it laid out while the cards still changed their height
+                // (the notification arrives after the row is made)
                 remove: Transition {
-                    NumberAnimation { property: "opacity"; to: 0; duration: 150 }
+                    NumberAnimation { property: "opacity"; to: 0; duration: Motion.duration(stream.removeMs) }
                 }
                 displaced: Transition {
+                    NumberAnimation { properties: "y"; duration: Motion.duration(stream.displacedMs); easing.type: Easing.OutCubic }
+                }
+
+                itemDelegate: Item {
+                    id: row
+                    property int index: -1
+                    property var model: null
+                    property var modelData: null
+
+                    readonly property int nid: model ? model.nid : -1
+                    readonly property var notification: stream.notificationOf(nid, stream.revision)
+                    readonly property bool expanded: stream.expandedId === nid && notification !== null
+                    // this card goes with Clear all
+                    readonly property bool clearingNow: stream.clearing && notification !== null && notification.userRemovable
+
+                    width: parent ? parent.width : stream.cardWidth
+                    height: swipe.height
+                    visible: notification !== null
+
+                    // the stream finds a row by its notification's id (pre-scroll); the model
+                    // role arrives after the row is made
+                    property int regId: -1
+                    function register() {
+                        if (regId >= 0 && stream.rowItems[regId] === row)
+                            delete stream.rowItems[regId]
+                        regId = nid
+                        if (nid >= 0)
+                            stream.rowItems[nid] = row
+                        if (nid >= 0 && stream.freshIds[nid] === true) {
+                            delete stream.freshIds[nid]
+                            fadeIn.restart()
+                        }
+                    }
                     NumberAnimation {
-                        properties: "y"; duration: 250
-                        easing.type: Easing.BezierSpline; easing.bezierCurve: [0.2, 0, 0, 1, 1, 1]
+                        id: fadeIn
+                        target: row
+                        property: "opacity"
+                        from: 0
+                        to: 1
+                        duration: Motion.duration(stream.addMs)
+                        easing.type: Easing.OutCubic
                     }
-                }
+                    onNidChanged: register()
+                    Component.onCompleted: register()
+                    Component.onDestruction: if (stream.rowItems[regId] === row) delete stream.rowItems[regId]
 
-                delegate: Item {
-                    id: group
-                    width: lv.width
-                    height: col.height
-                    readonly property string groupKey: model.key
-                    readonly property var items: stream.itemsOf(groupKey, stream.revision)
-                    readonly property bool expanded: stream.expandedKey === groupKey && items.length > 1
-
-                    EdgeEffect { id: edge; item: group }
-                    transform: Scale {
-                        origin.x: group.width / 2
-                        origin.y: group.height / 2
-                        xScale: edge.scale
-                        yScale: edge.scale
-                    }
-
-                    Column {
-                        id: col
-                        width: Math.round(lv.width * 0.84)
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        spacing: Math.round(stream.height * 0.015)
-                        opacity: edge.alpha
-
-                        // an open group: its name, a tap closes it
+                    SwipeToReveal {
+                        id: swipe
+                        width: row.width
+                        height: card.height
+                        swipeEnabled: row.notification !== null && row.notification.userRemovable
+                                      && !stream.touchExploration && !stream.clearing
+                        hasSecondaryAction: stream.canBlock(row.notification)
+                        onPrimaryAction: stream.dismiss([row.notification])
+                        onSecondaryAction: stream.openBlockingMenu(row.notification, null)
+                        opacity: row.clearingNow ? 1 - stream.clearProgress : 1
+                        transform: Translate { x: row.clearingNow ? -stream.clearProgress * stream.width : 0 }
+                        // A tap: SwipeToReveal's own area keeps the press for the swipe and,
+                        // while the card is covered, passes the click on to the areas under it,
+                        // top down: a button of the open card first, then this one (so it sits
+                        // under the card)
                         MouseArea {
-                            visible: group.expanded
-                            width: col.width
-                            height: Math.round(stream.height * 0.1)
-                            onClicked: stream.expandedKey = ""
-                            Label {
-                                anchors.centerIn: parent
-                                text: group.groupKey + "  ·  " + group.items.length
-                                color: Theme.color.primary
-                                font.pixelSize: Dims.l(5.8)
-                                font.styleName: "SemiCondensed Medium"
-                            }
+                            anchors.fill: card
+                            onClicked: if (!row.longFired && !stream.clearing) card.tapped()
                         }
 
-                        Repeater {
-                            model: group.expanded ? group.items.length : Math.min(1, group.items.length)
-                            delegate: NotificationCard {
-                                id: streamCard
-                                width: col.width
-                                notification: group.items[index] || null
-                                extra: group.expanded ? 0 : group.items.length - 1
-                                timestamp: stream.ago(notification, stream.clockTick)
-                                onTapped: {
-                                    Haptics.click()
-                                    if (!group.expanded && group.items.length > 1)
-                                        stream.expandedKey = group.groupKey
-                                    else
-                                        stream.openDetail(notification)
-                                }
-                                onDismissed: stream.dismiss(group.expanded || group.items.length === 1
-                                                            ? [notification] : group.items)
-                                onLongPressed: stream.openBlockingMenu(notification, streamCard)
-                            }
+                        NotificationCard {
+                            id: card
+                            width: swipe.width
+                            notification: row.notification
+                            expanded: row.expanded
+                            timestamp: stream.ago(row.notification, stream.clockTick)
+                            pressed: row.down
+                            pressPoint: pointer.point.position
+                            onTapped: stream.cardTapped(row.notification)
+                            onLongPressed: stream.openBlockingMenu(row.notification, card)
+                            onOpenActions: stream.openActions(row.notification)
+                            onClearRequested: stream.dismiss([row.notification])
                         }
                     }
-                }
 
-                // Wear OS ends the stream with a clear all button
-                footer: Item {
-                    width: lv.width
-                    height: Math.round(stream.height * 0.3)
-                    MouseArea {
-                        id: clearButton
-                        anchors.centerIn: parent
-                        width: Math.round(stream.width * 0.5)
-                        height: Math.round(stream.height * 0.15)
-                        onClicked: stream.clearAll()
-                        Rectangle {
-                            anchors.fill: parent
-                            radius: height / 2
-                            color: Theme.color.surfaceContainerLow
-                            opacity: clearButton.pressed ? 0.7 : 1
+                    // The finger on an uncovered card (ripple, held, long press). A
+                    // PointHandler over the swipe-to-reveal only watches: SwipeToReveal's own
+                    // area keeps the press for the swipe (a tap handler there would take it)
+                    readonly property bool down: pointer.active && swipe.state_ === "covered"
+                                                 && !swipe.dragging && !stream.clearing
+                    property bool longFired: false
+                    onDownChanged: if (down) longFired = false
+                    Item {
+                        anchors.fill: swipe
+                        z: 5
+                        PointHandler {
+                            id: pointer
+                            acceptedButtons: Qt.LeftButton
                         }
-                        Label {
-                            anchors.centerIn: parent
-                            //% "Clear all"
-                            text: qsTrId("id-clear-all") + localeManager.changesObserver
-                            font.pixelSize: Theme.type.bodySmall.pixelSize
-                            font.styleName: "SemiCondensed Medium"
+                    }
+                    // as the watchface's long press (the face picker): half a second, only
+                    // while a finger is down on the card
+                    Timer {
+                        interval: 500
+                        running: row.down
+                        onTriggered: {
+                            row.longFired = true
+                            card.longPressed()
                         }
                     }
                 }
             }
 
-            Column {
-                anchors.centerIn: parent
+            // Wear OS ends the stream with Clear all, an edge button that
+            // grows out of the bottom edge as the end of the list comes up
+            // (ScreenScaffold, kwf.java:928-994; EdgeButton Medium 70 dp,
+            // primaryDim / onPrimary, enabled while anything can be cleared)
+            EdgeButton {
+                id: clearAllButton
+                flickable: lv
+                preferredHeight: Theme.size.edgeButtonMedium
+                //% "Clear all"
+                text: qsTrId("id-clear-all") + localeManager.changesObserver
+                enabled: stream.hasClearable && !stream.clearing
+                containerColor: enabled ? Theme.color.primaryDim
+                                        : Qt.rgba(Theme.color.onSurface.r, Theme.color.onSurface.g,
+                                                  Theme.color.onSurface.b, Theme.alpha.disabledContainer)
+                visible: !stream.modelEmpty && shownHeight > 0.5
+                onClicked: stream.clearAll()
+            }
+
+            // Nothing to show (kvn.java:22-75, STRINGS empty_state_text): a
+            // trophy and a line, no Clear all, no clock
+            Item {
+                anchors.fill: parent
+                anchors.topMargin: stream.emptyTop
+                anchors.bottomMargin: stream.emptyBottom
                 visible: stream.modelEmpty
-                spacing: Dims.h(3)
-                Icon {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    width: Dims.w(18)
-                    height: width
-                    name: "ios-notifications-outline"
-                    opacity: 0.7
-                }
-                Label {
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    //% "No notifications"
-                    text: qsTrId("id-no-notifications") + localeManager.changesObserver
-                    font.pixelSize: Theme.type.bodySmall.pixelSize
-                    opacity: 0.7
+                Column {
+                    anchors.centerIn: parent
+                    spacing: Theme.dp(6)
+                    Icon {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        width: Theme.dp(28)
+                        height: width
+                        name: "ios-trophy-outline"
+                        color: Theme.color.onSurface
+                    }
+                    Label {
+                        width: Theme.dp(140)
+                        //% "You're all caught up"
+                        text: qsTrId("id-all-caught-up") + localeManager.changesObserver
+                        role: "titleLarge"
+                        color: Theme.color.onSurface
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.Wrap
+                    }
                 }
             }
-
-            TimeText { }
         }
     }
 
