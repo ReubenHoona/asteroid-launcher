@@ -13,6 +13,7 @@
 #include <QFontMetricsF>
 #include <QGlyphRun>
 #include <QImage>
+#include <QLocale>
 #include <QPainter>
 #include <QQuickItem>
 #include <QQuickWindow>
@@ -22,6 +23,8 @@
 #include <cmath>
 
 #include <lipstickcompositor.h>
+
+#include "eoshubdigits.h"
 
 extern "C" {
 #include "eoslayout.h"
@@ -82,10 +85,10 @@ bool layoutLine(const QFont &font, const QString &text, Line *l)
 
 // Every digit one advance wide and no kerning between digits: then a slot
 // shows any digit at the same pen and one sprite per slot is exact
-bool tabular(const QFont &font, qreal *step)
+bool tabular(const QFont &font, qreal *step, QChar zero = QLatin1Char('0'))
 {
     Line l;
-    if (!layoutLine(font, QStringLiteral("0123456789"), &l))
+    if (!layoutLine(font, EosHub::localized(QStringLiteral("0123456789"), zero), &l))
         return false;
     *step = l.pen[1] - l.pen[0];
     for (int i = 0; i < 10; i++)
@@ -94,7 +97,7 @@ bool tabular(const QFont &font, qreal *step)
     for (int a = 0; a < 10; a++) {
         for (int b = 0; b < 10; b++) {
             Line p;
-            if (!layoutLine(font, QString::number(a) + QString::number(b), &p) ||
+            if (!layoutLine(font, EosHub::localized(QString::number(a) + QString::number(b), zero), &p) ||
                 std::fabs(p.pen[1] - p.pen[0] - *step) > 1.0 / 128 ||
                 std::fabs(p.width - 2 * *step) > 1.0 / 128)
                 return false;
@@ -210,6 +213,7 @@ struct Atlas {
     QFont font;
     int phase = 0;
     bool outline = false;
+    QChar zero = QLatin1Char('0');      // the digit set (locale digits, locale-formats-10)
     int lo = 9, hi = 0;
     bool blank = false;
     QRect ink;                  // cell rectangle relative to the glyph origin
@@ -235,7 +239,7 @@ bool renderAtlas(Atlas *a, qreal ascent, qreal step)
         p.setPen(Qt::white);
         // the raster engine floors x and takes the phase from its fraction,
         // as the scene graph does with the item-local pen
-        p.drawText(QPointF(ox + qreal(a->phase) / kPhases, oy), QString(QChar('0' + i)));
+        p.drawText(QPointF(ox + qreal(a->phase) / kPhases, oy), QString(QChar(a->zero.unicode() + i)));
         p.end();
         if (a->outline) {
             QImage o(w, h, QImage::Format_Grayscale8);
@@ -326,24 +330,6 @@ void collectTexts(QQuickItem *item, QList<QQuickItem *> *out)
         collectTexts(c, out);
 }
 
-// When the background (date, AM/PM, items placed after the hour) changes
-QDateTime validUntil(const QDateTime &now, bool use12h, bool hourWidthMoves)
-{
-    QDateTime until(now.date().addDays(1), QTime(0, 0));
-    const QDateTime noon(now.date(), QTime(12, 0));
-    if (use12h && now < noon)
-        until = noon;
-    if (use12h && hourWidthMoves) {
-        // the hour goes 9 -> 10 and 12 -> 1
-        for (int h : { 1, 10, 13, 22 }) {
-            const QDateTime t(now.date(), QTime(h, 0));
-            if (t > now && t < until)
-                until = t;
-        }
-    }
-    return until;
-}
-
 } // namespace
 
 HubOffload::HubOffload(QObject *parent) : QObject(parent)
@@ -363,13 +349,17 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         if (!usable(it, why))
             return false;
 
-    // the texts must be what the hub will draw for this time
+    // the texts must be what the hub will draw for this time, in the digits
+    // the face writes: ASCII or the locale's (locale-formats-10: one rule for
+    // the face, the time texts and the hub, never the AP's drawing for a locale)
     const int h24 = shown.time().hour(), h12 = (h24 + 11) % 12 + 1;
     const QString hourText = use12h ? QString::number(h12)
                                     : QStringLiteral("%1").arg(h24, 2, 10, QLatin1Char('0'));
     const QString minuteText = QStringLiteral("%1").arg(shown.time().minute(), 2, 10, QLatin1Char('0'));
-    if (hour->property("text").toString() != hourText ||
-        minute->property("text").toString() != minuteText) {
+    const QChar localeZero = EosHub::zeroOfLocale(QLocale().zeroDigit());
+    const QChar zero = EosHub::digitSet(hour->property("text").toString(), hourText,
+                                        minute->property("text").toString(), minuteText, localeZero);
+    if (zero.isNull()) {
         *why = QString("the face shows %1:%2, not %3:%4")
                .arg(hour->property("text").toString(), minute->property("text").toString(),
                     hourText, minuteText);
@@ -388,7 +378,7 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     for (QQuickItem *it : items) {
         const QFont font = it->property("font").value<QFont>();
         qreal step;
-        if (!tabular(font, &step)) {
+        if (!tabular(font, &step, zero)) {
             *why = it->objectName() + ": the digits are not tabular";
             return false;
         }
@@ -454,20 +444,22 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         }
         for (const Variant &v : variants) {
             Line l;
-            if (!layoutLine(font, QString(v.len, QLatin1Char('0')), &l))
+            if (!layoutLine(font, QString(v.len, zero), &l))
                 return false;
             for (int k = 0; k < v.len; k++) {
                 const qreal penX = padL + l.pen[k];
                 const int phase = phaseOf(penX);
                 int ai = 0;
                 while (ai < atlases.size() && !(atlases[ai].font == font &&
-                       atlases[ai].phase == phase && atlases[ai].outline == outline))
+                       atlases[ai].phase == phase && atlases[ai].outline == outline &&
+                       atlases[ai].zero == zero))
                     ai++;
                 if (ai == atlases.size()) {
                     Atlas a;
                     a.font = font;
                     a.phase = phase;
                     a.outline = outline;
+                    a.zero = zero;
                     atlases << a;
                     ascents << cur.ascent;
                     steps << step;
@@ -508,8 +500,11 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     }
     bg = bg.convertToFormat(QImage::Format_RGBA8888).scaled(EL_FB_W, EL_FB_H);
     // the hub draws the digits over it: it must be black where they go, as
-    // the AP's own digits cover it
+    // the AP's own digits cover it. An overlay (Ambient Lite) has the blurred
+    // application there on purpose: the glyphs blend over it as the AP's did.
     for (const Sprite &s : sprites) {
+        if (m_overlay)
+            break;
         const Atlas &a = atlases[s.atlas];
         const QRect r = a.ink.translated(s.origin) & bg.rect();
         for (int y = r.top(); y <= r.bottom(); y++) {
@@ -579,10 +574,10 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         return false;
     }
 
-    *until = validUntil(shown, use12h, hourWidthMoves);
+    *until = EosHub::validUntil(shown, use12h, hourWidthMoves, !m_overlay);
     const qint64 moveAfter = m_moveMinutes > 0 ? shown.toSecsSinceEpoch() + 60LL * m_moveMinutes : 0;
     if (!LipstickCompositor::instance() ||
-        !LipstickCompositor::instance()->setOffloadLayout(path, until->toSecsSinceEpoch(),
+        !LipstickCompositor::instance()->setOffloadLayout(path, until->isValid() ? until->toSecsSinceEpoch() : 0,
                                                           moveAfter)) {
         *why = "the display offload daemon refused the layout";
         return false;
@@ -590,7 +585,7 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     qInfo().noquote() << QString("hub offload: layout of %1 messages loaded (%2 sprites, "
                                  "atlases %3 KB), valid until %4")
                          .arg(count).arg(sprites.size()).arg(bytes / 1024)
-                         .arg(until->toString(QStringLiteral("ddd HH:mm")));
+                         .arg(until->isValid() ? until->toString(QStringLiteral("ddd HH:mm")) : QStringLiteral("it changes"));
     return true;
 }
 
@@ -629,7 +624,7 @@ bool HubOffload::update(QQuickItem *face, bool use12h, const QString &faceSource
         .arg(hp.x()).arg(hp.y()).arg(mp.x()).arg(mp.y())
         .arg(effectiveOpacity(hour))
         .arg(hour->property("style").toInt());
-    if (m_loaded && key == m_key && shown < m_until)
+    if (m_loaded && key == m_key && (!m_until.isValid() || shown < m_until))
         return true;
     // a face that cannot be offloaded as it is: try again in the next hour
     // or when it changes, not at every minute the AP draws it
@@ -647,6 +642,23 @@ bool HubOffload::update(QQuickItem *face, bool use12h, const QString &faceSource
     m_key = key;
     m_failedKey.clear();
     return true;
+}
+
+bool HubOffload::updateOverlay(QQuickItem *overlay, bool use12h, const QString &layoutKey,
+                               const QDateTime &shown)
+{
+    // Ambient Lite or the media layout: the time items of the overlay, the rest
+    // (the blurred application, the media buttons) the background. layoutKey
+    // names what the background shows; another one is a new layout.
+    m_overlay = true;
+    const bool ok = update(overlay, use12h, layoutKey, shown, 0);
+    m_overlay = false;
+    return ok;
+}
+
+bool HubOffload::eligible(QQuickItem *face) const
+{
+    return face && face->findChild<QQuickItem *>("eosHubHour") && face->findChild<QQuickItem *>("eosHubMinute");
 }
 
 void HubOffload::drop(bool daemonHasLayout)

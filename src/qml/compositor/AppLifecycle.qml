@@ -416,9 +416,11 @@ Compositor {
     }
     signal goneToFace()
 
-    // the front application with an ongoing activity never expires
+    // the front application with an ongoing activity never expires; the media
+    // player with a playing or paused session is one (stock Media Controls posts
+    // an ongoing activity, media-controls-15; AmbientLite.mediaHeld)
     function frontExempt() {
-        return appActive && isOngoing(topmostWindow)
+        return appActive && (isOngoing(topmostWindow) || (!!root.ambientLite && root.ambientLite.mediaHeld === true))
     }
 
     // The application in front when the display is off: frozen 5 s later

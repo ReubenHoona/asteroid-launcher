@@ -126,6 +126,11 @@ public:
     void setAmbientEnabled(bool enabled);
     bool ambientEnabled() const { return m_ambientModeEnabled; }
     Q_INVOKABLE void setAmbientUpdatesEnabled(bool enabled);
+    /* eos: the one timed wake-up of Settings > Display > 'Always-on when off
+     * wrist' (the stock 60 s early exit of the always-on screen): the AP wakes
+     * at epochSec (a timed event of its own type, not the ambient minute's),
+     * the launcher then ends the always-on screen. 0 cancels it. */
+    Q_INVOKABLE void setOffWristWake(qint64 epochSec);
 
     bool displayAmbient() const { return (m_currentDisplayState == QMceDisplay::DisplayOff) && ambientEnabled(); }
     Q_INVOKABLE void setUpdatesEnabled(bool enabled, bool inAmbientMode = false);

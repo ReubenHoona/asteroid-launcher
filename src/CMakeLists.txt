@@ -14,6 +14,7 @@ set(SRC
 	assistantkey.cpp
 	keyclaims.cpp
 	huboffload.cpp
+	offbody.cpp
 	eoslayout.c)
 set(HEADERS
 	applauncherbackground.h
@@ -31,6 +32,8 @@ set(HEADERS
 	assistantkey.h
 	keyclaims.h
 	huboffload.h
+	offbody.h
+	eoshubdigits.h
 	eoslayout.h)
 
 add_executable(asteroid-launcher ${SRC} ${HEADERS} resources-qml.qrc)
@@ -125,6 +128,9 @@ set(QML_FILES
 	qml/home/ChargingController.qml
 	qml/home/HomeOverlays.qml
 	qml/home/StatusSlot.qml
+	qml/home/ambient.js
+	qml/compositor/AmbientLite.qml
+	qml/compositor/BurnInMask.qml
 )
 
 set_source_files_properties(qml/MainScreen.qml                       PROPERTIES QT_RESOURCE_ALIAS MainScreen.qml)
@@ -216,6 +222,9 @@ set_source_files_properties(qml/home/AmbientController.qml                PROPER
 set_source_files_properties(qml/home/ChargingController.qml               PROPERTIES QT_RESOURCE_ALIAS home/ChargingController.qml)
 set_source_files_properties(qml/home/HomeOverlays.qml                     PROPERTIES QT_RESOURCE_ALIAS home/HomeOverlays.qml)
 set_source_files_properties(qml/home/StatusSlot.qml                       PROPERTIES QT_RESOURCE_ALIAS home/StatusSlot.qml)
+set_source_files_properties(qml/home/ambient.js                           PROPERTIES QT_RESOURCE_ALIAS home/ambient.js)
+set_source_files_properties(qml/compositor/AmbientLite.qml                PROPERTIES QT_RESOURCE_ALIAS compositor/AmbientLite.qml)
+set_source_files_properties(qml/compositor/BurnInMask.qml                 PROPERTIES QT_RESOURCE_ALIAS compositor/BurnInMask.qml)
 
 asteroid_app_qml_module(asteroid-launcher ${QML_FILES})
 

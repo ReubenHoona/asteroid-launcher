@@ -77,6 +77,14 @@ void NotificationManager::setQuiet(bool quiet)
     qInfo() << "Notifications:" << (quiet ? "quiet: no feedback or banner but alarms (a mode)" : "alerting again");
     emit quietChanged();
 }
+void NotificationManager::setSilenced(bool silenced)
+{
+    if (m_silenced == silenced)
+        return;
+    m_silenced = silenced;
+    qInfo() << "Notifications:" << (silenced ? "silenced: off the wrist or charging" : "sounding again");
+    emit silencedChanged();
+}
 const char *NotificationManager::HINT_HIDDEN = "x-nemo-hidden";
 const char *NotificationManager::HINT_DISPLAY_ON = "x-nemo-display-on";
 const char *NotificationManager::HINT_LED_DISABLED_WITHOUT_BODY_AND_SUMMARY = "x-nemo-led-disabled-without-body-and-summary";

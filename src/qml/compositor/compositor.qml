@@ -100,6 +100,8 @@ Item {
     readonly property Item windowMotion: transitions
     readonly property Item applications: appLayer
     readonly property Item homeItem: homeLayer
+    // the always-on screen over an open application (W2-launcher-ambient)
+    readonly property Item ambientLite: liteLayer
     readonly property Item splash: launchSplash
 
     // The side button's Recents (KeyRouter): the home screen's Recents list,
@@ -208,6 +210,21 @@ Item {
     }
 
     OverlayArbiter { id: arbiter }
+
+    /* The always-on screen over an open application: Ambient Lite or the media
+     * layout (AmbientLite.qml, ambient-aod-01, media-controls-15), under the
+     * burn-in mask and the corner mask. Nothing of it shows with the display on. */
+    AmbientLite {
+        id: liteLayer
+        z: 5.8
+        anchors.fill: parent
+        sourceItem: appLayer
+        use12h: !TimeFormat.use24h
+    }
+    BurnInMask {
+        z: 5.9
+        anchors.fill: parent
+    }
 
     WindowTransitions { id: transitions }
 

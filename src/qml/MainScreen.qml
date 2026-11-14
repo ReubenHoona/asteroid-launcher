@@ -363,6 +363,8 @@ Item {
         id: complications
         active: desktop.displayAwake && !displayAmbient && (desktop.faceShown || facePicker.visible)
         ambient: displayAmbient
+        // the sensor hub draws the always-on face: live data would go stale there (ambient-aod-11)
+        hubDrawn: ambientController.hubFace && !ambientController.alwaysOnBlocked
         nightstand: nightstandMode.active
         use12h: use12H.value
         now: wallClock.time

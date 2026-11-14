@@ -1,5 +1,7 @@
 <RCC>
     <qresource prefix="/">
         <file>images/bootlogo.svg</file>
+        <file>images/burnin-mask-0.png</file>
+        <file>images/burnin-mask-1.png</file>
     </qresource>
 </RCC>

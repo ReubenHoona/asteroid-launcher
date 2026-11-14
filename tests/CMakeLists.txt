@@ -18,6 +18,18 @@ target_include_directories(tst_offloadpolicy PRIVATE ../lipstick/src/compositor)
 add_executable(tst_quietpolicy tst_quietpolicy.cpp)
 target_include_directories(tst_quietpolicy PRIVATE ../lipstick/src/notifications)
 
+# The digits the sensor hub's atlases draw (src/eoshubdigits.h), Qt Core only
+add_executable(tst_hubdigits tst_hubdigits.cpp)
+target_include_directories(tst_hubdigits PRIVATE ../src)
+target_link_libraries(tst_hubdigits PRIVATE Qt6::Core)
+
+# The off-body source (src/offbody.h) against a fake service on a private bus:
+#   dbus-run-session -- ./tst_offbody
+add_executable(tst_offbody tst_offbody.cpp ../src/offbody.cpp ../src/offbody.h)
+set_target_properties(tst_offbody PROPERTIES AUTOMOC ON)
+target_include_directories(tst_offbody PRIVATE ../src)
+target_link_libraries(tst_offbody PRIVATE Qt6::Core Qt6::DBus)
+
 # The freezer of hidden applications (lipstick/src/compositor/eosfreezer.h), plain C++
 add_executable(tst_freezer tst_freezer.cpp)
 target_include_directories(tst_freezer PRIVATE ../lipstick/src/compositor)

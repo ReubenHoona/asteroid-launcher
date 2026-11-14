@@ -136,6 +136,26 @@ inline std::string alarmFeedback(int mask, const std::string &hint)
     return out;
 }
 
+/*
+ * Settings > Vibration > 'Silence when off wrist' (wake-sleep-display-18):
+ * "Notifications won't sound or vibrate when watch is off wrist or charging".
+ * One switch for both (stock SilenceWhenNotWornSwitchPreference; the hub's
+ * off-body sensor, the charger). Feedback only: the cards and banners stay,
+ * unlike Bedtime and Theater (quiet). Alarms still sound, as in the modes.
+ */
+inline bool silenced(bool setting, bool offBody, bool charging)
+{
+    return setting && (offBody || charging);
+}
+
+// The key's value when it was never set: the old 'quiet on the charger' value
+// carries over (default on, as asteroid-btsyncd and Settings had it), so what
+// the user has today is kept
+inline bool silenceDefault(bool oldKeySet, bool oldKeyValue)
+{
+    return oldKeySet ? oldKeyValue : true;
+}
+
 // Whether the banner shows (and the screen may turn on for it)
 inline bool previewAllowed(bool quiet, const std::string &hint)
 {

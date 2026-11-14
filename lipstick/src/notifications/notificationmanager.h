@@ -225,6 +225,10 @@ public:
     // feedback or banner but for alarms (eosquietpolicy.h), for every poster
     bool quiet() const { return m_quiet; }
     void setQuiet(bool quiet);
+    // eos: 'Silence when off wrist': no feedback but alarms (eosquietpolicy.h silenced);
+    // banners and cards stay
+    bool silenced() const { return m_silenced; }
+    void setSilenced(bool silenced);
     // eos: what an alarm may play in the modes that are on (eosquietpolicy.h
     // alarmFeedback): 1 sound, 2 vibration, 3 both
     int alarmMask() const { return m_alarmMask; }
@@ -232,6 +236,7 @@ public:
 
 signals:
     void quietChanged();
+    void silencedChanged();
 
     /*!
      * A completed notification is one that has timed out, or has been dismissed by the user.
@@ -349,6 +354,7 @@ private:
     NotificationManager(QObject *parent, bool owner);
 
     bool m_quiet = false;
+    bool m_silenced = false;
     int m_alarmMask = 3;
 
     //! Destroys the notification manager.

@@ -45,10 +45,10 @@ import "complications.js" as C
  *    of radius 170 px and 12 px stroke for a ranged value, the text along
  *    the arc.
  *
- * In always-on only the date shows (info.ambient): the sensor hub keeps
- * the always-on picture until midnight, so a value that changes before then
- * (steps, heart rate, battery...) is not drawn there; nor on the
- * nightstand face.
+ * In always-on every complication shows (ambient-aod-11; the nightstand
+ * face has none): the value and icon in the face's dimmed look, the ring's
+ * track only, no progress, no touch. Where the sensor hub draws the always-on
+ * face, what would go stale there shows '--' (ComplicationSources.info).
  */
 Item {
     id: view
@@ -135,7 +135,7 @@ Item {
         Shape {
             objectName: "eosTrack"
             anchors.fill: parent
-            visible: bulb.ring && !view.sources.ambient
+            visible: bulb.ring
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 fillColor: "transparent"
@@ -331,7 +331,7 @@ Item {
 
         Shape {
             anchors.fill: parent
-            visible: !view.sources.ambient
+            visible: true
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 fillColor: "transparent"
@@ -556,7 +556,7 @@ Item {
         Shape {
             objectName: "eosArcTrack"
             anchors.fill: parent
-            visible: rim.ranged && !view.sources.ambient
+            visible: rim.ranged
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 fillColor: "transparent"

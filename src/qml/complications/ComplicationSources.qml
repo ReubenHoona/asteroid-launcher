@@ -11,6 +11,7 @@ import org.asteroid.launcher
 import "../weathericons.js" as IconTools
 import "../desktop.js" as Desktop
 import "complications.js" as C
+import "../home/ambient.js" as Ambient
 
 /*
  * The watch face complications, as Wear OS's: a face names its slots (an
@@ -43,6 +44,9 @@ Item {
     property bool active: false
     // from the home screen: always-on, nightstand, 12 h
     property bool ambient: false
+    // the sensor hub draws the always-on face (the AP sleeps through it): data
+    // that changes in between is drawn '--' there (ambient-aod-11, ambient.js)
+    property bool hubDrawn: false
     property bool nightstand: false
     property bool use12h: false
     // the wall clock of the faces (the date, the next event's end)
@@ -267,7 +271,29 @@ Item {
                       icon: "ios-calendar-outline", iconTop: true, ambient: true })
     }
 
+    // A source's data for the screen on screen: the always-on screen draws every
+    // complication (stock: Pixel faces keep them in the AOD) in the face's dimmed
+    // look, the ring's track only and no progress; where the sensor hub draws it,
+    // what would go stale shows '--' (the developer guidance for ambient)
     function info(id) {
+        var d = liveInfo(id)
+        if (!sources.ambient)
+            return d
+        d.ambient = true
+        if (Ambient.complicationStale(C.split(id).kind, sources.hubDrawn)) {
+            d.text = "--"
+            d.short = "--"
+            d.caption = ""
+            d.lead = ""
+            d.long = "--"
+            d.type = d.icon !== "" ? "short" : d.type
+            d.progress = -1
+            d.elements = []
+            d.known = false
+        }
+        return d
+    }
+    function liveInfo(id) {
         var p = C.split(id)
         var nodata = "- -"
         switch (p.kind) {

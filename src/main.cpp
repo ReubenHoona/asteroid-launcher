@@ -35,6 +35,7 @@
 #include <QQmlContext>
 #include <QTranslator>
 #include <QProcess>
+#include <MDConfItem>
 
 #include <lipstickqmltypes.h>
 #include <homeapplication.h>
@@ -54,6 +55,8 @@
 #include "assistantkey.h"
 #include "keyclaims.h"
 #include "huboffload.h"
+#include "offbody.h"
+#include "eosquietpolicy.h"
 
 int main(int argc, char **argv)
 {
@@ -106,6 +109,10 @@ int main(int argc, char **argv)
     // the always-on display layout for the sensor hub (stock display offload)
     HubOffload *hubOffload = new HubOffload(&app);
     app.engine()->rootContext()->setContextProperty("hubOffload", hubOffload);
+    // whether the watch is on the wrist (the hub's off-body sensor, on change
+    // only): Settings > Display > Always-on when off wrist, Silence when off wrist
+    OffBody *offBody = new OffBody(&app);
+    app.engine()->rootContext()->setContextProperty("offBody", offBody);
 
     qmlRegisterType<AppLauncherBackground>("org.asteroid.launcher", 1, 0, "AppLauncherBackground");
     qmlRegisterType<GestureFilterArea>("org.asteroid.launcher", 1, 0, "GestureFilterArea");
@@ -133,6 +140,24 @@ int main(int argc, char **argv)
                      });
     notificationManager->setQuiet(modes->quiet());
     notificationManager->setAlarmMask(modes->alarmMask());
+    // Settings > Vibration > 'Silence when off wrist' (stock: no sound or vibration
+    // off the wrist or charging): dconf /org/asteroidos/notifications/silence-off-wrist;
+    // never set before, it takes the old 'quiet on the charger' value (eosquietpolicy.h).
+    // Follows the hub's off-body sensor (on change) and the charger; nothing polls.
+    {
+        MDConfItem *silence = new MDConfItem(QStringLiteral("/org/asteroidos/notifications/silence-off-wrist"), &app);
+        MDConfItem oldKey(QStringLiteral("/org/asteroidos/notifications/quiet-on-charger"));
+        if (!silence->value().isValid())
+            silence->set(EosQuiet::silenceDefault(oldKey.value().isValid(), oldKey.value(true).toBool()));
+        auto applySilence = [silence, offBody, modes, notificationManager] {
+            notificationManager->setSilenced(EosQuiet::silenced(silence->value(false).toBool(),
+                                                                offBody->offBody(), modes->charging()));
+        };
+        QObject::connect(silence, &MDConfItem::valueChanged, &app, applySilence);
+        QObject::connect(offBody, &OffBody::changed, &app, applySilence);
+        QObject::connect(modes, &ModesEngine::chargingChanged, &app, applySilence);
+        applySilence();
+    }
     app.engine()->rootContext()->setContextProperty("crownButton", crownButton);
     // The assistant: a hold of the side button (as the stock Pixel Watch 2;
     // mce sends power_button_trigger), and Open()/Ask() on the session bus

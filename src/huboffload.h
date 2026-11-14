@@ -54,6 +54,17 @@ public:
     // (0: never), at a display off (LipstickCompositor::setOffloadLayout)
     Q_INVOKABLE bool update(QQuickItem *face, bool use12h, const QString &faceSource,
                             const QDateTime &shown, int moveMinutes = 0);
+    // The same for an overlay over an application (Ambient Lite, the media
+    // layout; W2-launcher-ambient): the time items are the overlay's
+    // eosHubHour and eosHubMinute, the background is whatever the window
+    // shows (the blurred application, the buttons), there is no date, so the
+    // layout does not expire (only a one-digit hour moving the clock limits
+    // it). layoutKey stands for the background: another key, a new layout.
+    Q_INVOKABLE bool updateOverlay(QQuickItem *overlay, bool use12h, const QString &layoutKey,
+                                   const QDateTime &shown);
+    // Whether the face names the time items the hub can draw (the complications
+    // show '--' in the always-on screen for data that would go stale there)
+    Q_INVOKABLE bool eligible(QQuickItem *face) const;
     // No layout for the hub (the face is not to be offloaded now)
     Q_INVOKABLE void clear();
     // The face, or a setting it draws with, changed: whatever layout the
@@ -70,6 +81,7 @@ private:
     QDateTime m_until;
     QString m_failedKey;
     bool m_loaded = false;
+    bool m_overlay = false;
     int m_moveMinutes = 0;
 };
 

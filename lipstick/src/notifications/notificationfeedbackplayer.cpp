@@ -42,6 +42,7 @@ NotificationFeedbackPlayer::NotificationFeedbackPlayer(QObject *parent) :
     connect(NotificationManager::instance(), SIGNAL(notificationModified(uint)), this, SLOT(updateNotification(uint)));
     connect(NotificationManager::instance(), SIGNAL(notificationsModified(const QList<uint> &)), this, SLOT(updateNotifications(const QList<uint> &)));
     connect(NotificationManager::instance(), SIGNAL(quietChanged()), this, SLOT(quietChanged()));
+    connect(NotificationManager::instance(), SIGNAL(silencedChanged()), this, SLOT(quietChanged()));
     // eos: a call came: what no longer plays in it stops now
     connect(LipstickSettings::instance(), SIGNAL(callStateChanged()), this, SLOT(callStateChanged()));
 
@@ -76,7 +77,7 @@ void NotificationFeedbackPlayer::addNotification(uint id)
                 EosQuiet::alarmFeedback(
                     NotificationManager::instance()->alarmMask(),
                     EosQuiet::feedback(
-                        NotificationManager::instance()->quiet(),
+                        NotificationManager::instance()->quiet() || NotificationManager::instance()->silenced(),
                         notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString()))));
             const QStringList feedbackItems = feedback.split(QStringLiteral(","), Qt::SkipEmptyParts);
             if (!feedbackItems.isEmpty()) {
@@ -144,7 +145,7 @@ void NotificationFeedbackPlayer::callStateChanged()
 // (a call ringing on the phone) stops now
 void NotificationFeedbackPlayer::quietChanged()
 {
-    if (!NotificationManager::instance()->quiet())
+    if (!NotificationManager::instance()->quiet() && !NotificationManager::instance()->silenced())
         return;
     QMultiHash<LipstickNotification *, uint>::iterator it = idToEventId.begin();
     while (it != idToEventId.end()) {

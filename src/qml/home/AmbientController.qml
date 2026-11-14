@@ -31,13 +31,18 @@
 
 import QtQuick
 import Nemo.Configuration
+import Nemo.Mce
 import org.nemomobile.lipstick
 import org.asteroid.controls
 import org.asteroid.utils
+import "../desktop.js" as Desktop
+import "ambient.js" as Ambient
 
 /* The always-on screen of the home screen (split out of MainScreen.qml):
- * the display state, burn-in protection, the minute redraw, the sensor
- * hub's layout, and the modes that keep the always-on screen off.
+ * the display state, the minute redraw, the sensor hub's layout, Ambient Lite
+ * over an open application, the 'Always-on when off wrist' rule, and the
+ * modes that keep the always-on screen off. The burn-in protection is the
+ * stock half-pixel mask (compositor/BurnInMask.qml), not a drift of the face.
  * Instantiated once in MainScreen as `ambientController`; MainScreen
  * forwards `burnInProtectionManager` (the faces use it) and the modes
  * properties. Reads MainScreen's shared ids (desktop, grid, wallClock,
@@ -49,12 +54,11 @@ Item {
 
     readonly property Item burnInProtectionManager: burnIn
 
-    ConfigurationValue {
-        id: bipLevel
-        key: "/org/asteroidos/settings/burn-in-protection-level"
-        defaultValue: DeviceSpecs.needsBurnInProtection ? 1.0 : 0.0
-    }
-
+    /* No system pixel shift (stock config_enableBurnInProtection false, offsets
+     * 0; ambient-aod-07): the AP-drawn always-on screen has the half-pixel mask
+     * of compositor/BurnInMask.qml, the sensor hub its own checkerboard. The
+     * object stays for the faces: they set its offsets (setActiveWatchFaceArea,
+     * widthOffset ...), which nothing moves any more. */
     Item {
         id: burnIn
 
@@ -71,33 +75,8 @@ Item {
         property int widthOffset
         property int heightOffset
 
-        // Enable/disable burn in protection.
-        enabled: DeviceSpecs.needsBurnInProtection && bipLevel.value > 0.0
-        readonly property real bipMultiplier: Math.max(0.0, Math.min(1.0, bipLevel.value))
-
-        /* Wear OS moves the always-on screen by a few pixels at a time. The
-         * Settings levels High, Medium and Low (1.0, 0.5, 0.25) give about
-         * 8, 5 and 3 px either way from the centre (the old offsets let High
-         * wander some 52 px); the face walks there in steps of 1 or 2 px a
-         * minute instead of jumping anywhere in the range. The faces'
-         * setActiveWatchFaceArea/setCenterWatchFaceArea are kept for them
-         * but no longer widen it. */
-        readonly property real maxShift: bipMultiplier <= 0 ? 0
-            : Math.round((3 + 5 * Math.max(0, bipMultiplier - 0.25) / 0.75) * Dims.w(100) / 384)
-        property real shiftX: 0
-        property real shiftY: 0
-        function walk(v) {
-            var s = maxShift
-            var d = (Math.random() < 0.5 ? -1 : 1) * (1 + Math.floor(Math.random() * 2))
-            var n = v + d
-            if (n > s || n < -s)
-                n = v - d
-            return Math.max(-s, Math.min(s, n))
-        }
-        function step() {
-            shiftX = walk(shiftX)
-            shiftY = walk(shiftY)
-        }
+        // the drift is gone
+        enabled: false
 
         onHeightOffsetChanged: {
             topOffset = heightOffset/2
@@ -132,6 +111,17 @@ Item {
         }
     }
 
+    // The unread dot and the status icons on the always-on face (stock sends the
+    // watch-face overlay to the hub again at every ambient transition,
+    // WatchFaceOverlayUi#batchedSendOverlayViewWithDelay, kba.java:565-591;
+    // ambient-aod-10, -18): the hub's picture has them from the grab, so a change
+    // is a change of the layout. statusSlot.ambientIconsKey is the hook of
+    // W2-launcher-status for the ongoing-activity and status icons.
+    readonly property bool unreadDotShown: typeof statusSlot !== "undefined" && statusSlot.notificationIndicator
+                                           ? statusSlot.notificationIndicator.dotWanted === true : false
+    readonly property string statusIconsKey: typeof statusSlot !== "undefined" && statusSlot.ambientIconsKey !== undefined
+                                             ? String(statusSlot.ambientIconsKey) : ""
+
     // The sensor hub's always-on layout is the face drawn with these: when
     // one changes, the layout the hub holds shows the old look, so it goes
     // at once, before the display can go off with it (stock clears the
@@ -140,8 +130,29 @@ Item {
     readonly property string hubLayoutInputs: [faceLayer.faceSource, nightstandMode.watchfaceSource,
                                                use12H.value, faceLayer.faceShowDateValue,
                                                faceLayer.faceAmbientStyleValue,
-                                               JSON.stringify(faceLayer.faceComplicationsValue)].join("|")
-    onHubLayoutInputsChanged: hubOffload.invalidate()
+                                               JSON.stringify(faceLayer.faceComplicationsValue),
+                                               unreadDotShown ? "dot" : "", statusIconsKey].join("|")
+    onHubLayoutInputsChanged: {
+        hubOffload.invalidate()
+        // In the always-on screen the AP is awake for whatever changed it (a
+        // notification came): redraw and send the new layout now, not at midnight
+        if (Lipstick.compositor.displayAmbient)
+            Qt.callLater(ambientController.refreshAmbient)
+    }
+    function refreshAmbient() {
+        if (Lipstick.compositor.displayAmbient && Lipstick.compositor.offloadAmbientUpdateWanted())
+            Lipstick.compositor.setAmbientUpdatesEnabled(true)
+    }
+
+    // Whether the face names the time items the sensor hub can draw: the
+    // complications then show '--' for data that would go stale there
+    readonly property bool hubFace: desktop.centreItem !== null && desktop.centreItem.activeFace
+                                    ? hubOffload.eligible(desktop.centreItem.activeFace) : false
+
+    // Ambient Lite or the media layout over an open application (compositor.qml)
+    function litePart() {
+        return Desktop.compositorRoot ? Desktop.compositorRoot.ambientLite : null
+    }
     Connections {
         target: desktop
         function onWatchfaceReloadRequested() { hubOffload.invalidate() }
@@ -166,13 +177,23 @@ Item {
             // AP sleeps (stock display offload; kept while unchanged). Not in
             // nightstand: on the charger the AP does not sleep anyway, and
             // the face shows the charge
-            if (Lipstick.compositor.displayAmbient && desktop.centreItem) {
-                if (desktop.nightstand)
-                    hubOffload.clear()
-                else
-                    hubOffload.update(desktop.centreItem.activeFace, use12H.value,
-                                      desktop.centreItem.activeSource, wallClock.time,
-                                      burnIn.enabled ? ambientController.hubBurnInMoveMinutes : 0)
+            if (Lipstick.compositor.displayAmbient) {
+                var lite = ambientController.litePart()
+                if (!Lipstick.compositor.homeActive) {
+                    // an application is open: Ambient Lite or the media layout (the
+                    // application's last frame, not the face, is under the time)
+                    if (lite && lite.showing)
+                        lite.handOver()
+                    else
+                        hubOffload.clear()
+                } else if (desktop.centreItem) {
+                    if (desktop.nightstand)
+                        hubOffload.clear()
+                    else
+                        hubOffload.update(desktop.centreItem.activeFace, use12H.value,
+                                          desktop.centreItem.activeSource, wallClock.time,
+                                          ambientController.hubBurnInMoveMinutes)
+                }
             }
             Lipstick.compositor.setAmbientUpdatesEnabled(false)
         }
@@ -191,15 +212,17 @@ Item {
     // wakeup lipstick schedules for that, the redraw sends the new one
     // (stock: an AP update at the layout's minutes_valid).
     property real ambientMinuteShown: 0
-    // With the hub drawing, the burn-in protection moves the face at most
-    // this often, at a display off (one layout send then), instead of at
-    // every display off as the AP-drawn always-on screen does
-    readonly property int hubBurnInMoveMinutes: 60
+    // The face is no longer moved (the burn-in drift is gone, ambient-aod-07):
+    // the hub's layout never expires for a move
+    readonly property int hubBurnInMoveMinutes: 0
     Timer {
         id: ambientMinuteTimer
         interval: 1000
         repeat: true
         onTriggered: {
+            // the AP is awake (the timer never wakes it): the off-wrist alarm
+            // that woke it may be due
+            ambientController.offWristApply()
             var minute = Math.floor(Date.now() / 60000)
             if (minute === ambientController.ambientMinuteShown || !Lipstick.compositor.offloadAmbientUpdateWanted())
                 return
@@ -234,18 +257,7 @@ Item {
             desktop.setAmbientDarken(1)
             grid.hideOffscreen();
         }
-        function onDisplayAmbientLeft() {
-            if (burnIn.enabled) leftIndicator.anchors.verticalCenterOffset = 0
-        }
         function onDisplayAmbientUpdate() {
-            // Perform burn in protection
-            if (burnIn.enabled) {
-                burnIn.step()
-                grid.contentX = burnIn.shiftX
-                grid.contentY = burnIn.shiftY
-                leftIndicator.anchors.horizontalCenterOffset = burnIn.shiftX
-                leftIndicator.anchors.verticalCenterOffset = burnIn.shiftY
-            }
             // Give watchface some time to update, then go back to deep sleep.
             wallClockAmbientTimeout.start();
         }
@@ -262,17 +274,90 @@ Item {
     readonly property bool alwaysOnBlocked: modesReady && modes.alwaysOnBlocked
     readonly property bool brightnessHeld: modesReady && modes.brightnessHolder !== ""
     function applyLowPower() {
-        displaySettings.lowPowerModeEnabled = !alwaysOnBlocked
-                && (nightstandMode.active ? nightstandMode.alwaysOnDisplayValue : alwaysOnDisplay.value)
+        displaySettings.lowPowerModeEnabled = !alwaysOnBlocked && !offWristEnded && alwaysOnWanted
     }
+    // the user's Always-on screen (the nightstand's own switch while it is active)
+    readonly property bool alwaysOnWanted: nightstandMode.active ? nightstandMode.alwaysOnDisplayValue : alwaysOnDisplay.value
     onAlwaysOnBlockedChanged: applyLowPower()
+    onOffWristEndedChanged: applyLowPower()
     // ...and the sensor hub draws no always-on screen meanwhile either: the
     // compositor keeps the panel from the offload daemon (2026-11-04: the hub
     // took the panel at every blank in Bedtime, the face stayed on all night)
     Binding {
         target: Lipstick.compositor
         property: "offloadBlocked"
-        value: ambientController.alwaysOnBlocked
+        value: ambientController.alwaysOnBlocked || ambientController.offWristEnded
+    }
+
+    /*
+     * Settings > Display > 'Always-on when off wrist' (choice-settings-07, wake-
+     * sleep-display-18). On (the user's choice, the default): the always-on screen
+     * never goes black by itself. Off (stock): with the always-on screen showing,
+     * it ends 60 s after the off-body sensor of the sensor hub reports off-body
+     * or the charger is connected (CSUI AmbientEarlyExitTimeoutController: one
+     * timer for both, ro.ambient.plugged_timeout_min 1), the panel goes black
+     * and the hub's offload is released; on-body, unplugged or any wake brings it
+     * back. The nightstand, when active, keeps the screen on the charger (ours
+     * only). Power: the off-body sensor is on-change only; the 60 s are one timed
+     * wake-up (LipstickCompositor::setOffWristWake), never a polling timer; the
+     * ambient minute timer (one tick a second, only while the AP is awake)
+     * checks it. ambient.js offWristDecide is the rule.
+     */
+    ConfigurationValue {
+        id: offWristSetting
+        key: "/org/asteroidos/settings/always-on-off-wrist"
+        defaultValue: true
+    }
+    property bool offWristEnded: false
+    // when the running alarm is due, ms since the epoch (0: none)
+    property real offWristDeadline: 0
+    readonly property bool plugged: typeof mceChargerType !== "undefined" && mceChargerType.type !== MceChargerType.None
+    // the hub's off-body sensor: true off the wrist, undefined while unknown
+    readonly property var offBodyNow: typeof offBody !== "undefined" && offBody !== null && offBody.known
+                                      ? offBody.offBody : undefined
+    function offWristApply() {
+        var now = Date.now()
+        var r = Ambient.offWristDecide({
+            rule: offWristSetting.value === false && !alwaysOnBlocked && alwaysOnWanted,
+            displayOff: !desktop.displayAwake,
+            offBody: offBodyNow,
+            plugged: plugged,
+            nightstand: nightstandMode.active,
+            ended: offWristEnded,
+            deadline: offWristDeadline,
+            now: now
+        })
+        if (r.cancel) {
+            offWristDeadline = 0
+            if (typeof Lipstick.compositor.setOffWristWake === "function")
+                Lipstick.compositor.setOffWristWake(0)
+        }
+        if (r.arm) {
+            offWristDeadline = Ambient.offWristDeadline(now)
+            if (typeof Lipstick.compositor.setOffWristWake === "function")
+                Lipstick.compositor.setOffWristWake(Math.ceil(offWristDeadline / 1000))
+        }
+        if (r.expire) {
+            offWristDeadline = 0
+            offWristEnded = true
+        }
+        if (r.restore)
+            offWristEnded = false
+    }
+    onOffBodyNowChanged: offWristApply()
+    onPluggedChanged: offWristApply()
+    onAlwaysOnWantedChanged: offWristApply()
+    Connections {
+        target: offWristSetting
+        function onValueChanged() { ambientController.offWristApply() }
+    }
+    Connections {
+        target: desktop
+        function onDisplayAwakeChanged() { ambientController.offWristApply() }
+    }
+    Connections {
+        target: nightstandMode
+        function onActiveChanged() { ambientController.offWristApply() }
     }
     // a mode that ended while the launcher was not running left it off
     Timer {

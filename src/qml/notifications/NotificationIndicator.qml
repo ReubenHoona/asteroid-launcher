@@ -77,6 +77,10 @@ Item {
     readonly property bool streamShown: wearLayout && panelsGrid !== null
                                         && panelsGrid.currentHorizontalPos === 0 && panelsGrid.currentVerticalPos === 1
     onStreamShownChanged: if (streamShown) markAllRead()
+    // the dot is wanted (the setting is on and a notification is unread): the
+    // always-on layout of the sensor hub has it from the grab, so a change of
+    // this rebuilds that layout (AmbientController, ambient-aod-10)
+    readonly property bool dotWanted: wearLayout && unreadDotSetting.value !== false && unreadCount > 0
 
     // a call has its own screen: not an unread notification
     function isCall(n) {
@@ -118,14 +122,17 @@ Item {
         readonly property real offset: notifIndic.panelsGrid
                                        ? Math.abs(notifIndic.panelsGrid.normalizedHorOffset) + Math.abs(notifIndic.panelsGrid.normalizedVerOffset)
                                        : 0
-        width: Dims.l(2.8)
+        // stock ic_unread_dot: 6 dp = 12 px, white (ambient-aod-09)
+        width: Dims.l(3.125)
         height: width
         x: (notifIndic.width - width) / 2
-        // its middle Dims.h(5.5) above the bottom of the screen
-        y: (notifIndic.parent ? notifIndic.parent.height : notifIndic.height) - notifIndic.y - Dims.h(5.5) - height / 2
-        // fades as the watch face is swiped away; grey on the always-on display, as the face
-        opacity: Math.max(0, 1 - 3 * offset) * (Lipstick.compositor.displayAmbient ? 0.55 : 1)
-        visible: notifIndic.wearLayout && unreadDotSetting.value !== false && notifIndic.unreadCount > 0 && opacity > 0
+        // its middle 11.5 dp = 23 px above the bottom of the screen (arc layout at 180
+        // degrees, margin 1 dp, height 21 dp)
+        y: (notifIndic.parent ? notifIndic.parent.height : notifIndic.height) - notifIndic.y - Dims.h(5.99) - height / 2
+        // fades as the watch face is swiped away; the same drawable in the always-on
+        // screen, no change of alpha there (AmbientableImageView: nothing for a dot)
+        opacity: Math.max(0, 1 - 3 * offset)
+        visible: notifIndic.dotWanted && opacity > 0
 
         Rectangle {
             anchors.fill: parent

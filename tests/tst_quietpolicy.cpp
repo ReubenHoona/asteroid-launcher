@@ -96,6 +96,19 @@ int main()
     CHECK(alertsWhileQuiet("alarm_sound") && alertsWhileQuiet("alarm_vibra"));
     CHECK(previewAllowed(true, "alarm_vibra"));
 
+    // 'Silence when off wrist' (wake-sleep-display-18): one switch for off the wrist and charging
+    CHECK(!silenced(false, true, true));                  // the row off: never
+    CHECK(!silenced(true, false, false));                 // worn, not charging: sounds
+    CHECK(silenced(true, true, false));                   // off the wrist
+    CHECK(silenced(true, false, true));                   // charging
+    CHECK(silenced(true, true, true));
+    // it keeps the banner (feedback only): quiet is what suppresses the preview
+    CHECK(previewAllowed(false, "notif_strong"));
+    CHECK(feedback(silenced(true, true, false), "notif_strong,alarm") == "alarm");
+    CHECK(feedback(silenced(true, false, false), "notif_strong,alarm") == "notif_strong,alarm");
+    // the old 'quiet on the charger' value carries over; never set (default on): on
+    CHECK(silenceDefault(true, true) && !silenceDefault(true, false) && silenceDefault(false, false));
+
     printf("%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;
 }

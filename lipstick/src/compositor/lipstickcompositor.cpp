@@ -894,6 +894,48 @@ void LipstickCompositor::clearOffloadLayout()
     }
 }
 
+void LipstickCompositor::setOffWristWake(qint64 epochSec)
+{
+    // the events of this one's type: keep one to replace, cancel the others
+    QMap<QString,QVariant> match;
+    match.insert("type", QVariant(QString("offwrist")));
+    QDBusReply< QList<QVariant> > reply = m_timedDbus->query_sync(match);
+    if (!reply.isValid()) {
+        qWarning() << "off-wrist wake: 'query' call failed:" << m_timedDbus->lastError();
+        return;
+    }
+    uint cookie = 0;
+    QList<QVariant> cookies = reply.value();
+    while (!cookies.isEmpty()) {
+        bool ok = true;
+        const uint id = cookies.takeFirst().toUInt(&ok);
+        if (!ok)
+            continue;
+        if (epochSec > 0 && cookies.isEmpty()) {
+            cookie = id;
+        } else {
+            m_timedDbus->cancel_sync(id);
+        }
+    }
+    if (epochSec <= 0)
+        return;
+
+    Maemo::Timed::Event event;
+    event.setTicker(epochSec);
+    event.setAttribute(QLatin1String("APPLICATION"), QLatin1String("eos_offwrist"));
+    event.setAttribute(QLatin1String("type"), QLatin1String("offwrist"));
+    event.setBootFlag();
+    event.setKeepAliveFlag();
+    // as the ambient minute's wake-up: the alarm flag wakes the device, no
+    // reminder flag (the alarm presenter would show it)
+    event.setAlarmFlag();
+    event.setSingleShotFlag();
+    if (cookie)
+        m_timedDbus->replace_event_sync(event, cookie);
+    else
+        m_timedDbus->add_event_sync(event);
+}
+
 void LipstickCompositor::setAmbientUpdatesEnabled(bool enabled)
 {
     // eos: ambient updates only while mce has the display blanked. Once mce
