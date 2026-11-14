@@ -54,6 +54,8 @@ Item {
     readonly property var faceSource: watchFaceSource.value
     readonly property var faceShowDateValue: faceStyle.showDate
     readonly property var faceAmbientStyleValue: faceStyle.ambientStyle
+    // the face's own options (Color, Bold Time ...): the sensor hub's sprites take them from the face
+    readonly property var faceStyleValue: faceStyle.values
     readonly property var faceComplicationsValue: faceComplications.value
     property bool faceSecondsShown: false
 
@@ -147,7 +149,7 @@ Item {
         faceId: favs.currentId
         schema: faceLayer.activeSchema
     }
-    /* W3-launcher-faces: a face that declares eosOptions (watchfaces/eos/EosFace.qml) gets the
+    /* W3-launcher-faces: a face that declares eosOptions (eoskit/EosFace.qml) gets the
      * favourite's choices as its eosStyle, at once when one changes and when it loads; two
      * favourites of one face are two instances with their own values. */
     readonly property Item currentFace: desktop.centreItem ? desktop.centreItem.activeFace : null

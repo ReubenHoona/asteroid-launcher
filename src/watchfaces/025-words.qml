@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 import QtQuick
-import "eos"
-import "eos/facekit.js" as Kit
+import "../eoskit"
+import "../eoskit/facekit.js" as Kit
 
 /*
  * Words: the layout of Wear OS's Prime face (watch_face_wordclock.xml), our own

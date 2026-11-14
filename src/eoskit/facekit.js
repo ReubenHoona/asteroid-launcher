@@ -114,7 +114,21 @@ function listOption(id, values, labels, def) {
     return { id: id, kind: "list", values: values, labels: labels, def: def }
 }
 function boolOption(id, def) { return { id: id, kind: "bool", def: def } }
-function colorOption(def) { return listOption("color", accentIds(), accentNames(), def) }
+function colorOption(def, ids) {
+    // ids: a face with a colour list of its own (Track: SOLORING_COLORS), in stock order; else the 35
+    if (!ids)
+        return listOption("color", accentIds(), accentNames(), def)
+    var names = ids.map(function (id) {
+        for (var i = 0; i < ACCENTS.length; i++)
+            if (ACCENTS[i][0] === id)
+                return ACCENTS[i][1]
+        return id
+    })
+    return listOption("color", ids, names, def)
+}
+// Track (watch_face_soloring.xml, soloring_colorway): five colours, default index 0 = Mint
+// (audit/watchface-catalogue/stock-faces-extract.md, soloring)
+var SOLORING_COLORS = ["mint", "bubble-gum", "aqua", "pomelo", "lime"]
 function findOption(schema, id) {
     var s = schema || []
     for (var i = 0; i < s.length; i++)
@@ -370,7 +384,7 @@ var SLOT_DEFAULTS = {
     stacked: { top: "date", left: "heartrate", right: "weather" },
     classic: { left: "weather", top: "health", right: "datemonth", bottom: "steps" },
     large: { bulb: "heartrate", top: "date" },
-    bold: { bottom: "weather", left: "weather", right: "datemonth", topright: "heartrate", bottomright: "weather", bottomleft: "steps", topleft: "date" },
+    bold: { bottom: "weather", left: "weather", right: "datemonth", topright: "date", bottomright: "weather", bottomleft: "steps", topleft: "heartrate" },
     ring: { ring: "steps" },
     words: { top: "empty" },
     photo: { line: "weather" }

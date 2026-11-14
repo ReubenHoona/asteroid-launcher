@@ -496,6 +496,11 @@ install(
 	DIRECTORY watchfaces
 	DESTINATION ${CMAKE_INSTALL_DATADIR}/asteroid-launcher
 )
+# the kit of the eos faces (EosFace, facekit.js): beside watchfaces/ so the face lists do not show it
+install(
+	DIRECTORY eoskit
+	DESTINATION ${CMAKE_INSTALL_DATADIR}/asteroid-launcher
+)
 install(
 	DIRECTORY watchfaces-img
 	DESTINATION ${CMAKE_INSTALL_DATADIR}/asteroid-launcher

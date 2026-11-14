@@ -130,6 +130,7 @@ Item {
     readonly property string hubLayoutInputs: [faceLayer.faceSource, nightstandMode.watchfaceSource,
                                                use12H.value, faceLayer.faceShowDateValue,
                                                faceLayer.faceAmbientStyleValue,
+                                               JSON.stringify(faceLayer.faceStyleValue),
                                                JSON.stringify(faceLayer.faceComplicationsValue),
                                                unreadDotShown ? "dot" : "", statusIconsKey].join("|")
     onHubLayoutInputsChanged: {

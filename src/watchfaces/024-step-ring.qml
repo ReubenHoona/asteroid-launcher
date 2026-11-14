@@ -2,15 +2,15 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 import QtQuick
-import "eos"
-import "eos/facekit.js" as Kit
+import "../eoskit"
+import "../eoskit/facekit.js" as Kit
 
 /*
  * Step ring: the layout of Wear OS's Track face (watch_face_soloring.xml), our own
  * artwork (watchface-catalogue-36, the audit's F7). A thick ring round the rim shows
  * the steps towards the goal (the one slot, ranged values only, drawn by the
  * launcher as the ring plus the count on a line above the time); the time is stacked
- * inside (Layout Stacked, default) or on one line (Linear). Bold Time on; Color Mint.
+ * inside (Layout Stacked, default) or on one line (Linear). Bold Time on; Color Mint (Track's own five: Mint, Bubble Gum, Aqua, Pomelo, Lime).
  * Always-on: the ring is hidden (its steps would be stale in the sensor hub's frame,
  * the audit's gap 08 phase 2) and the digits are drawn by the hub.
  */
@@ -18,7 +18,7 @@ EosFace {
     id: face
 
     eosOptions: [
-        Kit.colorOption("mint"),
+        Kit.colorOption("mint", Kit.SOLORING_COLORS),
         Kit.listOption("layout", Kit.RING_LAYOUTS, ["Stacked", "Linear"], "stacked"),
         Kit.boolOption("boldTime", true)
     ]

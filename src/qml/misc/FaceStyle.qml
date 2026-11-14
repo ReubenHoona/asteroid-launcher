@@ -18,7 +18,7 @@ import "facepicker.js" as FP
  * on the favourite is its own.
  *
  * W3-launcher-faces (watchface-catalogue-10): a face with a schema (its eosOptions,
- * watchfaces/eos/facekit.js) has more options (Color, Layout, Styles, Fonts, Bold
+ * eoskit/facekit.js) has more options (Color, Layout, Styles, Fonts, Bold
  * Time, Seconds ...): they live in the same JSON object under their ids, `values`
  * hands them to the face (its eosStyle), and `set` keeps every other key. The
  * schema's "seconds" option is the old "show-seconds" key; its default (a face that
@@ -49,7 +49,11 @@ Item {
 
     readonly property bool showDate: _own["show-date"] !== undefined ? _own["show-date"] === true : globalDate.value === true
     readonly property var _secondsDefault: FP.secondsDefault(schema)
-    readonly property bool showSeconds: _own["show-seconds"] !== undefined ? _own["show-seconds"] === true
+    // a schema face without a Seconds option (stock Analog Bold) has its seconds hand always on,
+    // whatever the global key or an older stored value says
+    readonly property bool _secondsAlways: schema !== undefined && schema.length > 0 && _secondsDefault === undefined
+    readonly property bool showSeconds: _secondsAlways ? true
+                                        : _own["show-seconds"] !== undefined ? _own["show-seconds"] === true
                                         : (_secondsDefault !== undefined ? _secondsDefault : globalSeconds.value === true)
     // the choices the face reads (eosStyle): every stored key, and "seconds" as it is in force
     readonly property var values: {

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 import QtQuick
-import "eos"
-import "eos/facekit.js" as Kit
+import "../eoskit"
+import "../eoskit/facekit.js" as Kit
 
 /*
  * Bold numerals: the layout of Wear OS's Analog Bold face (watch_face_analogbold.xml),
@@ -11,7 +11,8 @@ import "eos/facekit.js" as Kit
  * numerals 12, 9 and 6, a date window at 3 o'clock, a thin seconds hand. Styles No
  * Dashes (default), Dashes & Dots, Dashes; Fonts Standard or Rounded (default);
  * Layout Numerals, Date (default), Info I (one bulb low centre), Info II (bulbs left
- * and right) or Info IV (four arcs on the rim); Seconds on; Color Flamingo.
+ * and right) or Info IV (four arcs on the rim); Color Flamingo. No Seconds option, as stock: the
+ * seconds hand is always on (FaceStyle).
  * Always-on: the numerals go light and dim, the window and the seconds hand are
  * hidden; the AP draws the minute (the hands are not hub-drawn yet: eosHubDrawn false).
  */
@@ -25,8 +26,7 @@ EosFace {
         Kit.colorOption("flamingo"),
         Kit.listOption("styles", Kit.BOLD_STYLES, Kit.BOLD_STYLE_NAMES, "nodashes"),
         Kit.listOption("fonts", Kit.BOLD_FONTS, Kit.BOLD_FONT_NAMES, "rounded"),
-        Kit.listOption("layout", Kit.BOLD_LAYOUTS, Kit.BOLD_LAYOUT_NAMES, "date"),
-        Kit.boolOption("seconds", true)
+        Kit.listOption("layout", Kit.BOLD_LAYOUTS, Kit.BOLD_LAYOUT_NAMES, "date")
     ]
     readonly property var g: Kit.bold(opt("layout"))
     readonly property var d: Kit.SLOT_DEFAULTS.bold

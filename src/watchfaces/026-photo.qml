@@ -4,8 +4,8 @@
 import QtQuick
 import Qt.labs.folderlistmodel
 import QtCore
-import "eos"
-import "eos/facekit.js" as Kit
+import "../eoskit"
+import "../eoskit/facekit.js" as Kit
 
 /*
  * Photo: a picture behind the time and one line slot (watchface-catalogue-38; stock's
