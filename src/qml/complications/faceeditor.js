@@ -145,6 +145,30 @@ var BOOL_SETTINGS = [
     { id: "show-seconds" }
 ]
 
+/* A face with a schema (its eosOptions, W3-launcher-faces watchface-catalogue-10) has its
+ * own pages: a list setting per list option, in the schema's order (stock: Color, Layout,
+ * Styles, Fonts ...), the boolean options (Bold Time, Seconds ...) three to a page. The
+ * Always-on and Date settings of the other faces are not stock's: a schema face owns its
+ * always-on look and has its date in a slot. */
+function schemaLists(schema) {
+    var out = []
+    var s = schema || []
+    for (var i = 0; i < s.length; i++)
+        if (s[i].kind === "list")
+            out.push({ id: s[i].id, options: s[i].values, labels: s[i].labels })
+    return out
+}
+function schemaBools(schema) {
+    var out = []
+    var s = schema || []
+    for (var i = 0; i < s.length; i++)
+        if (s[i].kind === "bool")
+            out.push({ id: s[i].id })
+    return out
+}
+// the stored key of an option: the schema's "seconds" is the old "show-seconds"
+function storeKey(id) { return id === "seconds" ? "show-seconds" : id }
+
 function chunk(list, n) {
     var out = []
     for (var i = 0; i < list.length; i += n)

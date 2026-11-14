@@ -2347,5 +2347,45 @@ Only selected people and apps can reach you.</translation>
         <source>%1 Off</source>
         <translation>%1 Off</translation>
     </message>
+    <message id="id-face-opt-color">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Color</source>
+        <translation>Color</translation>
+    </message>
+    <message id="id-face-opt-layout">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Layout</source>
+        <translation>Layout</translation>
+    </message>
+    <message id="id-face-opt-styles">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Styles</source>
+        <translation>Styles</translation>
+    </message>
+    <message id="id-face-opt-fonts">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Fonts</source>
+        <translation>Fonts</translation>
+    </message>
+    <message id="id-face-opt-bold-time">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Bold Time</source>
+        <translation>Bold Time</translation>
+    </message>
+    <message id="id-face-opt-photo">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Photo</source>
+        <translation>Photo</translation>
+    </message>
+    <message id="id-comp-distance">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Distance</source>
+        <translation>Distance</translation>
+    </message>
+    <message id="id-comp-exercise">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Exercise</source>
+        <translation>Exercise</translation>
+    </message>
 </context>
 </TS>

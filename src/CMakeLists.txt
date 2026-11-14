@@ -123,6 +123,7 @@ set(QML_FILES
 	qml/complications/EditorDots.qml
 	qml/complications/faceeditor.js
 	qml/home/FaceColors.qml
+	qml/home/SimpleFace.qml
 	qml/assistant/AssistantOverlay.qml
 	qml/assistant/AssistantActions.qml
 	qml/assistant/AssistantGlow.qml
@@ -313,6 +314,7 @@ set_source_files_properties(qml/complications/EditorBoolPage.qml PROPERTIES QT_R
 set_source_files_properties(qml/complications/EditorDots.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorDots.qml)
 set_source_files_properties(qml/complications/faceeditor.js PROPERTIES QT_RESOURCE_ALIAS complications/faceeditor.js)
 set_source_files_properties(qml/home/FaceColors.qml PROPERTIES QT_RESOURCE_ALIAS home/FaceColors.qml)
+set_source_files_properties(qml/home/SimpleFace.qml PROPERTIES QT_RESOURCE_ALIAS home/SimpleFace.qml)
 set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
 set_source_files_properties(qml/assistant/AssistantGlow.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantGlow.qml)

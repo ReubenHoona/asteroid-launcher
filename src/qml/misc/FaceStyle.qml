@@ -16,6 +16,13 @@ import "facepicker.js" as FP
  * is how the values the watch had before the favourites are carried into
  * every existing favourite; the first change writes all three, so from then
  * on the favourite is its own.
+ *
+ * W3-launcher-faces (watchface-catalogue-10): a face with a schema (its eosOptions,
+ * watchfaces/eos/facekit.js) has more options (Color, Layout, Styles, Fonts, Bold
+ * Time, Seconds ...): they live in the same JSON object under their ids, `values`
+ * hands them to the face (its eosStyle), and `set` keeps every other key. The
+ * schema's "seconds" option is the old "show-seconds" key; its default (a face that
+ * has the option) is the face's own, not the global key's.
  */
 Item {
     id: style
@@ -25,6 +32,8 @@ Item {
 
     // the favourite (empty: the globals)
     property string faceId: ""
+    // the face's option schema (its eosOptions; empty for a face without one)
+    property var schema: []
 
     ConfigurationValue {
         id: own
@@ -39,14 +48,29 @@ Item {
     readonly property bool hasOwn: _own["show-date"] !== undefined
 
     readonly property bool showDate: _own["show-date"] !== undefined ? _own["show-date"] === true : globalDate.value === true
-    readonly property bool showSeconds: _own["show-seconds"] !== undefined ? _own["show-seconds"] === true : globalSeconds.value === true
+    readonly property var _secondsDefault: FP.secondsDefault(schema)
+    readonly property bool showSeconds: _own["show-seconds"] !== undefined ? _own["show-seconds"] === true
+                                        : (_secondsDefault !== undefined ? _secondsDefault : globalSeconds.value === true)
+    // the choices the face reads (eosStyle): every stored key, and "seconds" as it is in force
+    readonly property var values: {
+        var o = {}
+        for (var k in _own)
+            o[k] = _own[k]
+        o["seconds"] = showSeconds
+        return o
+    }
     readonly property string ambientStyle: _own["ambient-style"] !== undefined ? String(_own["ambient-style"]) : String(globalAmbient.value)
 
-    // one option changed: "show-date", "show-seconds" or "ambient-style"
+    // one option changed: "show-date", "show-seconds", "ambient-style" or the id of a schema option
     function set(name, value) {
         if (style.faceId === "")
             return
-        var o = { "show-date": showDate, "show-seconds": showSeconds, "ambient-style": ambientStyle }
+        var o = {}
+        for (var k in _own)
+            o[k] = _own[k]
+        o["show-date"] = showDate
+        o["show-seconds"] = showSeconds
+        o["ambient-style"] = ambientStyle
         o[name] = value
         own.value = JSON.stringify(o)
     }

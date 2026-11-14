@@ -37,7 +37,7 @@ bool WatchfaceReloader::usesSeconds(const QUrl &face)
     bool seconds = true;
     QFile file(path);
     if (!path.isEmpty() && file.open(QIODevice::ReadOnly)) {
-        static const QRegularExpression re(QStringLiteral("getSeconds|getMilliseconds|\"ss\"|:ss\"|'ss'"));
+        static const QRegularExpression re(QStringLiteral("getSeconds|getMilliseconds|\"ss\"|:ss\"|'ss'|eosUsesSeconds"));
         seconds = re.match(QString::fromUtf8(file.readAll())).hasMatch();
     }
     m_usesSeconds.insert(path, seconds);

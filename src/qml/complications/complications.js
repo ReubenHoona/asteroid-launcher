@@ -53,6 +53,17 @@ var LINE = { width: 188, height: 28, fontRatio: 26 / 28, marginX: 48, marginY: 1
 var LONG = { width: 280, height: 100, text: 26, line: 33.3, icon: 28, gap: 14 }
 var ARC = { radius: 170, stroke: 12, icon: 24, text: 24, edge: 3, dotRadius: 6, dotRing: 10 }
 
+// ---- distance (watchface-catalogue-23): steps x stride, as Fitbit estimates it from the profile height ----
+var STRIDE_PER_HEIGHT = 0.413   // m of stride per m of height (the walking estimate); 170 cm when the profile has none
+var DEFAULT_HEIGHT_CM = 170
+function strideMetres(heightCm) {
+    var h = heightCm > 0 ? heightCm : DEFAULT_HEIGHT_CM
+    return h / 100 * STRIDE_PER_HEIGHT
+}
+function distanceKm(steps, heightCm) { return steps * strideMetres(heightCm) / 1000 }
+// "3.2" (one decimal, as the stock distance complication shows kilometres)
+function distanceText(steps, heightCm) { return distanceKm(steps, heightCm).toFixed(1) }
+
 // ---- text helpers ----
 function pad2(n) { return (n < 10 ? "0" : "") + n }
 function upper(s) { return String(s).toUpperCase() }

@@ -80,7 +80,9 @@ Item {
     ConfigurationValue {
         id: watchFaceSource
         key: "/desktop/asteroid/watchface"
-        defaultValue: "file:///usr/share/asteroid-launcher/watchfaces/000-default-digital.qml"
+        // a fresh watch starts on Modular (stock's Utility layout, watchface-catalogue-01); a watch that
+        // chose a face keeps it
+        defaultValue: "file:///usr/share/asteroid-launcher/watchfaces/018-modular.qml"
         onValueChanged: burnInProtectionManager.resetOffsets()
     }
 
@@ -143,6 +145,22 @@ Item {
     FaceStyle {
         id: faceStyle
         faceId: favs.currentId
+        schema: faceLayer.activeSchema
+    }
+    /* W3-launcher-faces: a face that declares eosOptions (watchfaces/eos/EosFace.qml) gets the
+     * favourite's choices as its eosStyle, at once when one changes and when it loads; two
+     * favourites of one face are two instances with their own values. */
+    readonly property Item currentFace: desktop.centreItem ? desktop.centreItem.activeFace : null
+    readonly property var activeSchema: currentFace && currentFace.eosOptions !== undefined ? currentFace.eosOptions : []
+    function pushFaceStyle() {
+        var f = currentFace
+        if (f && f.eosStyle !== undefined)
+            f.eosStyle = faceStyle.values
+    }
+    onCurrentFaceChanged: pushFaceStyle()
+    Connections {
+        target: faceStyle
+        function onValuesChanged() { faceLayer.pushFaceStyle() }
     }
     Connections {
         target: faceStyle
@@ -153,8 +171,11 @@ Item {
     function applyFaceOptions() {
         if (!desktop.centreItem || !desktop.centreItem.activeFace)
             return
-        watchfaceReloader.applyFaceOptions(desktop.centreItem.activeFace, faceStyle.showDate, faceStyle.showSeconds,
-                                           displayAmbient, faceStyle.ambientStyle)
+        // a face with its own always-on look (ambientOwnStyle) is never outlined or dimmed by the old Dimmed /
+        // Outline option (ambient-aod-21): that option is the older faces'
+        var face = desktop.centreItem.activeFace
+        watchfaceReloader.applyFaceOptions(face, faceStyle.showDate, faceStyle.showSeconds,
+                                           displayAmbient, face.ambientOwnStyle === true ? "dim" : faceStyle.ambientStyle)
     }
     Connections {
         target: desktop
@@ -200,21 +221,25 @@ Item {
              * Nothing runs unless the display changes state. */
             property real ambientOpacity: 1.0
             opacity: ambientOpacity
+            // a face with its own always-on look (ambientOwnStyle: thinner time weight, its own colours,
+            // its own 300 ms change over: watchface-catalogue-25) is not dimmed as a whole; the others are 55 %
+            readonly property real dimLevel: activeFace && activeFace.ambientOwnStyle === true ? 1.0 : 0.55
+            onDimLevelChanged: if (ambientNow) { ambientFade.stop(); ambientOpacity = dimLevel }
             // (no binding: a binding would jump with displayAmbient)
-            Component.onCompleted: ambientOpacity = displayAmbient ? 0.55 : 1.0
+            Component.onCompleted: ambientOpacity = displayAmbient ? dimLevel : 1.0
             readonly property bool ambientNow: displayAmbient
             onAmbientNowChanged: {
                 ambientFade.stop()
                 if (ambientNow && Motion.animationScale > 0)
                     ambientFade.restart()
                 else
-                    ambientOpacity = ambientNow ? 0.55 : 1.0
+                    ambientOpacity = ambientNow ? dimLevel : 1.0
             }
             NumberAnimation {
                 id: ambientFade
                 target: panelRoot
                 property: "ambientOpacity"
-                to: 0.55
+                to: panelRoot.dimLevel
                 duration: 500
                 easing.type: Easing.BezierSpline
                 easing.bezierCurve: Motion.easing.standard
@@ -293,7 +318,8 @@ Item {
             Accessible.description: qsTrId("id-face-edit") + localeManager.changesObserver
             Accessible.onPressAction: desktop.openFacePicker()
             // the face on screen and its file, for the clock (checkSeconds)
-            readonly property Item activeFace: nightstandWatchfaceActive ? nightstandWatchfaceLoader.item : watchfaceLoader.item
+            readonly property Item activeFace: nightstandWatchfaceActive ? nightstandWatchfaceLoader.item
+                                                                         : (watchfaceLoader.item ? watchfaceLoader.item : fallbackLoader.item)
             readonly property url activeSource: nightstandWatchfaceActive ? nightstandMode.watchfaceSource : watchFaceSource.value
             onActiveFaceChanged: Qt.callLater(desktop.checkSeconds)
             Loader {
@@ -304,6 +330,14 @@ Item {
                 source: nightstandMode.watchfaceSource
                 onLoaded: complications.attach(item, source)
                 Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.InCirc } }
+            }
+            // watchface-catalogue-27: a face that cannot load shows SysUI's "Simple" fallback, not a black screen
+            Loader {
+                id: fallbackLoader
+                objectName: "eosFallbackFace"
+                anchors.fill: parent
+                active: watchfaceLoader.status === Loader.Error
+                sourceComponent: Component { SimpleFace { } }
             }
             Loader {
                 id: watchfaceLoader

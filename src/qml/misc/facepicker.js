@@ -133,6 +133,9 @@ function idleAction(view, centred) {
 // name, after its number, must start with one of these. The stock eight are
 // Utility, Analog Bold, Adventure, Analog Arcs, Index, Large Scale, Classic,
 // Everyday; ours are the faces of the catalogue that stand in for them.
+// W3-launcher-faces left the list as it was: the faces it adds are found by these names
+// (modular, bold-numerals, classic, large, list, stacked), and the user's rule is "do what
+// stock does" (stock's favourites include the analog Analog Bold and Classic).
 var DEFAULT_FACES = ["modular", "bold-numerals", "classic", "large", "list", "stacked",
                      "default-digital", "analog-aviator"]
 
@@ -309,6 +312,15 @@ function styleKey(id) { return id === "" ? "" : STYLE_KEY + id }
 function complicationsKey(id) { return COMPLICATIONS_KEY + id }
 
 // the style a favourite stores: a JSON object, {} when it has none yet
+// the default of a face's "seconds" option (facekit.js secondsDefault): undefined for a face without one
+function secondsDefault(schema) {
+    var s = schema || []
+    for (var i = 0; i < s.length; i++)
+        if (s[i].id === "seconds")
+            return s[i].def === true
+    return undefined
+}
+
 function parseStyle(s) {
     if (typeof s !== "string" || s === "")
         return {}

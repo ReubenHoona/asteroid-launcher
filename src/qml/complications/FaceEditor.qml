@@ -59,7 +59,10 @@ Item {
 
     readonly property var slots: sources && face ? sources.slotsOf(face) : []
     readonly property bool hasSlots: slots.length > 0
-    readonly property var pageSpecs: FE.pages(FE.LIST_SETTINGS, FE.BOOL_SETTINGS, hasSlots)
+    // a face with a schema (W3-launcher-faces: its eosOptions) has its own settings
+    readonly property var schema: face && face.eosOptions !== undefined ? face.eosOptions : null
+    readonly property var pageSpecs: schema ? FE.pages(FE.schemaLists(schema), FE.schemaBools(schema), hasSlots)
+                                            : FE.pages(FE.LIST_SETTINGS, FE.BOOL_SETTINGS, hasSlots)
     readonly property int pageCount: pageSpecs.length
     readonly property int pageIndex: pager.currentIndex
     readonly property var pageKinds: pageSpecs.map(function (p) { return p.kind })
@@ -83,6 +86,7 @@ Item {
     FaceStyle {
         id: style
         faceId: editor.faceId
+        schema: editor.schema ? editor.schema : []
     }
     readonly property var ambientLabels: [
         //% "Dimmed"
@@ -93,7 +97,7 @@ Item {
     function labelsOf(setting) {
         if (setting.id === "ambient-style")
             return ambientLabels
-        return setting.options
+        return setting.labels !== undefined ? setting.labels : setting.options
     }
     function nameOf(setting) {
         //% "Always-on"
@@ -103,11 +107,32 @@ Item {
         if (setting.id === "show-date")
             return qsTrId("id-face-show-date") + localeManager.changesObserver
         //% "Seconds"
-        if (setting.id === "show-seconds")
+        if (setting.id === "show-seconds" || setting.id === "seconds")
             return qsTrId("id-face-show-seconds") + localeManager.changesObserver
+        //% "Color"
+        if (setting.id === "color")
+            return qsTrId("id-face-opt-color") + localeManager.changesObserver
+        //% "Layout"
+        if (setting.id === "layout")
+            return qsTrId("id-face-opt-layout") + localeManager.changesObserver
+        //% "Styles"
+        if (setting.id === "styles")
+            return qsTrId("id-face-opt-styles") + localeManager.changesObserver
+        //% "Fonts"
+        if (setting.id === "fonts")
+            return qsTrId("id-face-opt-fonts") + localeManager.changesObserver
+        //% "Bold Time"
+        if (setting.id === "boldTime")
+            return qsTrId("id-face-opt-bold-time") + localeManager.changesObserver
+        //% "Photo"
+        if (setting.id === "photo")
+            return qsTrId("id-face-opt-photo") + localeManager.changesObserver
         return setting.id
     }
     function valueOf(setting) {
+        // a face with a schema knows the value in force (its choice, else its default)
+        if (schema && face && face.opt)
+            return face.opt(setting.id)
         switch (setting.id) {
         case "ambient-style": return style.ambientStyle
         case "show-date": return style.showDate
@@ -118,7 +143,7 @@ Item {
     function setOption(id, value) {
         if (style.faceId === "")
             return
-        style.set(id, value)
+        style.set(FE.storeKey(id), value)
     }
     // the bool settings of a page with their names and values (chips read this)
     function boolChips(settings) {

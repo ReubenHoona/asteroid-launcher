@@ -75,6 +75,8 @@ Item {
     readonly property string shape: slotItem && slotItem.shape ? slotItem.shape : "circle"
     readonly property color tint: slotItem && slotItem.tint !== undefined ? slotItem.tint : "white"
     readonly property string family: slotItem && slotItem.fontFamily ? slotItem.fontFamily : "Noto Sans"
+    // a line of text (the ring shape is the line above the time plus a ring round the rim)
+    readonly property bool lineShape: shape === "text" || shape === "ring"
     readonly property bool isDate: source === "date"
     // the first part of a line's text that the tint colours (the weekday), and the rest
     readonly property string rest: info.lead !== "" && info.text.indexOf(info.lead) === 0 ? info.text.slice(info.lead.length + 1)
@@ -86,10 +88,10 @@ Item {
     MouseArea {
         objectName: "eosTouch"
         anchors.fill: parent
-        anchors.leftMargin: view.shape === "text" ? -C.LINE.marginX : 0
-        anchors.rightMargin: view.shape === "text" ? -C.LINE.marginX : 0
-        anchors.topMargin: view.shape === "text" ? -C.LINE.marginY : 0
-        anchors.bottomMargin: view.shape === "text" ? -C.LINE.marginY : 0
+        anchors.leftMargin: view.lineShape ? -C.LINE.marginX : 0
+        anchors.rightMargin: view.lineShape ? -C.LINE.marginX : 0
+        anchors.topMargin: view.lineShape ? -C.LINE.marginY : 0
+        anchors.bottomMargin: view.lineShape ? -C.LINE.marginY : 0
         enabled: !view.sources.ambient
         onClicked: {
             view.sources.open(view.source, view)
@@ -395,7 +397,7 @@ Item {
     Row {
         id: line
         objectName: "eosLine"
-        visible: view.shape === "text"
+        visible: view.lineShape
         anchors.centerIn: parent
         readonly property real size: Math.round(view.height * C.LINE.fontRatio)
         spacing: Math.round(view.height * 0.2)
@@ -493,6 +495,63 @@ Item {
         }
     }
 
+    // ---- ring: a progress ring round the rim of the face (watchface-catalogue-36, Track): the slot is the
+    // line of text above the time (drawn as a text slot), the ring is drawn from the slot's ringRadius and
+    // ringStroke (px of a 384 px screen), starting at arcStart over arcSweep, centred on the face. Not in
+    // always-on (the sensor hub's frame would keep stale steps), no touch of its own. ----
+    Item {
+        id: rimRing
+        objectName: "eosRing"
+        visible: view.shape === "ring" && view.info.progress >= 0 && !view.sources.ambient
+        readonly property Item faceItem: view.slotItem && view.slotItem.parent ? view.slotItem.parent : view
+        readonly property real k: faceItem.width / 384
+        readonly property real radius: (view.slotItem && view.slotItem.ringRadius !== undefined ? view.slotItem.ringRadius : 172) * k
+        readonly property real stroke: (view.slotItem && view.slotItem.ringStroke !== undefined ? view.slotItem.ringStroke : 32) * k
+        readonly property real start: view.slotItem && view.slotItem.arcStart !== undefined ? view.slotItem.arcStart : -90
+        readonly property real sweep: view.slotItem && view.slotItem.arcSweep !== undefined ? view.slotItem.arcSweep : 360
+        readonly property real progress: Math.max(0, Math.min(1, view.info.progress))
+        readonly property color accent: view.info.color !== "" ? view.info.color : view.tint
+        // the face's middle, in this slot's coordinates
+        x: view.slotItem ? -view.slotItem.x : 0
+        y: view.slotItem ? -view.slotItem.y : 0
+        width: faceItem.width
+        height: faceItem.height
+
+        Shape {
+            objectName: "eosRingTrack"
+            anchors.fill: parent
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                fillColor: "transparent"
+                strokeColor: Qt.rgba(rimRing.accent.r, rimRing.accent.g, rimRing.accent.b, C.DISC_ALPHA)
+                strokeWidth: rimRing.stroke
+                capStyle: ShapePath.RoundCap
+                PathAngleArc {
+                    centerX: rimRing.width / 2; centerY: rimRing.height / 2
+                    radiusX: rimRing.radius; radiusY: rimRing.radius
+                    startAngle: rimRing.start; sweepAngle: rimRing.sweep
+                }
+            }
+        }
+        Shape {
+            objectName: "eosRingProgress"
+            anchors.fill: parent
+            visible: rimRing.progress > 0
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                fillColor: "transparent"
+                strokeColor: rimRing.accent
+                strokeWidth: rimRing.stroke
+                capStyle: ShapePath.RoundCap
+                PathAngleArc {
+                    centerX: rimRing.width / 2; centerY: rimRing.height / 2
+                    radiusX: rimRing.radius; radiusY: rimRing.radius
+                    startAngle: rimRing.start; sweepAngle: Math.max(0.5, rimRing.sweep * rimRing.progress)
+                }
+            }
+        }
+    }
+
     // ---- arc: on the rim, from the slot's arcStart over arcSweep (the slot is the whole face) ----
     Item {
         id: rim
@@ -507,8 +566,9 @@ Item {
         readonly property real arcSweep: view.slotItem && view.slotItem.arcSweep !== undefined ? view.slotItem.arcSweep : 50
         readonly property real progress: view.info.progress
         readonly property bool ranged: progress >= 0
-        readonly property real strokeW: C.ARC.stroke * k
-        readonly property real ringRadius: C.ARC.radius * k
+        // a face may set the slot's own radius and stroke (px of a 384 px screen)
+        readonly property real strokeW: (view.slotItem && view.slotItem.arcStroke !== undefined ? view.slotItem.arcStroke : C.ARC.stroke) * k
+        readonly property real ringRadius: (view.slotItem && view.slotItem.arcRadius !== undefined ? view.slotItem.arcRadius : C.ARC.radius) * k
         readonly property color accent: view.info.color !== "" ? view.info.color : view.tint
         // the text sits outside the ring's inside edge when there is a ring, else 3 px from the screen edge
         readonly property real textSize: C.ARC.text * k

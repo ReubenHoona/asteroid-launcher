@@ -57,8 +57,8 @@ Item {
     property var apps: null
 
     // the data sources, in the order of the face editor's list
-    readonly property var all: ["empty", "date", "daymonth", "datemonth", "weekday", "timedate", "steps", "heartrate",
-                                "battery", "phonebattery", "notifications", "health", "weather", "uv", "precipitation",
+    readonly property var all: ["empty", "date", "daymonth", "datemonth", "weekday", "timedate", "steps", "heartrate", "distance",
+                                "battery", "phonebattery", "notifications", "health", "exercise", "weather", "uv", "precipitation",
                                 "aqi", "sun", "moon", "nextevent", "alarm", "timer", "stopwatch", "media", "assistant"]
     // the sources that need a choice first (the face editor's second page)
     readonly property var parameterised: ["worldclock", "countdown", "app"]
@@ -86,6 +86,8 @@ Item {
         case "steps": return qsTrId("id-tile-steps")
         //% "Heart rate"
         case "heartrate": return qsTrId("id-tile-heart-rate")
+        //% "Distance"
+        case "distance": return qsTrId("id-comp-distance")
         //% "Battery"
         case "battery": return qsTrId("id-comp-battery")
         //% "Phone battery"
@@ -94,6 +96,8 @@ Item {
         case "notifications": return qsTrId("id-comp-notifications")
         //% "Health"
         case "health": return qsTrId("id-comp-health")
+        //% "Exercise"
+        case "exercise": return qsTrId("id-comp-exercise")
         //% "Weather"
         case "weather": return qsTrId("id-tile-weather")
         //% "UV Index"
@@ -159,22 +163,24 @@ Item {
         return "/org/asteroidos/watchface/complications/" + face
     }
 
-    // the slots of a face: its items named eosComplication, in tree order
-    function slotsOf(item, out) {
+    // the slots of a face: its items named eosComplication, in tree order. A slot that
+    // the face's layout does not have now says eosActive false (watchface-catalogue-10:
+    // the Layout option): the editor does not list it; `all` keeps it (views are made for every slot)
+    function slotsOf(item, out, all) {
         out = out || []
         if (!item)
             return out
-        if (item.objectName === "eosComplication" && item.slotId !== undefined)
+        if (item.objectName === "eosComplication" && item.slotId !== undefined && (all === true || item.eosActive !== false))
             out.push(item)
         for (var i = 0; i < item.children.length; i++)
-            slotsOf(item.children[i], out)
+            slotsOf(item.children[i], out, all)
         return out
     }
 
     // a face loaded: a view in each of its slots
     function attach(face, url) {
         var name = faceName(url)
-        var slots = slotsOf(face)
+        var slots = slotsOf(face, [], true)
         for (var i = 0; i < slots.length; i++) {
             var has = false
             for (var c = 0; c < slots[i].children.length; c++)
@@ -207,7 +213,8 @@ Item {
     function refreshDemand() {
         var d = {}
         for (var i = 0; i < views.length; i++)
-            if (views[i] && views[i].source && views[i].source !== "empty")
+            if (views[i] && views[i].source && views[i].source !== "empty"
+                    && !(views[i].slotItem && views[i].slotItem.eosActive === false))
                 d[kindOf(views[i].source)] = true
         if (JSON.stringify(d) !== JSON.stringify(demand))
             demand = d
@@ -333,6 +340,16 @@ Item {
                           title: qsTrId("id-tile-steps"), icon: "ios-walk",
                           progress: steps.known && steps.goal > 0 ? Math.min(1, steps.count / steps.goal) : -1,
                           known: steps.known })
+        case "distance": {
+            // steps x stride (the profile's height): the km towards the km of the step goal
+            var km = steps.known ? C.distanceText(steps.count, profileHeight.value) : "--"
+            return base({ type: steps.known && steps.goal > 0 ? "ranged" : "short", text: km, short: km, caption: steps.known ? "km" : "",
+                          title: name("distance"), icon: "ios-navigate",
+                          progress: steps.known && steps.goal > 0 ? Math.min(1, steps.count / steps.goal) : -1,
+                          known: steps.known })
+        }
+        case "exercise":
+            return base({ type: "icon", icon: "ios-run", title: name("exercise"), text: name("exercise") })
         case "heartrate":
             // stock's ranged heart rate (the range is not in readable code: 40-200 bpm)
             var bpm = heart.known ? String(heart.bpm) : "--"
@@ -456,6 +473,13 @@ Item {
             openRequest.value = "steps@" + Date.now()
             desktop.launchByName("asteroid-health", fromItem)
             break
+        case "distance":
+            openRequest.value = "steps@" + Date.now()
+            desktop.launchByName("asteroid-health", fromItem)
+            break
+        case "exercise":
+            desktop.launchByName("asteroid-exercise", fromItem)
+            break
         case "heartrate":
             openRequest.value = "heartrate@" + Date.now()
             desktop.launchByName("asteroid-health", fromItem)
@@ -530,7 +554,8 @@ Item {
         readonly property int count: stepsLog.lastValue
         readonly property int goal: stepsGoal.value
     }
-    HealthLog { id: stepsLog; sensor: "stepCounter"; buckets: 1; active: sources.wants("steps") }
+    HealthLog { id: stepsLog; sensor: "stepCounter"; buckets: 1; active: sources.wants("steps") || sources.wants("distance") }
+    ConfigurationValue { id: profileHeight; key: "/org/asteroidos/health/profile/height-cm"; defaultValue: 0 }
     ConfigurationValue { id: stepsGoal; key: "/org/asteroidos/ux/steps-goal"; defaultValue: 10000 }
 
     // the latest heart rate logged today
