@@ -102,8 +102,12 @@ Item {
                 lite.begin(m)
         }
         function onDisplayAmbientUpdate() { lite.update() }
-        function onDisplayAboutToBeOn() { lite.end() }
+        // only a real wake ends Lite: displayAboutToBeOn is also emitted at every AP
+        // ambient update (LipstickCompositor::setUpdatesEnabled(true, true)), just
+        // before displayAmbientUpdate. Stock CSUI AmbientLiteOverlay stays up through
+        // the whole ambient state and reverses only on the wake.
         function onDisplayOn() { lite.end() }
+        function onDisplayAmbientLeft() { lite.end() }
     }
 
     // The entry hold is over: the sensor hub draws this layout from now on and

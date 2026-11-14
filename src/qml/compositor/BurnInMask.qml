@@ -87,8 +87,9 @@ Item {
                 mask.began = true
             }
         }
+        // not displayAboutToBeOn: it is also emitted at every AP ambient update
+        // (stock BurnInProtector keeps the mask up between the minute updates)
         function onDisplayAmbientLeft() { mask.leave() }
-        function onDisplayAboutToBeOn() { mask.leave() }
         function onDisplayOn() { mask.leave() }
     }
 }
