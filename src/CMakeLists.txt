@@ -94,6 +94,8 @@ set(QML_FILES
 	qml/tiles/clocklogic.js
 	qml/tiles/tileactions.js
 	qml/tiles/EmptyTile.qml
+	qml/tiles/TileAddList.qml
+	qml/tiles/tileseditor.js
 	qml/tiles/TilesEditor.qml
 	qml/tiles/HeartRateTile.qml
 	qml/tiles/StepsTile.qml
@@ -272,6 +274,8 @@ set_source_files_properties(qml/tiles/AssistantTileEditor.qml             PROPER
 set_source_files_properties(qml/tiles/clocklogic.js                       PROPERTIES QT_RESOURCE_ALIAS tiles/clocklogic.js)
 set_source_files_properties(qml/tiles/tileactions.js                      PROPERTIES QT_RESOURCE_ALIAS tiles/tileactions.js)
 set_source_files_properties(qml/tiles/EmptyTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/EmptyTile.qml)
+set_source_files_properties(qml/tiles/TileAddList.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/TileAddList.qml)
+set_source_files_properties(qml/tiles/tileseditor.js                  PROPERTIES QT_RESOURCE_ALIAS tiles/tileseditor.js)
 set_source_files_properties(qml/tiles/TilesEditor.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/TilesEditor.qml)
 set_source_files_properties(qml/tiles/HeartRateTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/HeartRateTile.qml)
 set_source_files_properties(qml/tiles/StepsTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/StepsTile.qml)

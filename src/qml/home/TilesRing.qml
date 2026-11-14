@@ -51,22 +51,22 @@ Item {
     // the tiles: id -> the app they belong to (its icon is the page indicator's),
     // file, name and the icon of the tiles editor's list
     readonly property var tileRegistry: ({
-        //% "Heart rate"
-        "heartrate": { app: "asteroid-hrm", file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-heart-rate"), icon: "ios-heart-outline" },
-        //% "Steps"
-        "steps": { app: "asteroid-health", file: "tiles/StepsTile.qml", name: qsTrId("id-tile-steps"), icon: "ios-walk" },
-        //% "Weather"
-        "weather": { app: "asteroid-weather", file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-weather"), icon: "ios-partly-sunny-outline" },
-        //% "Agenda"
-        "agenda": { app: "asteroid-calendar", file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-agenda"), icon: "ios-calendar-outline" },
+        //% "Daily heart rate"
+        "heartrate": { app: "asteroid-hrm", file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-label-heart-rate"), icon: "ios-heart-outline" },
+        //% "Main goal"
+        "steps": { app: "asteroid-health", file: "tiles/StepsTile.qml", name: qsTrId("id-tile-label-steps"), icon: "ios-walk" },
+        //% "Forecast"
+        "weather": { app: "asteroid-weather", file: "tiles/WeatherTile.qml", name: qsTrId("id-tile-label-weather"), icon: "ios-partly-sunny-outline" },
+        //% "Next event"
+        "agenda": { app: "asteroid-calendar", file: "tiles/AgendaTile.qml", name: qsTrId("id-tile-label-agenda"), icon: "ios-calendar-outline" },
         //% "Timer"
         "timer": { app: "asteroid-timer", file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer"), icon: "ios-timer-outline" },
         //% "Media"
         "media": { app: "asteroid-music", file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media"), icon: "ios-musical-notes-outline" },
         //% "Assistant"
         "assistant": { app: "asteroid-assistant", file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant"), icon: "ios-microphone-outline" },
-        //% "Alarm"
-        "alarm": { app: "asteroid-alarmclock", file: "tiles/AlarmTile.qml", name: qsTrId("id-tile-alarm"), icon: "ios-alarm-outline" },
+        //% "Next Alarm"
+        "alarm": { app: "asteroid-alarmclock", file: "tiles/AlarmTile.qml", name: qsTrId("id-tile-label-alarm"), icon: "ios-alarm-outline" },
         //% "Battery"
         "battery": { app: "asteroid-settings", file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full" }
     })
@@ -156,6 +156,7 @@ Item {
     // the tile on screen (a long press on it) in the middle of the editor
     function openTilesEditor() {
         tilesEditor.registry = tileRegistry
+        tilesEditor.iconOf = appIcon
         tilesEditor.open(builtTiles, Math.max(0, grid.currentHorizontalPos - 1))
     }
 

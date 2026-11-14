@@ -2220,5 +2220,77 @@ Only selected people and apps can reach you.</translation>
         <source>Phone</source>
         <translation>Phone</translation>
     </message>
+    <message id="id-tiles-add-new">
+        <source>Add new</source>
+        <translation>Add new</translation>
+    </message>
+    <message id="id-tiles-add-header">
+        <source>Widgets</source>
+        <translation>Widgets</translation>
+    </message>
+    <message id="id-tiles-add-widgets">
+        <source>Add widgets</source>
+        <translation>Add widgets</translation>
+    </message>
+    <message id="id-tiles-delete">
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message id="id-tiles-move-left">
+        <source>Move widget left</source>
+        <translation>Move widget left</translation>
+    </message>
+    <message id="id-tiles-move-right">
+        <source>Move widget right</source>
+        <translation>Move widget right</translation>
+    </message>
+    <message id="id-tiles-management">
+        <source>Widget Management</source>
+        <translation>Widget Management</translation>
+    </message>
+    <message id="id-tiles-none-title">
+        <source>All widgets in use</source>
+        <translation>All widgets in use</translation>
+    </message>
+    <message id="id-tiles-none">
+        <source>All available widgets are in your carousel.</source>
+        <translation>All available widgets are in your carousel.</translation>
+    </message>
+    <message id="id-tiles-full-title">
+        <source>Carousel is full</source>
+        <translation>Carousel is full</translation>
+    </message>
+    <message id="id-tiles-full">
+        <source>To add a widget, please remove an existing one first.</source>
+        <translation>To add a widget, please remove an existing one first.</translation>
+    </message>
+    <message id="id-tiles-edit-widget">
+        <source>Edit widget</source>
+        <translation>Edit widget</translation>
+    </message>
+    <message id="id-tiles-preview-unavailable">
+        <source>Preview unavailable</source>
+        <translation>Preview unavailable</translation>
+    </message>
+    <message id="id-tile-label-steps">
+        <source>Main goal</source>
+        <translation>Main goal</translation>
+    </message>
+    <message id="id-tile-label-heart-rate">
+        <source>Daily heart rate</source>
+        <translation>Daily heart rate</translation>
+    </message>
+    <message id="id-tile-label-agenda">
+        <source>Next event</source>
+        <translation>Next event</translation>
+    </message>
+    <message id="id-tile-label-weather">
+        <source>Forecast</source>
+        <translation>Forecast</translation>
+    </message>
+    <message id="id-tile-label-alarm">
+        <source>Next Alarm</source>
+        <translation>Next Alarm</translation>
+    </message>
 </context>
 </TS>

@@ -140,10 +140,16 @@ Item {
         // what was changed, back to the face (stock SysUI pkx.java:991-1003
         // pops its whole back stack; the tile manager is an activity, the
         // crown goes Home: buttons-navigation-17)
-        if (tilesEditorItem.visible || facePickerItem.visible) {
+        // the tiles editor: the crown cancels it to the watch face, from the carousel,
+        // its dialog and the add list (tiles-framework-21, jif.java:196-209)
+        if (tilesEditorItem.visible) {
+            tilesEditorItem.crownPressed()
+            return
+        }
+        if (facePickerItem.visible) {
             // the face picker: the crown applies the centred face, or leaves the add list, as stock
-            // (face-interaction-10); false: the editor leaves it to the home screen, which closes the picker
-            if (facePickerItem.visible && !tilesEditorItem.visible && facePickerItem.crownPressed())
+            // (face-interaction-10); false: the picker leaves it to the home screen, which closes it
+            if (facePickerItem.crownPressed())
                 return
             closeOverlays()
             return
@@ -246,6 +252,8 @@ Item {
         id: tilesEditorItem
         z: 6
         onChanged: (tiles) => tilesRing.saveTiles(tiles)
+        // the crown: back on the watch face, under the shrinking editor
+        onCancelled: grid.moveTo(0, 0)
         // back on the tile in the middle of the editor, as stock
         onFinished: (index) => {
             if (index >= 0 && desktop.wearLayout)
