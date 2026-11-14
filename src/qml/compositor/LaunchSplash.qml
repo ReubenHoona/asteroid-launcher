@@ -5,76 +5,129 @@
 
 import QtQuick
 import org.asteroid.controls
+import "windowmotion.js" as WM
 
 /*
- * Launch feedback as on Wear OS: the moment an application icon is tapped,
- * a disc in the colours of the application grows out of the icon to fill
- * the screen, with the icon in the middle, and stays until the window of
- * the application is there to fade in over it. An application can take a
- * second or two to start; without this the launcher just sat there.
+ * The starting window of Wear OS (WearStartingWindowTypeAlgorithm,
+ * W2-launcher-window-motion): from the moment an application is launched
+ * until its window can be shown, the application's icon sits centred on a
+ * black window. That window is the opening window of the launch transition:
+ * it zooms 0.45 -> 1 about the middle of the screen on the launch springs
+ * (WindowTransitions.launch, WearAppLaunchMixinTransition) while the face or
+ * the app list behind it shrinks and dims; it does not grow out of the
+ * tapped icon.
  *
- * start(rect, centerColor, outerColor, iconName) with rect the icon in
- * scene coordinates (an empty rect zooms from the middle), finish() when the
- * window is shown (fades out under it), cancel() to drop it at once. A
- * launch that brings up no window gives up after 6 s.
+ *   - the icon is the application's own, as the app list draws it: a disc in
+ *     the application's colour with a white glyph. An application without a
+ *     colour shows its bare glyph, scaled 1.25 (splash_icon_no_background_scale_factor)
+ *   - it is shown at least 400 ms, and only when the display is on
+ *   - it leaves as Wear OS's TYPE_FADE_OUT does (starting_window_exit_animation_type
+ *     = 1): the icon fades out linearly in 50 ms, the whole window fades out
+ *     in 200 ms starting at 50 ms (250 ms in all)
  *
- * GPU-cheap: one rounded rectangle with a two-stop gradient and an icon,
- * moved by a Scale and a Translate transform; nothing is laid out again.
+ * start(rect, centerColor, outerColor, iconName) (rect and outerColor are
+ * not used any more), finish() when the window of the application is shown,
+ * cancel() to drop it at once. A launch that brings up no window gives up
+ * after 6 s.
+ *
+ * Nothing runs unless it is shown: the launch springs, one pause and the
+ * exit fade; no animation of its own while it waits.
  */
 Item {
     id: splash
 
-    property var easing: [0.4, 0, 0.2, 1, 1, 1]
-    readonly property bool active: visible && !fadeOut.running
-
-    property rect from: Qt.rect(0, 0, 0, 0)
-    property real progress: 0
+    // the launch springs (AppOpen), set by compositor.qml
+    property QtObject motion: null
+    // the starting window only shows with the display on
+    property bool displayOn: true
+    readonly property bool active: visible && !exitAnim.running
     visible: false
 
+    // for the tests
+    readonly property Item glyphItem: glyph
+    readonly property Item iconItem: icon
+    readonly property Item discItem: disc
+    property bool _hasDisc: false
+    property bool _finishAsked: false
+    property bool _minDone: true
+
     function start(rect, centerColor, outerColor, iconName) {
-        fadeOut.stop()
-        from = rect && rect.width > 0 ? rect
-                                       : Qt.rect(width * 0.375, height * 0.375, width * 0.25, height * 0.25)
-        disc.centerColor = centerColor ? centerColor : "#444444"
-        disc.outerColor = outerColor ? outerColor : "#111111"
+        if (!displayOn)
+            return
+        exitAnim.stop()
+        _hasDisc = !!centerColor
+        disc.color = centerColor ? centerColor : "transparent"
         icon.name = iconName ? iconName : ""
+        glyph.opacity = 1
         opacity = 1
-        progress = 0
+        _finishAsked = false
+        _minDone = false
         visible = true
-        zoom.restart()
+        if (motion)
+            motion.start()
+        minHold.restart()
         giveUp.restart()
     }
 
+    // the window of the application is shown: leave, after the minimum time
     function finish() {
-        if (!visible || fadeOut.running)
+        if (!visible || exitAnim.running)
             return
         giveUp.stop()
-        // the window fades in over the splash in 150 ms: leave after it
-        fadeOut.restart()
+        _finishAsked = true
+        if (_minDone)
+            _leave()
     }
 
     function cancel() {
         giveUp.stop()
-        zoom.stop()
-        fadeOut.stop()
+        minHold.stop()
+        exitAnim.stop()
+        _finishAsked = false
+        _minDone = true
         visible = false
+        // the launch springs land (the display went off, the assistant opened)
+        if (motion)
+            motion.settle()
     }
 
-    NumberAnimation {
-        id: zoom
-        target: splash
-        property: "progress"
-        from: 0
-        to: 1
-        duration: 250
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: splash.easing
+    function _leave() {
+        if (Motion.animationScale === 0) {
+            visible = false
+            return
+        }
+        exitAnim.restart()
     }
 
+    // at least 400 ms on screen
     SequentialAnimation {
-        id: fadeOut
-        PauseAnimation { duration: 150 }
-        NumberAnimation { target: splash; property: "opacity"; to: 0; duration: 150 }
+        id: minHold
+        PauseAnimation { duration: WM.SPLASH.minShownMs }
+        ScriptAction {
+            script: {
+                splash._minDone = true
+                if (splash._finishAsked)
+                    splash._leave()
+            }
+        }
+    }
+
+    // TYPE_FADE_OUT: the icon 50 ms, the window 200 ms after 50 ms
+    SequentialAnimation {
+        id: exitAnim
+        ParallelAnimation {
+            NumberAnimation {
+                target: glyph; property: "opacity"; to: 0
+                duration: WM.SPLASH.iconFadeMs; easing.type: Easing.Linear
+            }
+            SequentialAnimation {
+                PauseAnimation { duration: WM.SPLASH.revealDelayMs }
+                NumberAnimation {
+                    target: splash; property: "opacity"; to: 0
+                    duration: WM.SPLASH.revealMs; easing.type: Easing.Linear
+                }
+            }
+        }
         ScriptAction { script: splash.visible = false }
     }
 
@@ -90,47 +143,42 @@ Item {
         onTriggered: splash.finish()
     }
 
-    Rectangle {
-        id: disc
+    // the opening window: zooms with the launch springs, then stands still
+    Item {
+        id: plate
+        anchors.fill: parent
+        readonly property bool zooming: splash.motion ? splash.motion.inProgress : false
+        scale: zooming ? splash.motion.scale : 1
+        opacity: zooming ? splash.motion.alpha : 1
 
-        property color centerColor
-        property color outerColor
-
-        width: splash.width
-        height: splash.height
-        radius: width / 2
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: disc.outerColor }
-            GradientStop { position: 0.5; color: disc.centerColor }
-            GradientStop { position: 1.0; color: disc.outerColor }
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: WM.SPLASH.background
         }
 
-        // from the icon's rectangle to the whole screen
-        readonly property real startScale: Math.max(splash.from.width / splash.width, splash.from.height / splash.height)
-        readonly property real scaleNow: startScale + (1 - startScale) * splash.progress
-        readonly property real startDx: splash.from.x + splash.from.width / 2 - splash.width / 2
-        readonly property real startDy: splash.from.y + splash.from.height / 2 - splash.height / 2
-
-        transform: [
-            Scale {
-                origin.x: disc.width / 2
-                origin.y: disc.height / 2
-                xScale: disc.scaleNow
-                yScale: disc.scaleNow
-            },
-            Translate {
-                x: disc.startDx * (1 - splash.progress)
-                y: disc.startDy * (1 - splash.progress)
-            }
-        ]
-
-        Icon {
-            id: icon
+        Item {
+            id: glyph
             anchors.centerIn: parent
-            width: parent.width * 0.3
+            width: splash.width * WM.SPLASH.iconFraction
             height: width
-            color: "white"
-            visible: name !== ""
+
+            Rectangle {
+                id: disc
+                anchors.fill: parent
+                radius: width / 2
+                visible: splash._hasDisc
+            }
+
+            Icon {
+                id: icon
+                anchors.centerIn: parent
+                // the glyph inside the disc's safe zone (as the app list's row), or bare at 1.25
+                width: splash._hasDisc ? parent.width * 0.66 : parent.width * WM.SPLASH.bareIconScale
+                height: width
+                color: "white"
+                visible: name !== ""
+            }
         }
     }
 }

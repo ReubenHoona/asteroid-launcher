@@ -111,6 +111,9 @@ set(QML_FILES
 	qml/compositor/KeyRouter.qml
 	qml/compositor/keymap.js
 	qml/compositor/lifecycle.js
+	qml/compositor/windowmotion.js
+	qml/compositor/AppOpen.qml
+	qml/compositor/WatchfaceReveal.qml
 	qml/compositor/AppLifecycle.qml
 	qml/compositor/WindowTransitions.qml
 	qml/compositor/OverlayArbiter.qml
@@ -199,6 +202,9 @@ set_source_files_properties(qml/firstrun/Tutorial.qml                PROPERTIES 
 set_source_files_properties(qml/compositor/KeyRouter.qml                  PROPERTIES QT_RESOURCE_ALIAS compositor/KeyRouter.qml)
 set_source_files_properties(qml/compositor/keymap.js                      PROPERTIES QT_RESOURCE_ALIAS compositor/keymap.js)
 set_source_files_properties(qml/compositor/lifecycle.js                   PROPERTIES QT_RESOURCE_ALIAS compositor/lifecycle.js)
+set_source_files_properties(qml/compositor/windowmotion.js                PROPERTIES QT_RESOURCE_ALIAS compositor/windowmotion.js)
+set_source_files_properties(qml/compositor/AppOpen.qml                    PROPERTIES QT_RESOURCE_ALIAS compositor/AppOpen.qml)
+set_source_files_properties(qml/compositor/WatchfaceReveal.qml            PROPERTIES QT_RESOURCE_ALIAS compositor/WatchfaceReveal.qml)
 set_source_files_properties(qml/compositor/AppLifecycle.qml               PROPERTIES QT_RESOURCE_ALIAS compositor/AppLifecycle.qml)
 set_source_files_properties(qml/compositor/WindowTransitions.qml          PROPERTIES QT_RESOURCE_ALIAS compositor/WindowTransitions.qml)
 set_source_files_properties(qml/compositor/OverlayArbiter.qml             PROPERTIES QT_RESOURCE_ALIAS compositor/OverlayArbiter.qml)

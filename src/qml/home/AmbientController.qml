@@ -147,11 +147,20 @@ Item {
         function onWatchfaceReloadRequested() { hubOffload.invalidate() }
     }
 
+    // The face fades to its always-on look in 500 ms when the display enters
+    // the always-on screen (FaceLayer, ambient-aod-19); the layout goes to the
+    // hub, and the AP back to sleep, after that, inside mce's LPM_ON window.
+    // Later updates (the minute) wait 200 ms as before.
+    property bool entryPending: false
+    // how long the hub's layout waits after an update (for the tests)
+    readonly property int hubDelayMs: wallClockAmbientTimeout.interval
+    readonly property int entryHoldMs: Motion.animationScale > 0 ? 500 : 0
     Timer {
         id: wallClockAmbientTimeout
-        interval: 200
+        interval: 200 + (ambientController.entryPending ? ambientController.entryHoldMs : 0)
         repeat: false
         onTriggered: {
+            ambientController.entryPending = false
             // The face has drawn this minute in its ambient style: give its
             // layout to the sensor hub, which then draws the time while the
             // AP sleeps (stock display offload; kept while unchanged). Not in
@@ -215,12 +224,14 @@ Item {
             ambientMinuteTimer.stop()
             overlays.prewarmIfPending()
             grid.animateIndicators()
-            desktop.ambientDarken = 0
+            desktop.setAmbientDarken(0)
             if (Lipstick.compositor.ambientEnabled) grid.moveTo(0, 0)
         }
         function onDisplayAmbientEntered() {
             ambientController.scheduleAmbientMinute()
-            desktop.ambientDarken = 1
+            // the face takes 500 ms to change over (FaceLayer): the layout goes to the hub after it
+            ambientController.entryPending = true
+            desktop.setAmbientDarken(1)
             grid.hideOffscreen();
         }
         function onDisplayAmbientLeft() {

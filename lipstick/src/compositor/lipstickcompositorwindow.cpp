@@ -306,12 +306,13 @@ void LipstickCompositorWindow::setBackFromAnywhere(bool enabled)
 
 /* Wear OS goes back with a swipe right from anywhere at the root of an
  * application. Lipstick sees every touch of the client (it intercepts the
- * updates), so it watches for one: 12 px to the right, within 34 degrees of
+ * updates), so it watches for one: 32 px to the right (2 x the 8 dp touch slop,
+ * stock WearGestureInterceptionDetector), within 45 degrees of
  * the horizontal, while the client allows it (backFromAnywhere, sent per
  * touch). Then the client gets a touch cancel and the rest of the touch
  * drives the compositor's close animation through the backSwipe* signals. */
-static const qreal BACK_DECIDE_PX = 12.0;
-static const qreal BACK_MAX_SLOPE = 0.67;
+static const qreal BACK_DECIDE_PX = 32.0;
+static const qreal BACK_MAX_SLOPE = 1.0;
 
 /* The swipe follows one point, the one pressed last; other points in the
  * event are left alone (Qt's evdevtouch keeps a contact whose lift it

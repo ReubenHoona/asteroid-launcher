@@ -41,49 +41,24 @@ Item {
     width: window !== null ? Dims.w(100) : 0
     height: window !== null ? Dims.h(100) : 0
 
-    /* Wear OS window open (AOSP frameworks/base core/res/res
-     * anim-watch/rounded_window_enter.xml): scale 0.75 -> 1 over 250 ms and
-     * alpha 0.25 -> 1 over 150 ms about the middle of the screen, with the
-     * watch window interpolator (0.4, 0, 0.2, 1). Over the launch splash,
-     * which already zoomed out of the icon, the window only fades in. */
-    property real openScale: 1
-    readonly property var _easing: [0.4, 0, 0.2, 1, 1, 1]
+    /* Wear OS opens a window with the app launch transition
+     * (WearAppLaunchMixinTransition, W2-launcher-window-motion): scale 0.45
+     * -> 1 about the middle of the screen on a spring (damping 1.0,
+     * stiffness 260) and alpha 0 -> 1 on a quick one (stiffness 5000),
+     * while the face or the app list behind it shrinks. The springs are
+     * the compositor's (WindowTransitions.launch, AppOpen); this window
+     * follows them while `opening`, from WindowTransitions.openWindow().
+     * At rest it is at full size and opaque. */
+    property QtObject motion: null
+    property bool opening: false
+    readonly property real openScale: opening && motion ? motion.scale : 1
+    opacity: opening && motion ? motion.alpha : 1
 
     transform: Scale {
         origin.x: wrapper.width / 2
         origin.y: wrapper.height / 2
         xScale: wrapper.openScale
         yScale: wrapper.openScale
-    }
-
-    ParallelAnimation {
-        id: zoomIn
-        NumberAnimation {
-            target: wrapper; property: "openScale"; from: 0.75; to: 1; duration: 250
-            easing.type: Easing.BezierSpline; easing.bezierCurve: wrapper._easing
-        }
-        NumberAnimation {
-            target: wrapper; property: "opacity"; from: 0.25; to: 1; duration: 150
-            easing.type: Easing.BezierSpline; easing.bezierCurve: wrapper._easing
-        }
-        onFinished: wrapper.parent.ready = true
-    }
-
-    NumberAnimation {
-        id: fadeIn
-        target: wrapper; property: "opacity"; from: 0; to: 1; duration: 150
-        easing.type: Easing.BezierSpline; easing.bezierCurve: wrapper._easing
-        onFinished: wrapper.parent.ready = true
-    }
-
-    function animateIn(overSplash) {
-        zoomIn.stop()
-        fadeIn.stop()
-        openScale = 1
-        if (overSplash)
-            fadeIn.start()
-        else
-            zoomIn.start()
     }
 
     Component.onCompleted: {

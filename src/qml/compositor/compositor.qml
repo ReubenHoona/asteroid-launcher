@@ -97,6 +97,10 @@ Item {
     readonly property QtObject keys: keyRouter
     readonly property QtObject lifecycle: comp
     readonly property Item overlays: arbiter
+    readonly property Item windowMotion: transitions
+    readonly property Item applications: appLayer
+    readonly property Item homeItem: homeLayer
+    readonly property Item splash: launchSplash
 
     // The side button's Recents (KeyRouter): the home screen's Recents list,
     // when it has one (W2-launcher-app-list); true when it opened or closed
@@ -115,22 +119,40 @@ Item {
         z: homeLoader.item ? homeLoader.item.z : 0
         anchors.fill: parent
 
+        // What the window transitions do to the home screen (WindowTransitions,
+        // W2-launcher-window-motion): under an app opening it shrinks to 0.70
+        // and dims; on the way back (the crown) it grows from 0.5; behind a
+        // back swipe it grows 0.85 -> 0.93, dimmed. Cropped to a circle while
+        // it moves, as stock; at rest nothing is changed or rendered twice.
+        scale: transitions.homeScale
+        opacity: transitions.homeAlpha
+        layer.enabled: transitions.homeMoving && DeviceSpecs.hasRoundScreen
+        layer.effect: CircleMaskShader { }
+
         Loader {
             id: homeLoader
             anchors.fill: parent
             source: "MainScreen.qml"
             onLoaded: item.aboutToOpen = Qt.binding(function() { return comp ? !comp.homeActive && !appLayer.ready : false })
         }
+
+        // the black dim over it
+        Rectangle {
+            z: 1000
+            anchors.fill: parent
+            radius: width / 2
+            color: "black"
+            opacity: transitions.homeDim
+            visible: opacity > 0
+        }
     }
 
-    // The home screen darkens under an application being swiped away and
-    // brightens as it leaves (Wear OS: background scrim 0.5 * (1 - progress))
+    // Behind the layers while they move (the home screen shrinks over black)
     Rectangle {
-        z: 1
+        z: -1
         anchors.fill: parent
         color: "black"
-        opacity: 0.5 * (1 - appLayer.dismissProgress)
-        visible: appLayer.dismissing && opacity > 0
+        visible: transitions.homeMoving
     }
 
     // Launch feedback, Wear OS style: the tapped icon grows into a disc in
@@ -140,41 +162,43 @@ Item {
         id: launchSplash
         z: 1.5
         anchors.fill: parent
-        easing: root.windowEasing
+        // the opening window of the launch transition (WindowTransitions.launch)
+        motion: transitions.launch
+        // the starting window shows only with the display on
+        displayOn: comp ? !comp.displayIsOff : true
     }
 
     Item {
         property bool ready: false
         id: appLayer
-        visible: comp ? comp.appActive || dismissing : false
+        visible: comp ? comp.appActive || transitions.backActive : false
         z: 2
 
-        /* An application being swiped away follows the finger and shrinks
-         * (to 0.8: Wear OS squeezes the screen it dismisses), and fades in
-         * the last part of the way */
-        readonly property bool dismissing: transitions.gestureArea.active || root.anywhereActive
-        // a swipe right from anywhere (lipstick's backSwipe*) or from the edge
-        readonly property bool dismissHorizontal: root.anywhereActive || transitions.gestureArea.horizontal
-        readonly property real dismissValue: root.anywhereActive ? root.anywhereValue : transitions.gestureArea.value
-        readonly property real dismissProgress: !dismissing ? 0
-            : Math.min(1, root.anywhereActive ? root.anywhereValue / Math.max(1, width) : transitions.gestureArea.progress)
-        readonly property real dismissScale: (1 - 0.2 * dismissProgress) * (1 - 0.25 * root.closeProgress)
-        opacity: (dismissProgress < 0.6 ? 1 : 1 - (dismissProgress - 0.6) / 0.4) * (1 - root.closeProgress)
+        /* An application leaving (WindowTransitions): the crown shrinks it to
+         * 0.60 and fades it; a swipe right shrinks it to 0.70 with its right
+         * edge on the screen's right edge, dimmed, and (let go past the
+         * commit rule) takes its left edge off the screen. A window opening is
+         * scaled by its own wrapper (WindowWrapperBase). */
+        opacity: transitions.appAlpha
         transform: [
             Scale {
                 origin.x: appLayer.width / 2
                 origin.y: appLayer.height / 2
-                xScale: appLayer.dismissScale
-                yScale: appLayer.dismissScale
+                xScale: transitions.appScale
+                yScale: transitions.appScale
             },
-            Translate {
-                // the near edge of the shrunk window stays under the finger
-                x: appLayer.dismissing && appLayer.dismissHorizontal
-                   ? appLayer.dismissValue - (1 - appLayer.dismissScale) * appLayer.width / 2 : 0
-                y: appLayer.dismissing && !appLayer.dismissHorizontal
-                   ? appLayer.dismissValue - (1 - appLayer.dismissScale) * appLayer.height / 2 : 0
-            }
+            Translate { x: transitions.appX }
         ]
+
+        // the black dim over the application (a back swipe)
+        Rectangle {
+            z: 1000
+            anchors.fill: parent
+            radius: width / 2
+            color: "black"
+            opacity: transitions.appDim
+            visible: opacity > 0
+        }
 
         width: parent.width
         height: parent.height

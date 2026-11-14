@@ -86,6 +86,35 @@ Item {
     }
 
     /*
+     * The intro slide (app-launcher-08): each time the list opens, the top spacer
+     * goes from 0.33 to 0.13 of the height (127 -> 50 px) in 400 ms,
+     * CubicBezier(0, 0, 0, 1), so the content slides up 77 px (stock hdu.java:578-590,
+     * launcher_scroll_to_top_anim_duration_ms, ListLauncherIntroAnimationJank).
+     * Called by AppDrawer.open(), not by openNow() (back from an app). With Reduce
+     * animations on it is not shown. introShift is added to where the layout
+     * draws the header and the rows.
+     */
+    property real introShift: 0
+    function intro() {
+        introAnim.stop()
+        if (Motion.animationScale === 0) {
+            introShift = 0
+            return
+        }
+        introShift = height * (0.33 - 0.13)
+        introAnim.restart()
+    }
+    NumberAnimation {
+        id: introAnim
+        target: root
+        property: "introShift"
+        to: 0
+        duration: 400
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: [0, 0, 0, 1, 1, 1]
+    }
+
+    /*
      * Where the header and the rows are drawn (WearEdge.js layout): item 0 is the
      * header, item i + 1 the row i. Computed again with every move of the list,
      * from the natural places only.
@@ -93,9 +122,9 @@ Item {
     readonly property var layout: {
         var n = view.count
         var vh = view.height
-        var tops = [headerItem.y], hs = [headerItem.rawHeight], gaps = [0]
+        var tops = [headerItem.y + root.introShift], hs = [headerItem.rawHeight], gaps = [0]
         for (var i = 0; i < n; i++) {
-            tops.push(view.originY + i * root.pitch - view.contentY)
+            tops.push(view.originY + i * root.pitch - view.contentY + root.introShift)
             hs.push(root.itemHeight)
             gaps.push(root.itemGap)
         }

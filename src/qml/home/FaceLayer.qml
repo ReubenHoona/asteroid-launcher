@@ -146,9 +146,35 @@ Item {
     // the centre panel of the grid: the face, or the nightstand's own face
     property Component panel: Component {
         Item {
+            id: panelRoot
             property bool nightstandWatchfaceActive: nightstandMode.active && nightstandMode.useCustomWatchface && nightstandMode.watchfaceSource != watchFaceSource.value
-            // always-on: the face in grey, not full white
-            opacity: displayAmbient ? 0.55 : 1.0
+            /* always-on: the face in grey, not full white. Going to the always-on
+             * screen it changes over in 500 ms with the standard easing (the watch
+             * face's own ambient transition, WFF runtime_ambient_transition_ms;
+             * stock allows up to 1500 ms), before the hub draws the panel; the wake
+             * is at once, with no brightness ramp (ambient-aod-19, motion-transitions-32).
+             * Nothing runs unless the display changes state. */
+            property real ambientOpacity: 1.0
+            opacity: ambientOpacity
+            // (no binding: a binding would jump with displayAmbient)
+            Component.onCompleted: ambientOpacity = displayAmbient ? 0.55 : 1.0
+            readonly property bool ambientNow: displayAmbient
+            onAmbientNowChanged: {
+                ambientFade.stop()
+                if (ambientNow && Motion.animationScale > 0)
+                    ambientFade.restart()
+                else
+                    ambientOpacity = ambientNow ? 0.55 : 1.0
+            }
+            NumberAnimation {
+                id: ambientFade
+                target: panelRoot
+                property: "ambientOpacity"
+                to: 0.55
+                duration: 500
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: Motion.easing.standard
+            }
             // Wear OS: a long press on the watchface opens the face picker
             // (under the face: a face's own buttons keep their presses)
             MouseArea {

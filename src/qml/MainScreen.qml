@@ -42,6 +42,7 @@ import "pager.js" as Pager
 import "tiles"
 import "complications"
 import "home"
+import "compositor"
 
 /* The home screen. Its parts are owned modules in home/ (W1-launcher-split):
  *   FaceLayer          the watch face, its options and clock  (faceLayer)
@@ -116,7 +117,28 @@ Item {
                               : wearLayout ? 0
                               : Math.max(Math.abs(grid.normalizedHorOffset), Math.abs(grid.normalizedVerOffset)) * 0.4
     property real ambientDarken: 0.0
-    Behavior on ambientDarken { NumberAnimation { duration: 300 } }
+    /* Going to the always-on screen the wallpaper darkens together with the
+     * face's own change (500 ms, the standard easing: the watch face's
+     * ambient transition, WFF runtime_ambient_transition_ms, ambient-aod-19);
+     * the wake is at once (no brightness ramp at screen on, stock
+     * config_skipScreenOnBrightnessRamp, motion-transitions-32). */
+    function setAmbientDarken(v) {
+        ambientFade.stop()
+        if (v > ambientDarken && Motion.animationScale > 0) {
+            ambientFade.to = v
+            ambientFade.restart()
+        } else {
+            ambientDarken = v
+        }
+    }
+    NumberAnimation {
+        id: ambientFade
+        target: desktop
+        property: "ambientDarken"
+        duration: 500
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: Motion.easing.standard
+    }
 
     property var compositor: Lipstick.compositor
 
@@ -402,82 +424,108 @@ Item {
         }
     }
 
-    PanelsGrid {
-        id: grid
+    /* The face and what it stands on, drawn as one: the grid with the face
+     * and the trays, the tiles' dots, the status slot and the wallpaper. The
+     * app list opens over it (W2-launcher-window-motion): while the list zooms
+     * in the face shrinks to 0.70 under a 50 % black dim; while the list goes,
+     * the face grows from 0.5 (faceScale, faceAlpha, faceDim of AppDrawer).
+     * Cropped to a circle while it moves; at rest nothing is changed. */
+    Item {
+        id: faceStack
         anchors.fill: parent
-        // no swipe opens the app list in the Wear layout (stock: the crown
-        // does); a swipe right on the face shows the last tile, the carousel
-        // being a ring (tiles-framework-01, app-launcher-28). Only an
-        // AsteroidOS-layout launcher could set an edge target.
-        edgeTarget: null
+        scale: appDrawer.faceScale
+        opacity: appDrawer.faceAlpha
+        layer.enabled: appDrawer.faceMoving && DeviceSpecs.hasRoundScreen
+        layer.effect: CircleMaskShader { }
 
-        Component.onCompleted: trays.build()
-    }
+        PanelsGrid {
+            id: grid
+            anchors.fill: parent
+            // no swipe opens the app list in the Wear layout (stock: the crown
+            // does); a swipe right on the face shows the last tile, the carousel
+            // being a ring (tiles-framework-01, app-launcher-28). Only an
+            // AsteroidOS-layout launcher could set an edge target.
+            edgeTarget: null
 
-    TilesRing { id: tilesRing }
+            Component.onCompleted: trays.build()
+        }
 
-    HomeOverlays { id: overlays }
+        TilesRing { id: tilesRing }
 
-    StatusSlot { id: statusSlot }
 
-// Wallpaper
-    ConfigurationValue {
-        id: wallpaperSource
-        key: "/desktop/asteroid/background-filename"
-        defaultValue: "file:///usr/share/asteroid-launcher/wallpapers/full/000-flatmesh.qml"
+        StatusSlot { id: statusSlot }
 
-        function updateWallpaper() {
-            var endsWithQml = /qml$/;
-            if (endsWithQml.test(wallpaperSource.value)) {
-                wallpaperLoader.sourceComponent = undefined
-                wallpaperLoader.source = wallpaperSource.value
-            } else {
-                wallpaperLoader.source = ""
-                wallpaperLoader.sourceComponent = imageWallpaper
+    // Wallpaper
+        ConfigurationValue {
+            id: wallpaperSource
+            key: "/desktop/asteroid/background-filename"
+            defaultValue: "file:///usr/share/asteroid-launcher/wallpapers/full/000-flatmesh.qml"
+
+            function updateWallpaper() {
+                var endsWithQml = /qml$/;
+                if (endsWithQml.test(wallpaperSource.value)) {
+                    wallpaperLoader.sourceComponent = undefined
+                    wallpaperLoader.source = wallpaperSource.value
+                } else {
+                    wallpaperLoader.source = ""
+                    wallpaperLoader.sourceComponent = imageWallpaper
+                }
+            }
+
+            Component.onCompleted: updateWallpaper()
+            onValueChanged: updateWallpaper()
+        }
+
+        Item {
+            id: wallpaper
+            width: Dims.w(110)
+            height:  Dims.h(110)
+            visible: wallpaperDarkener.opacity != 1.0
+            enabled: visible
+            z: -100
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.horizontalCenter: parent.horizontalCenter
+            // Parallax: shift the wallpaper by 5% of the screen against the scroll
+            // direction. Pure bindings on the grid offset, so they always settle to
+            // the right place no matter how the position was reached. Not in the
+            // Wear layout: the trays pass over a face that stays put, and so do the
+            // tiles; the face (wallpaper with it) zooms to 0.8 behind them instead
+            // (stock lcl.java:40-91; none with Reduce animations).
+            scale: wearLayout ? Pager.faceScale(grid.faceDistance, Motion.reduceMotion) : 1
+            anchors.horizontalCenterOffset: wearLayout ? 0 : grid.normalizedHorOffset * grid.width  * (-0.05)
+            anchors.verticalCenterOffset:   wearLayout ? 0 : grid.normalizedVerOffset * grid.height * (-0.05)
+            Behavior on opacity { NumberAnimation { duration: 400 } }
+
+            Component {
+                id: imageWallpaper
+                Image { source: wallpaperSource.value }
+            }
+
+            Loader {
+                id: wallpaperLoader
+                anchors.fill: parent
             }
         }
 
-        Component.onCompleted: updateWallpaper()
-        onValueChanged: updateWallpaper()
-    }
-
-    Item {
-        id: wallpaper
-        width: Dims.w(110)
-        height:  Dims.h(110)
-        visible: wallpaperDarkener.opacity != 1.0
-        enabled: visible
-        z: -100
-        anchors.verticalCenter: parent.verticalCenter
-        anchors.horizontalCenter: parent.horizontalCenter
-        // Parallax: shift the wallpaper by 5% of the screen against the scroll
-        // direction. Pure bindings on the grid offset, so they always settle to
-        // the right place no matter how the position was reached. Not in the
-        // Wear layout: the trays pass over a face that stays put, and so do the
-        // tiles; the face (wallpaper with it) zooms to 0.8 behind them instead
-        // (stock lcl.java:40-91; none with Reduce animations).
-        scale: wearLayout ? Pager.faceScale(grid.faceDistance, Motion.reduceMotion) : 1
-        anchors.horizontalCenterOffset: wearLayout ? 0 : grid.normalizedHorOffset * grid.width  * (-0.05)
-        anchors.verticalCenterOffset:   wearLayout ? 0 : grid.normalizedVerOffset * grid.height * (-0.05)
-        Behavior on opacity { NumberAnimation { duration: 400 } }
-
-        Component {
-            id: imageWallpaper
-            Image { source: wallpaperSource.value }
+        Rectangle {
+            id: wallpaperDarkener
+            anchors.fill: wallpaper
+            z: -99
+            color: "#000000"
+            opacity: Math.max(scrollDarken, ambientDarken)
+            visible: opacity != 0.0
         }
 
-        Loader {
-            id: wallpaperLoader
+        // the black dim over the face
+        Rectangle {
+            z: 1000
             anchors.fill: parent
+            radius: width / 2
+            color: "black"
+            opacity: appDrawer.faceDim
+            visible: opacity > 0
         }
     }
 
-    Rectangle {
-        id: wallpaperDarkener
-        anchors.fill: wallpaper
-        z: -99
-        color: "#000000"
-        opacity: Math.max(scrollDarken, ambientDarken)
-        visible: opacity != 0.0
-    }
+    HomeOverlays { id: overlays }
 }

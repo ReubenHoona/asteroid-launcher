@@ -5,11 +5,15 @@
 
 import QtQuick
 import org.asteroid.controls
+import "compositor"
+import "compositor/windowmotion.js" as WM
 
 /*
  * The app list of the Wear layout, over the watchface: Wear OS opens it
- * with the crown button and it comes in as an app does (from 0.85 to full
- * size, fading in, 250 ms on the watch window curve). A swipe right from
+ * with the crown button and it comes in as an app does (the launch
+ * transition: 0.45 -> 1 on a spring, fading in, the face behind it shrinking
+ * to 0.70 under a 50 % dim) and goes as the crown in an app does (0.60, the
+ * face growing from 0.5; W2-launcher-window-motion). A swipe right from
  * anywhere follows the finger, squeezes it and closes it past half the
  * screen or on a flick; the crown button closes it too. A swipe right on
  * the watchface pulls it in under the finger (dragBy/release from the
@@ -27,6 +31,27 @@ Item {
     property real progress: 0
     readonly property bool isOpen: progress > 0
     readonly property real _dismiss: dismissArea.state === "swipe" ? dismissArea.progress : 0
+
+    /* The motion (motion-transitions-05, -06): "open" runs the app launch
+     * springs (AppOpen), "close" the way back to the face (WatchfaceReveal);
+     * "" is at rest, or a finger pulling the list in (dragBy). progress is
+     * how open the list is for the code that reads it. The face behind is
+     * drawn by MainScreen from face* (only for the app list over the face:
+     * movesFace). */
+    property string _mode: ""
+    property bool movesFace: true
+    // the springs, for the tests
+    readonly property QtObject openMotion: opening
+    readonly property QtObject closeMotion: closing
+    readonly property real _scale: _mode === "close" ? closing.topScale
+                                   : (_mode === "open" ? opening.scale : WM.LAUNCH.startScale + (1 - WM.LAUNCH.startScale) * progress)
+    readonly property real _alpha: _mode === "close" ? closing.topAlpha
+                                   : (_mode === "open" ? opening.alpha : progress)
+    readonly property real faceScale: movesFace ? (_mode === "open" ? opening.behindScale
+                                                  : (_mode === "close" ? closing.faceScale : 1)) : 1
+    readonly property real faceAlpha: movesFace && _mode === "close" ? closing.faceAlpha : 1
+    readonly property real faceDim: movesFace && _mode === "open" ? opening.behindDim : 0
+    readonly property bool faceMoving: movesFace && _mode !== ""
 
     visible: progress > 0 || _warming
     anchors.fill: parent
@@ -62,37 +87,61 @@ Item {
         textureSize: Qt.size(32, 32)
     }
 
-    readonly property var _easing: [0.4, 0, 0.2, 1, 1, 1]
+    AppOpen {
+        id: opening
+        onPChanged: if (drawer._mode === "open") drawer.progress = p
+        onFinished: if (drawer._mode === "open") { drawer._mode = ""; drawer.progress = 1 }
+    }
+
+    WatchfaceReveal {
+        id: closing
+        onAChanged: if (drawer._mode === "close") drawer.progress = 1 - a
+        onFinished: if (drawer._mode === "close") {
+            drawer._mode = ""
+            drawer.progress = 0
+            drawer.reset()
+        }
+    }
 
     function open() {
-        closeAnim.stop()
+        closing.stop()
         dismissArea.reset()
         dismissArea.state = ""
-        if (progress >= 1)
+        if (progress >= 1 && _mode === "")
             return
-        openAnim.from = progress
-        openAnim.restart()
+        // a list pulled in by a finger goes on from where it is
+        var from = progress
+        _mode = "open"
+        // the content slides up as the list opens (app-launcher-08)
+        if (launcher.item && launcher.item.intro)
+            launcher.item.intro()
+        opening.start(from)
     }
 
     function close() {
-        openAnim.stop()
+        opening.stop()
         if (progress <= 0)
             return
-        closeAnim.restart()
+        // a list closing in the middle of its opening goes on from the size it has
+        var a0 = Math.max(0, Math.min(1, (1 - _scale) / WM.HOME.topDrop))
+        _mode = "close"
+        closing.start(a0)
     }
 
     // at once, without the opening animation (back from an app)
     function openNow() {
-        openAnim.stop()
-        closeAnim.stop()
+        opening.stop()
+        closing.stop()
+        _mode = ""
         dismissArea.reset()
         dismissArea.state = ""
         progress = 1
     }
 
     function closeNow() {
-        openAnim.stop()
-        closeAnim.stop()
+        opening.stop()
+        closing.stop()
+        _mode = ""
         progress = 0
         reset()
     }
@@ -106,8 +155,9 @@ Item {
 
     // pulled in from the watchface
     function dragBy(dx) {
-        openAnim.stop()
-        closeAnim.stop()
+        opening.stop()
+        closing.stop()
+        _mode = ""
         progress = Math.max(0, Math.min(1, progress + dx / width))
     }
     function release(velocity) {
@@ -115,29 +165,6 @@ Item {
             open()
         else
             close()
-    }
-
-    NumberAnimation {
-        id: openAnim
-        target: drawer
-        property: "progress"
-        to: 1
-        duration: 250
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: drawer._easing
-    }
-
-    SequentialAnimation {
-        id: closeAnim
-        NumberAnimation {
-            target: drawer
-            property: "progress"
-            to: 0
-            duration: 200
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: drawer._easing
-        }
-        ScriptAction { script: drawer.reset() }
     }
 
     // nothing under the open list takes a touch
@@ -159,7 +186,7 @@ Item {
             state = "swipe"
         }
         onFinished: {
-            if (progress >= 0.5 || flung) {
+            if (committed) {
                 dismissAnim.restart()
             } else {
                 settleAnim.restart()
@@ -170,14 +197,15 @@ Item {
         Item {
             id: content
             anchors.fill: parent
-            // opening: 0.85 -> 1 and fading in; swiped away: follows the
-            // finger, squeezes to 0.8 and fades in the last part
-            opacity: drawer._warming ? 1 : drawer.progress * (drawer._dismiss < 0.6 ? 1 : 1 - (drawer._dismiss - 0.6) / 0.4)
+            // opening: 0.45 -> 1 and fading in (the launch springs); closing:
+            // 1 -> 0.60 and fading out; swiped away: follows the finger,
+            // squeezes to 0.8 and fades in the last part
+            opacity: drawer._warming ? 1 : drawer._alpha * (drawer._dismiss < 0.6 ? 1 : 1 - (drawer._dismiss - 0.6) / 0.4)
             transform: [
                 Scale {
                     origin.x: content.width / 2
                     origin.y: content.height / 2
-                    xScale: (0.85 + 0.15 * drawer.progress) * (1 - 0.2 * drawer._dismiss)
+                    xScale: drawer._scale * (1 - 0.2 * drawer._dismiss)
                     yScale: xScale
                 },
                 Translate { x: dismissArea.state === "swipe" ? dismissArea.value - 0.1 * drawer._dismiss * content.width : 0 }

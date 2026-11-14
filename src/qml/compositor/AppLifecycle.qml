@@ -496,9 +496,9 @@ Compositor {
             }
             topmostApplicationWindow = topmostWindow
             topmostApplicationWindow.visible = true
-            // over the launch splash the window only fades in; without
-            // one it zooms in from 75% as a Wear OS activity does
-            if (!skipAnimation) topmostApplicationWindow.animateIn(launchSplash.active)
+            // the window opens with the app launch springs (over the launch
+            // splash they are already running); WindowTransitions.openWindow
+            if (!skipAnimation) transitions.openWindow(topmostApplicationWindow, launchSplash.active)
             launchSplash.finish()
             w.window.takeFocus()
             countHidden()
@@ -575,7 +575,7 @@ Compositor {
             alertHidden = false
             w.smoothBorders = false
             w.visible = true
-            w.animateIn(false)
+            transitions.openWindow(w, false)
             window.takeFocus()
             return
         }
@@ -585,7 +585,7 @@ Compositor {
             // the application in front goes to the background (setCurrentWindow)
             appLayer.ready = false
             w.smoothBorders = Qt.binding(function() {
-                return transitions.gestureArea.active || root.anywhereActive || appLayer.opacity < 1.0 || !appLayer.ready
+                return transitions.windowMoving || !appLayer.ready
             })
             // a new application ends a swipe still settling
             transitions.endEdgeSwipe()
