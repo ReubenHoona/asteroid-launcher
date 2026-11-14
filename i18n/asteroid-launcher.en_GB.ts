@@ -1103,6 +1103,34 @@
         <source>Customize</source>
         <translation>Customize</translation>
     </message>
+    <message id="id-face-add-new">
+        <source>Add new</source>
+        <translation>Add new</translation>
+    </message>
+    <message id="id-face-add-more">
+        <source>Add watch face</source>
+        <translation>Add watch face</translation>
+    </message>
+    <message id="id-face-delete">
+        <source>Delete</source>
+        <translation>Delete</translation>
+    </message>
+    <message id="id-face-move-left">
+        <source>Move watchface position left in the list</source>
+        <translation>Move watchface position left in the list</translation>
+    </message>
+    <message id="id-face-move-right">
+        <source>Move watchface position right in the list</source>
+        <translation>Move watchface position right in the list</translation>
+    </message>
+    <message id="id-face-edit">
+        <source>Edit watch face</source>
+        <translation>Edit watch face</translation>
+    </message>
+    <message id="id-face-watchface">
+        <source>Watch face</source>
+        <translation>Watch face</translation>
+    </message>
     <message id="id-face-options">
         <source>Watch face</source>
         <translation>Watch face</translation>

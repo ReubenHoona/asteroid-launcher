@@ -59,6 +59,12 @@ set_target_properties(tst_ongoing PROPERTIES AUTOMOC ON)
 target_include_directories(tst_ongoing PRIVATE ../src ../lipstick/src/notifications)
 target_link_libraries(tst_ongoing PRIVATE Qt6::Core Qt6::DBus)
 
+# The cached previews of the face picker (src/facepreviews.h), Qt Core only
+add_executable(tst_facepreviews tst_facepreviews.cpp ../src/facepreviews.cpp ../src/facepreviews.h)
+set_target_properties(tst_facepreviews PROPERTIES AUTOMOC ON)
+target_include_directories(tst_facepreviews PRIVATE ../src)
+target_link_libraries(tst_facepreviews PRIVATE Qt6::Core)
+
 # The finger speed of a swipe (src/swipevelocity.h), plain C++
 add_executable(tst_swipevelocity tst_swipevelocity.cpp)
 target_include_directories(tst_swipevelocity PRIVATE ../src)

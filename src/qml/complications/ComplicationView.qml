@@ -91,17 +91,12 @@ Item {
         anchors.topMargin: view.shape === "text" ? -C.LINE.marginY : 0
         anchors.bottomMargin: view.shape === "text" ? -C.LINE.marginY : 0
         enabled: !view.sources.ambient
-        pressAndHoldInterval: 500
         onClicked: {
             Haptics.click()
             view.sources.open(view.source, view)
         }
-        // a long press on a complication is a long press on the face
-        onPressAndHold: {
-            Haptics.longPress()
-            if (typeof desktop !== "undefined" && desktop.openFacePicker)
-                desktop.openFacePicker()
-        }
+        // (a long press on a complication does nothing here: the face's long press, in the centre
+        // circle only, belongs to FaceLayer's TapHandler, which takes it over from this area)
     }
 
     // ---- bulb: the stock round slot ----------------------------------------

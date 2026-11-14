@@ -57,6 +57,7 @@
 #include "ongoingregistry.h"
 #include "huboffload.h"
 #include "offbody.h"
+#include "facepreviews.h"
 #include "eosquietpolicy.h"
 
 int main(int argc, char **argv)
@@ -114,6 +115,9 @@ int main(int argc, char **argv)
     // only): Settings > Display > Always-on when off wrist, Silence when off wrist
     OffBody *offBody = new OffBody(&app);
     app.engine()->rootContext()->setContextProperty("offBody", offBody);
+    // the cached previews of the watch face picker (~/.cache/asteroid-launcher/face-previews)
+    FacePreviews *facePreviews = new FacePreviews(QString(), &app);
+    app.engine()->rootContext()->setContextProperty("facePreviews", facePreviews);
 
     qmlRegisterType<AppLauncherBackground>("org.asteroid.launcher", 1, 0, "AppLauncherBackground");
     qmlRegisterType<GestureFilterArea>("org.asteroid.launcher", 1, 0, "GestureFilterArea");

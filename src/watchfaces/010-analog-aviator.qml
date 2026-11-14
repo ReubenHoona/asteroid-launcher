@@ -552,18 +552,7 @@ Item {
             source: imgPath + "second-ambient.svg"
             state: currentColor
 
-            MouseArea {
-                anchors.fill: parent
-                onDoubleClicked: {
-                    if (secondSVG.toggle === 1) {
-                        currentColor = "black";
-                        secondSVG.toggle = 0;
-                    } else {
-                        currentColor = "";
-                        secondSVG.toggle = 1;
-                    }
-                }
-            }
+            // (no double-tap here: SysUI gives faces only touch and tap, face-interaction-03)
 
             transform: Rotation {
                 id: secondRotation

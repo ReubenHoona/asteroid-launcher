@@ -85,6 +85,11 @@ Item {
         firstRunComponent.createObject(overlays)
     }
 
+    // the face picker goes without applying (an application or the assistant came up)
+    function closeFacePicker() {
+        if (facePickerItem.visible) facePickerItem.close()
+    }
+
     // the drawer, the face picker and the tiles editor go
     function closeOverlays() {
         appDrawerItem.closeNow()
@@ -114,6 +119,10 @@ Item {
         // pops its whole back stack; the tile manager is an activity, the
         // crown goes Home: buttons-navigation-17)
         if (tilesEditorItem.visible || facePickerItem.visible) {
+            // the face picker: the crown applies the centred face, or leaves the add list, as stock
+            // (face-interaction-10); false: the editor leaves it to the home screen, which closes the picker
+            if (facePickerItem.visible && !tilesEditorItem.visible && facePickerItem.crownPressed())
+                return
             closeOverlays()
             return
         }
@@ -196,9 +205,19 @@ Item {
     FacePicker {
         id: facePickerItem
         z: 6
+        store: faceLayer.favourites
         liveFace: desktop.centreItem ? desktop.centreItem.activeFace : null
         sources: complications
-        onChosen: (face) => faceLayer.chooseFace(face)
+        awake: desktop.displayAwake && !displayAmbient
+    }
+    // stock: Recents, the assistant or an application coming up closes the picker without applying
+    // (face-interaction-33, ked.java:340-347)
+    Connections {
+        target: Lipstick.compositor
+        function onHomeActiveChanged() {
+            if (!Lipstick.compositor.homeActive && facePickerItem.shown)
+                facePickerItem.closeNow()
+        }
     }
 
     TilesEditor {

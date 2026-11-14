@@ -123,10 +123,7 @@ Item {
 
                 }
 
-                MouseArea {
-                    anchors.fill: parent
-                    onPressAndHold: asteroidLogo.visible ? asteroidLogo.visible = false : asteroidLogo.visible = true
-                }
+                // (no long press here: it opens the watch face picker, face-interaction-03)
 
             }
 

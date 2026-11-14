@@ -186,6 +186,8 @@ Item {
 
     // the drawer, the face picker and the tiles editor go (HomeOverlays)
     function closeOverlays() { overlays.closeOverlays() }
+    // the face picker alone (the assistant came up, face-interaction-33)
+    function closeFacePicker() { overlays.closeFacePicker() }
 
     // the side button's Recents (the compositor's KeyRouter): opens it, or closes it when open
     function toggleRecents() { return overlays.toggleRecents() }
@@ -241,6 +243,19 @@ Item {
             return
         settingsOpenApp.value = item.filePath.split("/").pop()
         settingsOpen.value = "app_info@" + Date.now()
+        launchByName("asteroid-settings", null)
+    }
+
+    /* A long press on the face in Bedtime mode: Bedtime mode's settings page
+     * (stock BEDTIME_MODE_CUSTOMIZE_SETTINGS, face-interaction-04); the same
+     * way Settings is asked for as App info above ("bedtime@<ms>" to ui/open,
+     * handled by asteroid-settings main.qml openRequested) */
+    function openBedtimeSettings() { openSettings("bedtime") }
+
+    // Settings, on a page (wave 1 follow-up): "<page>@<ms>" to ui/open, then the program
+    function openSettings(page) {
+        closeOverlays()
+        settingsOpen.value = page + "@" + Date.now()
         launchByName("asteroid-settings", null)
     }
 

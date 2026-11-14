@@ -82,6 +82,11 @@ Item {
     readonly property bool assistantShown: arbiter.assistantShown
     function openAssistant(text, instant) { arbiter.openAssistant(text, instant === true) }
     function closeAssistant() { arbiter.closeAssistant() }
+    // stock: the assistant coming up closes the face picker without applying (face-interaction-33)
+    onAssistantShownChanged: {
+        if (assistantShown && homeLoader.item && homeLoader.item.closeFacePicker)
+            homeLoader.item.closeFacePicker()
+    }
 
     // the windows leaving (WindowTransitions)
     readonly property real closeProgress: transitions.closeProgress

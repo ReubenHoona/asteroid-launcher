@@ -16,6 +16,7 @@ set(SRC
 	ongoingregistry.cpp
 	huboffload.cpp
 	offbody.cpp
+	facepreviews.cpp
 	eoslayout.c)
 set(HEADERS
 	applauncherbackground.h
@@ -35,6 +36,7 @@ set(HEADERS
 	ongoingregistry.h
 	huboffload.h
 	offbody.h
+	facepreviews.h
 	eoshubdigits.h
 	eoslayout.h)
 
@@ -61,6 +63,12 @@ set(QML_FILES
 	qml/misc/Recents.qml
 	qml/misc/recents.js
 	qml/misc/FacePicker.qml
+	qml/misc/FaceAddList.qml
+	qml/misc/FaceFavourites.qml
+	qml/misc/FaceStyle.qml
+	qml/misc/CurvedTopText.qml
+	qml/misc/RoundMask.qml
+	qml/misc/facepicker.js
 	qml/notifications/NotificationStream.qml
 	qml/notifications/NotificationCard.qml
 	qml/notifications/NotificationText.qml
@@ -184,6 +192,12 @@ set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES 
 set_source_files_properties(qml/misc/Recents.qml                     PROPERTIES QT_RESOURCE_ALIAS Recents.qml)
 set_source_files_properties(qml/misc/recents.js                      PROPERTIES QT_RESOURCE_ALIAS recents.js)
 set_source_files_properties(qml/misc/FacePicker.qml                  PROPERTIES QT_RESOURCE_ALIAS FacePicker.qml)
+set_source_files_properties(qml/misc/FaceAddList.qml              PROPERTIES QT_RESOURCE_ALIAS FaceAddList.qml)
+set_source_files_properties(qml/misc/FaceFavourites.qml           PROPERTIES QT_RESOURCE_ALIAS FaceFavourites.qml)
+set_source_files_properties(qml/misc/FaceStyle.qml                PROPERTIES QT_RESOURCE_ALIAS FaceStyle.qml)
+set_source_files_properties(qml/misc/CurvedTopText.qml            PROPERTIES QT_RESOURCE_ALIAS CurvedTopText.qml)
+set_source_files_properties(qml/misc/RoundMask.qml                PROPERTIES QT_RESOURCE_ALIAS RoundMask.qml)
+set_source_files_properties(qml/misc/facepicker.js                PROPERTIES QT_RESOURCE_ALIAS facepicker.js)
 set_source_files_properties(qml/notifications/NotificationStream.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationStream.qml)
 set_source_files_properties(qml/notifications/NotificationCard.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationCard.qml)
 set_source_files_properties(qml/notifications/NotificationText.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationText.qml)
