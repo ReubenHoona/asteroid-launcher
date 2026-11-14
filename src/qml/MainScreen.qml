@@ -351,6 +351,7 @@ Item {
     property bool displayAwake: true
     property Item centreItem: null
     readonly property bool faceShown: centreItem !== null && centreItem.visible
+                                      && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible
     /* The face is the current panel with nothing over it: a new notification's
      * glanceable is for this, anywhere else it is a bubble; and the notification
      * list is the current panel: only a vibration (W2-launcher-heads-up) */
@@ -358,9 +359,9 @@ Item {
                                         && !splash.visible && grid.currentHorizontalPos === 0
                                         && grid.currentVerticalPos === 0 && Math.abs(grid.ringPosition) < 0.001
                                         && grid.topTrayFraction === 0 && grid.bottomTrayFraction === 0
-    readonly property bool streamCurrent: wearLayout ? (grid.currentHorizontalPos === 0 && grid.currentVerticalPos === 1)
-                                                     : (grid.currentHorizontalPos === -1 && grid.currentVerticalPos === 0)
-                                      && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible
+    readonly property bool streamCurrent: (wearLayout ? (grid.currentHorizontalPos === 0 && grid.currentVerticalPos === 1)
+                                                      : (grid.currentHorizontalPos === -1 && grid.currentVerticalPos === 0))
+                                          && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible
     readonly property bool faceSecondsShown: faceLayer.faceSecondsShown
     function checkSeconds() { faceLayer.checkSeconds() }
     function applyFaceOptions() { faceLayer.applyFaceOptions() }
