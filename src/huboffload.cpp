@@ -25,6 +25,7 @@
 #include <lipstickcompositor.h>
 
 #include "eoshubdigits.h"
+#include "eoshubflip.h"
 
 extern "C" {
 #include "eoslayout.h"
@@ -144,7 +145,7 @@ bool layerOk(QQuickItem *a)
 
 // A Text item the hub can stand in for: one line of plain text drawn with
 // the native glyph rasteriser at its implicit size, not rotated or scaled
-bool usable(QQuickItem *it, QString *why)
+bool usable(QQuickItem *it, QString *why, bool *turned)
 {
     const QString name = it->objectName();
     if (!it->inherits("QQuickText")) {
@@ -168,12 +169,15 @@ bool usable(QQuickItem *it, QString *why)
         *why = name + " has an explicit size";
         return false;
     }
+    // upright, or turned by 180 degrees with the compositor's root (the wrist flip, crown on the left:
+    // W3-launcher-wrist); a Text in any other transform cannot be drawn by the hub
     const QPointF o = it->mapToScene(QPointF(0, 0));
-    const QPointF d = it->mapToScene(QPointF(1, 1)) - o;
-    if (std::fabs(d.x() - 1) > 1e-6 || std::fabs(d.y() - 1) > 1e-6) {
+    const int turn = EosHub::sceneTurn(it->mapToScene(QPointF(1, 1)) - o);
+    if (turn == 0) {
         *why = name + " is rotated or scaled";
         return false;
     }
+    *turned = turn < 0;
     for (QQuickItem *i = it; i; i = i->parentItem()) {
         if (!i->isVisible() || i->opacity() <= 0) {
             *why = name + " is hidden";
@@ -191,12 +195,9 @@ bool usable(QQuickItem *it, QString *why)
 // QSGTextMaskMaterial::populate + textmask.vert): the pen x is floored and
 // the baseline y rounded inside the item, then the quad is snapped to the
 // pixel grid in the scene (floor(v + 0.5)). The glyph image itself is
-// rasterised at the sub-pixel phase of the item-local pen x.
-QPoint glyphOrigin(const QPointF &item, qreal penX, qreal baseY)
-{
-    return QPoint(int(std::floor(item.x() + 0.5)) + int(std::floor(penX)),
-                  int(std::floor(item.y() + 0.5)) + int(std::lround(baseY)));
-}
+// rasterised at the sub-pixel phase of the item-local pen x. Under the wrist
+// flip the same, with the quad turned: EosHub::glyphOrigin, spriteTopLeft.
+using EosHub::glyphOrigin;
 
 int phaseOf(qreal penX)
 {
@@ -213,6 +214,7 @@ struct Atlas {
     QFont font;
     int phase = 0;
     bool outline = false;
+    bool turned = false;        // the cells are turned by 180 degrees (the wrist flip)
     QChar zero = QLatin1Char('0');      // the digit set (locale digits, locale-formats-10)
     int lo = 9, hi = 0;
     bool blank = false;
@@ -273,6 +275,9 @@ bool renderAtlas(Atlas *a, qreal ascent, qreal step)
         for (int y = 0; y < ch; y++)
             memcpy(a->strip.data() + y * cw * a->cells + i * cw,
                    glyphs[i].constScanLine(ink.top() + y) + ink.left(), cw);
+    // the scene graph under a 180 degree turn draws the glyph bitmap turned in itself
+    if (a->turned)
+        EosHub::turnCells180(&a->strip, cw, a->cells, ch);
     a->ink = ink.translated(-ox, -oy);
     return true;
 }
@@ -345,9 +350,16 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         return false;
     }
     QQuickItem *items[2] = { hour, minute };
-    for (QQuickItem *it : items)
-        if (!usable(it, why))
+    bool turnedOf[2] = { false, false };
+    for (int i = 0; i < 2; i++)
+        if (!usable(items[i], why, &turnedOf[i]))
             return false;
+    if (turnedOf[0] != turnedOf[1]) {
+        *why = "the hour and the minute are turned differently";
+        return false;
+    }
+    // the wrist flip: the picture is turned 180 degrees (see eoshubflip.h)
+    const bool turned = turnedOf[0];
 
     // the texts must be what the hub will draw for this time, in the digits
     // the face writes: ASCII or the locale's (locale-formats-10: one rule for
@@ -459,6 +471,7 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
                     a.font = font;
                     a.phase = phase;
                     a.outline = outline;
+                    a.turned = turned;
                     a.zero = zero;
                     atlases << a;
                     ascents << cur.ascent;
@@ -469,7 +482,7 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
                 a.lo = qMin(a.lo, s.lo);
                 a.hi = qMax(a.hi, s.hi);
                 a.blank |= !s.empty.isEmpty();
-                sprites << Sprite{ ai, glyphOrigin(v.pos, penX, padT + l.ascent), s.digit, s.lo,
+                sprites << Sprite{ ai, glyphOrigin(v.pos, penX, padT + l.ascent, turned), s.digit, s.lo,
                                    s.hi, s.empty, rgba };
             }
         }
@@ -506,7 +519,7 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         if (m_overlay)
             break;
         const Atlas &a = atlases[s.atlas];
-        const QRect r = a.ink.translated(s.origin) & bg.rect();
+        const QRect r = QRect(EosHub::spriteTopLeft(s.origin, a.ink, turned), a.ink.size()) & bg.rect();
         for (int y = r.top(); y <= r.bottom(); y++) {
             const uchar *p = bg.constScanLine(y) + 4 * r.left();
             for (int x = 0; x < r.width(); x++, p += 4) {
@@ -539,10 +552,12 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         const Atlas &a = atlases[s.atlas];
         const QByteArray e = cellExpr(s, a).toLatin1();
         const char *expr = e.constData();
-        const QPoint at = s.origin + a.ink.topLeft();
+        const QPoint at = EosHub::spriteTopLeft(s.origin, a.ink, turned);
         // (the host test of the layouts checks these lines)
         qDebug() << "hub offload: sprite at" << at << "phase" << a.phase << "glyph origin"
                  << s.origin << "cells" << a.lo << a.hi << a.blank << expr;
+        if (turned)
+            qDebug() << "hub offload: sprite size" << a.ink.size() << "turned 180 (wrist flip)";
         if (el_sprite_text(L, a.typeface, at.x(), at.y(), s.rgba, 1, &expr, nullptr)) {
             *why = QString("digits: %1").arg(el_error(L));
             el_free(L);
@@ -616,14 +631,18 @@ bool HubOffload::update(QQuickItem *face, bool use12h, const QString &faceSource
     }
     const QPointF hp = hour->mapToScene(QPointF(0, 0));
     const QPointF mp = minute->mapToScene(QPointF(0, 0));
+    // the picture's turn is part of what the layout depends on (a change of the wrist and crown
+    // setting builds the turned one once, not at every minute)
+    const int turn = EosHub::sceneTurn(hour->mapToScene(QPointF(1, 1)) - hp);
     // what the layout depends on: the face, where the digits are (the
     // burn-in shift moves them) and how they look; the background holds
     // until m_until
-    const QString key = QStringLiteral("%1|%2|%3,%4|%5,%6|%7|%8")
+    const QString key = QStringLiteral("%1|%2|%3,%4|%5,%6|%7|%8|%9")
         .arg(faceSource).arg(use12h)
         .arg(hp.x()).arg(hp.y()).arg(mp.x()).arg(mp.y())
         .arg(effectiveOpacity(hour))
-        .arg(hour->property("style").toInt());
+        .arg(hour->property("style").toInt())
+        .arg(turn);
     if (m_loaded && key == m_key && (!m_until.isValid() || shown < m_until))
         return true;
     // a face that cannot be offloaded as it is: try again in the next hour

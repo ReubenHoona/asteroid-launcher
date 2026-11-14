@@ -138,3 +138,24 @@ add_executable(tst_healthlog tst_healthlog.cpp ../src/healthlog.cpp ../src/healt
 set_target_properties(tst_healthlog PROPERTIES AUTOMOC ON)
 target_include_directories(tst_healthlog PRIVATE ../src)
 target_link_libraries(tst_healthlog PRIVATE Qt6::Core)
+
+# The wrist and crown setting (W3-launcher-wrist): the rules (lipstick/src/eoswrist.h), WristOrientation with the sensor hub
+# call against a fake sensorfwd and the crown's event filter (src/wristorientation.*), on a private bus:
+#   dbus-run-session -- ./tst_wrist
+add_executable(tst_wrist tst_wrist.cpp ../src/wristorientation.cpp ../src/wristorientation.h)
+set_target_properties(tst_wrist PROPERTIES AUTOMOC ON)
+target_include_directories(tst_wrist PRIVATE ../src ../lipstick/src)
+target_link_libraries(tst_wrist PRIVATE Qt6::Core Qt6::Gui Qt6::DBus)
+
+# The hub's always-on layout under the wrist flip (src/eoshubflip.h): the scene transform, the turned sprite's place and cells
+add_executable(tst_hubflip tst_hubflip.cpp)
+target_include_directories(tst_hubflip PRIVATE ../src)
+target_link_libraries(tst_hubflip PRIVATE Qt6::Gui)
+
+# HubOffload::build with the digit items under the compositor's 180 degree root turn (huboffload.cpp, eoslayout.c) in a window
+# of software Qt Quick, with a stand-in for the lipstick compositor that only takes the layout (tests/stubs/lipstickcompositor.h):
+#   QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ./tst_huboffload_flip
+add_executable(tst_huboffload_flip tst_huboffload_flip.cpp ../src/huboffload.cpp ../src/huboffload.h ../src/eoslayout.c)
+set_target_properties(tst_huboffload_flip PROPERTIES AUTOMOC ON)
+target_include_directories(tst_huboffload_flip BEFORE PRIVATE stubs ../src)
+target_link_libraries(tst_huboffload_flip PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)

@@ -97,6 +97,39 @@ static void saveInTheFolder()
     CHECK(EosShot::savePath(pictures, t.addSecs(1)).endsWith(QLatin1String("wear_screenshot_20261114-093016.png")));
 }
 
+// the crown on the left turns the picture (wrist-orientation-10): the screenshot is saved the way the user reads it
+static void upright()
+{
+    QImage in(6, 4, QImage::Format_RGB32);
+    in.fill(QColor(10, 10, 10));
+    in.setPixelColor(0, 0, QColor(255, 0, 0));          // top-left
+    in.setPixelColor(5, 0, QColor(0, 255, 0));          // top-right
+    in.setPixelColor(0, 3, QColor(0, 0, 255));          // bottom-left
+    const QImage same = EosShot::upright(in, false);
+    CHECK(same == in);
+    const QImage turned = EosShot::upright(in, true);
+    CHECK(turned.size() == in.size());
+    CHECK(turned.pixelColor(5, 3) == QColor(255, 0, 0));   // a turn by 180: the corners swap diagonally
+    CHECK(turned.pixelColor(0, 3) == QColor(0, 255, 0));
+    CHECK(turned.pixelColor(5, 0) == QColor(0, 0, 255));
+    CHECK(turned.pixelColor(0, 0) == QColor(10, 10, 10));
+    CHECK(EosShot::upright(turned, true) == in);          // twice is the original: nothing is lost
+    // the round mask applies to the turned image as to any
+    const QImage big = frame(384, 384);
+    const QImage a = EosShot::roundMask(EosShot::upright(big, true));
+    CHECK(qAlpha(a.pixel(0, 0)) == 0 && qAlpha(a.pixel(383, 383)) == 0);
+    CHECK(qAlpha(a.pixel(192, 192)) == 255 && qAlpha(a.pixel(192, 2)) == 255);
+    // a stock screenshot of a turned face: the same image as the upright face's, turned back
+    QImage face(384, 384, QImage::Format_RGB32);
+    face.fill(Qt::black);
+    for (int y = 100; y < 160; y++)
+        for (int x = 60; x < 140; x++)
+            face.setPixelColor(x, y, Qt::white);        // a block upper left (the user's top left)
+    const QImage panel = EosShot::upright(face, true);  // what the panel shows when turned
+    CHECK(panel.pixelColor(380 - 100, 384 - 130) == QColor(Qt::white));
+    CHECK(EosShot::upright(panel, true).pixelColor(100, 130) == QColor(Qt::white));
+}
+
 int main(int argc, char **argv)
 {
     qputenv("QT_QPA_PLATFORM", "offscreen");
@@ -105,6 +138,7 @@ int main(int argc, char **argv)
     roundMask();
     squareOrRectangularInput();
     saveInTheFolder();
+    upright();
     if (failures)
         fprintf(stderr, "tst_screenshot: %d of %d checks failed\n", failures, checks);
     else

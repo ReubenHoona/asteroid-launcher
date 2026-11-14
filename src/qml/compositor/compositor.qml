@@ -59,7 +59,20 @@ Item {
     id: root
     width: Dims.w(100)
     height: Dims.h(100)
-    rotation: Screen.angleBetween(Screen.primaryScreen, Lipstick.compositor.screenOrientation)
+    /* The wrist and crown setting (W3-launcher-wrist, wrist-orientation-04): with the crown on the left
+     * (modes 1 and 3) the whole picture is turned by 180 degrees about the display centre (this root is
+     * the display, so the pivot is (192, 192)), as stock's freezeRotation(ROTATION_180): at once, no
+     * animation, applications, overlays and dialogs included. Touches follow the item transforms. The mode
+     * is read before the first frame (main.cpp). Lipstick's screenOrientation is not used for it: it sends
+     * a wl_output transform and makes clients turn themselves. */
+    readonly property int wristRotation: typeof wristOrientation !== "undefined" && wristOrientation ? wristOrientation.rotation : 0
+    rotation: wristRotation
+    // the crown's sign follows the flip in one place: an event filter on the window (WristOrientation)
+    function wristAttach() {
+        if (typeof wristOrientation !== "undefined" && wristOrientation && root.Window.window)
+            wristOrientation.attachWindow(root.Window.window)
+    }
+    Window.onWindowChanged: wristAttach()
 
     /* Wear OS motion. Window open and close: AOSP frameworks/base
      * core/res/res/interpolator-watch/rounded_window_interpolator.xml
@@ -70,6 +83,7 @@ Item {
     readonly property var settleEasing: [0, 0, 0.2, 1, 1, 1]
 
     Component.onCompleted: {
+        wristAttach()
         Desktop.launchSplash = launchSplash
         Desktop.compositorRoot = root
     }
@@ -263,8 +277,9 @@ Item {
         width: parent.width
         height: parent.height
 
-        // Let app deal with rotation themselves
-        rotation: Screen.angleBetween(Lipstick.compositor.screenOrientation, Screen.primaryScreen)
+        // The applications do not turn themselves: the root turns them with everything else
+        // (wristRotation); no counter-rotation here
+        rotation: 0
     }
 
     /* The charger (W2-launcher-charging): the charging screen over the home screen and the

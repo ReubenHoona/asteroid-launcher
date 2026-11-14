@@ -40,6 +40,14 @@ class QQuickItem;
  * change of the hour's digit count when that moves other items (an AM/PM
  * text anchored to the hour). lipstick then wakes the AP once to rebuild it,
  * as stock schedules an AP update at the layout's minutes_valid.
+ *
+ * With the crown on the left (the wrist flip, W3-launcher-wrist) the
+ * compositor's root is turned 180 degrees and so is the grab, which stays the
+ * background as it is. The digit items are then under a 180 degree scene
+ * transform: each sprite is the glyph bitmap turned in itself at the panel
+ * position of the turned quad (eoshubflip.h), one layout of the same kind, no
+ * new hub op. The turn is part of the layout's key: a change of the setting
+ * builds the turned layout once, at the next ambient update.
  */
 class HubOffload : public QObject
 {

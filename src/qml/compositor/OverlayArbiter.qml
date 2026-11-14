@@ -165,8 +165,8 @@ Item {
         anchors.fill: parent
         property bool ready: false
         visible: arbiter.alertShown
-        // Let the client deal with rotation itself, as appLayer
-        rotation: Screen.angleBetween(Lipstick.compositor.screenOrientation, Screen.primaryScreen)
+        // The client does not turn itself: the compositor root turns the picture (wristRotation), as appLayer
+        rotation: 0
     }
     readonly property Item alertLayer: alertHost
     readonly property bool alertShown: typeof comp !== "undefined" && comp ? comp.alertShown : false

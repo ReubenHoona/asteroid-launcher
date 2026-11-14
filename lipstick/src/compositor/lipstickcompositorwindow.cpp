@@ -23,6 +23,7 @@
 #include "lipstickcompositor.h"
 #include "lipstickcompositorwindow.h"
 #include "eosappkey.h"
+#include "eoswrist.h"
 #include <QFile>
 
 
@@ -337,8 +338,15 @@ bool LipstickCompositorWindow::trackBackSwipe(QTouchEvent *event)
     if (!followed)
         return m_backSwiping;
     const QEventPoint &p = *followed;
-    const QPointF pos = p.scenePosition();
     const qint64 now = event->timestamp();
+    // The swipe is followed in screen pixels (the window moves under the finger while it goes
+    // on, so not in the window's own coordinates), turned to the user's left and right: under the
+    // wrist flip (the compositor root turned 180 degrees, crown on the left) a swipe from the
+    // user's left to right is leftward on the panel. The sign is taken at the press, from the
+    // window's scene transform (EosWrist::axisSign), and kept for the touch (wrist-orientation-07).
+    if (p.state() == QEventPoint::State::Pressed)
+        m_backSign = EosWrist::axisSign(mapToScene(QPointF(1, 0)) - mapToScene(QPointF(0, 0)));
+    const QPointF pos(m_backSign * p.scenePosition().x(), p.scenePosition().y());
     switch (p.state()) {
     case QEventPoint::State::Pressed:
         if (m_backSwiping) {

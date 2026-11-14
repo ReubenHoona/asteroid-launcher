@@ -54,6 +54,14 @@ inline QImage roundMask(const QImage &in)
     return out;
 }
 
+/* The capture as the user sees it (wrist-orientation-10): under the wrist flip (crown on the left) the
+ * compositor's root is turned 180 degrees, so the grab of the window is upside down for the reader, and
+ * stock's screenshots are in the logical (turned) orientation. A turn by 180 loses nothing. */
+inline QImage upright(const QImage &grab, bool flipped)
+{
+    return flipped ? grab.flipped(Qt::Horizontal | Qt::Vertical) : grab;
+}
+
 /* The path to save at: `pictures` is the Pictures location. Makes the folder. */
 inline QString savePath(const QString &pictures, const QDateTime &when)
 {

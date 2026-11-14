@@ -15,7 +15,9 @@
 #include "lipstickcompositor.h"
 #include "screenshotservice.h"
 #include "eosscreenshot.h"
+#include "eoswrist.h"
 
+#include <MDConfItem>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDateTime>
@@ -60,7 +62,10 @@ QImage ScreenshotService::grabCompositor() const
         xform.rotate(rotation);
         grab = grab.transformed(xform, Qt::SmoothTransformation);
     }
-    return grab;
+    // the crown on the left turns the whole picture (compositor.qml): save it the way up the user reads it.
+    // The key is read at the capture (a screenshot is rare), so there is no state to keep in step.
+    MDConfItem wrist(EosWrist::key());
+    return EosShot::upright(grab, EosWrist::flipped(EosWrist::normalize(wrist.value(0))));
 }
 
 // mce keeps the display on for 3 s: one pause, renewed by a capture within it

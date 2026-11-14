@@ -135,7 +135,8 @@ private:
     bool m_backFromAnywhere = false;
     bool m_backTracking = false;
     bool m_backSwiping = false;
-    QPointF m_backStart;
+    QPointF m_backStart;        // in the user's x (m_backSign), the screen's y
+    int m_backSign = 1;         // -1 while the picture is flipped (EosWrist::axisSign)
     qreal m_backLastX = 0;
     qreal m_backSpeed = 0;
     qint64 m_backLastTime = 0;

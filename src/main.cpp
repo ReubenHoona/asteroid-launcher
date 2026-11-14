@@ -61,6 +61,8 @@
 #include "touchobserver.h"
 #include "facepreviews.h"
 #include "eosquietpolicy.h"
+#include "wristorientation.h"
+#include <eoswrist.h>
 
 int main(int argc, char **argv)
 {
@@ -113,6 +115,19 @@ int main(int argc, char **argv)
     // the always-on display layout for the sensor hub (stock display offload)
     HubOffload *hubOffload = new HubOffload(&app);
     app.engine()->rootContext()->setContextProperty("hubOffload", hubOffload);
+    // The wrist and crown setting (wrist-orientation-03, -14): the dconf key is read here, before
+    // the compositor scene exists, so the first frame is already turned (stock flips even its boot
+    // animation). QML turns the root by wristOrientation.rotation (compositor.qml); the crown's sign
+    // and the sensor hub follow in WristOrientation. A change drops the hub's AOD layout (it was
+    // drawn for the other orientation); the next ambient update builds the turned one, never
+    // one per minute.
+    MDConfItem *wristKey = new MDConfItem(EosWrist::key(), &app);
+    WristOrientation *wristOrientation = new WristOrientation(&app);
+    wristOrientation->setMode(wristKey->value(0), true);
+    QObject::connect(wristKey, &MDConfItem::valueChanged, wristOrientation,
+                     [wristKey, wristOrientation] { wristOrientation->setMode(wristKey->value(0)); });
+    QObject::connect(wristOrientation, &WristOrientation::flipChanged, hubOffload, &HubOffload::invalidate);
+    app.engine()->rootContext()->setContextProperty("wristOrientation", wristOrientation);
     // whether the watch is on the wrist (the hub's off-body sensor, on change
     // only): Settings > Display > Always-on when off wrist, Silence when off wrist
     OffBody *offBody = new OffBody(&app);

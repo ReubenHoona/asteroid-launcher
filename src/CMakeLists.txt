@@ -19,6 +19,7 @@ set(SRC
 	lockservice.cpp
 	touchobserver.cpp
 	facepreviews.cpp
+	wristorientation.cpp
 	eoslayout.c)
 set(HEADERS
 	applauncherbackground.h
@@ -43,6 +44,7 @@ set(HEADERS
 	touchobserver.h
 	eostouch.h
 	facepreviews.h
+	wristorientation.h
 	eoshubdigits.h
 	eoslayout.h)
 
