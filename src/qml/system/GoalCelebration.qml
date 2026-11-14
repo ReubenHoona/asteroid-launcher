@@ -128,42 +128,51 @@ Item {
             onClicked: dialog.close()
         }
 
-        // the confetti: our design, a fixed pattern, only while the screen shows
-        Item {
-            id: confettiLayer
-            objectName: "confetti"
+        // the confetti: our design, a fixed pattern, made only while the screen is up (24 pieces and their
+        // animations are not built at launcher start) and animated only while it shows
+        Loader {
+            id: confettiLoader
+            objectName: "confettiLoader"
             anchors.fill: parent
-            readonly property var pieces: Goals.confetti(24)
-            readonly property var palette: [Theme.color.primary, Theme.color.tertiary, Theme.color.secondary,
-                                            Theme.color.primaryContainer, Theme.color.tertiaryContainer]
-            Repeater {
-                model: confettiLayer.pieces
-                delegate: Rectangle {
-                    id: bit
-                    required property var modelData
-                    width: modelData.size
-                    height: Math.max(4, modelData.size / 2)
-                    radius: 2
-                    color: confettiLayer.palette[modelData.color]
-                    x: modelData.x * confettiLayer.width
-                    y: -height
-                    opacity: 0
-                    rotation: 0
-                    ParallelAnimation {
-                        id: piece
-                        running: confettiAnim.running
-                        SequentialAnimation {
-                            PauseAnimation { duration: modelData.delay }
+            active: dialog.active
+            sourceComponent: Component {
+                Item {
+                    id: confettiLayer
+                    objectName: "confetti"
+                    anchors.fill: parent
+                    readonly property var pieces: Goals.confetti(24)
+                    readonly property var palette: [Theme.color.primary, Theme.color.tertiary, Theme.color.secondary,
+                                                    Theme.color.primaryContainer, Theme.color.tertiaryContainer]
+                    Repeater {
+                        model: confettiLayer.pieces
+                        delegate: Rectangle {
+                            id: bit
+                            required property var modelData
+                            width: modelData.size
+                            height: Math.max(4, modelData.size / 2)
+                            radius: 2
+                            color: confettiLayer.palette[modelData.color]
+                            x: modelData.x * confettiLayer.width
+                            y: -height
+                            opacity: 0
+                            rotation: 0
                             ParallelAnimation {
-                                NumberAnimation { target: bit; property: "y"; from: -bit.height
-                                                  to: confettiLayer.height; duration: modelData.duration
-                                                  easing.type: Easing.InQuad }
-                                NumberAnimation { target: bit; property: "rotation"; from: 0; to: 360 * modelData.turns
-                                                  duration: modelData.duration }
+                                id: piece
+                                running: confettiAnim.running
                                 SequentialAnimation {
-                                    NumberAnimation { target: bit; property: "opacity"; to: 1; duration: 120 }
-                                    PauseAnimation { duration: Math.max(0, modelData.duration - 520) }
-                                    NumberAnimation { target: bit; property: "opacity"; to: 0; duration: 400 }
+                                    PauseAnimation { duration: modelData.delay }
+                                    ParallelAnimation {
+                                        NumberAnimation { target: bit; property: "y"; from: -bit.height
+                                                          to: confettiLayer.height; duration: modelData.duration
+                                                          easing.type: Easing.InQuad }
+                                        NumberAnimation { target: bit; property: "rotation"; from: 0; to: 360 * modelData.turns
+                                                          duration: modelData.duration }
+                                        SequentialAnimation {
+                                            NumberAnimation { target: bit; property: "opacity"; to: 1; duration: 120 }
+                                            PauseAnimation { duration: Math.max(0, modelData.duration - 520) }
+                                            NumberAnimation { target: bit; property: "opacity"; to: 0; duration: 400 }
+                                        }
+                                    }
                                 }
                             }
                         }

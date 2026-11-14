@@ -1990,5 +1990,65 @@ Only selected people and apps can reach you.</translation>
         <source>Media volume</source>
         <translation>Media volume</translation>
     </message>
+    <message id="id-live-in-hours">
+        <location filename="../src/qml/system/LiveUpdate.qml"/>
+        <source>in %1h</source>
+        <translation>in %1h</translation>
+    </message>
+    <message id="id-live-in-minutes">
+        <location filename="../src/qml/system/LiveUpdate.qml"/>
+        <source>in %1m</source>
+        <translation>in %1m</translation>
+    </message>
+    <message id="id-live-now">
+        <location filename="../src/qml/system/LiveUpdate.qml"/>
+        <source>Now</source>
+        <translation>Now</translation>
+    </message>
+    <message id="id-thermal-end-title">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>Watch was too warm</source>
+        <translation>Watch was too warm</translation>
+    </message>
+    <message id="id-thermal-end-text">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>It is now running normally</source>
+        <translation>It is now running normally</translation>
+    </message>
+    <message id="id-thermal-boot-text">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>It turned off to cool down and is now running normally</source>
+        <translation>It turned off to cool down and is now running normally</translation>
+    </message>
+    <message id="id-thermal-warm-title">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>Watch is getting warm</source>
+        <translation>Watch is getting warm</translation>
+    </message>
+    <message id="id-thermal-warm-text">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>Watch will enter cooldown mode in %1 seconds</source>
+        <translation>Watch will enter cooldown mode in %1 seconds</translation>
+    </message>
+    <message id="id-thermal-ok">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>OK</source>
+        <translation>OK</translation>
+    </message>
+    <message id="id-thermal-cooling">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>Cooling down…</source>
+        <translation>Cooling down…</translation>
+    </message>
+    <message id="id-thermal-hot-title">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>Your watch has overheated</source>
+        <translation>Your watch has overheated</translation>
+    </message>
+    <message id="id-thermal-hot-text">
+        <location filename="../src/qml/system/ThermalUi.qml"/>
+        <source>Move your watch to a cooler place</source>
+        <translation>Move your watch to a cooler place</translation>
+    </message>
 </context>
 </TS>

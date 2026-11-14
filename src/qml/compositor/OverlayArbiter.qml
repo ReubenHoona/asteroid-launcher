@@ -68,7 +68,9 @@ Item {
         bluetooth: 3.3, phoneAlarm: 3.4, alert: 3.5, call: 3.6,
         callAssistant: 3.65, errorDialog: 3.7, powerMenu: 3.8, sos: 3.9, touchLock: 5.5,
         // W3-launcher-misc: the system dialogs (under the pairing dialog, alarms and calls, except Phone away)
-        celebration: 3.05, findPhone: 3.1, volume: 3.15, smartLinks: 3.2, liveUpdate: 3.2, phoneAway: 3.35
+        celebration: 3.05, findPhone: 3.1, volume: 3.15, smartLinks: 3.2, liveUpdate: 3.2, phoneAway: 3.35,
+        // the thermal screens share the power menu's level (above the call and alarm views)
+        thermal: 3.8
     })
 
     /* The assistant over the home screen and applications (Wear OS: an
@@ -167,7 +169,7 @@ Item {
 
     // A surface of the system is up that covers the screen with something
     // that must not be covered by a mode's start screen (interruptions-16)
-    readonly property bool interrupting: callShown || phoneAlarmShown || alertShown || sosShown
+    readonly property bool interrupting: callShown || phoneAlarmShown || alertShown || sosShown || thermalBlocking
 
     // A call or a firing alarm arriving closes the assistant, which stops
     // its microphone (interruptions-08, -09); the alarm also hides the
@@ -273,8 +275,10 @@ Item {
         appFront: typeof comp !== "undefined" && comp ? comp.appActive : false
         onGoHome: if (typeof comp !== "undefined" && comp) comp.goToFace()
     }
+    // a passive observer: it never takes a touch from the apps or the home screen under it
     PointHandler {
         acceptedDevices: PointerDevice.TouchScreen | PointerDevice.Mouse
+        grabPermissions: PointerHandler.ApprovesTakeOverByAnything
         onActiveChanged: if (active) mediaAuto.userInput()
     }
     function noteInput() { mediaAuto.userInput() }
@@ -291,6 +295,21 @@ Item {
         quiet: typeof modes !== "undefined" && modes !== null
                && (modes.bedtime === true || modes.theater === true || modes.doNotDisturb === true)
     }
+
+    /* The live update full view (system-dialogs-misc-12): a tap on a live update without an app */
+    LiveUpdate {
+        id: liveUpdateView
+        z: arbiter.layers.liveUpdate
+        displayOn: typeof comp !== "undefined" && comp ? (!comp.displayIsOff && !Lipstick.compositor.displayAmbient) : true
+    }
+
+    /* The thermal screens (power-boot-warnings-12): the warning dialog, "Cooling down...", the
+     * touch-blocking overlay of the cooldown; the buttons do nothing while it blocks (keymap.js) */
+    ThermalUi {
+        id: thermalUi
+        z: arbiter.layers.thermal
+    }
+    readonly property bool thermalBlocking: thermalUi.blocking
 
     /* The volume popup (haptics-sounds-15): a change of the volume from outside; not over the quick
      * settings panel, whose own slider changed it */
@@ -313,6 +332,8 @@ Item {
     readonly property bool btDialogShown: bluetoothLoader.item ? bluetoothLoader.item.shown === true : false
     readonly property bool systemDialogShown: findPhonePage.shown || phoneAwayDialog.shown || btDialogShown
                                               || smartLinksMenu.shown || goalCelebration.shown || volumePopup.shown
+                                              || thermalUi.closableByCrown
+                                              || liveUpdateView.shown
     function closeSystemDialog() {
         // the newest first: Phone away is over everything else of the group
         if (phoneAwayDialog.shown) phoneAwayDialog.close()
@@ -320,6 +341,8 @@ Item {
         else if (smartLinksMenu.shown) smartLinksMenu.close()
         else if (goalCelebration.shown) goalCelebration.close()
         else if (volumePopup.shown) volumePopup.close()
+        else if (thermalUi.closableByCrown) thermalUi.dismissWarning()
+        else if (liveUpdateView.shown) liveUpdateView.close()
         else if (findPhonePage.shown) findPhonePage.close()
     }
 }

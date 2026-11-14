@@ -554,6 +554,9 @@ Item {
                         onTapped: function (key) {
                             if (typeof ongoingRegistry !== "undefined" && ongoingRegistry !== null)
                                 ongoingRegistry.activate(key)
+                            // an entry without an app has its full view (system-dialogs-misc-12)
+                            if (Desktop.liveUpdate)
+                                Desktop.liveUpdate.tap(key)
                         }
                         onMenuRequested: function (key, app, title) {
                             if (typeof desktop !== "undefined" && desktop && desktop.openLiveMenu)

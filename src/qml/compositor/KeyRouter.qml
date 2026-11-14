@@ -145,6 +145,7 @@ QtObject {
             errorDialogShown: arbiter.errorShown,
             errorDialogCancelable: arbiter.errorCancelable,
             systemDialogShown: arbiter.systemDialogShown,
+            thermalBlocking: arbiter.thermalBlocking,
             headsUpShown: arbiter.headsUpShown,
             chargingShown: root.chargingShown,
             holdConsumed: false

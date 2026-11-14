@@ -93,7 +93,7 @@ function crownIsSecond(counter, now) {
  * Answers: none, touchLockHint, silenceCall, claim, recents, previous,
  * screenReader. */
 function sidePress(c, count) {
-    if (c.setup)
+    if (c.setup || c.thermalBlocking === true)
         return "none"
     if (c.touchLocked)
         return "touchLockHint"
@@ -121,7 +121,7 @@ function sidePress(c, count) {
  * view too: calls-23, interruptions-08), but not during setup and not
  * over a firing alarm (interruptions-09). */
 function sideHold(c) {
-    if (c.setup || c.alertShown || c.sosShown || c.powerMenuShown)
+    if (c.setup || c.thermalBlocking === true || c.alertShown || c.sosShown || c.powerMenuShown)
         return "none"
     return "assistant"
 }
@@ -138,12 +138,17 @@ function sideHold(c) {
  *   errorDialogShown, errorDialogCancelable   an app's crash or not-responding dialog
  *   headsUpShown     a new notification's glanceable or full view is up
  *   chargingShown    the charging screen or its quality screen is up
+ *   thermalBlocking  the cooldown's touch-blocking screens are up: the buttons are intercepted (stock
+ *                    ThermalUiImpl; W3-launcher-misc)
  *   systemDialogShown  one of the launcher's system dialogs is up (Bluetooth pairing, Find my phone,
  *                    Phone away, smart links, live update, goal celebration; W3-launcher-misc)
  * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall,
  * closeHeadsUp, closeSystemDialog, closeCharging, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
+        return "none"
+    // the thermal cooldown intercepts the buttons (power-boot-warnings-12)
+    if (c.thermalBlocking === true)
         return "none"
     // touch lock filters the press: the exit view shows, nothing else runs
     if (c.touchLocked)

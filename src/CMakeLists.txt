@@ -63,6 +63,10 @@ set(QML_FILES
 	qml/system/GoalCelebration.qml
 	qml/system/goals.js
 	qml/system/VolumePopup.qml
+	qml/system/LiveUpdate.qml
+	qml/system/liveupdate.js
+	qml/system/ThermalUi.qml
+	qml/system/thermal.js
 	qml/system/smartlinks.js
 	qml/misc/desktop.js
 	qml/misc/tray.js
@@ -201,6 +205,10 @@ set_source_files_properties(qml/system/MediaAutoLaunch.qml           PROPERTIES 
 set_source_files_properties(qml/system/GoalCelebration.qml           PROPERTIES QT_RESOURCE_ALIAS system/GoalCelebration.qml)
 set_source_files_properties(qml/system/goals.js                      PROPERTIES QT_RESOURCE_ALIAS system/goals.js)
 set_source_files_properties(qml/system/VolumePopup.qml               PROPERTIES QT_RESOURCE_ALIAS system/VolumePopup.qml)
+set_source_files_properties(qml/system/LiveUpdate.qml                PROPERTIES QT_RESOURCE_ALIAS system/LiveUpdate.qml)
+set_source_files_properties(qml/system/liveupdate.js                 PROPERTIES QT_RESOURCE_ALIAS system/liveupdate.js)
+set_source_files_properties(qml/system/ThermalUi.qml                 PROPERTIES QT_RESOURCE_ALIAS system/ThermalUi.qml)
+set_source_files_properties(qml/system/thermal.js                    PROPERTIES QT_RESOURCE_ALIAS system/thermal.js)
 set_source_files_properties(qml/system/smartlinks.js                 PROPERTIES QT_RESOURCE_ALIAS system/smartlinks.js)
 set_source_files_properties(qml/misc/desktop.js                      PROPERTIES QT_RESOURCE_ALIAS desktop.js)
 set_source_files_properties(qml/misc/tray.js                         PROPERTIES QT_RESOURCE_ALIAS tray.js)

@@ -34,6 +34,7 @@ import org.asteroid.controls
 import org.nemomobile.lipstick
 import "status.js" as Status
 import "ongoing.js" as Ongoing
+import "../desktop.js" as Desktop
 import ".."
 
 /* The status slot of the home screen (split out of MainScreen.qml): what the watch
@@ -112,6 +113,9 @@ Item {
             onTapped: function (key, app) {
                 if (ongoingFeed.registry)
                     ongoingFeed.registry.activate(key)
+                // an entry without an app has its full view instead (system-dialogs-misc-12)
+                if (!app && Desktop.liveUpdate)
+                    Desktop.liveUpdate.tap(key)
             }
             onMenuRequested: function (key, app, title) { statusSlot.openLiveMenu(app, title) }
         }

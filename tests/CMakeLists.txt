@@ -109,3 +109,10 @@ target_include_directories(tst_alertpolicy PRIVATE ../lipstick/src/notifications
 # the silent service answer, plain C++
 add_executable(tst_bluetooth tst_bluetooth.cpp)
 target_include_directories(tst_bluetooth PRIVATE ../lipstick/src)
+
+# The BlueZ agent (lipstick/src/bluetoothagent.cpp) against a fake BlueZ on a private bus:
+#   dbus-run-session -- sh -c 'DBUS_SYSTEM_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS ./tst_btagent_dbus'
+add_executable(tst_btagent_dbus tst_btagent_dbus.cpp ../lipstick/src/bluetoothagent.cpp ../lipstick/src/bluetoothagent.h)
+set_target_properties(tst_btagent_dbus PROPERTIES AUTOMOC ON)
+target_include_directories(tst_btagent_dbus PRIVATE ../lipstick/src)
+target_link_libraries(tst_btagent_dbus PRIVATE Qt6::Core Qt6::DBus)

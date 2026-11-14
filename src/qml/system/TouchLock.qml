@@ -95,6 +95,9 @@ Item {
         hideTimer.stop()
         exitedAt = clock()
         store.value = false
+        // stock: a manual exit plays the water ejection tone to the speaker (haptics-sounds-20): ours,
+        // the ngfd event eos_touchlock_exit (an original low tone, the ini is a meta-eos64 draft)
+        Haptics.play("eos_touchlock_exit")
         exited()
     }
 
