@@ -29,21 +29,33 @@
 
 import QtQuick
 import Nemo.DBus
+import Nemo.Configuration
 import org.asteroid.controls
 import org.nemomobile.lipstick
 
 /*
- * Full screen view of a call ringing on the phone: a notification from the
- * phone (asteroid-btsyncd) that offers answer or reject. Answer and Decline
- * are reported to the phone like any notification action; Silence stops the
- * watch's vibration and, when the phone offers it, its ringer. The view keeps
- * the display on while the call rings and goes away when the phone removes
- * the notification (answered, declined, missed) or the user acts on it.
+ * Full screen view of a call on the phone: a notification from the phone
+ * (asteroid-btsyncd) that offers answer or reject while it rings, or only
+ * `end` once the call is answered. The screen is the stock Phone app's
+ * (CP3A, Compose, InCall.qml): ringing and in call are one layout that the
+ * Answer button turns into the End call button. Answer, Decline and End are
+ * reported to the phone like any notification action.
  *
- * A call in progress (a phone notification offering only `end`, which the
- * phone sends once a call is answered) gets the same view without ringing:
- * caller, time in call, End call and Hide. It neither turns the display on
- * nor keeps it on; Hide leaves the notification in the list.
+ * While it rings the view keeps the display on and goes away when the phone
+ * removes the notification (answered elsewhere, declined, missed) or the
+ * user acts on it. A swipe right closes the view and silences the ringer
+ * (the call keeps ringing on the phone and its card stays: calls-03); More
+ * options silences it too and offers the quick replies (calls-04), a reply
+ * declines the call with that text (btsyncd Reply).
+ *
+ * Answer keeps the view: it moves into the in-call layout at once (the
+ * status line empty) and takes over the phone's call card when it arrives
+ * (calls-05). A call in progress neither turns the display on nor keeps it
+ * on. A swipe right hides it, the call goes on (calls-08); End shows
+ * "Hanging up" until the phone removes the card, then "Call ended" for
+ * three seconds (calls-19). The crown changes the call volume with an edge
+ * arc (calls-09), More has Volume, and with the call audio on the watch
+ * Keypad and the audio route (calls-11); Mute is there then (calls-10).
  * Everything else keeps the usual notification preview.
  *
  * Lipstick restores its notifications at start. A call card older than a
@@ -53,6 +65,10 @@ import org.nemomobile.lipstick
  * for a call that ended. The card stays in the list as a plain notification
  * until asteroid-btsyncd closes it, once the phone is back without posting
  * the call again (its CallGraceMs).
+ *
+ * Battery: the timer of the time in call runs only while the display is on;
+ * the name's marquee and the answer animation stop with the display. The
+ * view never draws in ambient: the watch face stays (calls-29).
  */
 Item {
     id: incomingCall
@@ -66,9 +82,24 @@ Item {
     // Calls the user already acted on or that timed out: not shown again
     property var handled: ({})
 
+    // Answer was tapped and the phone's call card has not come yet: the
+    // in-call layout with an empty status line (calls-05)
+    property bool answering: false
+    // End was tapped and the phone has not removed the card yet (calls-07)
+    property bool hangingUp: false
+    // The phone removed the call: "Call ended" for 3 s (calls-19)
+    property bool callEnded: false
+    // The caller shown when the card is gone
+    property string lastName: ""
+    // The user hid the view while the answer was on its way: the call card
+    // that follows is not shown again
+    property bool hideNextOngoing: false
+
     readonly property var callActions: call ? phoneActions(call) : []
-    // The call shown is in progress (not ringing)
-    readonly property bool ongoing: call !== null && isOngoing(call)
+    // The phone says this call is going on
+    readonly property bool liveOngoing: call !== null && isOngoing(call)
+    // The in-call layout is shown (not ringing)
+    readonly property bool ongoing: answering || hangingUp || callEnded || liveOngoing
     // Time in call, refreshed every second while shown
     property string elapsed: ""
     // The display is off: nothing to refresh
@@ -78,7 +109,28 @@ Item {
     readonly property bool screenStaysOff: typeof modes !== "undefined" && modes !== null
                                            && (modes.bedtime || modes.theater)
 
-    visible: call !== null
+    visible: call !== null || answering || callEnded
+
+    // The waits (ms): the phone's call card after Answer, its removal after
+    // End, "Call ended" (mig.java:24-26) and the volume arc (gsc.java:148)
+    property int answerWaitMs: 15000
+    property int hangWaitMs: 10000
+    property int endedMs: 3000
+    property int arcHideMs: 2500
+    // The audio of the call (btsyncd), for the tests and the menus
+    readonly property alias audio: callAudio
+
+    // More options, Volume and Keypad are open (each swipes away alone)
+    property bool moreOpen: false
+    property bool volumeOpen: false
+    property bool keypadOpen: false
+    readonly property bool menuOpen: moreOpen || volumeOpen || keypadOpen
+
+    // Unknown caller (calls-21): stock remote_end_display_name_unknown
+    readonly property string unknownName:
+        //% "Unknown"
+        qsTrId("id-call-unknown") + localeManager.changesObserver
+    readonly property string displayName: call !== null ? nameOf(call) : lastName
 
     /* What the notification server needs to know (lipstick LipstickSettings
      * callState: 0 none, 1 ringing, 2 in progress): in a call a notification
@@ -87,14 +139,17 @@ Item {
      * call screen being shown; interruptions-07), and a phone alarm's
      * vibration stops while a call rings (interruptions-15).
      * It follows the phone's call notifications in the model, not the view:
-     * hiding the call view (Hide, the crown) leaves the call going, and the
-     * state stays 2 until the phone closes the notification or the user ends
-     * the call. Recomputed when the model or the view changes, no timer. */
+     * hiding the call view (the swipe, the crown) leaves the call going, and
+     * the state stays 2 until the phone closes the notification or the user
+     * ends the call. Recomputed when the model or the view changes, no
+     * timer. */
     property int phoneCallState: 0
     // Calls known not to be going on: ended by the user, or a restored card
     // too old to be a call
     property var ended: ({})
-    readonly property int callStateValue: (call !== null && !ongoing) ? 1 : (ongoing ? 2 : phoneCallState)
+    // (End tapped, or the call over: not in progress for it, whatever the screen says)
+    readonly property int callStateValue: (call !== null && !ongoing) ? 1
+                                          : (ongoing && !hangingUp && !callEnded ? 2 : phoneCallState)
     onCallStateValueChanged: {
         try {
             if (typeof lipstickSettings !== "undefined" && lipstickSettings !== null)
@@ -106,8 +161,28 @@ Item {
 
     // Answering a second call ends the one in progress: asks first (stock
     // dialer bc25_second_incoming_call_confirmation_title / _message;
-    // interruptions-17)
+    // interruptions-17, calls-18)
     property bool confirmingAnswer: false
+
+    // The name shown: the card's summary, else its number, else "Unknown"
+    function nameOf(n) {
+        var s = n.summary !== undefined && n.summary !== null ? String(n.summary).trim() : ""
+        if (s !== "")
+            return s
+        var b = n.body !== undefined && n.body !== null ? String(n.body).trim() : ""
+        return b !== "" ? b : unknownName
+    }
+
+    // The monogram's letter; none for a number or no name (a person glyph)
+    function monogramOf(s) {
+        var t = String(s).trim()
+        if (t === "" || t === unknownName)
+            return ""
+        var c = t.charAt(0)
+        if (/[0-9+*#()\-.\s]/.test(c))
+            return ""
+        return c.toUpperCase()
+    }
 
     function otherOngoing() {
         for (var i = 0; i < notifModel.itemCount; i++) {
@@ -135,10 +210,44 @@ Item {
     }
 
     function answer() {
+        if (call === null || answering)
+            return
         if (otherOngoing())
             confirmingAnswer = true
         else
-            act("answer")
+            doAnswer()
+    }
+
+    // The call in progress is ended and the new one answered (calls-18)
+    function confirmAnswer() {
+        confirmingAnswer = false
+        for (var i = 0; i < notifModel.itemCount; i++) {
+            var n = notifModel.get(i)
+            if (n !== call && isOngoing(n)) {
+                ended[n.replacesId] = true
+                n.actionInvoked("end")
+            }
+        }
+        doAnswer()
+    }
+
+    // Answer: the view stays and goes into the in-call layout (calls-05)
+    function doAnswer() {
+        var n = call
+        if (n === null)
+            return
+        handled[n.replacesId] = true
+        silenced = true
+        hideNextOngoing = false
+        answering = true
+        giveUp.stop()
+        answerWait.restart()
+        if (keepOn)
+            displayRelease()
+        updateCallState(null)
+        // Lipstick reports it to asteroid-btsyncd, which tells the phone;
+        // the phone's call card then replaces the ringing one
+        n.actionInvoked("answer")
     }
 
     function phoneActions(n) {
@@ -189,28 +298,50 @@ Item {
                && new Date().getTime() - n.timestamp.getTime() > restoredCallMaxMs
     }
 
+    // Not waiting for anything any more: the three one-shot waits, the
+    // answer, the hang-up and the "Call ended" word, and the menus
+    function clearEndStates() {
+        answering = false
+        hangingUp = false
+        callEnded = false
+        answerWait.stop()
+        hangTimer.stop()
+        endedTimer.stop()
+        moreOpen = false
+        volumeOpen = false
+        keypadOpen = false
+        arcShown = false
+    }
+
     function showOngoing(n) {
         giveUp.stop()
         if (keepOn)
             displayRelease()
+        clearEndStates()
         call = n
         silenced = true
         updateElapsed()
     }
 
-    function updateElapsed() {
-        if (call === null)
-            return
-        // A call the phone never said was over (the link dropped during
-        // the call): do not keep it up, ticking, for ever
-        if (ongoing && !isOngoing(call)) {
-            hide()
-            return
-        }
-        var s = Math.max(0, Math.floor((new Date().getTime() - call.timestamp.getTime()) / 1000))
+    // Seconds in call as the stock DateUtils.formatElapsedTime: "00:42",
+    // "1:02:03" (calls-07)
+    function formatElapsed(total) {
+        var s = Math.max(0, Math.floor(total))
         var h = Math.floor(s / 3600), m = Math.floor(s / 60) % 60
         s = s % 60
-        elapsed = (h > 0 ? h + ":" + (m < 10 ? "0" : "") : "") + m + ":" + (s < 10 ? "0" : "") + s
+        var mm = (m < 10 ? "0" : "") + m, ss = (s < 10 ? "0" : "") + s
+        return h > 0 ? h + ":" + mm + ":" + ss : mm + ":" + ss
+    }
+
+    function updateElapsed() {
+        if (call === null || !liveOngoing)
+            return
+        var from = call.timestamp.getTime()
+        // an outgoing call counts from the far end answering when oFono
+        // says so (calls-20); else from the dial, as before
+        if (dialedBefore && activeSince > from)
+            from = activeSince
+        elapsed = formatElapsed((new Date().getTime() - from) / 1000)
     }
 
     function hasAction(key) {
@@ -229,9 +360,11 @@ Item {
 
     function show(n) {
         if (call !== n) {
+            clearEndStates()
             call = n
             silenced = n.hints["x-nemo-feedback-suppressed"] === true
         }
+        hideNextOngoing = false
         giveUp.restart()
         if (screenStaysOff)
             return
@@ -244,6 +377,7 @@ Item {
         if (done !== null)
             handled[done.replacesId] = true
         var n = newestCall(done)
+        clearEndStates()
         call = null
         if (n !== null)
             show(n)
@@ -251,7 +385,36 @@ Item {
     }
 
     function hide() {
+        // the answer is on its way: the call card that follows stays quiet
+        if (answering)
+            hideNextOngoing = true
         next(call)
+    }
+
+    // A swipe right (calls-03, calls-08): a ringing call is silenced, the
+    // view leaves, the call and its card stay
+    function swipeAway() {
+        if (call !== null && !ongoing)
+            silence()
+        hide()
+    }
+
+    // The phone removed the call that was in progress (the far end hung
+    // up) or the one the user ended: "Call ended" for 3 s (calls-19)
+    function startEnded(item) {
+        lastName = nameOf(item)
+        answerWait.stop()
+        hangTimer.stop()
+        if (displayOff) {
+            hide()
+            return
+        }
+        handled[item.replacesId] = true
+        clearEndStates()
+        call = null
+        callEnded = true
+        endedTimer.restart()
+        updateCallState(item)
     }
 
     // A tap on the call's card in the notification stream (its content intent is
@@ -280,6 +443,11 @@ Item {
 
     onCallChanged: {
         confirmingAnswer = false
+        if (call !== null)
+            lastName = nameOf(call)
+        sawDialing = false
+        dialedBefore = false
+        activeSince = 0
         if (call === null)
             displayRelease()
     }
@@ -303,8 +471,16 @@ Item {
 
     function act(key) {
         var n = call
-        if (key === "end")
+        if (key === "end") {
+            // "Hanging up" until the phone removes the card
             ended[n.replacesId] = true
+            hangingUp = true
+            hangTimer.restart()
+            giveUp.stop()
+            updateCallState(null)
+            n.actionInvoked(key)
+            return
+        }
         next(n)
         // Lipstick reports it to asteroid-btsyncd, which tells the phone;
         // the notification then closes
@@ -320,6 +496,110 @@ Item {
                           function (error, message) { console.log("IncomingCall: Silence:", error, message) })
     }
 
+    // A quick reply: the call is declined with this text (calls-04). The
+    // phone rejects the call and sends the text (btsyncd Reply -> Gadgetbridge).
+    function reply(text) {
+        var n = call
+        if (n === null || ongoing)
+            return
+        var id = n.replacesId
+        next(n)
+        btsyncd.typedCall("Reply", [{ "type": "u", "value": id }, { "type": "s", "value": text }],
+                          function (sent) { if (!sent) console.log("IncomingCall: btsyncd did not send the reply") },
+                          function (error, message) { console.log("IncomingCall: Reply:", error, message) })
+    }
+
+    // More options: opening it silences a ringing call first
+    function openMore() {
+        if (call === null && !ongoing)
+            return
+        if (!ongoing)
+            silence()
+        moreOpen = true
+    }
+
+    /* ---- the call volume (calls-09) ---- */
+
+    // The edge arc shows while the volume changes
+    property bool arcShown: false
+    // The level when the phone does not tell: one step is 1/7 of the range
+    property real assumedLevel: 0.5
+    readonly property int assumedSteps: 7
+    readonly property real volumeLevel: callAudio.level >= 0 ? callAudio.level : assumedLevel
+    // Crown counts per step (the crown settings of qml-asteroid's RotaryInput)
+    property real crownPending: 0
+
+    function stepVolume(delta) {
+        callAudio.adjustVolume(delta)
+        if (callAudio.level < 0)
+            assumedLevel = Math.max(0, Math.min(1, assumedLevel + delta / assumedSteps))
+        arcShown = true
+        arcTimer.restart()
+    }
+
+    // The crown: one step per detent, forward (clockwise) raises the volume
+    function crown(angleDelta) {
+        var detent = Math.max(1, Number(crownDetent.value) || 24)
+        crownPending += -angleDelta / 120
+        var steps = Math.trunc(crownPending / detent)
+        if (steps === 0)
+            return
+        crownPending -= steps * detent
+        var dir = steps > 0 ? 1 : -1
+        if (crownInvert.value === true)
+            dir = -dir
+        for (var i = 0; i < Math.abs(steps); i++) {
+            stepVolume(dir)
+            Haptics.scrollTick()
+        }
+    }
+
+    /* ---- outgoing calls (calls-20): oFono's call state through btsyncd ---- */
+    property bool sawDialing: false
+    // the call was dialing or alerting before it became active
+    property bool dialedBefore: false
+    property real activeSince: 0
+
+    ConfigurationValue {
+        id: crownInvert
+        key: "/org/asteroidos/ux/rotary-invert"
+        defaultValue: false
+    }
+
+    ConfigurationValue {
+        id: crownDetent
+        key: "/org/asteroidos/ux/rotary-counts-per-detent"
+        defaultValue: 24
+    }
+
+    // The audio of the call (btsyncd), listened to while a call view is up
+    CallAudio {
+        id: callAudio
+        active: incomingCall.visible
+        onCallStateChanged: {
+            // (the `dialing` binding may not have followed yet)
+            if (callState === "dialing" || callState === "alerting")
+                incomingCall.sawDialing = true
+            else if (callState === "active" && incomingCall.sawDialing) {
+                incomingCall.dialedBefore = true
+                incomingCall.activeSince = new Date().getTime()
+                incomingCall.updateElapsed()
+            }
+        }
+    }
+
+    // What the screen says under the monogram
+    readonly property string statusText: hangingUp ?
+        //% "Hanging up"
+        qsTrId("id-call-hanging-up") + localeManager.changesObserver :
+        callEnded ?
+        //% "Call ended"
+        qsTrId("id-call-ended") + localeManager.changesObserver :
+        (liveOngoing && callAudio.dialing) ?
+        //% "Calling..."
+        qsTrId("id-call-calling") + localeManager.changesObserver :
+        liveOngoing ? elapsed : ""
+
     NotificationListModel {
         id: notifModel
         onItemAdded: function (item) {
@@ -332,13 +612,28 @@ Item {
             }
             if (isRinging(item))
                 show(item)
-            else if (isOngoing(item) && (call === null || incomingCall.ongoing))
-                showOngoing(item)
+            else if (isOngoing(item) && (call === null || incomingCall.ongoing)) {
+                if (hideNextOngoing) {
+                    hideNextOngoing = false
+                    handled[item.replacesId] = true
+                } else
+                    showOngoing(item)
+            }
             updateCallState(null)
         }
         onItemRemoved: function (item) {
-            if (item === call)
-                hide()
+            if (item === call) {
+                if (answering) {
+                    // the phone replaces the ringing card by the call's:
+                    // the view stays and waits for it
+                    lastName = nameOf(item)
+                    call = null
+                } else if (hangingUp || liveOngoing) {
+                    startEnded(item)
+                } else {
+                    hide()
+                }
+            }
             updateCallState(item)
         }
         // The launcher restarted while a call rang
@@ -373,11 +668,14 @@ Item {
         onTriggered: displayOn()
     }
 
+    // The time in call: only while the display is on and the call is
+    // really going (not while dialing, answering or hanging up)
     Timer {
         interval: 1000
         repeat: true
         triggeredOnStart: true
-        running: incomingCall.visible && incomingCall.ongoing && !incomingCall.displayOff
+        running: incomingCall.visible && incomingCall.liveOngoing && !incomingCall.displayOff
+                 && !callAudio.dialing
         onTriggered: updateElapsed()
     }
 
@@ -388,12 +686,42 @@ Item {
         onTriggered: hide()
     }
 
+    // The phone's call card did not follow the answer
+    Timer {
+        id: answerWait
+        interval: incomingCall.answerWaitMs
+        onTriggered: hide()
+    }
+
+    // The phone did not remove the card after End
+    Timer {
+        id: hangTimer
+        interval: incomingCall.hangWaitMs
+        onTriggered: hide()
+    }
+
+    // "Call ended" stays three seconds (mig.java:24-26)
+    Timer {
+        id: endedTimer
+        interval: incomingCall.endedMs
+        onTriggered: hide()
+    }
+
+    // The volume arc goes 2.5 s after the last change, as the system volume
+    // indicator (media-controls: gsc.java:140-153)
+    Timer {
+        id: arcTimer
+        interval: incomingCall.arcHideMs
+        onTriggered: incomingCall.arcShown = false
+    }
+
     // The user turned the display off (power key) while it rang: silence the
     // call as on a phone, and let the display stay off
     Connections {
         target: Lipstick.compositor
         function onDisplayOff() {
             incomingCall.displayOff = true
+            incomingCall.arcShown = false
             if (incomingCall.visible && incomingCall.keepOn) {
                 silence()
                 displayRelease()
@@ -402,216 +730,154 @@ Item {
         function onDisplayOn() { incomingCall.displayOff = false }
     }
 
-    Rectangle {
+    // The crown is the call volume while the in-call screen is up, and
+    // while the Volume screen is; the menus' lists keep it for scrolling
+    WheelHandler {
+        id: crownHandler
+        objectName: "callCrown"
+        enabled: incomingCall.visible && incomingCall.ongoing && callAudio.present && !incomingCall.confirmingAnswer
+                 && !incomingCall.keypadOpen && (incomingCall.volumeOpen || !incomingCall.moreOpen)
+        onWheel: function (event) {
+            incomingCall.crown(event.angleDelta.y)
+            event.accepted = true
+        }
+    }
+
+    BackSwipeArea {
+        id: swipe
+        objectName: "callSwipe"
         anchors.fill: parent
-        color: "#000000"
-    }
+        swipeEnabled: incomingCall.visible && !incomingCall.menuOpen && !incomingCall.confirmingAnswer
+        onFinished: {
+            var go = committed
+            reset()
+            if (go)
+                incomingCall.swipeAway()
+        }
 
-    // Nothing underneath reacts while the call is shown
-    MouseArea {
-        anchors.fill: parent
-    }
-
-    Icon {
-        id: callIcon
-        name: "ios-call"
-        color: "#FFFFFF"
-        width: Dims.w(11)
-        height: width
-        y: Dims.h(8)
-        anchors.horizontalCenter: parent.horizontalCenter
-    }
-
-    Label {
-        id: caller
-        text: call ? call.summary : ""
-        width: Dims.w(76)
-        y: Dims.h(21)
-        anchors.horizontalCenter: parent.horizontalCenter
-        horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
-        font.pixelSize: Dims.l(9)
-    }
-
-    Label {
-        id: number
-        text: call && call.body !== call.summary ? call.body : ""
-        width: Dims.w(70)
-        anchors.top: caller.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
-        font.pixelSize: Theme.type.bodySmall.pixelSize
-        opacity: 0.7
-    }
-
-    Label {
-        id: callState
-        text: (ongoing ?
-               //% "In call %1"
-               //: %1 is the time in call, e.g. 1:23
-               qsTrId("id-call-in-progress").arg(elapsed) :
-               silenced ?
-               //% "Silenced"
-               qsTrId("id-call-silenced") :
-               //% "Incoming call"
-               qsTrId("id-call-incoming")) + localeManager.changesObserver
-        anchors.top: number.bottom
-        anchors.topMargin: Dims.h(1)
-        anchors.horizontalCenter: parent.horizontalCenter
-        font.pixelSize: Theme.type.bodySmall.pixelSize
-        opacity: 0.7
-    }
-
-    component CallButton: MouseArea {
-        property alias iconName: buttonIcon.name
-        property alias text: buttonLabel.text
-        property color fill: "#444444"
-        width: Dims.w(25)
-        height: width + buttonLabel.height + Dims.h(1)
-
-        Rectangle {
-            id: circle
+        Item {
+            id: face
             width: parent.width
-            height: width
-            radius: width / 2
-            color: parent.fill
-            opacity: parent.pressed ? 0.7 : 1.0
-        }
+            height: parent.height
+            x: swipe.value
 
-        Icon {
-            id: buttonIcon
-            anchors.centerIn: circle
-            width: circle.width * 0.5
-            height: width
-            color: "#FFFFFF"
-        }
+            Rectangle {
+                anchors.fill: parent
+                color: "#000000"
+            }
 
-        Label {
-            id: buttonLabel
-            anchors.top: circle.bottom
-            anchors.topMargin: Dims.h(1)
-            anchors.horizontalCenter: circle.horizontalCenter
-            font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
-        }
-    }
+            // Nothing underneath reacts while the call is shown
+            MouseArea {
+                anchors.fill: parent
+            }
 
-    Row {
-        y: Dims.h(50)
-        anchors.horizontalCenter: parent.horizontalCenter
-        spacing: Dims.w(14)
+            InCall {
+                id: screen
+                anchors.fill: parent
+                name: incomingCall.displayName
+                initial: incomingCall.monogramOf(incomingCall.displayName)
+                inCall: incomingCall.ongoing
+                animate: !incomingCall.displayOff
+                marqueePaused: incomingCall.displayOff
+                status: incomingCall.statusText
+                buttonsEnabled: !incomingCall.hangingUp && !incomingCall.callEnded
+                canDecline: incomingCall.ongoing || incomingCall.hasAction("reject")
+                canAnswer: incomingCall.hasAction("answer")
+                canEnd: true
+                // More: the quick replies need the phone to offer `reply` on
+                // the call; in a call it has Volume (btsyncd's call audio)
+                canMore: incomingCall.ongoing ? callAudio.present : incomingCall.hasAction("reply")
+                canMute: callAudio.available
+                muted: callAudio.muted
+                // while the answer is on its way End and Decline do nothing
+                onDeclineClicked: if (!incomingCall.answering) incomingCall.act("reject")
+                onAnswerClicked: incomingCall.answer()
+                onEndClicked: if (!incomingCall.answering && incomingCall.liveOngoing) incomingCall.act("end")
+                onMoreClicked: incomingCall.openMore()
+                onMuteToggled: callAudio.setMuted(!callAudio.muted)
+            }
 
-        CallButton {
-            iconName: "ios-close"
-            fill: "#C62828"
-            //% "Decline"
-            text: qsTrId("id-call-decline") + localeManager.changesObserver
-            visible: incomingCall.hasAction("reject")
-            onClicked: incomingCall.act("reject")
-        }
-
-        CallButton {
-            iconName: "ios-call"
-            fill: "#2E7D32"
-            //% "Answer"
-            text: qsTrId("id-call-answer") + localeManager.changesObserver
-            visible: incomingCall.hasAction("answer")
-            onClicked: incomingCall.answer()
-        }
-
-        CallButton {
-            iconName: "ios-call"
-            fill: "#C62828"
-            //% "End call"
-            text: qsTrId("id-call-end") + localeManager.changesObserver
-            visible: incomingCall.ongoing && incomingCall.hasAction("end")
-            onClicked: incomingCall.act("end")
+            CallVolumeArc {
+                objectName: "crownArc"
+                level: incomingCall.volumeLevel
+                shown: incomingCall.arcShown && !incomingCall.volumeOpen
+            }
         }
     }
 
-    NotificationButton {
-        //% "Silence"
-        text: qsTrId("id-call-silence") + localeManager.changesObserver
-        width: Dims.w(40)
-        height: Dims.h(12)
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: Dims.h(6)
-        visible: !incomingCall.silenced
-        onClicked: incomingCall.silence()
+    Component {
+        id: incomingMoreComponent
+        IncomingCallMore {
+            onReplyChosen: function (text) { incomingCall.reply(text) }
+            onCloseRequested: incomingCall.moreOpen = false
+        }
     }
 
-    NotificationButton {
-        //% "Hide"
-        text: qsTrId("id-call-hide") + localeManager.changesObserver
-        width: Dims.w(40)
-        height: Dims.h(12)
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: Dims.h(6)
-        visible: incomingCall.ongoing
-        onClicked: incomingCall.hide()
+    Component {
+        id: inCallMoreComponent
+        InCallMore {
+            audio: callAudio
+            onVolumeRequested: incomingCall.volumeOpen = true
+            onKeypadRequested: incomingCall.keypadOpen = true
+            onCloseRequested: incomingCall.moreOpen = false
+        }
+    }
+
+    Loader {
+        id: moreLoader
+        objectName: "moreLoader"
+        anchors.fill: parent
+        active: incomingCall.moreOpen && incomingCall.visible
+        sourceComponent: incomingCall.ongoing ? inCallMoreComponent : incomingMoreComponent
+    }
+
+    Loader {
+        id: volumeLoader
+        objectName: "volumeLoader"
+        anchors.fill: parent
+        active: incomingCall.volumeOpen && incomingCall.visible
+        sourceComponent: CallVolume {
+            level: incomingCall.volumeLevel
+            onStep: function (delta) { incomingCall.stepVolume(delta) }
+            onCloseRequested: incomingCall.volumeOpen = false
+        }
+    }
+
+    Loader {
+        id: keypadLoader
+        objectName: "keypadLoader"
+        anchors.fill: parent
+        active: incomingCall.keypadOpen && incomingCall.visible
+        sourceComponent: InCallKeypad {
+            onTone: function (key) { callAudio.sendTones(key) }
+            onCloseRequested: incomingCall.keypadOpen = false
+        }
     }
 
     // "End current call?" over the ringing call (a second call, a call in
-    // progress): Answer ends the one in progress, Cancel leaves it ringing
-    Item {
-        id: confirmAnswer
+    // progress): Confirm ends the one in progress and answers, Cancel leaves
+    // it ringing (stock AlertDialog, confirm and dismiss buttons)
+    AlertDialog {
+        id: confirmDialog
         objectName: "confirmAnswer"
-        anchors.fill: parent
-        visible: incomingCall.confirmingAnswer
-        Rectangle {
-            anchors.fill: parent
-            color: "#000000"
+        //% "End current call?"
+        title: qsTrId("id-call-second-title") + localeManager.changesObserver
+        //% "Answering new call will end current call"
+        text: qsTrId("id-call-second-message") + localeManager.changesObserver
+        onConfirmed: incomingCall.confirmAnswer()
+        onDismissed: incomingCall.confirmingAnswer = false
+        Component.onCompleted: {
+            titleLabel.objectName = "confirmTitle"
+            textLabel.objectName = "confirmMessage"
+            dismissButton.objectName = "confirmCancel"
+            confirmButton.objectName = "confirmAnswerButton"
         }
-        MouseArea { anchors.fill: parent }
-        Label {
-            id: confirmTitle
-            objectName: "confirmTitle"
-            //% "End current call?"
-            text: qsTrId("id-call-second-title") + localeManager.changesObserver
-            width: Dims.w(76)
-            y: Dims.h(14)
-            anchors.horizontalCenter: parent.horizontalCenter
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
-            maximumLineCount: 3
-            font.pixelSize: Theme.type.titleSmall.pixelSize
-        }
-        Label {
-            objectName: "confirmMessage"
-            //% "Answering new call will end current call"
-            text: qsTrId("id-call-second-message") + localeManager.changesObserver
-            width: Dims.w(76)
-            anchors.top: confirmTitle.bottom
-            anchors.topMargin: Dims.h(2)
-            anchors.horizontalCenter: parent.horizontalCenter
-            horizontalAlignment: Text.AlignHCenter
-            wrapMode: Text.WordWrap
-            font.pixelSize: Theme.type.bodySmall.pixelSize
-            opacity: 0.7
-        }
-        Row {
-            y: Dims.h(58)
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Dims.w(14)
-            CallButton {
-                objectName: "confirmCancel"
-                iconName: "ios-close"
-                //% "Cancel"
-                text: qsTrId("id-call-cancel") + localeManager.changesObserver
-                onClicked: incomingCall.confirmingAnswer = false
-            }
-            CallButton {
-                objectName: "confirmAnswerButton"
-                iconName: "ios-call"
-                fill: "#2E7D32"
-                text: qsTrId("id-call-answer") + localeManager.changesObserver
-                onClicked: {
-                    incomingCall.confirmingAnswer = false
-                    incomingCall.act("answer")
-                }
-            }
-        }
+    }
+
+    onConfirmingAnswerChanged: {
+        if (confirmingAnswer)
+            confirmDialog.open()
+        else
+            confirmDialog.close()
     }
 }

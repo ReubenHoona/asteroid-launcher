@@ -92,6 +92,13 @@ set(QML_FILES
 	qml/notifications/NotificationsPanel.qml
 	qml/notifications/NotificationPreview.qml
 	qml/notifications/IncomingCall.qml
+	qml/calls/InCall.qml
+	qml/calls/CallAudio.qml
+	qml/calls/CallVolumeArc.qml
+	qml/calls/CallVolume.qml
+	qml/calls/IncomingCallMore.qml
+	qml/calls/InCallMore.qml
+	qml/calls/InCallKeypad.qml
 	qml/notifications/PhoneAlarm.qml
 	qml/quickpanel/QuickPanel.qml
 	qml/quickpanel/QuickPanelToggle.qml
@@ -173,6 +180,13 @@ set_source_files_properties(qml/notifications/NotificationView.qml      PROPERTI
 set_source_files_properties(qml/notifications/NotificationsPanel.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationsPanel.qml)
 set_source_files_properties(qml/notifications/NotificationPreview.qml   PROPERTIES QT_RESOURCE_ALIAS notifications/NotificationPreview.qml)
 set_source_files_properties(qml/notifications/IncomingCall.qml          PROPERTIES QT_RESOURCE_ALIAS IncomingCall.qml)
+set_source_files_properties(qml/calls/InCall.qml                   PROPERTIES QT_RESOURCE_ALIAS InCall.qml)
+set_source_files_properties(qml/calls/CallAudio.qml                PROPERTIES QT_RESOURCE_ALIAS CallAudio.qml)
+set_source_files_properties(qml/calls/CallVolumeArc.qml            PROPERTIES QT_RESOURCE_ALIAS CallVolumeArc.qml)
+set_source_files_properties(qml/calls/CallVolume.qml               PROPERTIES QT_RESOURCE_ALIAS CallVolume.qml)
+set_source_files_properties(qml/calls/IncomingCallMore.qml         PROPERTIES QT_RESOURCE_ALIAS IncomingCallMore.qml)
+set_source_files_properties(qml/calls/InCallMore.qml               PROPERTIES QT_RESOURCE_ALIAS InCallMore.qml)
+set_source_files_properties(qml/calls/InCallKeypad.qml             PROPERTIES QT_RESOURCE_ALIAS InCallKeypad.qml)
 set_source_files_properties(qml/notifications/PhoneAlarm.qml            PROPERTIES QT_RESOURCE_ALIAS PhoneAlarm.qml)
 set_source_files_properties(qml/quickpanel/QuickPanel.qml            PROPERTIES QT_RESOURCE_ALIAS QuickPanel.qml)
 set_source_files_properties(qml/quickpanel/QuickPanelToggle.qml      PROPERTIES QT_RESOURCE_ALIAS QuickPanelToggle.qml)

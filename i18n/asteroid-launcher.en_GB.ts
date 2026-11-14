@@ -1387,5 +1387,110 @@ Only selected people and apps can reach you.</translation>
         <source>Close</source>
         <translation>Close</translation>
     </message>
+    <message id="id-call-reject-a11y">
+        <location filename="../src/qml/calls/InCall.qml"/>
+        <source>Reject incoming call</source>
+        <translation>Reject incoming call</translation>
+    </message>
+    <message id="id-call-answer-a11y">
+        <location filename="../src/qml/calls/InCall.qml"/>
+        <source>Answer incoming call</source>
+        <translation>Answer incoming call</translation>
+    </message>
+    <message id="id-call-end-a11y">
+        <location filename="../src/qml/calls/InCall.qml"/>
+        <source>End call</source>
+        <translation>End call</translation>
+    </message>
+    <message id="id-call-more-a11y">
+        <location filename="../src/qml/calls/InCall.qml"/>
+        <source>More options</source>
+        <translation>More options</translation>
+    </message>
+    <message id="id-call-mute-a11y">
+        <location filename="../src/qml/calls/InCall.qml"/>
+        <source>Mute</source>
+        <translation>Mute</translation>
+    </message>
+    <message id="id-call-unknown">
+        <location filename="../src/qml/calls/IncomingCall.qml"/>
+        <source>Unknown</source>
+        <translation>Unknown</translation>
+    </message>
+    <message id="id-call-hanging-up">
+        <location filename="../src/qml/calls/IncomingCall.qml"/>
+        <source>Hanging up</source>
+        <translation>Hanging up</translation>
+    </message>
+    <message id="id-call-ended">
+        <location filename="../src/qml/calls/IncomingCall.qml"/>
+        <source>Call ended</source>
+        <translation>Call ended</translation>
+    </message>
+    <message id="id-call-calling">
+        <location filename="../src/qml/calls/IncomingCall.qml"/>
+        <source>Calling...</source>
+        <translation>Calling...</translation>
+    </message>
+    <message id="id-call-reply-1">
+        <location filename="../src/qml/calls/IncomingCallMore.qml"/>
+        <source>On my way!</source>
+        <translation>On my way!</translation>
+    </message>
+    <message id="id-call-reply-2">
+        <location filename="../src/qml/calls/IncomingCallMore.qml"/>
+        <source>I'll call you back</source>
+        <translation>I'll call you back</translation>
+    </message>
+    <message id="id-call-reply-3">
+        <location filename="../src/qml/calls/IncomingCallMore.qml"/>
+        <source>Running late</source>
+        <translation>Running late</translation>
+    </message>
+    <message id="id-call-send-message">
+        <location filename="../src/qml/calls/IncomingCallMore.qml"/>
+        <source>Send a message</source>
+        <translation>Send a message</translation>
+    </message>
+    <message id="id-call-volume">
+        <location filename="../src/qml/calls/CallVolume.qml"/>
+        <source>Volume</source>
+        <translation>Volume</translation>
+    </message>
+    <message id="id-call-volume-up-a11y">
+        <location filename="../src/qml/calls/CallVolume.qml"/>
+        <source>Increase volume</source>
+        <translation>Increase volume</translation>
+    </message>
+    <message id="id-call-volume-down-a11y">
+        <location filename="../src/qml/calls/CallVolume.qml"/>
+        <source>Decrease volume</source>
+        <translation>Decrease volume</translation>
+    </message>
+    <message id="id-call-keypad">
+        <location filename="../src/qml/calls/InCallMore.qml"/>
+        <source>Keypad</source>
+        <translation>Keypad</translation>
+    </message>
+    <message id="id-call-audio">
+        <location filename="../src/qml/calls/InCallMore.qml"/>
+        <source>Audio</source>
+        <translation>Audio</translation>
+    </message>
+    <message id="id-call-audio-speaker">
+        <location filename="../src/qml/calls/InCallMore.qml"/>
+        <source>Speaker</source>
+        <translation>Speaker</translation>
+    </message>
+    <message id="id-call-audio-phone">
+        <location filename="../src/qml/calls/InCallMore.qml"/>
+        <source>Phone</source>
+        <translation>Phone</translation>
+    </message>
+    <message id="id-call-pull-audio">
+        <location filename="../src/qml/calls/InCallMore.qml"/>
+        <source>Pull call audio to watch</source>
+        <translation>Pull call audio to watch</translation>
+    </message>
 </context>
 </TS>

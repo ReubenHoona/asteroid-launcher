@@ -202,10 +202,18 @@ Item {
             var n = card(12, "end", 1000)
             model.add(n)
             view.act("end")
-            verify(view.call === null)
+            // "Hanging up" until the phone removes the card (calls-07): the view stays
+            verify(view.hangingUp)
+            verify(view.call === n)
             // its card has not closed yet (the phone's answer is on its way)
             verify(!view.reopen(n))
+            verify(view.call === n)
+            // the phone removes it: "Call ended" for a moment, then the view goes
+            model.remove(n)
+            verify(view.callEnded)
             verify(view.call === null)
+            view.hide()
+            verify(!view.visible)
         }
     }
 }
