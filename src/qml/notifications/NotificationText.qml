@@ -5,6 +5,8 @@
 
 import QtQuick
 import org.asteroid.controls
+import "desktop.js" as Desktop
+import "system/smartlinks.js" as Links
 
 // The whole of a notification, as Wear OS opens a card: the app's icon,
 // name and time, the title, and every line of the text (a conversation's
@@ -160,14 +162,21 @@ Column {
     }
 
     // The body: bodyLarge (16 sp on an 18 sp line, weight 450), onSurfaceVariant,
-    // two lines in a card (collapsed_card_body_max_lines 2, grw.java:8011-8040)
+    // two lines in a card (collapsed_card_body_max_lines 2, grw.java:8011-8040).
+    // In the open card phone numbers and street addresses are underlined links in the text's
+    // own colour (stock's smart links, system-dialogs-misc-04, -05): a tap opens the menu
+    // (Message, Call) or the phone's map (Desktop.smartLinks, system/SmartLinks.qml)
     Label {
+        id: bodyLabel
+        objectName: "notificationBody"
         x: nt.textInset
         width: parent.width - 2 * nt.textInset
         visible: text.length > 0 && !conversationView.visible
         text: {
             var b = nt.notification ? nt.notification.body : ""
-            if (!nt.compact || !nt.conversation)
+            if (!nt.compact)
+                return bodyLabel.linked ? Links.styled(b) : b
+            if (!nt.conversation)
                 return b
             var lines = b.split("\n")
             return lines.slice(Math.max(0, lines.length - 2)).join("\n")
@@ -177,6 +186,15 @@ Column {
         elide: Text.ElideRight
         role: "bodyLarge"
         color: Theme.color.onSurfaceVariant
+        // the escaped text with the links, only when it has one (plain text otherwise)
+        readonly property bool linked: !nt.compact && Links.find(nt.notification ? nt.notification.body : "").length > 0
+        textFormat: linked ? Text.StyledText : Text.PlainText
+        linkColor: color
+        onLinkActivated: (link) => {
+            var l = Links.parse(link)
+            if (l && Desktop.smartLinks)
+                Desktop.smartLinks.open(l.kind, l.value)
+        }
     }
 
     // A phone's progress notification (a live update, x-asteroid-progress*): the bar under

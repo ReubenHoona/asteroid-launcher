@@ -144,6 +144,7 @@ QtObject {
             powerMenuShown: arbiter.powerMenuShown,
             errorDialogShown: arbiter.errorShown,
             errorDialogCancelable: arbiter.errorCancelable,
+            systemDialogShown: arbiter.systemDialogShown,
             headsUpShown: arbiter.headsUpShown,
             chargingShown: root.chargingShown,
             holdConsumed: false
@@ -162,6 +163,7 @@ QtObject {
     property bool recentsByPress: false
 
     function sidePressed() {
+        arbiter.noteInput()
         var c = context()
         var count = KeyMap.press(sideCounter, clock(), KeyMap.maxPresses(c.option, c.shortcut))
         var a = KeyMap.sidePress(c, count)
@@ -255,6 +257,7 @@ QtObject {
     }
 
     function crownPressed() {
+        arbiter.noteInput()
         if (holdConsumed())
             return
         // the fifth press: Emergency SOS, nothing else
@@ -285,6 +288,9 @@ QtObject {
             break
         case "closeErrorDialog":
             arbiter.closeError()
+            break
+        case "closeSystemDialog":
+            arbiter.closeSystemDialog()
             break
         case "silenceCall":
             arbiter.silenceCall()

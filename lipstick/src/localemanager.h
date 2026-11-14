@@ -26,10 +26,14 @@ class LocaleManager : public QDBusAbstractAdaptor
     Q_OBJECT
     Q_CLASSINFO("D-Bus Interface", "org.nemomobile.lipstick")
     Q_PROPERTY(QString changesObserver READ getEmptyString NOTIFY emptyStringChanged)
+    // Counts the language changes: a binding that calls Qt.locale() (day names, number and time
+    // formats) reads it to be evaluated again (locale-formats-02)
+    Q_PROPERTY(int localeRevision READ localeRevision NOTIFY localeRevisionChanged)
 
 public:
     LocaleManager(HomeApplication *app);
     QString getEmptyString();
+    int localeRevision() const { return m_revision; }
 
 public slots:
     Q_INVOKABLE void selectLocale(QString locale);
@@ -37,6 +41,7 @@ public slots:
 signals:
     void localeChanged();
     void emptyStringChanged();
+    void localeRevisionChanged();
 
 private:
     void loadLocaleCatalog();
@@ -44,6 +49,7 @@ private:
     HomeApplication *m_app;
     QTranslator *m_translator;
     QTranslator *m_fallbackTranslator;
+    int m_revision = 0;
 };
 
 #endif // LOCALEMANAGER_H

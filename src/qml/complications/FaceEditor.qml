@@ -121,7 +121,6 @@ Item {
                         width: Math.max(parent.width, editor.width * 0.16)
                         height: Math.max(parent.height, editor.width * 0.16)
                         onClicked: {
-                            Haptics.click()
                             list.positionViewAtBeginning()
                             editor.chosenSlot = slotOutline.slot
                         }

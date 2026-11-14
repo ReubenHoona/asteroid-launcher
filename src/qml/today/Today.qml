@@ -54,12 +54,6 @@ ListView {
     }
 
     ConfigurationValue {
-        id: use12H
-        key: "/org/asteroidos/settings/use-12h-format"
-        defaultValue: false
-    }
-
-    ConfigurationValue {
         id: useFahrenheit
         key: "/org/asteroidos/settings/use-fahrenheit"
         defaultValue: false
@@ -162,7 +156,8 @@ ListView {
 
             Label {
                 id: hour
-                text: model.occurrence.startTime.toLocaleString(Qt.locale(), use12H.value ? "hh:mm AP" : "hh:mm")
+                // the system's one time format (settings-b-28): "1:05 PM" (12 h, no leading zero) or "13:05"
+                text: TimeFormat.time(model.occurrence.startTime)
                 opacity: 0.8
                 horizontalAlignment: Text.AlignRight
                 anchors.verticalCenter: parent.verticalCenter

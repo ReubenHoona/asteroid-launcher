@@ -92,7 +92,6 @@ Item {
         anchors.bottomMargin: view.shape === "text" ? -C.LINE.marginY : 0
         enabled: !view.sources.ambient
         onClicked: {
-            Haptics.click()
             view.sources.open(view.source, view)
         }
         // (a long press on a complication does nothing here: the face's long press, in the centre

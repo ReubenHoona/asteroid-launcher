@@ -128,7 +128,6 @@ Item {
         containerColor: tile.chipColor
         contentColor: tile.chipContentColor
         onClicked: {
-            Haptics.click()
             tile.chipClicked()
         }
     }

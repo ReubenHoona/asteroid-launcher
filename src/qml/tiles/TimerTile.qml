@@ -77,7 +77,6 @@ TileBase {
             countdown.deleteAlarm()
         countdown = null
         remaining = 0
-        Haptics.click()
     }
 
     function format(s) {

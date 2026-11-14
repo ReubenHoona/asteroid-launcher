@@ -48,7 +48,52 @@ Item {
     // Alarms the user acted on or that timed out: not shown again
     property var handled: ({})
     readonly property var labels: alarm ? appActions(alarm) : []
-    property string time: ""
+    // the time shown (AlarmFiring: the system's one time format, no leading zero in 12 h; settings-b-28)
+    property date now: new Date()
+    readonly property var parts: TimeFormat.timeParts(now)
+
+    /* The phone app's actions sorted into the screen's two buttons: the first that says Snooze (or
+     * its words) is the pill, the first that says Stop or Dismiss is the edge button, every other
+     * action is a pill of its own above the Snooze pill (alarms-timers-stopwatch-35). */
+    function kindOf(label) {
+        var l = String(label).toLowerCase()
+        if (/snooze|postpone|remind|later|repeat/.test(l))
+            return "snooze"
+        if (/dismiss|stop|turn off|cancel|clear|done|got it|^ok$/.test(l))
+            return "stop"
+        return "other"
+    }
+    function firstOf(kind) {
+        for (var i = 0; i < labels.length; i++)
+            if (kindOf(labels[i]) === kind)
+                return i
+        return -1
+    }
+    readonly property int snoozeIndex: firstOf("snooze")
+    readonly property int stopIndex: firstOf("stop")
+    readonly property var extras: {
+        var out = []
+        for (var i = 0; i < labels.length; i++)
+            if (i !== snoozeIndex && i !== stopIndex)
+                out.push({ index: i, label: labels[i] })
+        return out.slice(0, 2)
+    }
+
+    // the phone's own title of the alarm when it says more than "Alarm"
+    function labelOf(n) {
+        if (!n)
+            return ""
+        var s = String(n.summary)
+        return /^(alarm|timer|alarm clock)$/i.test(s.trim()) ? "" : s
+    }
+
+    // the Stop button: the phone's Dismiss, else this watch dismisses the card
+    function stop() {
+        if (stopIndex >= 0)
+            act(stopIndex)
+        else
+            dismiss()
+    }
 
     visible: alarm !== null
 
@@ -110,10 +155,14 @@ Item {
     }
 
     function updateTime() {
-        time = Qt.formatTime(new Date(), Locale.ShortFormat)
+        now = new Date()
     }
 
-    onAlarmChanged: if (alarm === null) displayRelease()
+    // the ten minute give-up timer ends with the alarm too
+    onAlarmChanged: if (alarm === null) {
+        giveUp.stop()
+        displayRelease()
+    }
 
     // Theater mode (modes.h): only a button turns the screen on, as stock
     // (the alarm still vibrates, and shows once the screen is on)
@@ -178,7 +227,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#000000"
+        color: Theme.color.background
     }
 
     // Nothing underneath reacts while the alarm is shown
@@ -186,78 +235,143 @@ Item {
         anchors.fill: parent
     }
 
-    Icon {
-        id: alarmIcon
-        name: "ios-alarm"
-        color: "#FFFFFF"
-        width: Dims.w(11)
-        height: width
-        y: Dims.h(8)
-        anchors.horizontalCenter: parent.horizontalCenter
-
-        SequentialAnimation on opacity {
-            running: phoneAlarm.visible
-            loops: Animation.Infinite
-            NumberAnimation { to: 0.4; duration: 600 }
-            NumberAnimation { to: 1.0; duration: 600 }
-        }
+    // The same screen as a firing alarm of the watch (AlarmFiring: stock's Compose firing screen,
+    // event ALARM_FIRE_PHONE_COMPOSE): the curved title at the top, the time, the Snooze pill and
+    // the Stop edge button. The pill and the edge button run the phone app's own actions
+    // (Snooze, Dismiss...); the other actions it offers come as pills above the Snooze pill.
+    CurvedTopText {
+        id: arcTitle
+        objectName: "phoneAlarmTitle"
+        anchors.fill: parent
+        //% "Alarm"
+        text: qsTrId("id-phonealarm-title") + localeManager.changesObserver
+        role: "arcMedium"
+        pixelSize: Theme.type.arcMedium.pixelSize
+        color: Theme.color.primary
+        maxSweep: 120
+        topMargin: Theme.dp(3)
+        shadow: "transparent"
     }
 
-    Label {
-        id: clock
-        text: phoneAlarm.time
-        y: Dims.h(20)
-        anchors.horizontalCenter: parent.horizontalCenter
-        font.pixelSize: Dims.l(14)
-    }
+    readonly property real pillWidth: Theme.dp(Theme.screenWidthDp > 225 ? 173 : 163)
+    readonly property real pillHeight: Theme.dp(52)
+    readonly property real topSpacer: Theme.dp(23)
+    readonly property real stopHeight: Theme.dp(59)
+    readonly property real markerTop: Theme.dp(20)
+    readonly property alias timeLabel: timeText
+    readonly property alias markerLabel: markerText
+    readonly property alias snoozePill: snoozeButton
+    readonly property alias stopButton: stopEdge
+    readonly property alias titleArc: arcTitle
+    readonly property alias extraColumn: extraColumn
 
-    Label {
-        id: title
-        text: alarm ? alarm.summary : ""
-        width: Dims.w(76)
-        anchors.top: clock.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
-        font.pixelSize: Dims.l(7)
-    }
+    // the time: centred between the 23 dp spacer and the pills
+    Item {
+        id: region
+        y: phoneAlarm.topSpacer
+        width: parent.width
+        height: Math.max(0, extraColumn.y - phoneAlarm.topSpacer)
 
-    Label {
-        text: alarm && alarm.body !== alarm.summary ? alarm.body : ""
-        width: Dims.w(70)
-        anchors.top: title.bottom
-        anchors.horizontalCenter: parent.horizontalCenter
-        horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
-        font.pixelSize: Theme.type.bodyExtraSmall.pixelSize
-        opacity: 0.7
-    }
+        Row {
+            id: timeRow
+            anchors.centerIn: parent
+            spacing: Theme.dp(2)
+            layoutDirection: phoneAlarm.parts.markerFirst ? Qt.RightToLeft : Qt.LeftToRight
 
-    // The phone app's actions (Snooze, Dismiss...); without any, the
-    // watch's dismiss
-    Column {
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: Dims.h(10)
-        spacing: Dims.h(2)
-
-        Repeater {
-            model: phoneAlarm.labels.slice(0, 2)
-            delegate: NotificationButton {
-                text: modelData
-                width: Dims.w(56)
-                height: Dims.h(13)
-                onClicked: phoneAlarm.act(index)
+            Label {
+                id: timeText
+                text: phoneAlarm.parts.time
+                color: Theme.color.primary
+                font.pixelSize: Math.round(Theme.sp(52))
+                font.weight: Theme.weight(550)
+                font.letterSpacing: 0
+                lineHeightMode: Text.FixedHeight
+                lineHeight: Math.round(Theme.sp(50))
+                height: lineHeight
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideNone
+                clip: false
+            }
+            Item {
+                width: markerText.implicitWidth
+                height: timeText.height
+                visible: phoneAlarm.parts.marker !== ""
+                Label {
+                    id: markerText
+                    y: phoneAlarm.markerTop
+                    text: phoneAlarm.parts.marker
+                    role: "arcMedium"
+                    color: Theme.color.primary
+                    elide: Text.ElideNone
+                }
             }
         }
 
-        NotificationButton {
-            //% "Dismiss"
-            text: qsTrId("id-dismiss") + localeManager.changesObserver
-            width: Dims.w(56)
-            height: Dims.h(13)
-            visible: phoneAlarm.labels.length === 0
-            onClicked: phoneAlarm.dismiss()
+        // the phone's label of the alarm (its title), when it is not just the word
+        Label {
+            id: labelText
+            objectName: "phoneAlarmLabel"
+            anchors.top: timeRow.bottom
+            anchors.topMargin: Theme.dp(2)
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: parent.width * 0.7
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
+            maximumLineCount: 1
+            role: "bodySmall"
+            color: Theme.color.onSurfaceVariant
+            text: phoneAlarm.labelOf(alarm)
+            visible: text !== ""
         }
+    }
+
+    // the actions that are neither Snooze nor Stop, one pill each
+    Column {
+        id: extraColumn
+        objectName: "phoneAlarmExtras"
+        x: (parent.width - width) / 2
+        y: snoozeButton.y - height - (extras.length > 0 ? Theme.dp(4) : 0)
+        spacing: Theme.dp(4)
+        Repeater {
+            model: phoneAlarm.extras
+            delegate: Button {
+                width: phoneAlarm.pillWidth
+                height: Theme.dp(44)
+                centered: true
+                variant: "tonal"
+                containerColor: Theme.color.surfaceContainer
+                contentColor: Theme.color.onSurface
+                text: modelData.label
+                onClicked: phoneAlarm.act(modelData.index)
+            }
+        }
+    }
+
+    Button {
+        id: snoozeButton
+        objectName: "phoneAlarmSnooze"
+        visible: phoneAlarm.snoozeIndex >= 0
+        width: phoneAlarm.pillWidth
+        height: phoneAlarm.pillHeight
+        x: (parent.width - width) / 2
+        y: stopEdge.y - height
+        centered: true
+        containerColor: Theme.color.tertiaryDim
+        contentColor: Theme.color.onTertiary
+        //% "Snooze"
+        text: qsTrId("id-alarm-snooze") + localeManager.changesObserver
+        onClicked: phoneAlarm.act(phoneAlarm.snoozeIndex)
+    }
+
+    EdgeButton {
+        id: stopEdge
+        objectName: "phoneAlarmStop"
+        preferredHeight: phoneAlarm.stopHeight
+        containerColor: Theme.color.surfaceContainer
+        contentColor: Theme.color.onPrimaryContainer
+        //% "Stop"
+        text: qsTrId("id-alarm-stop") + localeManager.changesObserver
+        // the phone's Stop / Dismiss, else the watch dismisses the card
+        onClicked: phoneAlarm.stop()
     }
 }

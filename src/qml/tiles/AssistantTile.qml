@@ -39,7 +39,6 @@ TileBase {
                 width: parent.width
                 height: Math.round(tile.height * 0.13)
                 onClicked: {
-                    Haptics.click()
                     if (Desktop.compositorRoot)
                         Desktop.compositorRoot.openAssistant(modelData.text)
                 }

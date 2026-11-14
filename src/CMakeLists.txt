@@ -56,6 +56,14 @@ set(QML_FILES
 	qml/misc/ShutdownScreen.qml
 	qml/misc/ModeScreen.qml
 	qml/misc/BluetoothAgent.qml
+	qml/system/FindPhone.qml
+	qml/system/PhoneAway.qml
+	qml/system/SmartLinks.qml
+	qml/system/MediaAutoLaunch.qml
+	qml/system/GoalCelebration.qml
+	qml/system/goals.js
+	qml/system/VolumePopup.qml
+	qml/system/smartlinks.js
 	qml/misc/desktop.js
 	qml/misc/tray.js
 	qml/misc/pager.js
@@ -186,6 +194,14 @@ set_source_files_properties(qml/misc/PanelsGrid.qml                  PROPERTIES 
 set_source_files_properties(qml/misc/ShutdownScreen.qml              PROPERTIES QT_RESOURCE_ALIAS system/ShutdownScreen.qml)
 set_source_files_properties(qml/misc/ModeScreen.qml                  PROPERTIES QT_RESOURCE_ALIAS system/ModeScreen.qml)
 set_source_files_properties(qml/misc/BluetoothAgent.qml              PROPERTIES QT_RESOURCE_ALIAS connectivity/BluetoothAgent.qml)
+set_source_files_properties(qml/system/FindPhone.qml                 PROPERTIES QT_RESOURCE_ALIAS system/FindPhone.qml)
+set_source_files_properties(qml/system/PhoneAway.qml                 PROPERTIES QT_RESOURCE_ALIAS system/PhoneAway.qml)
+set_source_files_properties(qml/system/SmartLinks.qml                PROPERTIES QT_RESOURCE_ALIAS system/SmartLinks.qml)
+set_source_files_properties(qml/system/MediaAutoLaunch.qml           PROPERTIES QT_RESOURCE_ALIAS system/MediaAutoLaunch.qml)
+set_source_files_properties(qml/system/GoalCelebration.qml           PROPERTIES QT_RESOURCE_ALIAS system/GoalCelebration.qml)
+set_source_files_properties(qml/system/goals.js                      PROPERTIES QT_RESOURCE_ALIAS system/goals.js)
+set_source_files_properties(qml/system/VolumePopup.qml               PROPERTIES QT_RESOURCE_ALIAS system/VolumePopup.qml)
+set_source_files_properties(qml/system/smartlinks.js                 PROPERTIES QT_RESOURCE_ALIAS system/smartlinks.js)
 set_source_files_properties(qml/misc/desktop.js                      PROPERTIES QT_RESOURCE_ALIAS desktop.js)
 set_source_files_properties(qml/misc/tray.js                         PROPERTIES QT_RESOURCE_ALIAS tray.js)
 set_source_files_properties(qml/misc/pager.js                        PROPERTIES QT_RESOURCE_ALIAS pager.js)

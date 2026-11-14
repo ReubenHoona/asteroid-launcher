@@ -39,6 +39,7 @@ import Nemo.DBus
 import Nemo.Ngf
 import Connman
 import "qs.js" as QS
+import "desktop.js" as Desktop
 import "tray.js" as TrayRules
 
 /*
@@ -140,6 +141,15 @@ Item {
     function openSettings(page) {
         settingsRequest.value = page + "@" + Date.now()
         appLauncher.launchApp("asteroid-settings")
+    }
+
+    /* The Find my phone button opens the launcher's page (stock: RingMyPhoneActivity), which rings
+     * the phone from its own button; without the page (a test) the button itself rings */
+    function openFindPhone() {
+        if (Desktop.findMyPhone && Desktop.findMyPhone.open)
+            Desktop.findMyPhone.open()
+        else
+            findPhone.toggle()
     }
 
     DBusInterface {
@@ -784,6 +794,8 @@ Item {
         }
     }
 
+    Toast { id: airplaneToast; objectName: "airplaneToast" }
+
     // Airplane mode (equ.java cases 3-4, kxx.java:229-243): connman's offline mode
     // turns the radios off. Stock: Bluetooth stays on during airplane mode
     // (bluetooth_airplane_mode_toast), so it is switched back on after.
@@ -816,8 +828,12 @@ Item {
                          function () {
                              rootitem._btWasOn = btStatus.powered
                              connman.offlineMode = true
-                             if (rootitem._btWasOn)
+                             if (rootitem._btWasOn) {
                                  restoreBluetooth.restart()
+                                 // stock: bluetooth_airplane_mode_toast (connectivity-system-ux-15)
+                                 //% "Bluetooth will stay on during airplane mode"
+                                 airplaneToast.show(qsTrId("id-qs-airplane-bt-toast"), true)
+                             }
                              //% "Airplane mode on"
                              rootitem.showCaption(qsTrId("id-qs-airplane-on"))
                          }, "ms-airplanemode_active")
@@ -975,6 +991,11 @@ Item {
     Label {
         id: findPhoneNoPhone
         function show() {
+            // the shared dialog says it, with one tick (connectivity-system-ux-05)
+            if (Desktop.phoneAway) {
+                Desktop.phoneAway.show()
+                return
+            }
             visible = true
             findPhoneNoPhoneTimer.restart()
         }
@@ -1006,7 +1027,7 @@ Item {
             enabled: findPhone.connected
             //% "Find My Phone"
             label: qsTrId("id-qs-find-phone")
-            onActivated: findPhone.toggle()
+            onActivated: rootitem.openFindPhone()
             onLongPressed: modeDialog.info(qsTrId("id-qs-find-phone"),
                                            //% "Rings your phone even when the phone is muted or on vibrate"
                                            qsTrId("id-qs-find-phone-info"), "ios-phone-portrait")

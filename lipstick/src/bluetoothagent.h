@@ -36,6 +36,10 @@ class BluetoothAgent : public QObject, protected QDBusContext
     Q_PROPERTY(State state READ getState NOTIFY stateChanged)
     Q_PROPERTY(QString pinCode READ getPinCode WRITE setPinCode NOTIFY pinCodeChanged)
     Q_PROPERTY(quint32 passkey READ getPasskey WRITE setPasskey NOTIFY passkeyChanged)
+    // The device asking: its alias (never its address; empty until BlueZ has answered) and
+    // whether its class is Phone (connectivity-system-ux-01, -02)
+    Q_PROPERTY(QString deviceName READ deviceName NOTIFY deviceChanged)
+    Q_PROPERTY(bool deviceIsPhone READ deviceIsPhone NOTIFY deviceChanged)
 
 public:
     Q_INVOKABLE void userAccepts();
@@ -62,6 +66,9 @@ public:
     State getState();
     void setState(State s);
 
+    QString deviceName() const { return m_deviceName; }
+    bool deviceIsPhone() const { return m_deviceIsPhone; }
+
     QString getPinCode();
     void setPinCode(QString);
 
@@ -73,6 +80,7 @@ signals:
     void stateChanged();
     void pinCodeChanged();
     void passkeyChanged();
+    void deviceChanged();
 
 private:
     QDBusInterface *m_mceDbus;
@@ -89,7 +97,12 @@ private:
     // Cancel): it keeps the display on while it shows
     QTimer m_windowTimeout;
 
+    QString m_deviceName;
+    bool m_deviceIsPhone = false;
+
     void setTrusted(QDBusObjectPath path);
+    void loadDevice(const QDBusObjectPath &path);
+    void setDeviceInfo(const QString &name, bool isPhone);
     void reject();
     void restoreStaleDisplaySettings();
 

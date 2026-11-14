@@ -59,7 +59,6 @@ TileBase {
                     height: width
                     anchors.verticalCenter: parent.verticalCenter
                     onClicked: {
-                        Haptics.click()
                         if (modelData === "previous" && mpris.canGoPrevious) mpris.previous()
                         else if (modelData === "next" && mpris.canGoNext) mpris.next()
                         else if (modelData === "play") {

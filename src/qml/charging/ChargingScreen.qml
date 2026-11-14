@@ -79,6 +79,8 @@ Item {
     readonly property var chipInfo: Charging.chip(now, nextAlarmMs, use12h, Qt.locale().amText, Qt.locale().pmText, shortDays())
 
     function shortDays() {
+        // the language changed: the day names are read again (locale-formats-02)
+        void localeManager.localeRevision
         var l = Qt.locale(), out = []
         for (var i = 0; i < 7; i++)
             out.push(l.dayName(i, Locale.ShortFormat))

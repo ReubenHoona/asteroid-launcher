@@ -121,6 +121,8 @@ TileBase {
         if (d === "mtwTfsS") return qsTrId("id-tile-alarm-every-day")
         var codes = "mtwTfsS"
         var names = []
+        // the language changed: the day names are read again (locale-formats-02)
+        void localeManager.localeRevision
         for (var i = 0; i < 7; i++)
             if (d.indexOf(codes[i]) >= 0)
                 names.push(Qt.locale().dayName((i + 1) % 7, Locale.ShortFormat))
@@ -130,7 +132,11 @@ TileBase {
     function toggle(a) {
         a.enabled = !a.enabled
         a.save()
-        Haptics.click()
+        // a switch: stock's TOGGLE_ON / TOGGLE_OFF by the new state (haptics-sounds-03)
+        if (a.enabled)
+            Haptics.toggleOn()
+        else
+            Haptics.toggleOff()
         // the time to the next ring changes; the rows stay where they are
         var now = new Date()
         var next = 0

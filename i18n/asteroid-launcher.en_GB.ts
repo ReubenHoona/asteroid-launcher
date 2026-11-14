@@ -1845,5 +1845,150 @@ Only selected people and apps can reach you.</translation>
         <source>Ongoing notifications from %1 won’t appear on your watch face</source>
         <translation>Ongoing notifications from %1 won’t appear on your watch face</translation>
     </message>
+    <message id="id-btagent-device">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>device</source>
+        <translation>device</translation>
+    </message>
+    <message id="id-btagent-legacy-pair-with">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Legacy pair with %1</source>
+        <translation>Legacy pair with %1</translation>
+    </message>
+    <message id="id-btagent-secure-pair-with">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Secure pair with %1</source>
+        <translation>Secure pair with %1</translation>
+    </message>
+    <message id="id-btagent-legacy-pair">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Legacy pair %1</source>
+        <translation>Legacy pair %1</translation>
+    </message>
+    <message id="id-btagent-secure-pair">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Secure pair %1</source>
+        <translation>Secure pair %1</translation>
+    </message>
+    <message id="id-btagent-enter-pin">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Enter PIN:</source>
+        <translation>Enter PIN:</translation>
+    </message>
+    <message id="id-btagent-codes-match">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Do codes match?</source>
+        <translation>Do codes match?</translation>
+    </message>
+    <message id="id-btagent-code-on-phone">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Enter this code on phone</source>
+        <translation>Enter this code on phone</translation>
+    </message>
+    <message id="id-btagent-code-on-other">
+        <location filename="../src/qml/misc/BluetoothAgent.qml"/>
+        <source>Enter code on other device</source>
+        <translation>Enter code on other device</translation>
+    </message>
+    <message id="id-find-phone-ringing">
+        <location filename="../src/qml/system/FindPhone.qml"/>
+        <source>Ringing your phone</source>
+        <translation>Ringing your phone</translation>
+    </message>
+    <message id="id-find-phone-title">
+        <location filename="../src/qml/system/FindPhone.qml"/>
+        <source>Find my phone</source>
+        <translation>Find my phone</translation>
+    </message>
+    <message id="id-find-phone-battery">
+        <location filename="../src/qml/system/FindPhone.qml"/>
+        <source>Phone battery %1%</source>
+        <translation>Phone battery %1%</translation>
+    </message>
+    <message id="id-find-phone-stop">
+        <location filename="../src/qml/system/FindPhone.qml"/>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message id="id-phone-away-title">
+        <location filename="../src/qml/system/PhoneAway.qml"/>
+        <source>Phone away</source>
+        <translation>Phone away</translation>
+    </message>
+    <message id="id-phone-away-text">
+        <location filename="../src/qml/system/PhoneAway.qml"/>
+        <source>Phone is not nearby or Bluetooth is off</source>
+        <translation>Phone is not nearby or Bluetooth is off</translation>
+    </message>
+    <message id="id-smartlink-sent">
+        <location filename="../src/qml/system/SmartLinks.qml"/>
+        <source>Message sent</source>
+        <translation>Message sent</translation>
+    </message>
+    <message id="id-send-reconnect">
+        <location filename="../src/qml/system/SmartLinks.qml"/>
+        <source>To send, reconnect to your phone</source>
+        <translation>To send, reconnect to your phone</translation>
+    </message>
+    <message id="id-smartlink-not-sent">
+        <location filename="../src/qml/system/SmartLinks.qml"/>
+        <source>Not sent.</source>
+        <translation>Not sent.</translation>
+    </message>
+    <message id="id-smartlink-failed">
+        <location filename="../src/qml/system/SmartLinks.qml"/>
+        <source>Couldn’t open on phone</source>
+        <translation>Couldn’t open on phone</translation>
+    </message>
+    <message id="id-smartlink-message">
+        <location filename="../src/qml/system/SmartLinks.qml"/>
+        <source>Message</source>
+        <translation>Message</translation>
+    </message>
+    <message id="id-smartlink-call">
+        <location filename="../src/qml/system/SmartLinks.qml"/>
+        <source>Call</source>
+        <translation>Call</translation>
+    </message>
+    <message id="id-qs-airplane-bt-toast">
+        <location filename="../src/qml/quickpanel/QuickPanel.qml"/>
+        <source>Bluetooth will stay on during airplane mode</source>
+        <translation>Bluetooth will stay on during airplane mode</translation>
+    </message>
+    <message id="id-phonealarm-title">
+        <location filename="../src/qml/notifications/PhoneAlarm.qml"/>
+        <source>Alarm</source>
+        <translation>Alarm</translation>
+    </message>
+    <message id="id-alarm-snooze">
+        <location filename="../src/qml/notifications/PhoneAlarm.qml"/>
+        <source>Snooze</source>
+        <translation>Snooze</translation>
+    </message>
+    <message id="id-alarm-stop">
+        <location filename="../src/qml/notifications/PhoneAlarm.qml"/>
+        <source>Stop</source>
+        <translation>Stop</translation>
+    </message>
+    <message id="id-goal-complete">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Goal complete!</source>
+        <translation>Goal complete!</translation>
+    </message>
+    <message id="id-goal-steps">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Steps</source>
+        <translation>Steps</translation>
+    </message>
+    <message id="id-volume-call">
+        <location filename="../src/qml/system/VolumePopup.qml"/>
+        <source>In-call volume</source>
+        <translation>In-call volume</translation>
+    </message>
+    <message id="id-volume-media">
+        <location filename="../src/qml/system/VolumePopup.qml"/>
+        <source>Media volume</source>
+        <translation>Media volume</translation>
+    </message>
 </context>
 </TS>

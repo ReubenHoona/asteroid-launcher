@@ -95,7 +95,6 @@ Item {
         cards.remove(i)
         save(s)
         carousel.currentIndex = Math.min(i, s.length)
-        Haptics.click()
     }
     function add(t) {
         // after the middle tile, as stock adds next to the tile edited
@@ -250,7 +249,6 @@ Item {
                             carousel.currentIndex = index
                         else if (card.isAdd) {
                             if (editor.hidden.length > 0) {
-                                Haptics.click()
                                 addView.positionViewAtBeginning()
                                 addList.visible = true
                             }

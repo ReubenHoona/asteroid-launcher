@@ -34,6 +34,7 @@ import QtQuick
 import QtQuick.Window
 import org.nemomobile.lipstick
 import "../system"
+import "../desktop.js" as Desktop
 
 /* The launcher overlays over applications (split out of compositor.qml),
  * rendered directly in the compositor scene as z-ordered items instead of
@@ -65,7 +66,9 @@ Item {
     readonly property var layers: ({
         assistant: 2.5, headsUp: 3, shutdown: 3, mode: 3,
         bluetooth: 3.3, phoneAlarm: 3.4, alert: 3.5, call: 3.6,
-        callAssistant: 3.65, errorDialog: 3.7, powerMenu: 3.8, sos: 3.9, touchLock: 5.5
+        callAssistant: 3.65, errorDialog: 3.7, powerMenu: 3.8, sos: 3.9, touchLock: 5.5,
+        // W3-launcher-misc: the system dialogs (under the pairing dialog, alarms and calls, except Phone away)
+        celebration: 3.05, findPhone: 3.1, volume: 3.15, smartLinks: 3.2, liveUpdate: 3.2, phoneAway: 3.35
     })
 
     /* The assistant over the home screen and applications (Wear OS: an
@@ -239,8 +242,84 @@ Item {
 
     // The pairing dialog: under the call, the alarms and the alert window
     Loader {
+        id: bluetoothLoader
         z: arbiter.layers.bluetooth
         anchors.fill: parent
         source: "../connectivity/BluetoothAgent.qml"
+    }
+
+    /* Find my phone (apps-misc-04) and the shared "Phone away" dialog (connectivity-system-ux-05);
+     * both register in desktop.js (Desktop.findMyPhone, Desktop.phoneAway) */
+    FindPhone {
+        id: findPhonePage
+        z: arbiter.layers.findPhone
+    }
+    PhoneAway {
+        id: phoneAwayDialog
+        z: arbiter.layers.phoneAway
+    }
+
+    /* Autolaunch media controls (media-controls-16): a new phone session that plays opens the music
+     * app, under the surfaces that must not be covered; a touch or a key press is the user being
+     * there (the 600 s of stock end) */
+    MediaAutoLaunch {
+        id: mediaAuto
+        blocked: arbiter.interrupting || arbiter.assistantShown || arbiter.sosShown || arbiter.powerMenuShown
+                 || arbiter.errorShown || arbiter.systemDialogShown
+                 || (typeof touchLock !== "undefined" && touchLock !== null && touchLock.locked === true)
+                 || (typeof firstRun !== "undefined" && firstRun !== null && firstRun.isFirstRun())
+        restricted: typeof keyClaims !== "undefined" && keyClaims !== null
+                    && (keyClaims.claimed("side") || keyClaims.claimed("crown"))
+        appFront: typeof comp !== "undefined" && comp ? comp.appActive : false
+        onGoHome: if (typeof comp !== "undefined" && comp) comp.goToFace()
+    }
+    PointHandler {
+        acceptedDevices: PointerDevice.TouchScreen | PointerDevice.Mouse
+        onActiveChanged: if (active) mediaAuto.userInput()
+    }
+    function noteInput() { mediaAuto.userInput() }
+
+    /* The daily goal celebration (health-fitness-14): over the app and the face, under the pairing
+     * dialog, alarms and calls; not in the quiet modes or over a surface that must not be covered */
+    GoalCelebration {
+        id: goalCelebration
+        z: arbiter.layers.celebration
+        displayOn: typeof comp !== "undefined" && comp ? (!comp.displayIsOff && !Lipstick.compositor.displayAmbient) : true
+        blocked: arbiter.interrupting || arbiter.assistantShown || arbiter.sosShown || arbiter.powerMenuShown
+                 || arbiter.errorShown
+                 || (typeof firstRun !== "undefined" && firstRun !== null && firstRun.isFirstRun())
+        quiet: typeof modes !== "undefined" && modes !== null
+               && (modes.bedtime === true || modes.theater === true || modes.doNotDisturb === true)
+    }
+
+    /* The volume popup (haptics-sounds-15): a change of the volume from outside; not over the quick
+     * settings panel, whose own slider changed it */
+    VolumePopup {
+        id: volumePopup
+        z: arbiter.layers.volume
+        suppressedCheck: function () {
+            var g = Desktop.panelsGrid
+            return !!(g && g.currentVerticalPos === -1)
+        }
+    }
+
+    /* A system dialog is up: the crown closes it and stays where it is (keymap.js closeSystemDialog) */
+    /* The smart links of an open notification: the menu and the message keyboard */
+    SmartLinks {
+        id: smartLinksMenu
+        z: arbiter.layers.smartLinks
+    }
+
+    readonly property bool btDialogShown: bluetoothLoader.item ? bluetoothLoader.item.shown === true : false
+    readonly property bool systemDialogShown: findPhonePage.shown || phoneAwayDialog.shown || btDialogShown
+                                              || smartLinksMenu.shown || goalCelebration.shown || volumePopup.shown
+    function closeSystemDialog() {
+        // the newest first: Phone away is over everything else of the group
+        if (phoneAwayDialog.shown) phoneAwayDialog.close()
+        else if (btDialogShown) bluetoothLoader.item.close()
+        else if (smartLinksMenu.shown) smartLinksMenu.close()
+        else if (goalCelebration.shown) goalCelebration.close()
+        else if (volumePopup.shown) volumePopup.close()
+        else if (findPhonePage.shown) findPhonePage.close()
     }
 }

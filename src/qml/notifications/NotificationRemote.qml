@@ -120,6 +120,15 @@ Item {
             remote.actionResult(id, kind, index, result)
         }
     }
+    // the phone's link, asked only when an action failed: the words of a link that is down
+    // (connectivity-system-ux-05)
+    DBusInterface {
+        id: phoneLink
+        bus: DBus.SessionBus
+        service: "org.asteroidos.btsyncd"
+        path: "/org/asteroidos/btsyncd/phone"
+        iface: "org.asteroidos.btsyncd.Phone"
+    }
     DBusInterface {
         id: voice
         bus: DBus.SessionBus
@@ -141,8 +150,32 @@ Item {
         } else if (result === "timeout") {
             showSlow(id)
         } else {
-            showFailure(id)
+            remote.failOrAway(id, kind)
         }
+    }
+
+    // A failure with no phone link says so as stock does: "Phone away" for the actions that open
+    // something on the phone, "To send, reconnect to your phone" for a reply; with the link up it
+    // is the generic "Can't finish action"
+    function failOrAway(id, kind) {
+        phoneLink.typedCall("Connected", [],
+                            function (connected) {
+                                if (connected === false)
+                                    remote.showAway(id, kind)
+                                else
+                                    remote.showFailure(id)
+                            },
+                            function () { remote.showFailure(id) })
+    }
+
+    function showAway(id, kind) {
+        if (kind === "open" && Desktop.phoneAway) {
+            Desktop.phoneAway.show()
+        } else {
+            //% "To send, reconnect to your phone"
+            showDialog(qsTrId("id-action-failed-title"), qsTrId("id-send-reconnect"))
+        }
+        note("away", id)
     }
 
     /* ---- what is shown -------------------------------------------------- */
@@ -224,8 +257,9 @@ Item {
     /* ---- actions -------------------------------------------------------- */
 
     function failNow(id) {
-        if (finish(id))
-            showFailure(id)
+        var e = finish(id)
+        if (e)
+            failOrAway(id, e.kind)
     }
 
     // a reply (typed, spoken, an emoji or a canned one)

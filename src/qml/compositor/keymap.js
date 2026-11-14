@@ -138,8 +138,10 @@ function sideHold(c) {
  *   errorDialogShown, errorDialogCancelable   an app's crash or not-responding dialog
  *   headsUpShown     a new notification's glanceable or full view is up
  *   chargingShown    the charging screen or its quality screen is up
+ *   systemDialogShown  one of the launcher's system dialogs is up (Bluetooth pairing, Find my phone,
+ *                    Phone away, smart links, live update, goal celebration; W3-launcher-misc)
  * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall,
- * closeHeadsUp, closeCharging, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
+ * closeHeadsUp, closeSystemDialog, closeCharging, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
         return "none"
@@ -163,6 +165,10 @@ function crownPress(c) {
     // alarm are above it (an alarm hides it)
     if (c.headsUpShown && !c.callShown && !c.alertShown)
         return "closeHeadsUp"
+    // a system dialog (stock: the Home action closes it): above the assistant and the charging
+    // screen, under a call and a firing alarm
+    if (c.systemDialogShown === true && !c.callShown && !c.alertShown)
+        return "closeSystemDialog"
     // the charging screen (and its quality screen) is under every overlay of the arbiter and above
     // the assistant: the crown closes it and goes to the face (W2-launcher-charging)
     if (c.chargingShown === true && !c.callShown && !c.alertShown)

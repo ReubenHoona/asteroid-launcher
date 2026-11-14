@@ -107,7 +107,8 @@ Item {
                                   return
                               }
                               pending = false
-                              Haptics.click()
+                              // the switch is off now (haptics-sounds-03: stock vibrates for a switch)
+                              Haptics.toggleOff()
                               menu.turnedOff()
                           },
                           function () { menu.failed() })

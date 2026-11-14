@@ -19,10 +19,13 @@
 #include <QDBusConnectionInterface>
 #include <QDBusReply>
 #include <QDBusPendingCall>
+#include <QDBusPendingCallWatcher>
+#include <QDBusPendingReply>
 #include <QDebug>
 #include <QDBusVariant>
 
 #include "bluetoothagent.h"
+#include "eosbluetooth.h"
 
 #define AGENT_CAPABILITY        "DisplayYesNo"
 // BlueZ cancels an unanswered request after 60 s; this is the backstop
@@ -113,6 +116,37 @@ void BluetoothAgent::reject()
         return;
     QDBusMessage pendingErrorReply = m_latestMessage.createErrorReply("org.bluez.Error.Rejected", "Rejected");
     QDBusConnection::systemBus().send(pendingErrorReply);
+}
+
+// The device's alias and class from BlueZ, asked without blocking: the dialog shows its title
+// when the answer is there (connectivity-system-ux-01, -02). The address is never kept.
+void BluetoothAgent::setDeviceInfo(const QString &name, bool isPhone)
+{
+    if (name == m_deviceName && isPhone == m_deviceIsPhone)
+        return;
+    m_deviceName = name;
+    m_deviceIsPhone = isPhone;
+    emit deviceChanged();
+}
+
+void BluetoothAgent::loadDevice(const QDBusObjectPath &path)
+{
+    setDeviceInfo(QString(), false);
+    const QString devicePath = path.path();
+    QDBusMessage call = QDBusMessage::createMethodCall("org.bluez", devicePath, "org.freedesktop.DBus.Properties", "GetAll");
+    call << QString("org.bluez.Device1");
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, devicePath](QDBusPendingCallWatcher *w) {
+        QDBusPendingReply<QVariantMap> reply = *w;
+        w->deleteLater();
+        // another device asked since: its answer is the one that counts
+        if (reply.isError() || device.path() != devicePath)
+            return;
+        const QVariantMap props = reply.value();
+        setDeviceInfo(QString::fromStdString(EosBluetooth::displayName(props.value("Alias").toString().toStdString(),
+                                                                       props.value("Name").toString().toStdString())),
+                      EosBluetooth::isPhoneClass(props.value("Class").toUInt()));
+    });
 }
 
 QDBusObjectPath BluetoothAgent::getPath()
@@ -222,6 +256,7 @@ void BluetoothAgent::userCancels()
 QString BluetoothAgent::RequestPinCode(QDBusObjectPath object, const QDBusMessage &message)
 {
     device = object;
+    loadDevice(device);
     setTrusted(device);
     setWindowVisible(true);
     setState(ReqPinCode);
@@ -236,6 +271,7 @@ QString BluetoothAgent::RequestPinCode(QDBusObjectPath object, const QDBusMessag
 quint32 BluetoothAgent::RequestPasskey(QDBusObjectPath object, const QDBusMessage &message)
 {
     device = object;
+    loadDevice(device);
     setTrusted(device);
     setWindowVisible(true);
     setState(ReqPasskey);
@@ -249,6 +285,7 @@ quint32 BluetoothAgent::RequestPasskey(QDBusObjectPath object, const QDBusMessag
 void BluetoothAgent::DisplayPinCode(QDBusObjectPath object, QString pc)
 {
     device = object;
+    loadDevice(device);
     setPinCode(pc);
     setWindowVisible(true);
     setState(DispPinCode);
@@ -257,6 +294,7 @@ void BluetoothAgent::DisplayPinCode(QDBusObjectPath object, QString pc)
 void BluetoothAgent::DisplayPasskey(QDBusObjectPath object, quint32 pk, quint16)
 {
     device = object;
+    loadDevice(device);
     setPasskey(pk);
     setWindowVisible(true);
     setState(DispPasskey);
@@ -265,6 +303,7 @@ void BluetoothAgent::DisplayPasskey(QDBusObjectPath object, quint32 pk, quint16)
 void BluetoothAgent::RequestConfirmation(QDBusObjectPath object, quint32 pk, const QDBusMessage &message)
 {
     device = object;
+    loadDevice(device);
     setPasskey(pk);
     setWindowVisible(true);
     setState(ReqConfirmation);
@@ -277,6 +316,7 @@ void BluetoothAgent::RequestConfirmation(QDBusObjectPath object, quint32 pk, con
 void BluetoothAgent::RequestAuthorization(QDBusObjectPath object, const QDBusMessage &message)
 {
     device = object;
+    loadDevice(device);
     setWindowVisible(true);
     setState(ReqAuthorization);
 
@@ -285,16 +325,29 @@ void BluetoothAgent::RequestAuthorization(QDBusObjectPath object, const QDBusMes
     m_latestMessage = message;
 }
 
-void BluetoothAgent::AuthorizeService(QDBusObjectPath object, QString uuid, const QDBusMessage &message)
+// A profile of a device wants to connect. Stock has no per-service prompt (connectivity-system-ux-03):
+// a bonded device's service is allowed at once and the device marked trusted (BlueZ then stops asking),
+// an unbonded device's is refused, silently. No window, no UUID shown, and a pairing prompt that is up
+// is left alone (its message is not touched).
+void BluetoothAgent::AuthorizeService(QDBusObjectPath object, QString, const QDBusMessage &message)
 {
-    device = object;
-    setWindowVisible(true);
-    setState(AuthService);
-    setPinCode(uuid);
-
     message.setDelayedReply(true);
-
-    m_latestMessage = message;
+    const QDBusMessage pending = message;
+    const QString devicePath = object.path();
+    QDBusMessage call = QDBusMessage::createMethodCall("org.bluez", devicePath, "org.freedesktop.DBus.Properties", "GetAll");
+    call << QString("org.bluez.Device1");
+    auto *watcher = new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(call), this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, pending, devicePath](QDBusPendingCallWatcher *w) {
+        QDBusPendingReply<QVariantMap> reply = *w;
+        w->deleteLater();
+        const bool paired = !reply.isError() && reply.value().value("Paired").toBool();
+        if (EosBluetooth::authorizeService(paired) == EosBluetooth::ServiceReply::Accept) {
+            setTrusted(QDBusObjectPath(devicePath));
+            QDBusConnection::systemBus().send(pending.createReply());
+        } else {
+            QDBusConnection::systemBus().send(pending.createErrorReply("org.bluez.Error.Rejected", "Rejected"));
+        }
+    });
 }
 
 void BluetoothAgent::Cancel()

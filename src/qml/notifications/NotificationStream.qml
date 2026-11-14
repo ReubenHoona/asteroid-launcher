@@ -6,7 +6,9 @@
 import QtQuick
 import org.nemomobile.lipstick
 import org.asteroid.controls
+import Nemo.Configuration
 import "home"
+import "desktop.js" as Desktop
 
 /*
  * The notification stream of the Wear layout, the tray under the watchface
@@ -389,12 +391,40 @@ Item {
         return view && typeof view.reopen === "function" ? view.reopen(n) === true : false
     }
 
+    // The conversation a message card belongs to (asteroid-btsyncd's hint x-asteroid-conversation:
+    // the key of the phone's conversation list, "t<thread id>" or "n<hash>"); "" for any other card
+    function conversationKey(n) {
+        var h = n && n.hints ? n.hints["x-asteroid-conversation"] : ""
+        return h ? String(h) : ""
+    }
+
+    // The messages app opens on the conversation with its list under it (messages-contacts-21:
+    // stock runs the notification's view_conversation intent of Google Messages, parent = the
+    // list). A running app takes the key from the dconf hand-off keys (a second start of a
+    // single-instance app only raises it), a new one reads them at start.
+    ConfigurationValue { id: openConversationKey; key: "/org/asteroidos/messages/open-conversation"; defaultValue: "" }
+    ConfigurationValue { id: openConversationName; key: "/org/asteroidos/messages/open-name"; defaultValue: "" }
+    property string lastConversation: ""
+    function openConversation(n) {
+        var key = conversationKey(n)
+        if (key === "" || !Desktop.desktop || !Desktop.desktop.launchByName)
+            return false
+        openConversationName.value = n.summary ? String(n.summary) : ""
+        openConversationKey.value = key
+        lastConversation = key
+        Desktop.desktop.launchByName("asteroid-messages", null)
+        return true
+    }
+
     // A tap on a call card reopens the call (its content intent is the
-    // in-call activity, jgv.java:128-130); any other card opens in place
+    // in-call activity, jgv.java:128-130); a tap on the content of an open message card hands
+    // the conversation to the messages app; any other card opens in place
     function cardTapped(n) {
         if (!n)
             return
         if (isCall(n) && reopenCall(n))
+            return
+        if (expandedId === idOf(n) && conversationKey(n) !== "" && openConversation(n))
             return
         toggleCard(idOf(n))
     }

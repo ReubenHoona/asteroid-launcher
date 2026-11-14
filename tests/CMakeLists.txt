@@ -104,3 +104,8 @@ target_link_libraries(tst_crownbutton PRIVATE Qt6::Core Qt6::DBus)
 # vibration limit, the queue of 5, auto-resume, plain C++
 add_executable(tst_alertpolicy tst_alertpolicy.cpp)
 target_include_directories(tst_alertpolicy PRIVATE ../lipstick/src/notifications)
+
+# The Bluetooth pairing rules (lipstick/src/eosbluetooth.h): the phone class, the name without the address,
+# the silent service answer, plain C++
+add_executable(tst_bluetooth tst_bluetooth.cpp)
+target_include_directories(tst_bluetooth PRIVATE ../lipstick/src)

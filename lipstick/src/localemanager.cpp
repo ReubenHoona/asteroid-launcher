@@ -19,6 +19,7 @@
 #include <QDBusMessage>
 #include <QDBusPendingCall>
 #include <QDebug>
+#include <QQmlEngine>
 
 LocaleManager::LocaleManager(HomeApplication *app) : QDBusAbstractAdaptor(app)
 {
@@ -62,6 +63,15 @@ void LocaleManager::selectLocale(QString locale)
 
     m_app->removeTranslator(m_translator);
     loadLocaleCatalog();
+
+    // Stock: Configuration.setLocale and every activity and SysUI is recreated at once, no reboot.
+    // Every qsTr() / qsTrId() binding of the running QML is evaluated again with the new catalog, not
+    // only those that append changesObserver (109 of 226 qsTrId lines before), and the bindings that
+    // call Qt.locale() follow localeRevision (locale-formats-02).
+    if (m_app->engine())
+        m_app->engine()->retranslate();
+    m_revision++;
+    emit localeRevisionChanged();
 
     // Propagate the locale to apps: newly spawned processes inherit it from
     // the user session, and the booster respawns with it for prelaunching

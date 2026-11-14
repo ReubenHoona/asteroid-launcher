@@ -28,244 +28,196 @@
  */
 
 import QtQuick
-import Qt5Compat.GraphicalEffects
 import org.asteroid.controls
 import org.nemomobile.lipstick
 
+/*
+ * The Bluetooth pairing dialog on the shared M3 alert dialog (W3-launcher-misc), as stock
+ * CP3A's pairing activities (connectivity-system-ux-01, -02, -03):
+ *   - Confirm code: title "Secure pair with <name>" (the short "Secure pair <name>" when the
+ *     whole title is over 18 characters, as BluetoothPairingDialogBuilder checks it), the text
+ *     "Do codes match?" and the 6 digit code under it in the large title style, cancel and
+ *     confirm buttons.
+ *   - Consent: the title only, cancel and confirm.
+ *   - Display passkey / PIN: "Enter this code on phone" (the device is a phone) or "Enter code
+ *     on other device", then the code; no buttons, a swipe back or the crown cancels.
+ *   - Enter PIN / passkey: "Enter PIN:" and a digit field of 1 to 16 digits; confirm is
+ *     enabled only for those.
+ *   - Legacy PIN requests say "Legacy pair with <name>".
+ * There is no service prompt (the agent answers those itself) and the address is never shown:
+ * a device without a name is "device". Leaving the dialog cancels the pairing; the agent's
+ * own 120 s timeout and the display handling (mce) are unchanged. Nothing runs while it is
+ * not up.
+ */
 Item {
     id: btAgent
+    objectName: "bluetoothAgentDialog"
 
     anchors.fill: parent
-    visible: bluetoothAgent.windowVisible
+    visible: bluetoothAgent.windowVisible || dialog.active
 
-    // The dialog is sized against a centered square (the shorter screen edge)
-    // instead of Dims, so the pairing circle stays a circle and everything
-    // centers on non-square screens.
-    Item {
-        id: content
-        anchors.centerIn: parent
-        width: Math.min(parent.width, parent.height)
-        height: width
+    /* the dialog is up (the crown closes it: KeyRouter, "closeSystemDialog") */
+    readonly property bool shown: dialog.shown
+    readonly property alias dialog: dialog
 
+    /* leaving the dialog (the crown) cancels the pairing; the agent's state then closes it */
+    function close() {
+        if (dialog.shown)
+            bluetoothAgent.userCancels()
+    }
+    readonly property alias inputField: inputField
+    readonly property alias codeLabel: codeLabel
+    readonly property alias entryRow: entryRow
+
+    // 6 digits, padded (a passkey), or the PIN as given
+    readonly property string passkeyText: ("000000" + bluetoothAgent.passkey).slice(-6)
+
+    readonly property int st: bluetoothAgent.state
+    readonly property bool legacy: st === BluetoothAgent.ReqPinCode || st === BluetoothAgent.DispPinCode
+    readonly property bool displayOnly: st === BluetoothAgent.DispPasskey || st === BluetoothAgent.DispPinCode
+    readonly property bool entry: st === BluetoothAgent.ReqPinCode || st === BluetoothAgent.ReqPasskey
+    readonly property bool hasCode: st === BluetoothAgent.ReqConfirmation || displayOnly
+
+    readonly property string deviceText: {
+        var n = bluetoothAgent.deviceName
+        //% "device"
+        return n !== undefined && n !== "" ? n : qsTrId("id-btagent-device") + localeManager.changesObserver
+    }
+
+    /* stock's title: "Secure pair with %1", "Legacy pair with %1"; the short form when the
+     * formatted title is over 18 characters ("Secure pair %1", "Legacy pair %1") */
+    function pairTitle(name, isLegacy) {
+        var full = isLegacy
+            //% "Legacy pair with %1"
+            ? qsTrId("id-btagent-legacy-pair-with").arg(name)
+            //% "Secure pair with %1"
+            : qsTrId("id-btagent-secure-pair-with").arg(name)
+        if (full.length <= 18)
+            return full
+        return isLegacy
+            //% "Legacy pair %1"
+            ? qsTrId("id-btagent-legacy-pair").arg(name)
+            //% "Secure pair %1"
+            : qsTrId("id-btagent-secure-pair").arg(name)
+    }
+
+    readonly property string titleText: {
+        if (entry)
+            //% "Enter PIN:"
+            return qsTrId("id-btagent-enter-pin") + localeManager.changesObserver
+        if (displayOnly)
+            return pairTitle(deviceText, legacy)
+        return pairTitle(deviceText, false)
+    }
+    readonly property string messageText: {
+        if (st === BluetoothAgent.ReqConfirmation)
+            //% "Do codes match?"
+            return qsTrId("id-btagent-codes-match") + localeManager.changesObserver
+        if (displayOnly)
+            return bluetoothAgent.deviceIsPhone
+                //% "Enter this code on phone"
+                ? qsTrId("id-btagent-code-on-phone") + localeManager.changesObserver
+                //% "Enter code on other device"
+                : qsTrId("id-btagent-code-on-other") + localeManager.changesObserver
+        return ""
+    }
+    readonly property string codeText: st === BluetoothAgent.DispPinCode ? bluetoothAgent.pinCode : passkeyText
+
+    // 1 to 16 digits (BluetoothEnterPinActivity: 1 <= length <= 16)
+    readonly property bool inputValid: inputField.text.length >= 1 && inputField.text.length <= 16
+
+    readonly property bool wanted: bluetoothAgent.windowVisible && st !== BluetoothAgent.Idle
+                                   && st !== BluetoothAgent.AuthService
+
+    // the agent answered or cancelled by itself: the dialog goes without asking again
+    property bool closingByAgent: false
+
+    onWantedChanged: {
+        if (wanted) {
+            inputField.text = ""
+            dialog.open()
+        } else if (dialog.shown) {
+            closingByAgent = true
+            dialog.close()
+            closingByAgent = false
+        }
+    }
+
+    AlertDialog {
+        id: dialog
+        objectName: "bluetoothAlert"
+        title: btAgent.titleText
+        text: btAgent.messageText
+        buttons: btAgent.displayOnly ? "none" : "confirmDismiss"
+        // a display-only code and a request leave through the agent: its state ends the window
+        closeOnAction: true
+        onConfirmed: {
+            if (bluetoothAgent.state === BluetoothAgent.ReqPinCode)
+                bluetoothAgent.pinCode = inputField.text
+            if (bluetoothAgent.state === BluetoothAgent.ReqPasskey)
+                bluetoothAgent.passkey = Number(inputField.text)
+            bluetoothAgent.userAccepts()
+        }
+        onDismissed: if (!btAgent.closingByAgent) bluetoothAgent.userCancels()
+
+        // the code, on its own line in the large title style. The rows of an alert dialog are
+        // measured by what is visible, so these two do not toggle `visible`: a row with no content
+        // is 0 px high
+        Label {
+            id: codeLabel
+            objectName: "bluetoothCode"
+            readonly property bool wanted: btAgent.hasCode
+            height: wanted ? implicitHeight : 0
+            opacity: wanted ? 1 : 0
+            width: parent ? parent.width : 0
+            horizontalAlignment: Text.AlignHCenter
+            role: "titleLarge"
+            color: Theme.color.onSurface
+            text: btAgent.codeText
+            Accessible.role: Accessible.StaticText
+            Accessible.name: text
+        }
+
+        // the PIN: digits only
         Item {
-            id: circleWrapper
-            anchors.fill: parent
-            Rectangle {
-                id: circle
-                anchors.centerIn: parent
-                width: content.width * 0.7
-                height: width
-                radius: width/2
-                color: "#f4f4f4"
-            }
-        }
-        DropShadow {
-            anchors.fill: circleWrapper
-            horizontalOffset: 0
-            verticalOffset: 0
-            radius: 8.0
-            samples: 17
-            color: "#80000000"
-            source: circleWrapper
-            cached: true
-        }
-
-        Icon {
-            id: icon
-            anchors.centerIn: parent
-            anchors.verticalCenterOffset: -content.width * 0.2
-            width: content.width * 0.2
-            height: width
-            color: "#666666"
-            name: "ios-bluetooth"
-        }
-
-        Item {
-            id: text
-            anchors.left: parent.left
-            anchors.right: parent.right
-            anchors.top: icon.bottom
-            anchors.topMargin: content.width * 0.03
-            Label {
-                id: summary
-                anchors.top: parent.top
-                width: content.width * 0.7
-                horizontalAlignment: Text.AlignHCenter
-                anchors.horizontalCenter: parent.horizontalCenter
-                color: "#666666"
-                font.pixelSize: content.width * 0.05
-                clip: true
-                elide: Text.ElideRight
-            }
-
-            Label {
-                id: body
-                anchors.top: summary.bottom
-                width: content.width * 0.7
-                height: content.width * 0.1
-                anchors.horizontalCenter: parent.horizontalCenter
-                horizontalAlignment: Text.AlignHCenter
-                color: "#666666"
-                font.bold: true
-                clip: true
-                maximumLineCount: 1
-                elide: Text.ElideRight
-                wrapMode: Text.Wrap
-            }
-        }
-
-        TextField {
-            id: inputField
-            inputMethodHints: Qt.ImhDigitsOnly
-            anchors.top: text.top
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: content.width * 0.6
-        }
-
-        IconButton {
-            id: cancelButton
-            iconColor: "#666666"
-            iconName: "ios-close-circle-outline"
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.horizontalCenterOffset: -content.width * 0.12
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: content.width * 0.21
-            onClicked: bluetoothAgent.userCancels()
-        }
-
-        IconButton {
-            id: confirmButton
-            iconColor: "#666666"
-            iconName: "ios-checkmark-circle-outline"
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.horizontalCenterOffset: content.width * 0.12
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: content.width * 0.21
-            onClicked: {
-                if(bluetoothAgent.state == BluetoothAgent.ReqPinCode)
-                    bluetoothAgent.pinCode = Number(inputField.text)
-                if(bluetoothAgent.state == BluetoothAgent.ReqPasskey)
-                    bluetoothAgent.passkey = inputField.text
-                bluetoothAgent.userAccepts()
+            id: entryRow
+            objectName: "bluetoothEntry"
+            width: parent ? parent.width : 0
+            height: btAgent.entry ? inputField.height : 0
+            opacity: btAgent.entry ? 1 : 0
+            TextField {
+                id: inputField
+                objectName: "bluetoothInput"
+                enabled: btAgent.entry
+                width: parent.width
+                inputMethodHints: Qt.ImhDigitsOnly
+                validator: RegularExpressionValidator { regularExpression: /^[0-9]{0,16}$/ }
             }
         }
     }
 
-    Behavior on opacity {
-        NumberAnimation { duration: 200 }
+    // the confirm button of an entry is for 1 to 16 digits only
+    Binding {
+        target: dialog.confirmButton
+        property: "enabled"
+        value: !btAgent.entry || btAgent.inputValid
     }
 
-    // Only while a pairing dialog shows: made at start, the keyboard's
-    // style animated its hidden space key (32 frames after every launcher
-    // start)
+    // Only while a pairing dialog with an entry shows: made at start, the keyboard's
+    // style animated its hidden space key (32 frames after every launcher start)
     Loader {
         anchors.fill: parent
-        active: btAgent.visible
+        z: 2
+        active: btAgent.entry && dialog.shown
         sourceComponent: Component { HandWritingKeyboard { } }
     }
 
+    // the agent's state ends the window: it is Idle after an answer or a remote cancel
     Connections {
         target: bluetoothAgent
         function onStateChanged() {
-            switch(bluetoothAgent.state) {
-                case BluetoothAgent.AuthService:
-                    //% "Authorize:"
-                    summary.text = qsTrId("id-btagent-authorize") + localeManager.changesObserver
-                    body.text = bluetoothAgent.pinCode
-                    text.visible = true
-                    inputField.text = ""
-                    inputField.previewText = ""
-                    inputField.visible = false
-                    cancelButton.visible = true
-                    confirmButton.visible = true
-                    break;
-
-                case BluetoothAgent.ReqAuthorization:
-                    //% "Authorize:"
-                    summary.text = qsTrId("id-btagent-authorize") + localeManager.changesObserver
-                    body.text = ""
-                    text.visible = true
-                    inputField.text = ""
-                    inputField.previewText = ""
-                    inputField.visible = false
-                    cancelButton.visible = true
-                    confirmButton.visible = true
-                    break;
-
-                case BluetoothAgent.ReqConfirmation:
-                    //% "Confirm:"
-                    summary.text = qsTrId("id-btagent-confirm") + localeManager.changesObserver
-                    body.text = ("000000" + bluetoothAgent.passkey).substr(-6,6)  // padded to 6 digits
-                    text.visible = true
-                    inputField.text = ""
-                    inputField.previewText = ""
-                    inputField.visible = false
-                    cancelButton.visible = true
-                    confirmButton.visible = true
-                    break;
-
-                case BluetoothAgent.DispPasskey:
-                    //% "Pass Key:"
-                    summary.text = qsTrId("id-btagent-passkey") + localeManager.changesObserver
-                    body.text = ("000000" + bluetoothAgent.passkey).substr(-6,6)  // padded to 6 digits
-                    text.visible = true
-                    inputField.text = ""
-                    inputField.previewText = ""
-                    inputField.visible = false
-                    cancelButton.visible = true
-                    confirmButton.visible = true
-                    break;
-
-                case BluetoothAgent.ReqPasskey:
-                    summary.text = ""
-                    body.text = ""
-                    text.visible = false
-                    inputField.text = ""
-                    //% "Enter Key"
-                    inputField.previewText = qsTrId("id-btagent-enterkey") + localeManager.changesObserver
-                    inputField.visible = true
-                    cancelButton.visible = true
-                    confirmButton.visible = true
-                    break;
-
-                case BluetoothAgent.DispPinCode:
-                    //% "PIN Code:"
-                    summary.text = qsTrId("id-btagent-pincode") + localeManager.changesObserver
-                    body.text = bluetoothAgent.pinCode
-                    text.visible = true
-                    inputField.text = ""
-                    inputField.previewText = ""
-                    inputField.visible = false
-                    cancelButton.visible = true
-                    confirmButton.visible = true
-                    break;
-
-                case BluetoothAgent.ReqPinCode:
-                    //% "PIN Code:"
-                    summary.text = qsTrId("id-btagent-pincode") + localeManager.changesObserver
-                    body.text = ""
-                    text.visible = false
-                    inputField.text = ""
-                    //% "Enter PIN Code"
-                    inputField.previewText = qsTrId("id-btagent-enter-pincode") + localeManager.changesObserver
-                    inputField.visible = true
-                    cancelButton.visible = true
-                    confirmButton.visible = true
-                    break;
-
-                case BluetoothAgent.Idle:
-                default:
-                    summary.text = ""
-                    body.text = ""
-                    text.visible = false
-                    inputField.text = ""
-                    inputField.previewText = ""
-                    inputField.visible = false
-                    cancelButton.visible = false
-                    confirmButton.visible = false
-                    bluetoothAgent.windowVisible = false
-                    break;
-            }
+            if (bluetoothAgent.state === BluetoothAgent.Idle)
+                bluetoothAgent.windowVisible = false
         }
     }
 }
