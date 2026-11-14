@@ -19,7 +19,7 @@
 
 bool WristCrownFilter::eventFilter(QObject *watched, QEvent *event)
 {
-    if (!m_flip || m_busy || event->type() != QEvent::Wheel)
+    if (!m_flip || m_busy || event->type() != QEvent::Wheel || !m_window || watched != m_window.data())
         return false;
     QWheelEvent *w = static_cast<QWheelEvent *>(event);
     // the same event with the turn negated (Qt has no setter): both deltas, so a pixel-scrolling
@@ -68,13 +68,13 @@ void WristOrientation::setMode(const QVariant &stored, bool start)
 
 void WristOrientation::attachWindow(QObject *window)
 {
-    if (window == m_window.data())
-        return;
-    if (m_window)
-        m_window->removeEventFilter(&m_filter);
+    // out and in again: installEventFilter puts the filter first, ahead of RotaryInput (see the header)
+    if (QCoreApplication *app = QCoreApplication::instance())
+        app->removeEventFilter(&m_filter);
     m_window = window;
-    if (window)
-        window->installEventFilter(&m_filter);
+    m_filter.setWindow(window);
+    if (window && QCoreApplication::instance())
+        QCoreApplication::instance()->installEventFilter(&m_filter);
 }
 
 void WristOrientation::tellHub()

@@ -15,13 +15,19 @@
 class QDBusServiceWatcher;
 
 /*
- * The crown's sign after the flip (wrist-orientation-06): an event filter for
- * the compositor's window that turns every wheel event around once, so the
- * compositor's own items (RotaryInput, WheelHandler) and the clients the
- * compositor forwards the wheel to (lipstickcompositorwindow.cpp) see stock's
- * direction: stock negates the crown scroll when the display is rotated 180
- * (AOSP RotaryEncoderInputMapper::sync). The user's rotary-invert key stays an
- * extra inversion, applied by RotaryInput on top.
+ * The crown's sign after the flip (wrist-orientation-06): an event filter that turns the
+ * compositor window's wheel events around once, so the compositor's own items (RotaryInput,
+ * WheelHandler) and the clients the compositor forwards the wheel to
+ * (lipstickcompositorwindow.cpp) see stock's direction: stock negates the crown scroll when the
+ * display is rotated 180 (AOSP RotaryEncoderInputMapper::sync). The user's rotary-invert key stays
+ * an extra inversion, applied by RotaryInput on top.
+ *
+ * It is installed on the application, not on the window: qml-asteroid's RotaryInput is an
+ * application-level filter that consumes the window's wheel event, and Qt runs the application's
+ * filters (newest installed first) before the window's own. attachWindow() therefore installs it
+ * again each time it is called, which puts it in front of RotaryInput whatever was installed
+ * since. It acts on the attached window only: Qt Quick's copies for the items pass the
+ * application's filters too, and must not be turned a second time.
  */
 class WristCrownFilter : public QObject
 {
@@ -30,9 +36,12 @@ public:
     explicit WristCrownFilter(QObject *parent = nullptr) : QObject(parent) {}
     bool flip() const { return m_flip; }
     void setFlip(bool flip) { m_flip = flip; }
+    // the one window whose wheel events are turned (null: none)
+    void setWindow(QObject *window) { m_window = window; }
     bool eventFilter(QObject *watched, QEvent *event) override;
 
 private:
+    QPointer<QObject> m_window;
     bool m_flip = false;
     bool m_busy = false;        // the turned copy passes this filter again
 };
@@ -77,7 +86,8 @@ public:
     void setMode(const QVariant &stored, bool start = false);
 
     // The compositor's window: its wheel events are turned while flipped (QML calls this once
-    // the scene is in its window). The same window twice is ignored.
+    // the scene is in its window, after its imports, RotaryInput's among them, are loaded). The
+    // filter goes on the application and to the front of its filters each time this is called.
     Q_INVOKABLE void attachWindow(QObject *window);
 
 signals:

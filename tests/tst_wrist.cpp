@@ -321,6 +321,79 @@ static void crownFilter()
     CHECK(second.angle.last() == QPoint(0, 60));
 }
 
+/* qml-asteroid's RotaryInput is an application-level filter that consumes the window's wheel event
+ * (rotaryinput.cpp: handleWheel returns true) and installed itself first (RotaryInput::install, at the
+ * controls plugin's load). A stand-in with the same manners: it eats every wheel event sent to the
+ * watched object, and counts what it was shown. */
+class Eater : public QObject
+{
+public:
+    QObject *only = nullptr;
+    QList<QPoint> seen;
+    bool eventFilter(QObject *watched, QEvent *e) override
+    {
+        if (e->type() != QEvent::Wheel || watched != only)
+            return false;
+        seen << static_cast<QWheelEvent *>(e)->angleDelta();
+        e->accept();
+        return true;
+    }
+};
+
+static void crownBeforeRotaryInput()
+{
+    Target window, item;
+    Eater rotary;
+    rotary.only = &window;
+    qApp->installEventFilter(&rotary);                       // RotaryInput::install, at the plugin load
+    WristOrientation w(nullptr, QDBusConnection::sessionBus(), QLatin1String("org.eos.test.NoSuchHub"));
+    w.attachWindow(&window);
+
+    // not flipped: the consumer sees the raw turn, the window's own handler never does (consumed)
+    sendWheel(&window, QPoint(0, 120), QPoint(0, 4));
+    CHECK(rotary.seen.size() == 1 && rotary.seen[0] == QPoint(0, 120));
+    CHECK(window.angle.isEmpty());
+
+    // flipped: the consumer sees the turn negated, once (the copy passes the application filters again)
+    w.setMode(QVariant(1));
+    sendWheel(&window, QPoint(0, 120), QPoint(0, 4));
+    CHECK(rotary.seen.size() == 2 && rotary.seen[1] == QPoint(0, -120));
+    sendWheel(&window, QPoint(0, -30));
+    CHECK(rotary.seen.size() == 3 && rotary.seen[2] == QPoint(0, 30));
+    CHECK(window.angle.isEmpty());
+
+    // an item's copy of the event (Qt Quick sends it on to the item through the same filters) is not turned again
+    rotary.only = &item;
+    sendWheel(&item, QPoint(0, 120));
+    CHECK(rotary.seen.size() == 4 && rotary.seen[3] == QPoint(0, 120));
+    CHECK(item.angle.isEmpty());
+    rotary.only = &window;
+
+    // a consumer installed after the attach is ahead of the flip: attaching again puts the flip in front
+    Eater late;
+    late.only = &window;
+    qApp->installEventFilter(&late);
+    sendWheel(&window, QPoint(0, 60));
+    CHECK(late.seen.size() == 1 && late.seen[0] == QPoint(0, 60));      // raw: the flip is behind it
+    w.attachWindow(&window);
+    sendWheel(&window, QPoint(0, 60));
+    CHECK(late.seen.size() == 2 && late.seen[1] == QPoint(0, -60));
+    CHECK(rotary.seen.size() == 4);
+    qApp->removeEventFilter(&late);
+
+    // the flip off: raw again
+    w.setMode(QVariant(0));
+    sendWheel(&window, QPoint(0, 60));
+    CHECK(rotary.seen.size() == 5 && rotary.seen[4] == QPoint(0, 60));
+
+    // no window: nothing is turned
+    w.setMode(QVariant(1));
+    w.attachWindow(nullptr);
+    sendWheel(&window, QPoint(0, 60));
+    CHECK(rotary.seen.size() == 6 && rotary.seen[5] == QPoint(0, 60));
+    qApp->removeEventFilter(&rotary);
+}
+
 static void filterGoesWithTheWindow()
 {
     WristOrientation w(nullptr, QDBusConnection::sessionBus(), QLatin1String("org.eos.test.NoSuchHub"));
@@ -349,6 +422,7 @@ int main(int argc, char **argv)
     hubComesLater();
     crownFilter();
     filterGoesWithTheWindow();
+    crownBeforeRotaryInput();
     if (failures)
         fprintf(stderr, "tst_wrist: %d of %d checks failed\n", failures, checks);
     else
