@@ -153,6 +153,9 @@ public:
     //! Returns true if the notification has been hidden to prevent further display
     bool hidden() const;
 
+    //! Returns true if the notification is an ongoing activity (eosongoing.h): it never alerts
+    bool isOngoing() const;
+
     //! Returns the remote actions invokable by the notification
     QVariantList remoteActions() const;
 

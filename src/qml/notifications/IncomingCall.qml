@@ -207,6 +207,40 @@ Item {
                 s = 2
         }
         phoneCallState = s
+        refreshChip(except)
+    }
+
+    /* The call in progress while its screen is not up: an ongoing entry of the category call (the
+     * face chip, ranked first, the phone glyph, the time since it began as a count-up part). A tap
+     * on the chip brings the screen back; the entry goes with the phone's call card (stock: the Phone
+     * app's ongoing activity, status-indicators-13). */
+    property QtObject chipCall: null
+    readonly property QtObject chipRegistry: typeof ongoingRegistry !== "undefined" ? ongoingRegistry : null
+    function refreshChip(except) {
+        var c = null
+        for (var i = 0; i < notifModel.itemCount && c === null; i++) {
+            var n = notifModel.get(i)
+            if (n !== null && n !== undefined && n !== except && n !== call && isInProgress(n))
+                c = n
+        }
+        if (c === chipCall)
+            return
+        chipCall = c
+        if (chipRegistry === null)
+            return
+        if (c === null)
+            chipRegistry.remove("call")
+        else
+            chipRegistry.publish("call", { category: "call", staticIcon: "ms-call", title: nameOf(c),
+                                           status: "%t", when: c.timestamp.getTime(), countdown: false })
+    }
+    Connections {
+        target: incomingCall.chipRegistry
+        ignoreUnknownSignals: true
+        function onActivated(key, app) {
+            if (key === "local:call" && incomingCall.chipCall !== null)
+                incomingCall.reopen(incomingCall.chipCall)
+        }
     }
 
     function answer() {

@@ -31,15 +31,29 @@
 
 import QtQuick
 import org.asteroid.controls
+import org.nemomobile.lipstick
+import "status.js" as Status
+import "ongoing.js" as Ongoing
 import ".."
 
-/* The status slot of the home screen (split out of MainScreen.qml): the
- * unread notification indicator at the top and the four edge hints.
- * Instantiated once in MainScreen as `statusSlot`, at z 0 above the grid
- * as before; MainScreen forwards rightIndicator, leftIndicator,
- * topIndicator and bottomIndicator (the grid, the app launchers and the
- * first-run wizard use them). Reads MainScreen's `grid` through the
- * context. Owned by W2-launcher-status. */
+/* The status slot of the home screen (split out of MainScreen.qml): what the watch
+ * face overlay of stock Wear OS draws over the face (W2-launcher-status):
+ *   - the status icon, one at a time at the top centre (FaceStatusIcon, fed by
+ *     StatusSources: the 16 stock types in the stock order);
+ *   - the unread notification bar at the bottom (NotificationIndicator);
+ *   - the ongoing activity chip at the bottom, the Live Space (LiveSpace, fed by the
+ *     ongoing registry, OngoingFeed, MediaOngoing);
+ *   - the four edge hints of the AsteroidOS layout (stock draws none on the Wear
+ *     layout's face: status-indicators-10).
+ * Instantiated once in MainScreen as `statusSlot`, at z 0 above the grid as before;
+ * MainScreen forwards rightIndicator, leftIndicator, topIndicator and bottomIndicator
+ * (the grid, the app launchers and the first-run wizard use them). Reads MainScreen's
+ * `grid` and `desktop` through the context.
+ *
+ * Battery: everything here follows signals; the icon and the chip draw static, at full
+ * opacity, with no animation in the always-on screen, and the sensor hub draws what the AP
+ * drew last: `ambientIconsKey` says when that changes (AmbientController invalidates the hub's
+ * layout once per change). */
 Item {
     id: statusSlot
     anchors.fill: parent
@@ -49,6 +63,19 @@ Item {
     readonly property Item leftIndicator: leftEdgeIndicator
     readonly property Item topIndicator: topEdgeIndicator
     readonly property Item bottomIndicator: bottomEdgeIndicator
+    readonly property Item sources: statusSources
+    readonly property Item statusIcon: faceStatus
+    readonly property Item liveSpace: chip
+    readonly property Item feed: ongoingFeed
+    readonly property Item media: mediaOngoing
+
+    // the Wear layout (MainScreen's): no edge hints there
+    readonly property bool wearLayout: typeof desktop === "undefined" || !desktop || desktop.wearLayout !== false
+    // the screen is on and showing: the icon and the chip animate; else they are static
+    readonly property bool interactive: (typeof desktop === "undefined" || !desktop
+                                         || (desktop.displayAwake === true && desktop.displayAmbient !== true))
+    // what the sensor hub's always-on layout depends on: the status icon and the chip's icon
+    readonly property string ambientIconsKey: Status.ambientKey(statusSources.slotKey, chip.ambientKey)
 
     NotificationIndicator {
         id: notifIndicator
@@ -59,8 +86,71 @@ Item {
         panelsGrid: grid
     }
 
-    Indicator { id: rightEdgeIndicator; edge: Qt.RightEdge }
-    Indicator { id: leftEdgeIndicator; edge: Qt.LeftEdge }
-    Indicator { id: topEdgeIndicator; edge: Qt.TopEdge }
-    Indicator { id: bottomEdgeIndicator; edge: Qt.BottomEdge }
+    // gone as the face is swiped away (the dot's rule: a panel over the face covers them)
+    Item {
+        id: overlayPart
+        objectName: "overlayPart"
+        anchors.fill: parent
+        readonly property real offset: typeof grid !== "undefined" && grid
+                                       ? Math.abs(grid.normalizedHorOffset) + Math.abs(grid.normalizedVerOffset) : 0
+        opacity: Math.max(0, 1 - 3 * offset)
+        visible: opacity > 0
+
+        StatusSources { id: statusSources }
+
+        FaceStatusIcon {
+            id: faceStatus
+            slotKey: statusSources.slotKey
+            interactive: statusSlot.interactive
+        }
+
+        LiveSpace {
+            id: chip
+            entry: ongoingFeed.registry ? ongoingFeed.registry.top : ({})
+            interactive: statusSlot.interactive
+            onTapped: function (key, app) {
+                if (ongoingFeed.registry)
+                    ongoingFeed.registry.activate(key)
+            }
+            onMenuRequested: function (key, app, title) { statusSlot.openLiveMenu(app, title) }
+        }
+    }
+
+    // ask whether to turn the app's live updates off (the chip's and the stream's long press)
+    function openLiveMenu(app, who) {
+        liveMenu.app = app
+        liveMenu.who = who
+        liveMenu.open()
+    }
+
+    OngoingFeed { id: ongoingFeed }
+    MediaOngoing { id: mediaOngoing }
+
+    // long press on the chip: turn the app's live updates off (stock ini.java:160-230;
+    // mute_live_update_confirmation_dialog_title, watch_face_overlay_live_update_mute_button_description)
+    AlertDialog {
+        id: liveMenu
+        objectName: "liveMenu"
+        z: 30
+        property string app: ""
+        property string who: ""
+        //% "Turn off %1 live updates?"
+        title: qsTrId("id-live-turn-off-title").arg(who)
+        //% "Ongoing notifications from %1 won’t appear on your watch"
+        text: qsTrId("id-live-turn-off-text").arg(who)
+        onConfirmed: ongoingFeed.mute(app)
+    }
+
+    // the edge hints belong to the AsteroidOS layout; the Wear layout's face has none
+    Item {
+        id: edgeHints
+        objectName: "edgeHints"
+        anchors.fill: parent
+        visible: !statusSlot.wearLayout
+
+        Indicator { id: rightEdgeIndicator; edge: Qt.RightEdge }
+        Indicator { id: leftEdgeIndicator; edge: Qt.LeftEdge }
+        Indicator { id: topEdgeIndicator; edge: Qt.TopEdge }
+        Indicator { id: bottomEdgeIndicator; edge: Qt.BottomEdge }
+    }
 }

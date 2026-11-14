@@ -54,6 +54,7 @@
 #include "modes.h"
 #include "assistantkey.h"
 #include "keyclaims.h"
+#include "ongoingregistry.h"
 #include "huboffload.h"
 #include "offbody.h"
 #include "eosquietpolicy.h"
@@ -173,6 +174,13 @@ int main(int argc, char **argv)
     // the session bus: org.asteroidos.launcher.Keys at /org/asteroidos/launcher/keys
     KeyClaims *keyClaims = new KeyClaims(&app);
     app.engine()->rootContext()->setContextProperty("keyClaims", keyClaims);
+
+    // The ongoing activities (a running timer or stopwatch, a call, media, a workout): the face
+    // chip, the privacy status icons. Apps publish on the session bus, org.asteroidos.launcher.Ongoing
+    // at /org/asteroidos/launcher/ongoing, or with a notification carrying the x-eos-ongoing hints
+    // (ongoingregistry.h, W2-launcher-status)
+    OngoingRegistry *ongoingRegistry = new OngoingRegistry(&app);
+    app.engine()->rootContext()->setContextProperty("ongoingRegistry", ongoingRegistry);
 
     // Give these to the environment inside the launcher's wayland compositor
     // Fixes a bug where some applications wouldn't launch, eg. terminal or browser

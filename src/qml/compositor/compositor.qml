@@ -111,6 +111,22 @@ Item {
     // the power system (W2-launcher-power-system): touch lock, power menu, SOS, error
     // dialogs, screenshot show; a surface of these takes the edge swipe away
     readonly property bool touchLocked: touchLock.locked
+    // The face's status icons (W2-launcher-status): the touch lock and the open microphone are claims of
+    // the ongoing registry, which the home screen's status slot reads
+    readonly property bool micInUse: arbiter.micInUse
+    function claimStatus(kind, on) {
+        if (typeof ongoingRegistry !== "undefined" && ongoingRegistry !== null)
+            ongoingRegistry.setInUse(kind, on)
+    }
+    onTouchLockedChanged: claimStatus("touchlock", touchLocked)
+    onMicInUseChanged: claimStatus("mic", micInUse)
+    // (a change handler does not run for the value a property starts with)
+    QtObject {
+        Component.onCompleted: {
+            root.claimStatus("touchlock", root.touchLocked)
+            root.claimStatus("mic", root.micInUse)
+        }
+    }
     readonly property bool systemModal: arbiter.powerMenuShown || arbiter.sosShown || arbiter.errorShown
     readonly property Item touchLockItem: touchLock
     readonly property Item screenshotItem: screenshotOverlay

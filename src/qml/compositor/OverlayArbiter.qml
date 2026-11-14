@@ -79,6 +79,9 @@ Item {
         source: "../assistant/AssistantOverlay.qml"
     }
     readonly property bool assistantShown: assistantLoader.item ? assistantLoader.item.shown : false
+    // the microphone is open for the assistant (the face's "Microphone on" status icon, status-indicators-22)
+    readonly property bool micInUse: assistantLoader.item ? (assistantLoader.item.shown
+                                                            && assistantLoader.item.phase === "listening") : false
     // instant: the side button's hold shows it at once (stock: no transition); the
     // app list and the tile open it with the shared fade
     function openAssistant(text, instant) {

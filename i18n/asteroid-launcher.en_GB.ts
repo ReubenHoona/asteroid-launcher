@@ -1672,5 +1672,100 @@ Only selected people and apps can reach you.</translation>
         <source>You can still manage settings in the %1 app on your phone</source>
         <translation>You can still manage settings in the %1 app on your phone</translation>
     </message>
+    <message id="id-status-thermal">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Watch is warm</source>
+        <translation>Watch is warm</translation>
+    </message>
+    <message id="id-status-water-lock">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Water lock on</source>
+        <translation>Water lock on</translation>
+    </message>
+    <message id="id-status-mic">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Microphone on</source>
+        <translation>Microphone on</translation>
+    </message>
+    <message id="id-status-location">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Location on</source>
+        <translation>Location on</translation>
+    </message>
+    <message id="id-status-safety">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Safety signal is active</source>
+        <translation>Safety signal is active</translation>
+    </message>
+    <message id="id-status-screen-lock">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Device is locked</source>
+        <translation>Device is locked</translation>
+    </message>
+    <message id="id-status-charging">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Charging</source>
+        <translation>Charging</translation>
+    </message>
+    <message id="id-status-airplane">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Airplane mode on</source>
+        <translation>Airplane mode on</translation>
+    </message>
+    <message id="id-status-bt-off">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Bluetooth off</source>
+        <translation>Bluetooth off</translation>
+    </message>
+    <message id="id-status-lte">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>LTE Disconnected</source>
+        <translation>LTE Disconnected</translation>
+    </message>
+    <message id="id-status-phone">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Disconnected from phone</source>
+        <translation>Disconnected from phone</translation>
+    </message>
+    <message id="id-status-bedtime">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Bedtime mode on</source>
+        <translation>Bedtime mode on</translation>
+    </message>
+    <message id="id-status-theater">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Theater mode on</source>
+        <translation>Theater mode on</translation>
+    </message>
+    <message id="id-status-dnd">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Do Not Disturb Mode on</source>
+        <translation>Do Not Disturb Mode on</translation>
+    </message>
+    <message id="id-status-saver">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Power Save mode on</source>
+        <translation>Power Save mode on</translation>
+    </message>
+    <message id="id-status-battery-low">
+        <location filename="../src/qml/home/FaceStatusIcon.qml"/>
+        <source>Battery Low</source>
+        <translation>Battery Low</translation>
+    </message>
+    <message id="id-ongoing-description">
+        <location filename="../src/qml/home/LiveSpace.qml"/>
+        <source>Ongoing %1 running in the background</source>
+        <translation>Ongoing %1 running in the background</translation>
+    </message>
+    <message id="id-live-turn-off-title">
+        <location filename="../src/qml/home/StatusSlot.qml"/>
+        <source>Turn off %1 live updates?</source>
+        <translation>Turn off %1 live updates?</translation>
+    </message>
+    <message id="id-live-turn-off-text">
+        <location filename="../src/qml/home/StatusSlot.qml"/>
+        <source>Ongoing notifications from %1 won’t appear on your watch</source>
+        <translation>Ongoing notifications from %1 won’t appear on your watch</translation>
+    </message>
 </context>
 </TS>

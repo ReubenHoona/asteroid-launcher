@@ -15,6 +15,7 @@
 
 #include "notificationmanager.h"
 #include "lipsticknotification.h"
+#include "eosongoing.h"
 
 #include <QDBusArgument>
 #include <QtDebug>
@@ -255,6 +256,14 @@ bool LipstickNotification::isUserRemovable() const
 bool LipstickNotification::hidden() const
 {
     return hints_.value(NotificationManager::HINT_HIDDEN, QVariant(false)).toBool();
+}
+
+bool LipstickNotification::isOngoing() const
+{
+    return EosOngoing::isOngoing(hints_.value(QStringLiteral("x-eos-ongoing")).toString().toStdString(),
+                                 hints_.value(QStringLiteral("x-nemo-ongoing")).toString().toStdString(),
+                                 category().toStdString(),
+                                 hints_.value(QStringLiteral("x-asteroid-category")).toString().toStdString());
 }
 
 QVariantList LipstickNotification::remoteActions() const

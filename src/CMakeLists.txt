@@ -13,6 +13,7 @@ set(SRC
 	modes.cpp
 	assistantkey.cpp
 	keyclaims.cpp
+	ongoingregistry.cpp
 	huboffload.cpp
 	offbody.cpp
 	eoslayout.c)
@@ -31,6 +32,7 @@ set(HEADERS
 	modes.h
 	assistantkey.h
 	keyclaims.h
+	ongoingregistry.h
 	huboffload.h
 	offbody.h
 	eoshubdigits.h
@@ -138,6 +140,15 @@ set(QML_FILES
 	qml/home/HomeOverlays.qml
 	qml/home/StatusSlot.qml
 	qml/home/ambient.js
+	qml/home/status.js
+	qml/home/unread.js
+	qml/home/ongoing.js
+	qml/home/StatusSources.qml
+	qml/home/FaceStatusIcon.qml
+	qml/home/LiveSpace.qml
+	qml/home/OngoingFeed.qml
+	qml/home/MediaOngoing.qml
+	qml/home/LiveChips.qml
 	qml/compositor/AmbientLite.qml
 	qml/compositor/BurnInMask.qml
 	qml/system/PowerMenu.qml
@@ -248,6 +259,15 @@ set_source_files_properties(qml/home/ChargingController.qml               PROPER
 set_source_files_properties(qml/home/HomeOverlays.qml                     PROPERTIES QT_RESOURCE_ALIAS home/HomeOverlays.qml)
 set_source_files_properties(qml/home/StatusSlot.qml                       PROPERTIES QT_RESOURCE_ALIAS home/StatusSlot.qml)
 set_source_files_properties(qml/home/ambient.js                           PROPERTIES QT_RESOURCE_ALIAS home/ambient.js)
+set_source_files_properties(qml/home/status.js                    PROPERTIES QT_RESOURCE_ALIAS home/status.js)
+set_source_files_properties(qml/home/unread.js                    PROPERTIES QT_RESOURCE_ALIAS home/unread.js)
+set_source_files_properties(qml/home/ongoing.js                   PROPERTIES QT_RESOURCE_ALIAS home/ongoing.js)
+set_source_files_properties(qml/home/StatusSources.qml            PROPERTIES QT_RESOURCE_ALIAS home/StatusSources.qml)
+set_source_files_properties(qml/home/FaceStatusIcon.qml           PROPERTIES QT_RESOURCE_ALIAS home/FaceStatusIcon.qml)
+set_source_files_properties(qml/home/LiveSpace.qml                PROPERTIES QT_RESOURCE_ALIAS home/LiveSpace.qml)
+set_source_files_properties(qml/home/OngoingFeed.qml              PROPERTIES QT_RESOURCE_ALIAS home/OngoingFeed.qml)
+set_source_files_properties(qml/home/MediaOngoing.qml             PROPERTIES QT_RESOURCE_ALIAS home/MediaOngoing.qml)
+set_source_files_properties(qml/home/LiveChips.qml                PROPERTIES QT_RESOURCE_ALIAS home/LiveChips.qml)
 set_source_files_properties(qml/compositor/AmbientLite.qml                PROPERTIES QT_RESOURCE_ALIAS compositor/AmbientLite.qml)
 set_source_files_properties(qml/compositor/BurnInMask.qml                 PROPERTIES QT_RESOURCE_ALIAS compositor/BurnInMask.qml)
 set_source_files_properties(qml/system/PowerMenu.qml                PROPERTIES QT_RESOURCE_ALIAS system/PowerMenu.qml)

@@ -45,6 +45,14 @@ set_target_properties(tst_keyclaims PROPERTIES AUTOMOC ON)
 target_include_directories(tst_keyclaims PRIVATE ../src)
 target_link_libraries(tst_keyclaims PRIVATE Qt6::Core Qt6::DBus)
 
+# The ongoing activity registry (src/ongoingregistry.h, lipstick/src/notifications/eosongoing.h): the rules and the
+# table, and the bus object on a private bus:
+#   dbus-run-session -- ./tst_ongoing
+add_executable(tst_ongoing tst_ongoing.cpp ../src/ongoingregistry.cpp ../src/ongoingregistry.h)
+set_target_properties(tst_ongoing PROPERTIES AUTOMOC ON)
+target_include_directories(tst_ongoing PRIVATE ../src ../lipstick/src/notifications)
+target_link_libraries(tst_ongoing PRIVATE Qt6::Core Qt6::DBus)
+
 # The finger speed of a swipe (src/swipevelocity.h), plain C++
 add_executable(tst_swipevelocity tst_swipevelocity.cpp)
 target_include_directories(tst_swipevelocity PRIVATE ../src)

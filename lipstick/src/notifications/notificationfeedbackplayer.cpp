@@ -176,6 +176,10 @@ bool NotificationFeedbackPlayer::isEnabled(LipstickNotification *notification)
     if (notification->hidden() || notification->restored())
         return false;
 
+    // an ongoing activity never makes a sound or a buzz (eosongoing.h)
+    if (notification->isOngoing())
+        return false;
+
     uint mode = AllNotificationsEnabled;
     LipstickCompositorWindow *win = LipstickCompositor::instance()->m_windows.value(LipstickCompositor::instance()->topmostWindowId());
     if (win != 0) {

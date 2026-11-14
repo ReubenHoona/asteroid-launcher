@@ -164,6 +164,13 @@ void NotificationPreviewPresenter::updateNotification(uint id)
     if (notification == 0)
         return;
 
+    // an ongoing activity (eosongoing.h) is shown on the watch face, it never alerts: no
+    // banner, no vibration, no sound; it is in the stream already
+    if (notification->isOngoing()) {
+        NotificationManager::instance()->MarkNotificationDisplayed(id);
+        return;
+    }
+
     if (!notificationShouldBeShown(notification)) {
         // Remove updated notification only from the queue so that a currently visible notification won't suddenly disappear
         playFeedback(id);

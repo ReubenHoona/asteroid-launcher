@@ -187,6 +187,9 @@ Item {
     // the side button's Recents (the compositor's KeyRouter): opens it, or closes it when open
     function toggleRecents() { return overlays.toggleRecents() }
 
+    // the long press of an ongoing activity's chip: turn its app's live updates off? (StatusSlot)
+    function openLiveMenu(app, who) { statusSlot.openLiveMenu(app, who) }
+
     // the crown button on the home screen (HomeOverlays)
     function crownPressed() { overlays.crownPressed() }
 
@@ -206,6 +209,8 @@ Item {
             Desktop.compositorRoot.closeTopmost()
         closeOverlays()
         if (wearLayout && streamItem) {
+            // only this one is read, not the rest of the stream under it (status-indicators-08)
+            statusSlot.notificationIndicator.openedFromHeadsUp(n)
             grid.showStream()
             streamItem.openDetail(n)
         } else {

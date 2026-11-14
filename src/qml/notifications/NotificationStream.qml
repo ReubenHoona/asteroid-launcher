@@ -6,6 +6,7 @@
 import QtQuick
 import org.nemomobile.lipstick
 import org.asteroid.controls
+import "home"
 
 /*
  * The notification stream of the Wear layout, the tray under the watchface
@@ -515,6 +516,21 @@ Item {
                 edgeEasing: Motion.list.streamEdgeEasing
                 spacing: stream.cardSpacing
                 topMargin: stream.topPadding
+                // the ongoing activities as status chips above the cards (status-indicators-21): no
+                // entry, no height
+                header: Component {
+                    LiveChips {
+                        interactive: stream.screenOn
+                        onTapped: function (key) {
+                            if (typeof ongoingRegistry !== "undefined" && ongoingRegistry !== null)
+                                ongoingRegistry.activate(key)
+                        }
+                        onMenuRequested: function (key, app, title) {
+                            if (typeof desktop !== "undefined" && desktop && desktop.openLiveMenu)
+                                desktop.openLiveMenu(app, title)
+                        }
+                    }
+                }
                 // the last card ends 16 dp above Clear all (70 dp)
                 bottomMargin: clearAllButton.contentPadding
                 sideMargin: stream.sideMargin
