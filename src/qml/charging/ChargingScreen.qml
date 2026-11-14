@@ -140,15 +140,21 @@ Item {
             alarms.refresh()
         }
     }
-    // up to the minute: one shot, only while the screen is up on the awake display; the AP's
-    // own minute update draws it in the always-on screen
+    // up to the minute: one shot that re-arms itself in the handler, only while the screen is up on
+    // the awake display; the AP's own minute update draws it in the always-on screen. (A one-shot
+    // Timer clears its own running when it fires and the bound 'running' has nothing to re-evaluate,
+    // hence the explicit restart.)
     Timer {
         id: minuteTimer
         objectName: "eosChargingMinute"
         running: screen.shown && screen.awake
         repeat: false
         interval: 60000 - (screen.now.getTime() % 60000) + 20
-        onTriggered: screen.refreshTime()
+        onTriggered: {
+            screen.refreshTime()
+            if (screen.shown && screen.awake)
+                minuteTimer.restart()
+        }
     }
     Connections {
         target: Lipstick.compositor
