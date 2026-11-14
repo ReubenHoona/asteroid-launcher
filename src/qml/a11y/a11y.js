@@ -40,6 +40,9 @@ var SCALES = [1.5, 1.7, 2.0, 2.2, 2.5, 2.7, 3.0]
 var DEFAULT_SCALE = 2.0
 // the border while magnified: accessibility_magnification_indicator_width 4 dp
 var BORDER_DP = 4
+// its colour: magnification_border_color (values/colors.xml:397, VALUES.tsv:9377), the stock
+// accessibility_fullscreen_magnification_border_background drawable; width magnifier_border_width_fullscreen 4dp (VALUES.tsv:10559)
+var BORDER_COLOR = "#f29900"
 
 /* The nearest step of the slider to a stored value. */
 function validScale(v) {

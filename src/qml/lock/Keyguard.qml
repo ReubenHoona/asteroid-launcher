@@ -118,7 +118,7 @@ Item {
 
     ConfigurationValue {
         id: soundSetting
-        key: "/org/asteroidos/settings/screen-unlock-sound"
+        key: "/org/asteroidos/sound/screen-unlock"
         defaultValue: true
     }
     readonly property bool unlockSound: soundSetting.value === true || soundSetting.value === "true"

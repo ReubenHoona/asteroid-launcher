@@ -181,7 +181,7 @@ Item {
         radius: DeviceSpecs.hasRoundScreen ? width / 2 : 0
         color: "transparent"
         border.width: Theme.dp(A11y.BORDER_DP) * inverse
-        border.color: Theme.color.primary
+        border.color: A11y.BORDER_COLOR
         z: 1000
     }
 }
