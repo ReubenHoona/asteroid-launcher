@@ -95,7 +95,10 @@ bool AppWatcher::openSettings(const QString &route)
         return false;
     MDConfItem request(QStringLiteral("/org/asteroidos/settings/ui/open"));
     request.set(route + QLatin1Char('@') + QString::number(QDateTime::currentMSecsSinceEpoch()));
-    return launch(QStringLiteral("asteroid-settings"), QStringList(), QStringLiteral("asteroid-settings"));
+    // Settings is not started here: the watcher of the key (MainScreen.handleSettingsRequest) starts it, or
+    // brings it back when it runs hidden, for every request the launcher QML did not write itself. Starting
+    // it here as well started a second asteroid-settings process (CR-16).
+    return true;
 }
 
 QString AppWatcher::titleFor(const QString &key) const

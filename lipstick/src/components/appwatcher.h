@@ -50,8 +50,9 @@ public:
     void noteDeliberate(qint64 pid);
 
     /* Open Settings at a route of its deep links ("app_storage", "app_info", ...): the request
-     * key the launcher and Settings share (/org/asteroidos/settings/ui/open = "<route>@<ms>"),
-     * then Settings is started or raised. */
+     * key the launcher and Settings share (/org/asteroidos/settings/ui/open = "<route>@<ms>").
+     * It only writes the key: the launcher's watcher of that key (MainScreen.handleSettingsRequest)
+     * starts or raises Settings, once (CR-16). */
     Q_INVOKABLE bool openSettings(const QString &route);
 
     /* The name of an app for a dialog: its desktop entry's name (localised),
