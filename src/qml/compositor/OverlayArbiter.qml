@@ -77,7 +77,9 @@ Item {
         source: "../assistant/AssistantOverlay.qml"
     }
     readonly property bool assistantShown: assistantLoader.item ? assistantLoader.item.shown : false
-    function openAssistant(text) {
+    // instant: the side button's hold shows it at once (stock: no transition); the
+    // app list and the tile open it with the shared fade
+    function openAssistant(text, instant) {
         if (!assistantLoader.item)
             return
         launchSplash.cancel()
@@ -86,7 +88,7 @@ Item {
         if (alertShown)
             return
         assistantLoader.item.inCall = callShown
-        assistantLoader.item.open(text || "")
+        assistantLoader.item.open(text || "", instant === true)
     }
     function closeAssistant() {
         if (assistantLoader.item)

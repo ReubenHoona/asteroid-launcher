@@ -76,7 +76,7 @@ Item {
 
     // the overlays (OverlayArbiter)
     readonly property bool assistantShown: arbiter.assistantShown
-    function openAssistant(text) { arbiter.openAssistant(text) }
+    function openAssistant(text, instant) { arbiter.openAssistant(text, instant === true) }
     function closeAssistant() { arbiter.closeAssistant() }
 
     // the windows leaving (WindowTransitions)

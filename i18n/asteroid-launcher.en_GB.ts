@@ -564,8 +564,12 @@
         <translation>Speak</translation>
     </message>
     <message id="id-voice-starting">
-        <source>Starting…</source>
-        <translation>Starting…</translation>
+        <source>Initializing…</source>
+        <translation>Initializing…</translation>
+    </message>
+    <message id="id-voice-speak-now">
+        <source>Speak now</source>
+        <translation>Speak now</translation>
     </message>
     <message id="id-voice-listening">
         <source>Listening…</source>
@@ -596,8 +600,8 @@
         <translation>Allow the microphone for Gadgetbridge on the phone</translation>
     </message>
     <message id="id-voice-no-match">
-        <source>Didn&apos;t catch that</source>
-        <translation>Didn&apos;t catch that</translation>
+        <source>Didn&apos;t catch that. Try speaking again</source>
+        <translation>Didn&apos;t catch that. Try speaking again</translation>
     </message>
     <message id="id-voice-busy">
         <source>The phone is busy, try again</source>

@@ -876,10 +876,15 @@ Item {
         }
     }
 
-    function voiceStatus(state, code) {
+    // The guiding texts of stock's voice input: "Initializing…", then "Speak now" until the
+    // first word, then "Listening…"; "Didn't catch that. Try speaking again" on no match
+    function voiceStatus(state, code, heard) {
         if (state === "starting")
-            //% "Starting…"
+            //% "Initializing…"
             return qsTrId("id-voice-starting")
+        if (state === "listening" && !heard)
+            //% "Speak now"
+            return qsTrId("id-voice-speak-now")
         if (state === "listening")
             //% "Listening…"
             return qsTrId("id-voice-listening")
@@ -902,7 +907,7 @@ Item {
             //% "Allow the microphone for Gadgetbridge on the phone"
             return qsTrId("id-voice-permission")
         if (code === "no-match")
-            //% "Didn't catch that"
+            //% "Didn't catch that. Try speaking again"
             return qsTrId("id-voice-no-match")
         if (code === "busy")
             //% "The phone is busy, try again"
@@ -1000,7 +1005,7 @@ Item {
                 wrapMode: Text.Wrap
                 color: vpage.failed ? Theme.color.error : "#b0b0b0"
                 font.pixelSize: Theme.type.bodySmall.pixelSize
-                text: actions.voiceStatus(vpage.voiceState, vpage.voiceError) + localeManager.changesObserver
+                text: actions.voiceStatus(vpage.voiceState, vpage.voiceError, vpage.voiceText) + localeManager.changesObserver
             }
 
             Label {

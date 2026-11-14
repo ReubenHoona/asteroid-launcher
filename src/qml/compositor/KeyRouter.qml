@@ -192,8 +192,9 @@ QtObject {
             var a = KeyMap.sideHold(keyRouter.context())
             if (a !== "assistant")
                 return
-            Haptics.longPress()
-            root.openAssistant("")
+            // no haptic here: the first one is the assistant's mic-open thud (stock
+            // PhoneWindowManager gives none for the hold), and no transition
+            root.openAssistant("", true)
         }
         function onOpenRequested(text) { root.openAssistant(text) }
     }

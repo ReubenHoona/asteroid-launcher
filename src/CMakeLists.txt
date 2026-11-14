@@ -83,7 +83,8 @@ set(QML_FILES
 	qml/complications/FaceEditor.qml
 	qml/assistant/AssistantOverlay.qml
 	qml/assistant/AssistantActions.qml
-	qml/assistant/AssistantDots.qml
+	qml/assistant/AssistantGlow.qml
+	qml/assistant/AssistantSpark.qml
 	qml/notifications/NotificationActions.qml
 	qml/notifications/NotificationButton.qml
 	qml/notifications/NotificationIndicator.qml
@@ -163,7 +164,8 @@ set_source_files_properties(qml/complications/complications.js       PROPERTIES 
 set_source_files_properties(qml/complications/FaceEditor.qml         PROPERTIES QT_RESOURCE_ALIAS complications/FaceEditor.qml)
 set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
-set_source_files_properties(qml/assistant/AssistantDots.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantDots.qml)
+set_source_files_properties(qml/assistant/AssistantGlow.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantGlow.qml)
+set_source_files_properties(qml/assistant/AssistantSpark.qml         PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantSpark.qml)
 set_source_files_properties(qml/notifications/NotificationActions.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationActions.qml)
 set_source_files_properties(qml/notifications/NotificationButton.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationButton.qml)
 set_source_files_properties(qml/notifications/NotificationIndicator.qml PROPERTIES QT_RESOURCE_ALIAS NotificationIndicator.qml)
@@ -201,6 +203,7 @@ qt_add_shaders(
     asteroid-launcher "asteroid-launcher_shaders"
     FILES
         "qml/compositor/circlemaskshader.frag"
+        "shaders/assistant-glow.frag"
         "shaders/colorfilter.frag"
         "shaders/masked-spartan.frag"
         "shaders/speed-dial-mask.frag"

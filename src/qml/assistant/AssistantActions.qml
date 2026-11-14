@@ -153,6 +153,11 @@ Item {
     function card(icon, title, text, chips, accent) {
         return { icon: icon, title: title || "", text: text || "", chips: chips || [], accent: accent || Theme.color.primary }
     }
+    // a card that says something went wrong: the overlay plays no response haptic for it
+    function failure(c) {
+        c.error = true
+        return c
+    }
     function openApp(name, onDone) {
         onDone({ close: true, then: function () {
             if (typeof Desktop !== "undefined" && Desktop.desktop)
@@ -664,19 +669,19 @@ Item {
     function phoneError(r, noPhone) {
         var er = r ? r.er : ""
         if (er === "no-phone" || er === "disconnected")
-            return card("ios-phone-portrait", "", noPhone)
+            return failure(card("ios-phone-portrait", "", noPhone))
         if (er === "old-app")
-            return card("ios-phone-portrait", "", loc("id-asst-act-old-app", "Update Gadgetbridge on your phone to do this from the watch."))
+            return failure(card("ios-phone-portrait", "", loc("id-asst-act-old-app", "Update Gadgetbridge on your phone to do this from the watch.")))
         if (er === "timeout")
-            return card("ios-phone-portrait", "", loc("id-asst-act-timeout", "Your phone didn't answer. Please try again."))
+            return failure(card("ios-phone-portrait", "", loc("id-asst-act-timeout", "Your phone didn't answer. Please try again.")))
         if (er === "no-permission" && r.perm === "contacts")
-            return card("ios-contacts-outline", "", loc("id-asst-perm-contacts", "Allow Gadgetbridge to see your contacts: on your phone, Settings > Apps > Gadgetbridge > Permissions > Contacts."))
+            return failure(card("ios-contacts-outline", "", loc("id-asst-perm-contacts", "Allow Gadgetbridge to see your contacts: on your phone, Settings > Apps > Gadgetbridge > Permissions > Contacts.")))
         if (er === "no-permission" && r.perm === "sms")
-            return card("ios-text-outline", "", loc("id-asst-perm-sms", "Allow Gadgetbridge to send SMS: on your phone, Settings > Apps > Gadgetbridge > Permissions > SMS."))
+            return failure(card("ios-text-outline", "", loc("id-asst-perm-sms", "Allow Gadgetbridge to send SMS: on your phone, Settings > Apps > Gadgetbridge > Permissions > SMS.")))
         if (er === "no-permission" && r.perm === "phone")
-            return card("ios-call-outline", "", loc("id-asst-perm-phone", "Allow Gadgetbridge to make phone calls: on your phone, Settings > Apps > Gadgetbridge > Permissions > Phone."))
+            return failure(card("ios-call-outline", "", loc("id-asst-perm-phone", "Allow Gadgetbridge to make phone calls: on your phone, Settings > Apps > Gadgetbridge > Permissions > Phone.")))
         if (er === "no-permission" && r.perm === "notifications")
-            return card("ios-notifications-outline", "", loc("id-asst-perm-notifications", "Allow Gadgetbridge to show notifications on your phone."))
+            return failure(card("ios-notifications-outline", "", loc("id-asst-perm-notifications", "Allow Gadgetbridge to show notifications on your phone.")))
         return null
     }
     function capitalised(t) {
@@ -685,8 +690,8 @@ Item {
     }
     // nothing was heard for a card's question: say so, offer to try again
     function notHeard(again) {
-        return card("ios-mic-off-outline", "", loc("id-asst-not-caught", "Sorry, I didn't catch that."),
-                    [{ label: loc("id-asst-try-again", "Try again"), icon: "ios-mic", run: function (d) { d(again) } }])
+        return failure(card("ios-mic-off-outline", "", loc("id-asst-not-caught", "Sorry, I didn't catch that."),
+                            [{ label: loc("id-asst-try-again", "Try again"), icon: "ios-mic", run: function (d) { d(again) } }]))
     }
 
     /* directions: Maps on the phone (Wear OS's "Navigate to" without Maps on the watch) */

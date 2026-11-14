@@ -1,0 +1,2 @@
+module Nemo.KeepAlive
+DisplayBlanking 1.0 DisplayBlanking.qml
