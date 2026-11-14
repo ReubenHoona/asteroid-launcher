@@ -44,7 +44,12 @@ import ".."
  * right). Instantiated once in MainScreen as `trays`; the grid calls
  * build() when it is complete. Reads MainScreen's shared ids (desktop,
  * grid, faceLayer, appDrawer, statusSlot and the indicators) through the
- * context. Owned by W2-launcher-trays (quick settings, stream). */
+ * context. Owned by W2-launcher-trays (quick settings, stream).
+ *
+ * In the Wear layout quick settings and the stream are trays over a still
+ * watch face (PanelsGrid trayMode, rules in tray.js): the face is made in
+ * the grid's faceHost, which does not move up and down; each tray gets its
+ * own black background that fades in between 25 % and 50 % out. */
 Item {
     id: trays
 
@@ -100,9 +105,19 @@ Item {
     function build() {
         desktop._wearLayout = homeLayout.value !== "asteroid"
         if (desktop.wearLayout) {
-            desktop.centreItem = grid.addPanel(0, 0, faceLayer.panel)
-            grid.addPanel(0, -1, topPanel)
+            grid.trayMode = true
+            // an open asked for while the screen is not yet interactive waits 50 ms
+            grid.trayInteractive = Qt.binding(function() { return desktop.displayAwake && !displayAmbient })
+            // the crown opens a tray from the watch face only (not under the app list,
+            // the face picker, the tile editor or the splash)
+            grid.crownEnabled = Qt.binding(function() { return desktop.faceShown && !displayAmbient && !appDrawer.isOpen && !splash.visible })
+            desktop.centreItem = grid.addPanel(0, 0, faceLayer.panel, grid.faceHost)
+            grid.attachTray(grid.addPanel(0, -1, topPanel), -1)
             var ns = grid.addPanel(0, 1, streamPanel)
+            // the tray's background is the grid's
+            if (ns.ownBackground !== undefined)
+                ns.ownBackground = false
+            grid.attachTray(ns, 1)
             desktop.streamItem = ns
             desktop.buildTiles()
             appDrawer.source = Qt.binding(function() { return appLauncherSource.value })

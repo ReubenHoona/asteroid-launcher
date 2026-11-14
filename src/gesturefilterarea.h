@@ -31,11 +31,26 @@
 #define GESTUREFILTERAREA_H
 
 #include <QObject>
+#include <QPointF>
 #include <QQuickItem>
+
+#include "swipevelocity.h"
 
 class GestureFilterArea : public QQuickItem
 {
     Q_OBJECT
+
+    /* Where the followed touch point went down and where it is (area
+     * coordinates), and its speed in px/s (SwipeVelocity: the last 100 ms).
+     * They follow the point whether this area has the swipe or a child (a
+     * list being dragged) has it: the trays hand a list's drag over to the
+     * panel when the list is at its end (W2-launcher-trays). Read them in
+     * the handlers of swipeStarted/swipeMoved/swipeReleased and touchMoved/
+     * touchEnded. */
+    Q_PROPERTY(QPointF pressPosition READ pressPosition)
+    Q_PROPERTY(QPointF touchPosition READ touchPosition NOTIFY touchMoved)
+    Q_PROPERTY(qreal swipeVelocityX READ swipeVelocityX)
+    Q_PROPERTY(qreal swipeVelocityY READ swipeVelocityY)
 
     Q_PROPERTY(bool toRightAllowed WRITE setToRightAllowed READ toRightAllowed NOTIFY toRightAllowedChanged)
     Q_PROPERTY(bool toLeftAllowed WRITE setToLeftAllowed READ toLeftAllowed NOTIFY toLeftAllowedChanged)
@@ -52,6 +67,10 @@ public:
     bool toBottomAllowed() { return m_toBottomAllowed; }
     bool toTopAllowed()    { return m_toTopAllowed;    }
     bool captureRight()    { return m_captureRight;    }
+    QPointF pressPosition() const { return m_pressPos; }
+    QPointF touchPosition() const { return m_touchPos; }
+    qreal swipeVelocityX() const { return m_vel.vx(); }
+    qreal swipeVelocityY() const { return m_vel.vy(); }
     void setCaptureRight(const bool capture) {
         if (m_captureRight != capture) {
             m_captureRight = capture;
@@ -91,6 +110,11 @@ signals:
     /* The swipe ends: the finger lifted, or the touch went away (cancelled,
      * grab lost, the area hidden; velocity 0 then) */
     void swipeReleased(bool horizontal, qreal velocity, bool tracing);
+    /* The followed touch point moved, or lifted, whoever has the swipe
+     * (also when a child holds the grab). touchPosition and the speed are
+     * current in the handler. */
+    void touchMoved();
+    void touchEnded();
 
     void toRightAllowedChanged();
     void toLeftAllowedChanged();
@@ -109,6 +133,13 @@ private:
     /* the touch point followed, and the time of its press */
     int m_pointId = -1;
     quint64 m_pressTime = 0;
+    QPointF m_pressPos, m_touchPos;
+    SwipeVelocity m_vel;
+
+    /* a position of the followed point (ms: the event's own time) */
+    void notePress(const QPointF &pos, quint64 timestamp);
+    void noteMove(const QPointF &pos, quint64 timestamp);
+    void noteEnd(quint64 timestamp);
 
     /* Shared gesture state machine, positions in GFA-local coordinates */
     void beginTracking(const QPointF &pos);

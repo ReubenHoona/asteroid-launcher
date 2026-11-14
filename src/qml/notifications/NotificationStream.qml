@@ -37,6 +37,15 @@ Item {
 
     readonly property Item listView: stack.firstPageItem ? stack.firstPageItem.list : null
 
+    // The list a downward drag that reaches its top hands over to the tray
+    // (PanelsGrid.handOverMoved, stock nested scroll); none in a detail page
+    readonly property Item handOverView: stack.layers.length === 0 ? listView : null
+
+    // The stream draws its own black background unless it sits in a tray
+    // (Trays.build sets this false: the tray's background fades in
+    // between 25 % and 50 % out, PanelsGrid.attachTray)
+    property bool ownBackground: true
+
     // the groups, newest first: key -> notifications, newest first
     property var groupItems: ({})
     property int revision: 0
@@ -196,6 +205,7 @@ Item {
         anchors.fill: parent
         radius: width / 2
         color: "#000000"
+        visible: stream.ownBackground
     }
 
     LayerStack {

@@ -90,10 +90,10 @@ Item {
     function mixColor(a, b, t) {
         return Qt.rgba(a.r*t + b.r*(1-t), a.g*t + b.g*(1-t), a.b*t + b.b*(1-t), a.a*t + b.a*(1-t))
     }
-    property var bgCenterColor: (!launcherColorOverride && grid.normalizedVerOffset > 0)
+    property var bgCenterColor: (!launcherColorOverride && !wearLayout && grid.normalizedVerOffset > 0)
                               ? mixColor(launcherCenterColor, defaultCenterColor, grid.normalizedVerOffset)
                               : defaultCenterColor
-    property var bgOuterColor: (!launcherColorOverride && grid.normalizedVerOffset > 0)
+    property var bgOuterColor: (!launcherColorOverride && !wearLayout && grid.normalizedVerOffset > 0)
                              ? mixColor(launcherOuterColor, defaultOuterColor, grid.normalizedVerOffset)
                              : defaultOuterColor
 
@@ -102,12 +102,15 @@ Item {
      * way the old imperative signal handlers could:
      *  - scrollDarken tracks the grid offset (instant, follows the finger).
      *    The launcher page (verOffset > 0) is intentionally not darkened unless
-     *    a launcher overrides the background colours.
+     *    a launcher overrides the background colours. In the Wear layout the
+     *    vertical panels are trays over a still face, which is neither darkened
+     *    nor moved (the trays have their own background, PanelsGrid), so only
+     *    the sideways move to the tiles darkens.
      *  - ambientDarken is toggled by the ambient signals (AmbientController)
      *    and fades over 300ms. */
     property real scrollDarken: displayAmbient ? 0.0
                               : (grid.normalizedVerOffset > 0 && !launcherColorOverride) ? 0.0
-                              : Math.max(Math.abs(grid.normalizedHorOffset), Math.abs(grid.normalizedVerOffset)) * 0.4
+                              : Math.max(Math.abs(grid.normalizedHorOffset), wearLayout ? 0 : Math.abs(grid.normalizedVerOffset)) * 0.4
     property real ambientDarken: 0.0
     Behavior on ambientDarken { NumberAnimation { duration: 300 } }
 
@@ -167,14 +170,14 @@ Item {
             Desktop.compositorRoot.closeTopmost()
         closeOverlays()
         if (wearLayout)
-            grid.moveTo(0, 1)
+            grid.showStream()
     }
     function openNotification(n) {
         if (Desktop.compositorRoot && !Lipstick.compositor.homeActive)
             Desktop.compositorRoot.closeTopmost()
         closeOverlays()
         if (wearLayout && streamItem) {
-            grid.moveTo(0, 1)
+            grid.showStream()
             streamItem.openDetail(n)
         } else {
             grid.moveTo(-1, 0)
@@ -383,9 +386,10 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         // Parallax: shift the wallpaper by 5% of the screen against the scroll
         // direction. Pure bindings on the grid offset, so they always settle to
-        // the right place no matter how the position was reached.
+        // the right place no matter how the position was reached. Not up and
+        // down in the Wear layout: the trays pass over a face that stays put.
         anchors.horizontalCenterOffset: grid.normalizedHorOffset * grid.width  * (-0.05)
-        anchors.verticalCenterOffset:   grid.normalizedVerOffset * grid.height * (-0.05)
+        anchors.verticalCenterOffset:   wearLayout ? 0 : grid.normalizedVerOffset * grid.height * (-0.05)
         Behavior on opacity { NumberAnimation { duration: 400 } }
 
         Component {

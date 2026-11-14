@@ -88,6 +88,24 @@ void GestureFilterArea::beginTracking(const QPointF &pos)
     m_counter = 0;
 }
 
+/* The point followed, for the trays (W2-launcher-trays): where it went down,
+ * where it is, how fast it goes. Passive: nothing here decides a gesture. */
+
+void GestureFilterArea::notePress(const QPointF &pos, quint64 timestamp)
+{
+    m_pressPos = pos;
+    m_touchPos = pos;
+    m_vel.reset();
+    m_vel.add(static_cast<long long>(timestamp), pos.x(), pos.y());
+}
+
+void GestureFilterArea::noteMove(const QPointF &pos, quint64 timestamp)
+{
+    m_touchPos = pos;
+    m_vel.add(static_cast<long long>(timestamp), pos.x(), pos.y());
+    emit touchMoved();
+}
+
 bool GestureFilterArea::trackMove(const QPointF &pos)
 {
     bool wantsGrab = false;
@@ -167,6 +185,7 @@ void GestureFilterArea::finishTracking()
 
 void GestureFilterArea::endGesture(const char *why)
 {
+    const bool following = m_pointId >= 0;
     const bool swiping = m_pressed && m_grabbed;
     m_pressed = false;
     m_grabbed = false;
@@ -177,6 +196,8 @@ void GestureFilterArea::endGesture(const char *why)
         qCInfo(lcGesture, "swipe ended without a lift: %s", why);
         emit swipeReleased(m_horizontal, 0, m_tracing);
     }
+    if (following)
+        emit touchEnded();
 }
 
 /* The point a gesture follows: one just pressed (it starts a gesture), else
@@ -207,6 +228,7 @@ void GestureFilterArea::startGesture(const QTouchEvent *event, const QEventPoint
         }
     }
     beginTracking(localPos);
+    notePress(localPos, event->timestamp());
     m_pointId = point.id();
     m_pressTime = event->timestamp();
 }
@@ -266,6 +288,7 @@ bool GestureFilterArea::filterTouchEvent(QQuickItem *item, QTouchEvent *event)
         startGesture(event, point, localPos);
         break;
     case QEventPoint::State::Updated: {
+        noteMove(localPos, event->timestamp());
         // a child that keeps its grab (a list being dragged, a slider)
         // has this touch
         QQuickItem *grabber = qobject_cast<QQuickItem *>(event->exclusiveGrabber(point));
@@ -287,7 +310,9 @@ bool GestureFilterArea::filterTouchEvent(QQuickItem *item, QTouchEvent *event)
     }
     case QEventPoint::State::Released:
         // Released before any grab: the child owns this gesture (tap/scroll).
+        noteMove(localPos, event->timestamp());
         finishTracking();
+        emit touchEnded();
         break;
     default:
         break;
@@ -310,8 +335,11 @@ bool GestureFilterArea::filterMouseEvent(QQuickItem *item, QMouseEvent *event)
     switch (event->type()) {
     case QEvent::MouseButtonPress:
         beginTracking(localPos);
+        notePress(localPos, event->timestamp());
         break;
     case QEvent::MouseMove:
+        if (m_pressed)
+            noteMove(localPos, event->timestamp());
         if (m_pressed && trackMove(localPos)) {
             m_grabbed = true;
             setKeepMouseGrab(true);
@@ -356,12 +384,15 @@ void GestureFilterArea::touchEvent(QTouchEvent *event)
         event->accept();
         break;
     case QEventPoint::State::Updated:
+        noteMove(localPos, event->timestamp());
         if (m_pressed)
             trackMove(localPos);
         event->accept();
         break;
     case QEventPoint::State::Released:
+        noteMove(localPos, event->timestamp());
         finishTracking();
+        emit touchEnded();
         event->accept();
         break;
     default:
@@ -375,6 +406,7 @@ void GestureFilterArea::mousePressEvent(QMouseEvent *event) {
         QQuickItem::mousePressEvent(event);
     } else {
         beginTracking(event->position());
+        notePress(event->position(), event->timestamp());
         m_grabbed = true;
         event->accept();
     }
@@ -385,14 +417,18 @@ void GestureFilterArea::mouseMoveEvent(QMouseEvent *event) {
         QQuickItem::mouseMoveEvent(event);
         return;
     }
+    noteMove(event->position(), event->timestamp());
     trackMove(event->position());
 }
 
 void GestureFilterArea::mouseReleaseEvent(QMouseEvent *event) {
     if (!isEnabled() || !m_pressed)
         QQuickItem::mouseReleaseEvent(event);
-    else
+    else {
+        noteMove(event->position(), event->timestamp());
         finishTracking();
+        emit touchEnded();
+    }
 }
 
 void GestureFilterArea::mouseUngrabEvent() {

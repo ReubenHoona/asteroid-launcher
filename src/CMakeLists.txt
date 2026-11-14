@@ -19,6 +19,7 @@ set(HEADERS
 	applauncherbackground.h
 	firstrun.h
 	gesturefilterarea.h
+	swipevelocity.h
 	applauncher.h
 	notificationsnoozer.h
 	watchfacereloader.h
@@ -49,6 +50,7 @@ set(QML_FILES
 	qml/misc/ModeScreen.qml
 	qml/misc/BluetoothAgent.qml
 	qml/misc/desktop.js
+	qml/misc/tray.js
 	qml/misc/AppDrawer.qml
 	qml/misc/FacePicker.qml
 	qml/notifications/NotificationStream.qml
@@ -121,6 +123,7 @@ set_source_files_properties(qml/misc/ShutdownScreen.qml              PROPERTIES 
 set_source_files_properties(qml/misc/ModeScreen.qml                  PROPERTIES QT_RESOURCE_ALIAS system/ModeScreen.qml)
 set_source_files_properties(qml/misc/BluetoothAgent.qml              PROPERTIES QT_RESOURCE_ALIAS connectivity/BluetoothAgent.qml)
 set_source_files_properties(qml/misc/desktop.js                      PROPERTIES QT_RESOURCE_ALIAS desktop.js)
+set_source_files_properties(qml/misc/tray.js                         PROPERTIES QT_RESOURCE_ALIAS tray.js)
 set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES QT_RESOURCE_ALIAS AppDrawer.qml)
 set_source_files_properties(qml/misc/FacePicker.qml                  PROPERTIES QT_RESOURCE_ALIAS FacePicker.qml)
 set_source_files_properties(qml/notifications/NotificationStream.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationStream.qml)

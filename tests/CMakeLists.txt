@@ -32,3 +32,7 @@ add_executable(tst_keyclaims tst_keyclaims.cpp ../src/keyclaims.cpp ../src/keycl
 set_target_properties(tst_keyclaims PROPERTIES AUTOMOC ON)
 target_include_directories(tst_keyclaims PRIVATE ../src)
 target_link_libraries(tst_keyclaims PRIVATE Qt6::Core Qt6::DBus)
+
+# The finger speed of a swipe (src/swipevelocity.h), plain C++
+add_executable(tst_swipevelocity tst_swipevelocity.cpp)
+target_include_directories(tst_swipevelocity PRIVATE ../src)
