@@ -3099,5 +3099,28 @@ for %1 seconds to</translation>
         <source>Answer on phone</source>
         <translation>Answer on phone</translation>
     </message>
+    <message id="id-card-start">
+        <location filename="../src/qml/notifications/CardActions.qml"/>
+        <source>Start</source>
+        <translation>Start</translation>
+    </message>
+    <message id="id-card-end">
+        <location filename="../src/qml/notifications/CardActions.qml"/>
+        <source>End</source>
+        <translation>End</translation>
+    </message>
+    <message id="id-card-open">
+        <location filename="../src/qml/notifications/CardActions.qml"/>
+        <source>Open</source>
+        <translation>Open</translation>
+    </message>
+    <message id="id-morning-brief">
+        <source>Start your day</source>
+        <translation>Start your day</translation>
+    </message>
+    <message id="id-morning-brief-body">
+        <source>Good morning! Here’s how your day is shaping up.</source>
+        <translation>Good morning! Here’s how your day is shaping up.</translation>
+    </message>
 </context>
 </TS>

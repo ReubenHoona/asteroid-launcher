@@ -32,7 +32,8 @@ import org.asteroid.controls
 import org.asteroid.utils
 import org.nemomobile.calendar
 import Nemo.Configuration
-import 'weathericons.js' as IconTools
+// the shared condition map and icons of the Weather app (weather-calendar-07)
+import "file:///usr/share/asteroid-weather/icons.js" as WeatherIcons
 
 ListView {
     boundsBehavior: Flickable.StopAtBounds
@@ -101,8 +102,11 @@ ListView {
         width: parent.width
         height: Dims.h(35)
 
-        Icon {
-            name: IconTools.getIconName(owmId.value)
+        Image {
+            objectName: "dayIcon"
+            source: "file:///usr/share/asteroid-weather/icons/" + WeatherIcons.iconPath(WeatherIcons.keyForOwm(owmId.value), true, false)
+            sourceSize: Qt.size(width, height)
+            fillMode: Image.PreserveAspectFit
             height: Dims.h(15)
             width: height
             anchors.verticalCenter: parent.verticalCenter

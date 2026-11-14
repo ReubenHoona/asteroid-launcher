@@ -8,7 +8,8 @@ import Nemo.Configuration
 import Nemo.DBus
 import Nemo.Mce
 import org.asteroid.launcher
-import "../weathericons.js" as IconTools
+// the shared condition map of the Weather app (condition key of an OpenWeatherMap id, weather-calendar-07)
+import "file:///usr/share/asteroid-weather/icons.js" as WeatherIcons
 import "../desktop.js" as Desktop
 import "complications.js" as C
 import "../home/ambient.js" as Ambient
@@ -699,7 +700,7 @@ Item {
         var progress = wx.hi > wx.lo ? C.clamp01((wx.cur - wx.lo) / (wx.hi - wx.lo)) : -1
         var word = conditionWord(wx.code)
         return base({ type: progress >= 0 ? "ranged" : "short", text: tp, short: tp, title: wx.city,
-                      long: word !== "" ? tp + " " + word : tp, icon: IconTools.getIconName(wx.code),
+                      long: word !== "" ? tp + " " + word : tp, icon: C.weatherIconName(WeatherIcons.keyForOwm(wx.code)),
                       progress: progress, color: progress >= 0 ? C.ramp(progress) : "" })
     }
     function conditionWord(code) {

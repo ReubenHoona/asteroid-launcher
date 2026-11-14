@@ -132,6 +132,13 @@ Item {
 
     readonly property bool takesReply: hasPhoneAction("reply") && !isCall
 
+    // the launcher's own buttons of the card (Start / End a workout offer, Open Health), from its hints
+    readonly property alias cardActions: cardHandler
+    CardActions {
+        id: cardHandler
+        notification: actions.notification
+    }
+
     // Settings > Input methods > Smart reply (CR-22, /org/asteroidos/notifications/smart-reply, default on):
     // off, a notification card shows no reply chips (the reply row of the keyboard, voice and emoji stays)
     ConfigurationValue {
@@ -423,6 +430,30 @@ Item {
             }
         }
 
+        // the launcher's own buttons (CardActions): the workout offer's Start or End, the morning card's Open
+        Column {
+            id: cardBlock
+            objectName: "cardBlock"
+            width: parent.width
+            readonly property bool wanted: cardHandler.buttons.length > 0 && !actions.isCall
+            visible: wanted
+            topPadding: wanted ? actions.space32 : 0
+            spacing: actions.space8
+            Repeater {
+                model: actions.isCall ? [] : cardHandler.buttons
+                delegate: Button {
+                    objectName: "cardAction"
+                    width: cardBlock.width
+                    centered: true
+                    radius: actions.outerRadius
+                    containerColor: Theme.color.primaryDim
+                    contentColor: Theme.color.onPrimary
+                    text: modelData.label + localeManager.changesObserver
+                    onClicked: cardHandler.run(modelData.kind)
+                }
+            }
+        }
+
         // Open on phone, last
         Item {
             id: openBlock
@@ -430,7 +461,7 @@ Item {
             width: parent.width
             visible: actions.hasPhoneAction("open")
             readonly property bool wanted: actions.hasPhoneAction("open")
-            readonly property bool afterActions: appBlock.wanted
+            readonly property bool afterActions: appBlock.wanted || cardBlock.wanted
             readonly property real lead: afterActions ? actions.space32 : actions.space24
             height: wanted ? lead + openButton.height : 0
 

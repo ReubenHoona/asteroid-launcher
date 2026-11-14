@@ -14,7 +14,7 @@ import "smartlinks.js" as Links
  * SmartLinksMenuActivity: a tap on a phone number opens a dialog with a person icon (24 dp), the
  * number as its title and two chips, "Message" then "Call" (52 dp high). Call asks the phone to
  * dial it (the assistant relay's "dial" action, as the emergency call does), Message opens the
- * full screen keyboard and sends the text from the phone ("sms" with the number). A tap on an
+ * full screen keyboard and sends the text from the phone ("sms" with nm, the number). A tap on an
  * address has no menu: the phone opens it in its map ("nav", as the assistant's directions).
  * Without the phone link the shared "Phone away" dialog says so; the dry-run keys of the
  * assistant keep a test from dialling or sending. No number or address is written to the log.
@@ -92,7 +92,7 @@ Item {
     function send(text) {
         var number = value
         var dry = smsDryRun.value === true || smsDryRun.value === "true"
-        act({ a: "sms", num: number, tx: text, dry: dry }, function (r) {
+        act({ a: "sms", nm: number, tx: text, dry: dry }, function (r) {
             if (r && r.ok) {
                 if (Desktop.confirmation)
                     //% "Message sent"

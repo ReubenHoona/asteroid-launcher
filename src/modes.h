@@ -7,10 +7,12 @@
 #define MODES_H
 
 #include <QByteArray>
+#include <QDateTime>
 #include <QHash>
 #include <QObject>
 #include <QVariant>
 #include <QVariantList>
+#include <functional>
 
 #include "modescore.h"
 
@@ -151,6 +153,9 @@ public:
     void setDoNotDisturb(bool on);
     void setExtraDimIntensity(int intensity);
 
+    // The clock the "Start your day" rule reads (the system clock by default); a test seam
+    void setClock(std::function<QDateTime()> clock) { mClock = clock; }
+
     // What a held setting goes back to when the last mode lets go (the
     // nightstand: unplugged while Extra dim held the brightness it had
     // changed); a setting no mode holds is set at once
@@ -207,6 +212,8 @@ private:
     void evaluateSaver();
     ModesCore::AutoSaver autoSaverConfig() const;
     void postNotice(const QString &title, const QString &body, const QString &mode, bool replaceLast);
+    void postMorningBrief();
+    QDateTime now() const { return mClock ? mClock() : QDateTime::currentDateTime(); }
     void closeSaverNotice();
     static QString bootId();
 
@@ -240,6 +247,10 @@ private:
     // a Bedtime transition is playing (the screen goes off at its end)
     bool mBedtimeTransition = false;
     uint mSaverNoticeId = 0;
+    // when Bedtime came on (ms since the epoch, 0 unknown) and the Julian day of the last "Start your day" card
+    qint64 mBedtimeSinceMs = 0;
+    qint64 mMorningDay = -1;
+    std::function<QDateTime()> mClock;
     // mce's values of the settings the modes hold, and its low power mode
     QHash<QString, QVariant> mMce;
     // what the engine wrote and mce has not signalled back yet, oldest

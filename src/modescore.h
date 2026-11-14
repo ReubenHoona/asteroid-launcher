@@ -6,6 +6,7 @@
 #ifndef MODESCORE_H
 #define MODESCORE_H
 
+#include <QDateTime>
 #include <QHash>
 #include <QString>
 #include <QVariant>
@@ -103,6 +104,15 @@ public:
     // the find-my-watch alert still come through), as Do Not Disturb;
     // asteroid-btsyncd applies it
     static bool silencesNotifications(int modes);
+    // The "Start your day" card (health-fitness-26, stock's Fitbit Morning Brief: posted when the night's
+    // sleep is over, here when Bedtime ends): at most once a local day, only in the morning (from
+    // MorningFromHour up to MorningToHour), and only when Bedtime had been on for MorningMinBedtimeMs
+    // (bedtimeSinceMs 0: since when is not known, a launcher restarted in the night). lastDay: the
+    // Julian day of the last card, -1 none
+    static constexpr int MorningFromHour = 4;
+    static constexpr int MorningToHour = 12;
+    static constexpr qint64 MorningMinBedtimeMs = 3LL * 3600 * 1000;
+    static bool morningBriefDue(const QDateTime &now, qint64 bedtimeSinceMs, qint64 lastDay);
     // The mode the settings name for a held setting ("Bedtime mode is
     // on"): the first of theater, bedtime, battery saver and extra dim
     // that holds it, 0 if none

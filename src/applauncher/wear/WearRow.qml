@@ -30,6 +30,11 @@ MouseArea {
     property string title: ""
     property string iconId: ""
     property color discColor: Theme.color.primary
+    // A white centre colour (X-Asteroid-Center-Color=#FFFFFF) marks an app that draws its own full-colour icon with
+    // its own disc (the Flashlight): the file is drawn as it is, not as a white glyph on a white disc (apps-misc-02)
+    readonly property bool ownIcon: discColor.r >= 0.99 && discColor.g >= 0.99 && discColor.b >= 0.99
+    readonly property string iconUrl: iconId === "" ? "" : (iconId.charAt(0) === "/" ? "file://" + iconId
+                                                                                   : "file:///usr/share/icons/asteroid/" + iconId + ".svg")
     /* the secondary line (an ongoing activity), "" for none */
     property string status: ""
     property real containerAlpha: 1
@@ -100,9 +105,21 @@ MouseArea {
             height: width
             radius: width / 2
             color: row.discColor
+            visible: !row.ownIcon
+        }
+
+        Image {
+            objectName: "ownIcon"
+            anchors.fill: disc
+            visible: row.ownIcon && row.iconUrl !== ""
+            source: visible ? row.iconUrl : ""
+            sourceSize: Qt.size(width, height)
+            fillMode: Image.PreserveAspectFit
+            smooth: true
         }
 
         Icon {
+            visible: !row.ownIcon
             anchors.centerIn: disc
             // inside the adaptive icon's safe zone (about 66 % of the disc)
             width: disc.width * 0.66

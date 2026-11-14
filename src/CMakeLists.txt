@@ -55,7 +55,6 @@ add_executable(asteroid-launcher ${SRC} ${HEADERS} resources-qml.qrc)
 set(QML_FILES
 	qml/MainScreen.qml
 	qml/today/Today.qml
-	qml/today/weathericons.js
 	qml/compositor/compositor.qml
 	qml/compositor/WindowWrapperBase.qml
 	qml/compositor/CircleMaskShader.qml
@@ -152,6 +151,8 @@ set(QML_FILES
 	qml/assistant/AssistantSpark.qml
 	qml/notifications/NotificationActions.qml
 	qml/notifications/NotificationActionsPage.qml
+	qml/notifications/CardActions.qml
+	qml/notifications/cardactions.js
 	qml/notifications/NotificationRemote.qml
 	qml/notifications/NotificationInputButton.qml
 	qml/notifications/NotificationPhoneIcon.qml
@@ -253,7 +254,6 @@ set(QML_FILES
 
 set_source_files_properties(qml/MainScreen.qml                       PROPERTIES QT_RESOURCE_ALIAS MainScreen.qml)
 set_source_files_properties(qml/today/Today.qml                      PROPERTIES QT_RESOURCE_ALIAS Today.qml)
-set_source_files_properties(qml/today/weathericons.js                PROPERTIES QT_RESOURCE_ALIAS weathericons.js)
 set_source_files_properties(qml/compositor/compositor.qml            PROPERTIES QT_RESOURCE_ALIAS compositor.qml)
 set_source_files_properties(qml/compositor/WindowWrapperBase.qml     PROPERTIES QT_RESOURCE_ALIAS compositor/WindowWrapperBase.qml)
 set_source_files_properties(qml/compositor/CircleMaskShader.qml      PROPERTIES QT_RESOURCE_ALIAS compositor/CircleMaskShader.qml)
@@ -367,6 +367,8 @@ set_source_files_properties(qml/assistant/AssistantGlow.qml          PROPERTIES 
 set_source_files_properties(qml/assistant/AssistantSpark.qml         PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantSpark.qml)
 set_source_files_properties(qml/notifications/NotificationActions.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationActions.qml)
 set_source_files_properties(qml/notifications/NotificationActionsPage.qml PROPERTIES QT_RESOURCE_ALIAS NotificationActionsPage.qml)
+set_source_files_properties(qml/notifications/CardActions.qml PROPERTIES QT_RESOURCE_ALIAS CardActions.qml)
+set_source_files_properties(qml/notifications/cardactions.js PROPERTIES QT_RESOURCE_ALIAS cardactions.js)
 set_source_files_properties(qml/notifications/NotificationRemote.qml PROPERTIES QT_RESOURCE_ALIAS NotificationRemote.qml)
 set_source_files_properties(qml/notifications/NotificationInputButton.qml PROPERTIES QT_RESOURCE_ALIAS NotificationInputButton.qml)
 set_source_files_properties(qml/notifications/NotificationPhoneIcon.qml PROPERTIES QT_RESOURCE_ALIAS NotificationPhoneIcon.qml)

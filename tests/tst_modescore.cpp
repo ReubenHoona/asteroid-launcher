@@ -17,6 +17,7 @@
 #include "modescore.h"
 
 #include <QHash>
+#include <QTimeZone>
 #include <cstdio>
 
 static int failures = 0;
@@ -538,8 +539,36 @@ static void alarms()
     CHECK(C::alarmEvent({ true, false }) == "alarm_sound" && C::alarmEvent({ false, false }).isEmpty());
 }
 
+// The "Start your day" card when Bedtime ends (health-fitness-26): the morning, once a day, after a long enough Bedtime
+static void morningBrief()
+{
+    auto at = [](int day, int h, int m) { return QDateTime(QDate(2026, 11, day), QTime(h, m), QTimeZone::utc()); };
+    auto ms = [](const QDateTime &d) { return d.toMSecsSinceEpoch(); };
+    CHECK(C::MorningFromHour == 4 && C::MorningToHour == 12 && C::MorningMinBedtimeMs == 3LL * 3600 * 1000);
+    // a night: Bedtime from 22:30, over at 07:10
+    CHECK(C::morningBriefDue(at(15, 7, 10), ms(at(14, 22, 30)), -1));
+    // the window of the morning: from 04:00 up to (not including) 12:00
+    CHECK(!C::morningBriefDue(at(15, 3, 59), ms(at(14, 22, 30)), -1));
+    CHECK(C::morningBriefDue(at(15, 4, 0), ms(at(14, 22, 30)), -1));
+    CHECK(C::morningBriefDue(at(15, 11, 59), ms(at(14, 22, 30)), -1));
+    CHECK(!C::morningBriefDue(at(15, 12, 0), ms(at(14, 22, 30)), -1));
+    CHECK(!C::morningBriefDue(at(15, 18, 0), ms(at(15, 12, 0)), -1));
+    // Bedtime must have lasted 3 hours
+    CHECK(C::morningBriefDue(at(15, 7, 0), ms(at(15, 4, 0)), -1));
+    CHECK(!C::morningBriefDue(at(15, 6, 59), ms(at(15, 4, 0)), -1));
+    CHECK(!C::morningBriefDue(at(15, 8, 0), ms(at(15, 7, 30)), -1));
+    // since when is not known (a launcher started with Bedtime on): the time of day decides
+    CHECK(C::morningBriefDue(at(15, 7, 10), 0, -1));
+    CHECK(!C::morningBriefDue(at(15, 13, 0), 0, -1));
+    // once a local day (the Julian day of the last card)
+    const qint64 today = at(15, 7, 10).date().toJulianDay();
+    CHECK(!C::morningBriefDue(at(15, 9, 0), ms(at(14, 22, 30)), today));
+    CHECK(C::morningBriefDue(at(16, 7, 0), ms(at(15, 22, 30)), today));
+}
+
 int main()
 {
+    morningBrief();
     holds();
     saverTimeout();
     bedtimeBrightness();

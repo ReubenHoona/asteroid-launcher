@@ -48,6 +48,11 @@ Item {
     readonly property Item iconItem: icon
     readonly property Item discItem: disc
     property bool _hasDisc: false
+    // the app's centre colour is white: its icon is a full-colour file with a disc of its own (the Flashlight,
+    // apps-misc-02), drawn as it is and not as a white glyph on a white disc
+    property color _center: "transparent"
+    property string _iconName: ""
+    readonly property bool _ownIcon: _hasDisc && _center.r >= 0.99 && _center.g >= 0.99 && _center.b >= 0.99
     property bool _finishAsked: false
     property bool _minDone: true
 
@@ -56,8 +61,10 @@ Item {
             return
         exitAnim.stop()
         _hasDisc = !!centerColor
-        disc.color = centerColor ? centerColor : "transparent"
-        icon.name = iconName ? iconName : ""
+        _center = centerColor ? centerColor : "transparent"
+        disc.color = _center
+        _iconName = iconName ? iconName : ""
+        icon.name = _iconName
         glyph.opacity = 1
         opacity = 1
         _finishAsked = false
@@ -177,7 +184,18 @@ Item {
                 width: splash._hasDisc ? parent.width * 0.66 : parent.width * WM.SPLASH.bareIconScale
                 height: width
                 color: "white"
-                visible: name !== ""
+                visible: name !== "" && !splash._ownIcon
+            }
+
+            Image {
+                objectName: "ownIcon"
+                anchors.fill: parent
+                visible: splash._ownIcon && splash._iconName !== ""
+                source: !visible ? "" : (splash._iconName.charAt(0) === "/" ? "file://" + splash._iconName
+                                                                             : "file:///usr/share/icons/asteroid/" + splash._iconName + ".svg")
+                sourceSize: Qt.size(width, height)
+                fillMode: Image.PreserveAspectFit
+                smooth: true
             }
         }
     }

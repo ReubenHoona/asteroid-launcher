@@ -174,6 +174,9 @@ Item {
         talking = false
         session = 0
         resultSeen = false
+        // a new turn replaces the speech of the last one (the daemon ends it)
+        speaking = false
+        stopMuteHint()
         followUp = null
         promptText = ""
         rated = ""
@@ -240,6 +243,8 @@ Item {
         instantOpen = false
         shown = false
         keepAnswer = false
+        speaking = false
+        stopMuteHint()
     }
     onVisibleChanged: if (!visible && !shown) errorData = null
     function close() {
@@ -250,6 +255,9 @@ Item {
         // an action that opens an app closes the overlay)
         if (!settled && !resultSeen)
             daemon.typedCall("Cancel", [])
+        // leaving the overlay ends a spoken answer (assistant-voice-20)
+        if (speaking)
+            daemon.typedCall("StopSpeaking", [])
         hide()
     }
     // A card asked back: listen for the answer (same generation: the flow goes on)
@@ -287,6 +295,48 @@ Item {
     }
     function mine(s) {
         return shown && s > 0 && s === session
+    }
+
+    /* ---- the spoken answer (assistant-voice-20) ----------------------------------------------
+     * asteroid-assistant reads a voice question's answer out loud and says so: SpeechStarted(session)
+     * with the first audio, SpeechEnded(session, how). Stock (rdg.java:9-10): 1.5 s after the speech began
+     * the snackbar "Tap screen to mute" shows for 4 s; a tap on the screen stops the speech
+     * (StopSpeaking()); so does leaving the overlay. Single-shot timers only, none runs without a speech. */
+    property bool speaking: false
+    property bool muteHintShown: false
+    readonly property int muteHintDelayMs: 1500
+    readonly property int muteHintMs: 4000
+    function stopMuteHint() {
+        muteHintDelay.stop()
+        muteHintTimer.stop()
+        muteHintShown = false
+    }
+    function daemonSpeechStarted(s) {
+        if (s <= 0 || s !== session)
+            return
+        if (!shown) {
+            // the overlay was left before the audio came: no one is waiting for it
+            daemon.typedCall("StopSpeaking", [])
+            return
+        }
+        speaking = true
+        muteHintShown = false
+        muteHintTimer.stop()
+        muteHintDelay.restart()
+    }
+    function daemonSpeechEnded(s, how) {
+        if (!mine(s))
+            return
+        speaking = false
+        stopMuteHint()
+    }
+    // a tap on the screen while it speaks
+    function muteSpeech() {
+        if (!speaking)
+            return
+        speaking = false
+        stopMuteHint()
+        daemon.typedCall("StopSpeaking", [])
     }
     function showCard(c) {
         cardData = c
@@ -450,6 +500,8 @@ Item {
         function rcLevel(l: real) { overlay.daemonLevel(l) }
         function rcPartial(s: int, text: string) { overlay.daemonPartial(s, text) }
         function rcTranscript(s: int, text: string) { overlay.daemonTranscript(s, text) }
+        function rcSpeechStarted(s: int) { overlay.daemonSpeechStarted(s) }
+        function rcSpeechEnded(s: int, how: string) { overlay.daemonSpeechEnded(s, how) }
         function rcResult(s: int, json: string) {
             if (overlay.mine(s))
                 overlay.handleResult(json)
@@ -457,6 +509,82 @@ Item {
     }
 
     AssistantActions { id: actions }
+
+    Timer {
+        id: muteHintDelay
+        interval: overlay.muteHintDelayMs
+        repeat: false
+        onTriggered: {
+            if (overlay.speaking && overlay.shown) {
+                overlay.muteHintShown = true
+                muteHintTimer.restart()
+            }
+        }
+    }
+    Timer {
+        id: muteHintTimer
+        interval: overlay.muteHintMs
+        repeat: false
+        onTriggered: overlay.muteHintShown = false
+    }
+    // a tap anywhere while the answer is spoken mutes it; the chips and buttons under the finger work as ever:
+    // the layer lies on top of them and its handler only watches (a passive grab; a handler of the root itself
+    // would never see a tap that a MouseArea below took)
+    Item {
+        objectName: "muteTapLayer"
+        anchors.fill: parent
+        z: 99
+        enabled: overlay.speaking
+        PointHandler {
+            id: muteTap
+            objectName: "muteTap"
+            // a tap: the finger lifts within 10 px of where it came down, inside 600 ms
+            property point downAt: Qt.point(0, 0)
+            property double downTime: 0
+            onActiveChanged: {
+                if (active) {
+                    downAt = point.scenePosition
+                    downTime = Date.now()
+                } else if (Date.now() - downTime < 600
+                           && Math.abs(point.scenePosition.x - downAt.x) < 10
+                           && Math.abs(point.scenePosition.y - downAt.y) < 10) {
+                    overlay.muteSpeech()
+                }
+            }
+        }
+    }
+    // the snackbar (stock tap_to_mute_snackbar_text), at the bottom, on the screen's circle
+    Rectangle {
+        id: muteSnackbar
+        objectName: "muteSnackbar"
+        z: 100
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: Theme.dp(20)
+        width: Math.min(parent.width - 2 * Theme.dp(24), muteText.implicitWidth + 2 * Theme.dp(16))
+        height: muteText.implicitHeight + 2 * Theme.dp(8)
+        radius: height / 2
+        color: Theme.color.surfaceContainerHigh
+        opacity: overlay.muteHintShown ? 1 : 0
+        visible: opacity > 0
+        Behavior on opacity {
+            NumberAnimation { duration: Motion.duration(150) }
+        }
+        Accessible.role: Accessible.AlertMessage
+        Accessible.name: muteText.text
+        Label {
+            id: muteText
+            objectName: "muteSnackbarText"
+            anchors.centerIn: parent
+            width: parent.width - 2 * Theme.dp(16)
+            horizontalAlignment: Text.AlignHCenter
+            maximumLineCount: 1
+            elide: Text.ElideRight
+            role: "labelMedium"
+            color: Theme.color.onSurface
+            text: overlay.loc("id-asst-tap-to-mute", "Tap screen to mute")
+        }
+    }
 
     // The display stays on while the assistant works, as Wear OS keeps the
     // screen on for it: during starting, listening and thinking, 2 s after

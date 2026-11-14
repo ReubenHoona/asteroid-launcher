@@ -30,6 +30,7 @@
 #include <MDConfItem>
 #include <QCoreApplication>
 #include <QDateTime>
+#include <QTimeZone>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
@@ -144,12 +145,17 @@ class FakeNotifications : public QObject
 public:
     QMutex lock;
     QStringList summaries;
+    QStringList apps, bodies;
+    QList<QVariantMap> hintList;
 public slots:
-    uint Notify(const QString &, uint, const QString &, const QString &summary, const QString &,
-                const QStringList &, const QVariantMap &, int)
+    uint Notify(const QString &app, uint, const QString &, const QString &summary, const QString &body,
+                const QStringList &, const QVariantMap &hints, int)
     {
         QMutexLocker l(&lock);
         summaries << summary;
+        apps << app;
+        bodies << body;
+        hintList << hints;
         return 1;
     }
 };
@@ -188,6 +194,15 @@ static bool userSettings(FakeMce &mce)
 {
     return mce.get(TILT).toBool() && mce.get(TOUCH).toString() == "unblank" && mce.get(BRIGHTNESS).toInt() == 60
         && mce.get(ALS).toBool() && mce.get(DIM).toInt() == 15 && mce.get(FACE_BLANK).toInt() == 15;
+}
+
+// a hint of a post (a{sv}: the value may come wrapped)
+static QString hintString(const QVariantMap &h, const char *key)
+{
+    QVariant v = h.value(QString::fromLatin1(key));
+    if (v.canConvert<QDBusVariant>())
+        v = v.value<QDBusVariant>().variant();
+    return v.toString();
 }
 
 static bool hasNotice(FakeNotifications &notes, const char *id, const char *text)
@@ -496,6 +511,9 @@ int main(int argc, char **argv)
     // --- the same with the watch asleep: the timed event's command writes
     // theater-expired (a dconf key): off, the screen on, the card, and the key cleared
     notes.summaries.clear();
+    notes.apps.clear();
+    notes.bodies.clear();
+    notes.hintList.clear();
     int ons = mce.onRequests;
     engine->setTheater(true);
     CHECK(waitFor([&] { return !mce.get(TILT).toBool(); }));
@@ -632,6 +650,59 @@ int main(int argc, char **argv)
     engine->setBedtime(false);
     CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false); }));
     CHECK(mce.setCount(ROTARY) == rotarySets + 1);
+    // --- "Start your day" (health-fitness-26): the Morning Brief card when Bedtime ends in the morning, once a day,
+    // after 3 hours of Bedtime (the rule itself: tst_modescore); the clock is the engine's test seam
+    {
+        QDateTime clock(QDate(2026, 11, 14), QTime(22, 30), QTimeZone::utc());
+        engine->setClock([&] { return clock; });
+        auto cards = [&] {
+            QMutexLocker l(&notes.lock);
+            return notes.summaries.count(QStringLiteral("id-morning-brief")) + notes.summaries.count(QStringLiteral("Start your day"));
+        };
+        auto night = [&](const QDateTime &from, const QDateTime &to) {
+            clock = from;
+            engine->setBedtime(true);
+            CHECK(waitFor([&] { return engine->bedtime(); }));
+            clock = to;
+            engine->setBedtime(false);
+            CHECK(waitFor([&] { return !engine->bedtime(); }));
+            spin(400);
+        };
+        const int before = cards();
+        // 22:30 to 07:10: the card, a normal notification of Health that opens the Morning Brief page
+        night(clock, QDateTime(QDate(2026, 11, 15), QTime(7, 10), QTimeZone::utc()));
+        CHECK(waitFor([&] { return cards() == before + 1; }));
+        {
+            QMutexLocker l(&notes.lock);
+            int i = notes.summaries.indexOf(QStringLiteral("id-morning-brief"));
+            if (i < 0)
+                i = notes.summaries.indexOf(QStringLiteral("Start your day"));
+            CHECK(i >= 0);
+            if (i < 0)
+                i = 0;
+            CHECK(notes.apps.at(i) == "asteroid-health");
+            const QVariantMap h = notes.hintList.at(i);
+            CHECK(hintString(h, "x-eos-app") == "asteroid-health");
+            CHECK(hintString(h, "x-eos-open-page") == "morning");
+            CHECK(hintString(h, "x-nemo-feedback") == "notif_normal");
+            CHECK(hintString(h, "x-nemo-preview-summary") == notes.summaries.at(i));
+        }
+        // the same day again (07:40 to 11:00, 3 h 20): no second card
+        night(QDateTime(QDate(2026, 11, 15), QTime(7, 40), QTimeZone::utc()), QDateTime(QDate(2026, 11, 15), QTime(11, 0), QTimeZone::utc()));
+        CHECK(cards() == before + 1);
+        // the next night, over at 02:00 (not morning yet): none; 02:30 to 05:00 (2 h 30): none
+        night(QDateTime(QDate(2026, 11, 15), QTime(23, 0), QTimeZone::utc()), QDateTime(QDate(2026, 11, 16), QTime(2, 0), QTimeZone::utc()));
+        night(QDateTime(QDate(2026, 11, 16), QTime(2, 30), QTimeZone::utc()), QDateTime(QDate(2026, 11, 16), QTime(5, 0), QTimeZone::utc()));
+        CHECK(cards() == before + 1);
+        // 03:00 to 06:30: the second card
+        night(QDateTime(QDate(2026, 11, 16), QTime(3, 0), QTimeZone::utc()), QDateTime(QDate(2026, 11, 16), QTime(6, 30), QTimeZone::utc()));
+        CHECK(waitFor([&] { return cards() == before + 2; }));
+        // an afternoon Bedtime of six hours: none
+        night(QDateTime(QDate(2026, 11, 17), QTime(12, 0), QTimeZone::utc()), QDateTime(QDate(2026, 11, 17), QTime(18, 0), QTimeZone::utc()));
+        CHECK(cards() == before + 2);
+        engine->setClock(nullptr);
+        CHECK(waitFor([&] { return userSettings(mce); }));
+    }
     // a start with Bedtime on (the launcher went down in it): held from the start
     CHECK(waitFor([&] { return userSettings(mce); }));
     delete engine;

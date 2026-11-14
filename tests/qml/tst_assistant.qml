@@ -617,5 +617,127 @@ Item {
             verify(ov.opacity < 1 || ov.opacity === 1)
             tryCompare(ov, "opacity", 0, 1000)
         }
+
+        /* ---- the spoken answer: "Tap screen to mute", mute on tap, stop on close (assistant-voice-20) ---- */
+
+        function speakingAnswer() {
+            listen()
+            result({ type: "answer", intent: "question", text: "It is half past ten.", via: "phone", speaking: true })
+            compare(ov.phase, "card")
+        }
+        function test_speech_snackbar_timing() {
+            speakingAnswer()
+            compare(ov.speaking, false, "nothing before the first audio")
+            compare(ov.muteHintDelayMs, 1500)
+            compare(ov.muteHintMs, 4000)
+            ov.daemonSpeechStarted(7)
+            compare(ov.speaking, true)
+            compare(ov.muteHintShown, false, "not at once")
+            compare(child("muteSnackbar").visible, false)
+            wait(1000)
+            compare(ov.muteHintShown, false, "not before 1.5 s")
+            tryCompare(ov, "muteHintShown", true, 1500)
+            tryCompare(child("muteSnackbar"), "visible", true, 1000)
+            compare(child("muteSnackbarText").text, "Tap screen to mute")
+            wait(3000)
+            compare(ov.muteHintShown, true, "for 4 s")
+            tryCompare(ov, "muteHintShown", false, 2000)
+            compare(ov.speaking, true, "the speech goes on")
+            compare(calls("StopSpeaking"), 0)
+        }
+        function test_speech_tap_mutes() {
+            speakingAnswer()
+            mouseClick(root, 192, 150)
+            compare(calls("StopSpeaking"), 0, "a tap before the speech does nothing")
+            ov.daemonSpeechStarted(7)
+            mouseClick(root, 192, 150)
+            compare(calls("StopSpeaking"), 1, "a tap while it speaks asks the daemon to stop")
+            compare(ov.speaking, false)
+            compare(ov.muteHintShown, false)
+            verify(ov.shown, "and does not close")
+            mouseClick(root, 192, 150)
+            compare(calls("StopSpeaking"), 1, "once")
+        }
+        function test_speech_tap_reaches_the_button_under_it() {
+            speakingAnswer()
+            ov.daemonSpeechStarted(7)
+            // the thumbs are an answer's buttons that start nothing: a real tap on one
+            var up = child("thumbUp")
+            verify(up !== null, "this answer has its thumbs")
+            var c = up.mapToItem(root, up.width / 2, up.height / 2)
+            verify(c.y > 0 && c.y < root.height, "the thumb is on the screen: " + c.y)
+            compare(ov.rated, "")
+            mouseClick(root, c.x, c.y)
+            compare(calls("StopSpeaking"), 1, "the tap mutes")
+            compare(ov.rated, "up", "and the button under it works as ever")
+        }
+        function test_speech_tap_during_hint_hides_it() {
+            speakingAnswer()
+            ov.daemonSpeechStarted(7)
+            tryCompare(ov, "muteHintShown", true, 3000)
+            mouseClick(root, 192, 100)
+            compare(calls("StopSpeaking"), 1)
+            compare(ov.muteHintShown, false)
+            wait(200)
+            compare(child("muteSnackbar").visible, false)
+        }
+        function test_speech_ended_clears() {
+            speakingAnswer()
+            ov.daemonSpeechStarted(7)
+            ov.daemonSpeechEnded(7, "done")
+            compare(ov.speaking, false)
+            wait(1800)
+            compare(ov.muteHintShown, false, "the hint timer is gone with the speech")
+            mouseClick(root, 192, 150)
+            compare(calls("StopSpeaking"), 0)
+            // another session's end does not touch this one
+            ov.daemonSpeechStarted(7)
+            ov.daemonSpeechEnded(9, "done")
+            compare(ov.speaking, true)
+        }
+        function test_speech_other_session_ignored() {
+            speakingAnswer()
+            ov.daemonSpeechStarted(9)
+            compare(ov.speaking, false)
+            wait(1700)
+            compare(ov.muteHintShown, false)
+            compare(calls("StopSpeaking"), 0)
+        }
+        function test_speech_close_stops() {
+            speakingAnswer()
+            ov.daemonSpeechStarted(7)
+            ov.close()
+            compare(calls("StopSpeaking"), 1, "leaving the overlay stops the speech")
+            compare(ov.shown, false)
+            compare(ov.speaking, false)
+            compare(ov.muteHintShown, false)
+        }
+        function test_speech_display_off_stops() {
+            speakingAnswer()
+            ov.daemonSpeechStarted(7)
+            Lipstick.compositor.displayOff()
+            compare(ov.shown, false)
+            compare(calls("StopSpeaking"), 1)
+        }
+        function test_close_without_speech_calls_nothing() {
+            speakingAnswer()
+            ov.close()
+            compare(calls("StopSpeaking"), 0, "no call (and no daemon start) when nothing speaks")
+        }
+        function test_speech_after_close_is_stopped() {
+            speakingAnswer()
+            ov.close()
+            ov.daemonSpeechStarted(7)
+            compare(calls("StopSpeaking"), 1, "audio that came after the overlay left is stopped")
+            compare(ov.speaking, false)
+        }
+        function test_speech_new_turn_clears() {
+            speakingAnswer()
+            ov.daemonSpeechStarted(7)
+            ov.listenAgain()
+            compare(ov.speaking, false)
+            compare(ov.muteHintShown, false)
+            compare(calls("StopSpeaking"), 0, "the daemon replaces the speech with the new session")
+        }
     }
 }

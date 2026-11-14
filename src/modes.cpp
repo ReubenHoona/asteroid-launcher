@@ -322,6 +322,7 @@ void ModesEngine::modesChanged(int before, bool dndBefore)
         cancelTheaterWake();
     }
     if (on & ModesCore::Bedtime) {
+        mBedtimeSinceMs = now().toMSecsSinceEpoch();
         mBedtimeTransition = false;
         if (mDisplayOn) {
             mBedtimeTransition = true;
@@ -332,6 +333,13 @@ void ModesEngine::modesChanged(int before, bool dndBefore)
         }
     }
     if (off & ModesCore::Bedtime) {
+        // the night is over: the Morning Brief card (once a day, in the morning, after a long enough Bedtime)
+        const QDateTime at = now();
+        if (ModesCore::morningBriefDue(at, mBedtimeSinceMs, mMorningDay)) {
+            mMorningDay = at.date().toJulianDay();
+            postMorningBrief();
+        }
+        mBedtimeSinceMs = 0;
         mBedtimeSkipTimer->stop();
         if (mBedtimeTransition) {
             // a transition into Bedtime still playing: it ends, no exit one
@@ -682,6 +690,34 @@ void ModesEngine::postNotice(const QString &title, const QString &body, const QS
         if (!reply.isError())
             mSaverNoticeId = reply.value();
     });
+}
+
+// "Start your day" (health-fitness-26, the Fitbit Morning Brief's notification, stock strings: the title, the
+// greeting and the action "Open"). The card names Health (x-eos-app, so Settings' switch for the app
+// holds) and its page (x-eos-open-page): the launcher's card action "Open" writes the page to
+// /org/asteroidos/health/ui/open and starts the app (src/qml/notifications/CardActions.qml). A normal
+// notification: Bedtime is off now, so it has its banner and sound.
+void ModesEngine::postMorningBrief()
+{
+    //% "Start your day"
+    const QString title = qtTrId("id-morning-brief");
+    //% "Good morning! Here’s how your day is shaping up."
+    const QString body = qtTrId("id-morning-brief-body");
+    QVariantMap hints;
+    hints.insert(QStringLiteral("x-eos-app"), QStringLiteral("asteroid-health"));
+    hints.insert(QStringLiteral("x-eos-open-page"), QStringLiteral("morning"));
+    hints.insert(QStringLiteral("x-nemo-preview-summary"), title);
+    hints.insert(QStringLiteral("x-nemo-preview-body"), body);
+    hints.insert(QStringLiteral("x-nemo-feedback"), QStringLiteral("notif_normal"));
+    hints.insert(QStringLiteral("urgency"), 1);
+    QDBusMessage call = QDBusMessage::createMethodCall(QStringLiteral("org.freedesktop.Notifications"),
+                                                       QStringLiteral("/org/freedesktop/Notifications"),
+                                                       QStringLiteral("org.freedesktop.Notifications"),
+                                                       QStringLiteral("Notify"));
+    call << QStringLiteral("asteroid-health") << 0u << QStringLiteral("ios-sunny") << title << body
+         << QStringList() << hints << -1;
+    QDBusConnection::sessionBus().call(call, QDBus::NoBlock);
+    qInfo() << "Modes: Bedtime over, the Start your day card";
 }
 
 void ModesEngine::closeSaverNotice()

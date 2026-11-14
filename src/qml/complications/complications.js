@@ -177,6 +177,26 @@ function conditionKey(code) {
     if (code === 803 || code === 804) return "cloudy"
     return ""
 }
+// The icon of a complication for a condition key of the Weather app's shared map (asteroid-weather icons.js,
+// keyForOwm): the complication draws a one-colour glyph of the icon set, as it always did
+var WEATHER_ICONS = {
+    clear: "ios-sunny-outline", mostly_clear: "ios-sunny-outline", partly_cloudy: "ios-partly-sunny-outline",
+    mostly_cloudy: "ios-cloudy-outline", cloudy: "ios-cloudy-outline",
+    drizzle: "ios-rainy-outline", showers_rain: "ios-rainy-outline", scattered_showers: "ios-rainy-outline",
+    heavy_rain: "ios-rainy-outline",
+    icy: "ios-snow-outline", flurries: "ios-snow-outline", showers_snow: "ios-snow-outline",
+    scattered_snow_showers: "ios-snow-outline", heavy_snow: "ios-snow-outline", sleet_hail: "ios-snow-outline",
+    mixed_rain_snow: "ios-snow-outline", mixed_rain_hail_sleet: "ios-snow-outline", blizzard: "ios-snow-outline",
+    blowing_snow: "ios-snow-outline", very_cold: "ios-snow-outline",
+    haze_fog_dust_smoke: "ios-cloudy-outline", windy: "ios-cloudy-outline",
+    tornado: "ios-thunderstorm-outline", tropical_storm_hurricane: "ios-thunderstorm-outline",
+    isolated_thunderstorms: "ios-thunderstorm-outline", isolated_scattered_thunderstorms: "ios-thunderstorm-outline",
+    strong_thunderstorms: "ios-thunderstorm-outline",
+    very_hot: "ios-flame-outline"
+}
+function weatherIconName(key) {
+    return WEATHER_ICONS.hasOwnProperty(key) ? WEATHER_ICONS[key] : "ios-alert-outline"
+}
 function uvLabel(uv) {
     var i = Math.round(uv)
     return i <= 2 ? "low" : i <= 4 ? "moderate" : i <= 7 ? "high" : "extreme"

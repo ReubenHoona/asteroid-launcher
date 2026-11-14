@@ -88,6 +88,18 @@ bool ModesCore::silencesNotifications(int modes)
     return modes & (Bedtime | Theater);
 }
 
+bool ModesCore::morningBriefDue(const QDateTime &now, qint64 bedtimeSinceMs, qint64 lastDay)
+{
+    const int hour = now.time().hour();
+    if (hour < MorningFromHour || hour >= MorningToHour)
+        return false;
+    if (now.date().toJulianDay() == lastDay)
+        return false;
+    if (bedtimeSinceMs > 0 && now.toMSecsSinceEpoch() - bedtimeSinceMs < MorningMinBedtimeMs)
+        return false;
+    return true;
+}
+
 static const int Precedence[] = { ModesCore::Theater, ModesCore::Bedtime, ModesCore::BatterySaver, ModesCore::ExtraDim, ModesCore::TouchLock };
 
 int ModesCore::holder(Setting s, int modes)

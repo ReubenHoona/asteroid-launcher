@@ -16,7 +16,8 @@ import QtQuick.Shapes
 import QtSensors
 import org.asteroid.controls
 import org.asteroid.utils
-import "weathericons.js" as WeatherIcons
+// the shared condition map and icons of the Weather app (weather-calendar-07)
+import "file:///usr/share/asteroid-weather/icons.js" as WeatherIcons
 
 Item {
     // Uranian Blue
@@ -382,14 +383,16 @@ Item {
 
                 }
 
-                Icon {
+                Image {
                     id: iconDisplay
 
                     width: weatherBox.width * 0.42
                     height: width
                     opacity: activeContentOpacity
                     visible: weatherBox.weatherSynced
-                    name: WeatherIcons.getIconName(owmId.value)
+                    source: "file:///usr/share/asteroid-weather/icons/" + WeatherIcons.iconPath(WeatherIcons.keyForOwm(owmId.value), true, true)
+                    sourceSize: Qt.size(width, height)
+                    fillMode: Image.PreserveAspectFit
 
                     anchors {
                         centerIn: weatherBox
