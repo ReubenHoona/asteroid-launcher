@@ -10,10 +10,12 @@ import "faceeditor.js" as FE
 
 /*
  * The editor's page dots (face-interaction-28): WearPageIndicatorDrawable with the
- * stock values: 12 px dots (radius 3 dp), 12 px apart (padding 6 dp), the current
- * page at alpha 1.0 and the others at 0.5 (255 and 127), on the bottom arc of a
- * round screen (4 dp from the edge, in the 24 dp strip) and in a straight row on
- * a square one. ArcPageIndicator has fixed 4 dp gaps and a 0.3 alpha, so the
+ * stock values: 12 px dots (radius 3 dp), the current page at alpha 1.0 and the
+ * others at 0.5 (255 and 127). On a round screen they sit on the bottom arc at
+ * radius min/2 - 6 dp - dotRadius/2 (177 px at 384 px), a fixed 6.6 degrees per
+ * dot (hcy.java: the padding 6 dp is the inset from the edge, not the gap; the
+ * centres are about 20.4 px apart). A square screen gets a straight row 12 px
+ * apart. ArcPageIndicator has fixed 4 dp gaps and a 0.3 alpha, so the
  * editor draws its own. `position` may be fractional while a finger drags the
  * pages. It fills its parent and is passive.
  */
@@ -29,15 +31,16 @@ Item {
 
     readonly property real dot: FE.DOT_PX * Theme.dp(1) / 2
     readonly property real gap: FE.DOT_GAP_PX * Theme.dp(1) / 2
-    readonly property real radius: Math.min(width, height) / 2 - Theme.dp(FE.DOT_EDGE_DP) - dot / 2
-    // the angle between two dots on the arc
-    readonly property real stepAngle: DeviceSpecs.hasRoundScreen && radius > 0 ? (dot + gap) / radius : 0
+    // hcy.java c(): min(w/2, h/2) - padding - dotRadius / 2
+    readonly property real radius: Math.min(width, height) / 2 - Theme.dp(FE.DOT_EDGE_DP) - dot / 4
+    // the angle between two dots on the arc: fixed, 6.6 degrees
+    readonly property real stepAngle: DeviceSpecs.hasRoundScreen && radius > 0 ? FE.DOT_STEP_DEG * Math.PI / 180 : 0
 
     // the centre of the dot at (fractional) slot p, 0 = first page
     function pointAt(p) {
         var off = (p - (count - 1) / 2) * (dots.LayoutMirroring.enabled ? -1 : 1)
         if (!DeviceSpecs.hasRoundScreen)
-            return Qt.point(width / 2 + off * (dot + gap), height - Theme.dp(FE.DOT_EDGE_DP) - dot / 2)
+            return Qt.point(width / 2 + off * (dot + gap), height - Theme.dp(FE.DOT_EDGE_DP) - dot / 4)
         var a = off * stepAngle
         return Qt.point(width / 2 + radius * Math.sin(a), height / 2 + radius * Math.cos(a))
     }

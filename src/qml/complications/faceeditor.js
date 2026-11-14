@@ -127,10 +127,11 @@ function inArc(dx, dy, start, sweep, inner, outer) {
 // ---- page dots (VALUES wear_page_indicator_*; activity_editor.xml page_indicator_overlay) ----
 
 var DOT_PX = 12                     // radius 3 dp: 6 dp across = 12 px
-var DOT_GAP_PX = 12                 // padding 6 dp
+var DOT_GAP_PX = 12                 // straight row only (square screens): dot plus padding 6 dp
+var DOT_STEP_DEG = 6.6              // round screens: fixed angle per dot, hcy.java a(): canvas.rotate(-((i - f) * 6.6f))
 var DOT_SELECTED_ALPHA = 1.0        // 255
 var DOT_OTHER_ALPHA = 0.5           // 127 / 255 (0.498)
-var DOT_EDGE_DP = 4                 // the dots' centres: 4 dp from the edge, inside the 24 dp strip
+var DOT_EDGE_DP = 6                 // wear_page_indicator_padding 6 dp: inset from the edge; the arc radius is min/2 - 6 dp - dotRadius/2 (hcy.java c())
 
 // ---- the pages -----------------------------------------------------------------------
 
