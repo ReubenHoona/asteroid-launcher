@@ -88,6 +88,19 @@ QtObject {
     }
     readonly property string sideOption: KeyMap.validOption(String(sideButtonSetting.value))
 
+    // Settings > Assistant (CR-15): enabled off, the side button's hold opens nothing and nothing else opens the
+    // assistant (its app entry and tile are hidden by the app list); press-and-hold off, only the hold does nothing
+    property QtObject assistantEnabledSetting: ConfigurationValue {
+        key: "/org/asteroidos/assistant/enabled"
+        defaultValue: true
+    }
+    property QtObject assistantHoldSetting: ConfigurationValue {
+        key: "/org/asteroidos/assistant/press-and-hold"
+        defaultValue: true
+    }
+    readonly property bool assistantEnabled: assistantEnabledSetting.value !== false && String(assistantEnabledSetting.value) !== "false"
+    readonly property bool assistantHold: assistantHoldSetting.value !== false && String(assistantHoldSetting.value) !== "false"
+
     // Settings > Gestures (mce, which the modes engine mirrors): both on is
     // stock's default; the crown's Home action from the always-on display
     // needs both (buttons-navigation-18)
@@ -132,6 +145,8 @@ QtObject {
             claimCrown: claimed("crown"),
             alertShown: comp.alertShown,
             assistantShown: root.assistantShown,
+            assistantEnabled: assistantEnabled,
+            assistantHold: assistantHold,
             splash: launchSplash.active,
             appActive: comp.appActive,
             option: sideOption,
@@ -241,7 +256,11 @@ QtObject {
             // PhoneWindowManager gives none for the hold), and no transition
             root.openAssistant("", true)
         }
-        function onOpenRequested(text) { root.openAssistant(text) }
+        // Open and Ask on the session bus (asteroid-assistant's app entry): nothing while the Assistant is off
+        function onOpenRequested(text) {
+            if (keyRouter.assistantEnabled)
+                root.openAssistant(text)
+        }
     }
 
     /* ---- the crown ------------------------------------------------------ */

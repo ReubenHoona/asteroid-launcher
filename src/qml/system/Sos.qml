@@ -6,6 +6,7 @@
 import QtQuick
 import Nemo.DBus
 import Nemo.Configuration
+import Nemo.Ngf
 import org.asteroid.controls
 import "system.js" as Sys
 
@@ -28,15 +29,21 @@ import "system.js" as Sys
  * screen hold is the countdown itself. The dconf key
  * /org/asteroidos/safety/sos-enabled (default true, stock
  * config_defaultEmergencyGestureEnabled) turns the gesture off;
- * /org/asteroidos/safety/emergency-number overrides the number of the
- * region; /org/asteroidos/assistant/call-dry-run asks Gadgetbridge not to
- * dial (every test). Instantiated by OverlayArbiter above the power menu. */
+ * /org/asteroidos/safety/sos-number overrides the number of the region
+ * (empty: the local one); /org/asteroidos/safety/sos-start "auto" (the
+ * countdown ends in the call, default) or "hold" (no countdown: touch and
+ * hold the screen for 3 s to call, stock touch_and_hold_to_call_instruction;
+ * a finger that lets go early starts the 3 s again); /org/asteroidos/safety/
+ * sos-countdown-sound (default off) plays the countdown tone (ngfd
+ * eos_sos_countdown) during the "auto" countdown (CR-14, written by Settings >
+ * Safety & emergency); /org/asteroidos/assistant/call-dry-run asks Gadgetbridge
+ * not to dial (every test). Instantiated by OverlayArbiter above the power menu. */
 Item {
     id: sos
     objectName: "sos"
     anchors.fill: parent
 
-    /* idle, countdown, calling, failed */
+    /* idle, countdown, hold (waiting for the touch and hold), calling, failed */
     property string phase: "idle"
     readonly property bool shown: phase !== "idle"
     readonly property bool gestureEnabled: enabledKey.value !== false && enabledKey.value !== "false"
@@ -45,6 +52,12 @@ Item {
     // the text of the failed phase
     property string failure: ""
     property real remaining: 1
+    // hold start: a finger is down on the screen, and how far its 3 s are (0..1)
+    property bool pressing: false
+    property real held: 0
+    readonly property int holdMs: 3000
+    readonly property bool holdMode: String(startKey.value) === "hold"
+    readonly property bool tone: soundKey.value === true || String(soundKey.value) === "true"
     readonly property alias relay: relay
     readonly property alias ring: ringFill
     readonly property alias cancelButton: cancelButton
@@ -55,7 +68,11 @@ Item {
     signal dialRequested(string number, bool dry)
 
     ConfigurationValue { id: enabledKey; key: "/org/asteroidos/safety/sos-enabled"; defaultValue: true }
-    ConfigurationValue { id: numberKey; key: "/org/asteroidos/safety/emergency-number"; defaultValue: "" }
+    ConfigurationValue { id: numberKey; key: "/org/asteroidos/safety/sos-number"; defaultValue: "" }
+    ConfigurationValue { id: startKey; key: "/org/asteroidos/safety/sos-start"; defaultValue: "auto" }
+    ConfigurationValue { id: soundKey; key: "/org/asteroidos/safety/sos-countdown-sound"; defaultValue: false }
+    // the countdown tone, off unless Settings turned it on; started with the countdown, stopped with it
+    NonGraphicalFeedback { id: countdownTone; objectName: "sosCountdownTone"; event: "eos_sos_countdown" }
     ConfigurationValue { id: dryRun; key: "/org/asteroidos/assistant/call-dry-run"; defaultValue: false }
 
     /* The gesture was made (the fifth press). */
@@ -65,12 +82,36 @@ Item {
         number = Sys.emergencyNumber(Qt.locale().name, numberKey.value)
         failure = ""
         remaining = 1
-        phase = "countdown"
+        held = 0
+        pressing = false
+        phase = holdMode ? "hold" : "countdown"
         triggered()
         // the 500 ms vibration (stock config_mashPressPowerButtonVibrateDurationMillis)
         Haptics.play("eos_sos")
+        // hold start: no countdown, the screen waits for the touch and hold
+        if (holdMode)
+            return
+        if (tone)
+            countdownTone.play()
         countdown.duration = Sys.sosCountdownMs(screenReaderExploring)
         countdown.restart()
+    }
+
+    /* The hold start: a finger down on the screen starts its 3 s (the ring fills), a finger that
+     * lets go (or is taken over) starts them again; at 3 s the call is asked for. */
+    function pressDown() {
+        if (phase !== "hold")
+            return
+        pressing = true
+        held = 0
+        holdAnimation.restart()
+    }
+    function pressUp() {
+        if (!pressing)
+            return
+        pressing = false
+        holdAnimation.stop()
+        held = 0
     }
 
     /* The X: stop the countdown, or hang up a call just placed. */
@@ -78,12 +119,16 @@ Item {
         if (phase === "idle")
             return
         countdown.stop()
+        holdAnimation.stop()
+        countdownTone.stop()
         doneTimer.stop()
         waitTimer.stop()
         if (phase === "calling")
             act({ a: "hangup" }, function () {})
         phase = "idle"
         remaining = 1
+        pressing = false
+        held = 0
     }
 
     NumberAnimation {
@@ -95,6 +140,16 @@ Item {
         easing.type: Easing.Linear
         onFinished: if (sos.phase === "countdown") sos.dial()
     }
+    NumberAnimation {
+        id: holdAnimation
+        target: sos
+        property: "held"
+        from: 0
+        to: 1
+        duration: sos.holdMs
+        easing.type: Easing.Linear
+        onFinished: if (sos.phase === "hold" && sos.pressing) sos.dial()
+    }
 
     // after the call was placed or failed the screen goes by itself
     Timer { id: doneTimer; interval: 3000; onTriggered: sos.phase = "idle" }
@@ -103,6 +158,8 @@ Item {
 
     /* The countdown ended: the phone dials. */
     function dial() {
+        countdownTone.stop()
+        pressing = false
         phase = "calling"
         var dry = dryRun.value === true || dryRun.value === "true"
         dialRequested(number, dry)
@@ -173,13 +230,19 @@ Item {
         anchors.fill: parent
         visible: sos.shown
         color: "#000000"
-        // nothing under the screen takes a touch
-        MouseArea { anchors.fill: parent }
+        // nothing under the screen takes a touch; the hold start (sos-start "hold") is a finger on it
+        MouseArea {
+            objectName: "sosTouch"
+            anchors.fill: parent
+            onPressed: sos.pressDown()
+            onReleased: sos.pressUp()
+            onCanceled: sos.pressUp()
+        }
 
         // the ring: 5 dp, #ee675c on #532420, emptying clockwise from the top
         ProgressArc {
             anchors.fill: parent
-            visible: sos.phase === "countdown"
+            visible: sos.phase === "countdown" || sos.phase === "hold"
             strokeWidth: Sys.SOS_RING_WIDTH
             color: Sys.SOS_COLOR_TRACK
             startAngle: 270
@@ -189,11 +252,11 @@ Item {
             id: ringFill
             objectName: "sosRing"
             anchors.fill: parent
-            visible: sos.phase === "countdown"
+            visible: sos.phase === "countdown" || (sos.phase === "hold" && sos.pressing)
             strokeWidth: Sys.SOS_RING_WIDTH
             color: Sys.SOS_COLOR_MAIN
             startAngle: 270
-            sweepAngle: 360 * sos.remaining
+            sweepAngle: 360 * (sos.phase === "hold" ? sos.held : sos.remaining)
         }
 
         Label {
@@ -209,13 +272,19 @@ Item {
             text: sos.phase === "calling"
                   //% "Calling %1..."
                   ? qsTrId("id-sos-calling-number").arg(sos.number)
-                  //% "Calling"
-                  : qsTrId("id-sos-calling")
+                  : sos.phase === "hold"
+                    ? (sos.pressing
+                       //% "Hold for %1 seconds"
+                       ? qsTrId("id-sos-hold-for").arg(sos.holdMs / 1000)
+                       //% "Touch screen\nfor %1 seconds to"
+                       : qsTrId("id-sos-touch-for").arg(sos.holdMs / 1000))
+                    //% "Calling"
+                    : qsTrId("id-sos-calling")
         }
         Label {
             id: numberLabel
             objectName: "sosNumber"
-            visible: sos.phase === "countdown"
+            visible: sos.phase === "countdown" || (sos.phase === "hold" && !sos.pressing)
             width: caption.width
             x: caption.x
             y: caption.y + caption.height + Sys.SOS_NUMBER_GAP
@@ -224,7 +293,8 @@ Item {
             color: "#ffffff"
             elide: Text.ElideRight
             maximumLineCount: 1
-            text: sos.number
+            //% "call %1"
+            text: sos.phase === "hold" ? qsTrId("id-sos-touch-call").arg(sos.number) : sos.number
         }
         Label {
             id: failureLabel
@@ -243,7 +313,7 @@ Item {
         Rectangle {
             id: cancelButton
             objectName: "sosCancel"
-            visible: sos.phase === "countdown" || sos.phase === "calling"
+            visible: sos.phase === "countdown" || sos.phase === "hold" || sos.phase === "calling"
             width: Theme.size.iconButton
             height: width
             radius: width / 2

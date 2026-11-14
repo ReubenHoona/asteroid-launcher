@@ -132,6 +132,15 @@ Item {
 
     readonly property bool takesReply: hasPhoneAction("reply") && !isCall
 
+    // Settings > Input methods > Smart reply (CR-22, /org/asteroidos/notifications/smart-reply, default on):
+    // off, a notification card shows no reply chips (the reply row of the keyboard, voice and emoji stays)
+    ConfigurationValue {
+        id: smartReplyKey
+        key: "/org/asteroidos/notifications/smart-reply"
+        defaultValue: true
+    }
+    readonly property bool smartReplyOn: smartReplyKey.value !== false && String(smartReplyKey.value) !== "false"
+
     ConfigurationValue {
         id: cannedReplies
         key: "/org/asteroidos/notifications/canned-replies"
@@ -301,7 +310,7 @@ Item {
             id: replyList
             objectName: "replyList"
             width: parent.width
-            readonly property bool wanted: actions.takesReply && actions.replyChoices.length > 0
+            readonly property bool wanted: actions.takesReply && actions.smartReplyOn && actions.replyChoices.length > 0
             visible: wanted
             topPadding: wanted ? actions.space16 : 0
             spacing: actions.space8

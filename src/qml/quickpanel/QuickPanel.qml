@@ -139,7 +139,10 @@ Item {
         defaultValue: ""
     }
     function openSettings(page) {
-        settingsRequest.value = page + "@" + Date.now()
+        var v = page + "@" + Date.now()
+        // the launcher's own request: MainScreen's watcher of this key leaves it alone (CR-16)
+        Desktop.ownSettingsRequest = v
+        settingsRequest.value = v
         appLauncher.launchApp("asteroid-settings")
     }
 
@@ -175,9 +178,11 @@ Item {
         defaultValue: true
     }
 
+    // the sample of the unmute: the volume step the volume now has, as Settings plays it (haptics-sounds-14,
+    // CR-56: volume_step, or volume_step_max at the top; the media stream: the tile is the main volume)
     NonGraphicalFeedback {
         id: unmuteSound
-        event: "notification"
+        objectName: "unmuteSound"
     }
 
     NetworkTechnology {
@@ -690,7 +695,10 @@ Item {
                 id: soundDelayTimer
                 interval: 150
                 repeat: false
-                onTriggered: unmuteSound.play()
+                onTriggered: {
+                    unmuteSound.event = QS.volumeStepEvent("media", rootitem.volume >= 100)
+                    unmuteSound.play()
+                }
             }
         }
     }
@@ -799,10 +807,18 @@ Item {
     // Airplane mode (equ.java cases 3-4, kxx.java:229-243): connman's offline mode
     // turns the radios off. Stock: Bluetooth stays on during airplane mode
     // (bluetooth_airplane_mode_toast), so it is switched back on after.
+    // Settings (Bluetooth, Connectivity; CR-25): the user turned Bluetooth off while in airplane mode and wants it
+    // to stay off the next time (true); false (default): it stays on, as stock
+    ConfigurationValue {
+        id: btOffInAirplane
+        key: "/org/asteroidos/settings/bluetooth-off-in-airplane"
+        defaultValue: false
+    }
+    readonly property bool btStaysOn: btOffInAirplane.value !== true && String(btOffInAirplane.value) !== "true"
     Timer {
         id: restoreBluetooth
         interval: 1500
-        onTriggered: if (connman.offlineMode && !btStatus.powered) btStatus.powered = true
+        onTriggered: if (rootitem.btStaysOn && connman.offlineMode && !btStatus.powered) btStatus.powered = true
     }
     property bool _btWasOn: false
     Component {
@@ -828,7 +844,7 @@ Item {
                          function () {
                              rootitem._btWasOn = btStatus.powered
                              connman.offlineMode = true
-                             if (rootitem._btWasOn) {
+                             if (rootitem._btWasOn && rootitem.btStaysOn) {
                                  restoreBluetooth.restart()
                                  // stock: bluetooth_airplane_mode_toast (connectivity-system-ux-15)
                                  //% "Bluetooth will stay on during airplane mode"

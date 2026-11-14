@@ -30,6 +30,12 @@ Item {
     signal replyChosen(string text)
     // The menu was swiped away
     signal closeRequested()
+    // "Answer on phone" (stock more_menu_answer_on_phone_label, CR-53): the phone answers and the call's audio
+    // stays there; offered while the watch could have answered (IncomingCall: the call audio is available)
+    property bool answerOnPhone: false
+    // the quick replies need the phone to offer `reply` on the call
+    property bool repliesOffered: true
+    signal answerOnPhoneChosen()
 
     readonly property real topPadding: Math.round(0.0938 * height)
     readonly property real sidePadding: Math.round(0.052 * width)
@@ -86,9 +92,21 @@ Item {
                     width: list.width - 2 * menu.sidePadding
                     spacing: menu.chipGap
 
+                    Button {
+                        objectName: "answerOnPhone"
+                        visible: menu.answerOnPhone
+                        width: column.width
+                        variant: "tonal"
+                        centered: true
+                        //% "Answer on phone"
+                        text: qsTrId("id-call-answer-phone") + localeManager.changesObserver
+                        onClicked: menu.answerOnPhoneChosen()
+                    }
+
                     Item {
                         id: header
                         objectName: "sendHeader"
+                        visible: menu.repliesOffered
                         width: column.width
                         height: menu.headerAbove + menu.headerBelow
                         Label {
@@ -104,7 +122,7 @@ Item {
                     }
 
                     Repeater {
-                        model: menu.replies
+                        model: menu.repliesOffered ? menu.replies : []
                         delegate: Button {
                             objectName: "reply" + index
                             width: column.width

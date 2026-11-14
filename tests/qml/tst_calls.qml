@@ -617,6 +617,92 @@ Item {
             verify(view.call !== null)
         }
 
+        /* ---- FP-L2 (CR-53): More > Answer on phone sends the action key answer-phone ---- */
+
+        function test_19b_more_answer_on_phone_sends_answer_phone() {
+            ring(63, "answer,reject,silence,reply")
+            // the watch could answer by itself (HFP): the phone's answer is a choice in More
+            view.audio.take({ "available": true, "muted": false, "route": "watch" })
+            var s = screen()
+            settle(s)
+            compare(s.moreButton.visible, true)
+            view.openMore()
+            var menu = part("incomingCallMore")
+            verify(menu !== null)
+            compare(menu.answerOnPhone, true)
+            var b = part("answerOnPhone")
+            verify(b !== null && b.visible)
+            compare(b.text, "Answer on phone")
+            reveal(b)
+            mouseClick(b)
+            // the action key the launcher sends to lipstick (btsyncd maps it to the phone's answer), not "answer"
+            compare(actions().join(","), "63:answer-phone")
+            compare(view.moreOpen, false)
+            compare(view.answering, true)
+            compare(view.answerKey, "answer", "the key goes back to the plain answer")
+        }
+
+        function test_19c_no_answer_on_phone_without_the_watch_audio() {
+            ring(64, "answer,reject,silence,reply")
+            // no call audio on the watch: the Answer button already is the phone's answer
+            var s = screen()
+            settle(s)
+            view.openMore()
+            var menu = part("incomingCallMore")
+            compare(menu.answerOnPhone, false)
+            compare(part("answerOnPhone").visible, false)
+            // and the plain Answer sends "answer"
+            view.moreOpen = false
+            view.answer()
+            compare(actions().join(","), "64:answer")
+        }
+
+        function test_19d_more_without_replies_has_only_answer_on_phone() {
+            ring(65, "answer,reject,silence")
+            view.audio.take({ "available": true, "muted": false, "route": "watch" })
+            var s = screen()
+            settle(s)
+            compare(s.canMore, true, "More is there for Answer on phone")
+            view.openMore()
+            var menu = part("incomingCallMore")
+            compare(menu.repliesOffered, false)
+            compare(part("sendHeader").visible, false)
+            compare(part("reply0"), null)
+            compare(part("answerOnPhone").visible, true)
+        }
+
+        function test_19e_cancelled_confirmation_does_not_keep_answer_phone() {
+            // a call in progress: answering the new one asks first
+            inCall(66, 1000)
+            ring(67, "answer,reject,silence,reply")
+            view.audio.take({ "available": true, "muted": false, "route": "watch" })
+            view.answerOnPhone()
+            compare(view.confirmingAnswer, true)
+            var box = part("confirmAnswer")
+            tryVerify(function () { return box.visible }, 1000)
+            compare(actions().length, 0, "nothing is sent before the answer to the question")
+            mouseClick(part("confirmCancel"))
+            compare(view.confirmingAnswer, false)
+            compare(view.answerKey, "answer", "Cancel puts the plain answer back")
+            tryVerify(function () { return !box.visible }, 3000)
+            // the plain Answer after it sends "answer"
+            view.answer()
+            tryVerify(function () { return box.visible }, 1000)
+            mouseClick(part("confirmAnswerButton"))
+            compare(actions().join(","), "66:end,67:answer")
+        }
+
+        function test_19f_answer_on_phone_after_the_confirmation() {
+            inCall(68, 1000)
+            ring(69, "answer,reject,silence,reply")
+            view.audio.take({ "available": true, "muted": false, "route": "watch" })
+            view.answerOnPhone()
+            var box = part("confirmAnswer")
+            tryVerify(function () { return box.visible }, 1000)
+            mouseClick(part("confirmAnswerButton"))
+            compare(actions().join(","), "68:end,69:answer-phone")
+        }
+
         /* ---- calls-09: the crown is the call volume ---- */
 
         function test_20_crown_steps_the_call_volume_with_an_arc() {

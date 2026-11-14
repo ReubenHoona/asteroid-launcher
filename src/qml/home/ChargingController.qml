@@ -30,6 +30,7 @@
  */
 
 import QtQuick
+import Nemo.Configuration
 import Nemo.Mce
 import Nemo.DBus
 import "../charging/charging.js" as Charging
@@ -75,6 +76,15 @@ Item {
     // the plug-in vibration: compositor.qml plays ngfd's charging_started (Haptics, which keeps the
     // vibration and Using crown switches)
     signal plugFeedback()
+
+    // Settings > Sound > Charging sounds (CR-32, /org/asteroidos/sound/charging, default on): off, the plug-in feedback
+    // (ngfd charging_started) is not played
+    ConfigurationValue {
+        id: chargingSoundKey
+        key: "/org/asteroidos/sound/charging"
+        defaultValue: true
+    }
+    readonly property bool chargingSoundOn: chargingSoundKey.value !== false && String(chargingSoundKey.value) !== "false"
 
     MceChargerType { id: chargerType }
     MceChargerState { id: chargerState }
@@ -143,7 +153,7 @@ Item {
         update()
         if (r.wake)
             wakeDisplay()
-        if (r.feedback)
+        if (r.feedback && chargingSoundOn)
             plugFeedback()
     }
 

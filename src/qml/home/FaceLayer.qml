@@ -70,6 +70,15 @@ Item {
     // Bedtime mode: a long press opens its settings, not the picker (stock ked.java:391-407)
     readonly property bool bedtimeOn: typeof modes !== "undefined" && modes !== null && modes.bedtime === true
 
+    // Settings > Gestures > Touch and hold the watch face (CR-13, /org/asteroidos/ux/long-press-face, default on):
+    // off, the long press does nothing (the picker still opens from Settings' own request and the accessibility action)
+    ConfigurationValue {
+        id: longPressFace
+        key: "/org/asteroidos/ux/long-press-face"
+        defaultValue: true
+    }
+    readonly property bool longPressEnabled: longPressFace.value !== false && String(longPressFace.value) !== "false"
+
     function openFacePicker() {
         if (FP.longPressAction(true, false, bedtimeOn, false) === "bedtime") {
             desktop.openBedtimeSettings()
@@ -276,7 +285,8 @@ Item {
                     onActiveChanged: {
                         if (active) {
                             awakeAtDown = desktop.displayAwake && !displayAmbient
-                            if (FP.longPressInside(point.pressPosition.x, point.pressPosition.y, panelRoot.width, panelRoot.height)
+                            if (faceLayer.longPressEnabled
+                                    && FP.longPressInside(point.pressPosition.x, point.pressPosition.y, panelRoot.width, panelRoot.height)
                                     && FP.longPressAction(awakeAtDown, displayAmbient, false, false) !== "")
                                 longPressTimer.restart()
                         } else {

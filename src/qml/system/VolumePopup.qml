@@ -69,16 +69,21 @@ Item {
         closeTimer.restart()
         dialog.open()
     }
-    function close() { dialog.close() }
+    function close() { stepSound.stop(); dialog.close() }
 
-    // the slider's drag: the volume follows, the popup stays up 3 s more
+    // the slider's drag: the volume follows, the popup stays up 3 s more; every step the finger makes plays the
+    // sample of the stream (volume_step, volume_step_max at the top; volume_step_call in a call: CR-56)
     function setPercent(p) {
         var v = Math.max(0, Math.min(100, Math.round(p)))
+        var moved = v !== percent
         percent = v
         if (control && _maximum > 0)
             control.volume = Math.round(v / 100 * _maximum)
         closeTimer.restart()
+        if (moved)
+            stepSound.step(inCall ? "call" : "media", v >= 100)
     }
+    VolumeStepSound { id: stepSound; objectName: "volumeStepSound" }
 
     Timer {
         id: closeTimer

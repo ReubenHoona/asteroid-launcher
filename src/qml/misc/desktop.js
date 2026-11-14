@@ -9,6 +9,9 @@ var compositorRoot
 var keyboard
 // a notification's picture open full screen (the crown closes it)
 var pictureViewer
+// the last "<page>@<ms>" a launcher component wrote to /org/asteroidos/settings/ui/open: it starts Settings
+// itself, so the watcher of that key (MainScreen.handleSettingsRequest) leaves exactly that value alone (CR-16)
+var ownSettingsRequest = ""
 // the Find my phone page (apps-misc-04): an item with open(); null until it exists
 var findMyPhone
 // the shared "Phone away" dialog (system/PhoneAway.qml, W3-launcher-misc): show()

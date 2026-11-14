@@ -39,6 +39,7 @@ import org.asteroid.utils
 import org.asteroid.launcher
 import "desktop.js" as Desktop
 import "pager.js" as Pager
+import "home/requests.js" as Requests
 import "tiles"
 import "complications"
 import "home"
@@ -232,17 +233,42 @@ Item {
         id: settingsOpen
         key: "/org/asteroidos/settings/ui/open"
         defaultValue: ""
+        onValueChanged: desktop.handleSettingsRequest(String(value))
     }
     ConfigurationValue {
         id: settingsOpenApp
         key: "/org/asteroidos/settings/ui/open-app"
         defaultValue: ""
     }
+    /* The one writer of ui/open in this file: the value is remembered (Desktop.ownSettingsRequest) so that the
+     * watcher below does not start Settings a second time for a request the launcher made itself (the launcher
+     * components that write it start Settings themselves). */
+    function writeSettingsRequest(page) {
+        var v = page + "@" + Date.now()
+        Desktop.ownSettingsRequest = v
+        settingsOpen.value = v
+    }
+
+    /* A request of another program (asteroid-weather's Settings button, a complication): a value of ui/open
+     * that is younger than 60 s and that the launcher did not write itself starts Settings, or brings it back
+     * when it runs hidden (launchApp resumes a hidden window first). Settings reads the page itself and
+     * clears the key (CR-16). Once per value. */
+    property string handledSettingsRequest: ""
+    function handleSettingsRequest(value) {
+        if (value === "" || value === handledSettingsRequest || !Requests.fresh(value, "", Date.now()))
+            return
+        handledSettingsRequest = value
+        if (value === Desktop.ownSettingsRequest)
+            return
+        launchByName("asteroid-settings", null)
+    }
+
     function openAppInfo(item) {
         if (!item || !item.filePath)
             return
-        settingsOpenApp.value = item.filePath.split("/").pop()
-        settingsOpen.value = "app_info@" + Date.now()
+        // the app's desktop id without ".desktop" (CR-17)
+        settingsOpenApp.value = item.filePath.split("/").pop().replace(/\.desktop$/, "")
+        writeSettingsRequest("app_info")
         launchByName("asteroid-settings", null)
     }
 
@@ -255,7 +281,7 @@ Item {
     // Settings, on a page (wave 1 follow-up): "<page>@<ms>" to ui/open, then the program
     function openSettings(page) {
         closeOverlays()
-        settingsOpen.value = page + "@" + Date.now()
+        writeSettingsRequest(page)
         launchByName("asteroid-settings", null)
     }
 

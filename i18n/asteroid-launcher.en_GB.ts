@@ -3077,5 +3077,27 @@ Only selected people and apps can reach you.</translation>
         <source>Search &amp; go</source>
         <translation>Search &amp; go</translation>
     </message>
+    <message id="id-sos-hold-for">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>Hold for %1 seconds</source>
+        <translation>Hold for %1 seconds</translation>
+    </message>
+    <message id="id-sos-touch-for">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>Touch screen
+for %1 seconds to</source>
+        <translation>Touch screen
+for %1 seconds to</translation>
+    </message>
+    <message id="id-sos-touch-call">
+        <location filename="../src/qml/system/Sos.qml"/>
+        <source>call %1</source>
+        <translation>call %1</translation>
+    </message>
+    <message id="id-call-answer-phone">
+        <location filename="../src/qml/calls/IncomingCallMore.qml"/>
+        <source>Answer on phone</source>
+        <translation>Answer on phone</translation>
+    </message>
 </context>
 </TS>

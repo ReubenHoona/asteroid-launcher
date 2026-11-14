@@ -122,8 +122,13 @@ function sidePress(c, count) {
 
 /* Side button held HOLD_MS: the assistant in both options (above a call
  * view too: calls-23, interruptions-08), but not during setup and not
- * over a firing alarm (interruptions-09). */
+ * over a firing alarm (interruptions-09). Settings > Assistant (CR-15):
+ * assistantEnabled false (/org/asteroidos/assistant/enabled) or assistantHold
+ * false (/org/asteroidos/assistant/press-and-hold) and the hold does nothing;
+ * unset counts as on. */
 function sideHold(c) {
+    if (c.assistantEnabled === false || c.assistantHold === false)
+        return "none"
     // (locked: the assistant would be a way round the lock)
     if (c.setup || c.thermalBlocking === true || c.alertShown || c.sosShown || c.powerMenuShown || c.keyguardLocked === true)
         return "none"

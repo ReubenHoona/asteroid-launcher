@@ -270,6 +270,8 @@ Item {
         var n = call
         if (n === null)
             return
+        var key = answerKey
+        answerKey = "answer"
         handled[n.replacesId] = true
         silenced = true
         hideNextOngoing = false
@@ -281,8 +283,21 @@ Item {
         updateCallState(null)
         // Lipstick reports it to asteroid-btsyncd, which tells the phone;
         // the phone's call card then replaces the ringing one
-        n.actionInvoked("answer")
+        n.actionInvoked(key)
     }
+
+    // "answer" (the watch answers when it can) or "answer-phone" (More > Answer on phone: the phone answers, the
+    // audio stays there; btsyncd maps it, CR-53)
+    property string answerKey: "answer"
+    function answerOnPhone() {
+        if (call === null || answering || ongoing)
+            return
+        moreOpen = false
+        answerKey = "answer-phone"
+        answer()
+    }
+    // More offers it while the watch could answer by itself (the call audio is available)
+    readonly property bool answerOnPhoneOffered: !ongoing && callAudio.available && hasAction("answer")
 
     function phoneActions(n) {
         var a = n.hints["x-asteroid-phone-actions"]
@@ -477,6 +492,7 @@ Item {
 
     onCallChanged: {
         confirmingAnswer = false
+        answerKey = "answer"
         if (call !== null)
             lastName = nameOf(call)
         sawDialing = false
@@ -839,7 +855,7 @@ Item {
                 canEnd: true
                 // More: the quick replies need the phone to offer `reply` on
                 // the call; in a call it has Volume (btsyncd's call audio)
-                canMore: incomingCall.ongoing ? callAudio.present : incomingCall.hasAction("reply")
+                canMore: incomingCall.ongoing ? callAudio.present : (incomingCall.hasAction("reply") || incomingCall.answerOnPhoneOffered)
                 canMute: callAudio.available
                 muted: callAudio.muted
                 // while the answer is on its way End and Decline do nothing
@@ -861,6 +877,9 @@ Item {
     Component {
         id: incomingMoreComponent
         IncomingCallMore {
+            answerOnPhone: incomingCall.answerOnPhoneOffered
+            repliesOffered: incomingCall.hasAction("reply")
+            onAnswerOnPhoneChosen: incomingCall.answerOnPhone()
             onReplyChosen: function (text) { incomingCall.reply(text) }
             onCloseRequested: incomingCall.moreOpen = false
         }
@@ -918,7 +937,7 @@ Item {
         //% "Answering new call will end current call"
         text: qsTrId("id-call-second-message") + localeManager.changesObserver
         onConfirmed: incomingCall.confirmAnswer()
-        onDismissed: incomingCall.confirmingAnswer = false
+        onDismissed: { incomingCall.confirmingAnswer = false; incomingCall.answerKey = "answer" }
         Component.onCompleted: {
             titleLabel.objectName = "confirmTitle"
             textLabel.objectName = "confirmMessage"

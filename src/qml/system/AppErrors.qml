@@ -7,6 +7,7 @@ import QtQuick
 import Nemo.Configuration
 import org.asteroid.launcher
 import org.nemomobile.lipstick
+import "../desktop.js" as Desktop
 
 /* The app error dialogs of the compositor (system-dialogs-misc-01, -02, -03):
  * the crash watcher's `appWatcher` (a context object, src/appwatcher.cpp)
@@ -68,9 +69,11 @@ Item {
     CrashDialog {
         id: dialog
         onAppInfoRequested: (key) => {
-            // Settings reads the app's file name and the route, as MainScreen.openAppInfo
-            settingsOpenApp.value = key + ".desktop"
-            settingsOpen.value = "app_info@" + Date.now()
+            // Settings reads the app's desktop id (no .desktop) and the route, as MainScreen.openAppInfo
+            settingsOpenApp.value = key
+            var v = "app_info@" + Date.now()
+            Desktop.ownSettingsRequest = v
+            settingsOpen.value = v
             launcher.launchApp("asteroid-settings")
         }
         onCloseAppRequested: (key) => {

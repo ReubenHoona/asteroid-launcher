@@ -73,6 +73,7 @@ set(QML_FILES
 	qml/system/GoalCelebration.qml
 	qml/system/goals.js
 	qml/system/VolumePopup.qml
+	qml/system/VolumeStepSound.qml
 	qml/system/LiveUpdate.qml
 	qml/system/liveupdate.js
 	qml/system/ThermalUi.qml
@@ -217,6 +218,7 @@ set(QML_FILES
 	qml/home/HomeOverlays.qml
 	qml/home/StatusSlot.qml
 	qml/home/ambient.js
+	qml/home/requests.js
 	qml/home/status.js
 	qml/home/unread.js
 	qml/home/ongoing.js
@@ -269,6 +271,7 @@ set_source_files_properties(qml/system/MediaAutoLaunch.qml           PROPERTIES 
 set_source_files_properties(qml/system/GoalCelebration.qml           PROPERTIES QT_RESOURCE_ALIAS system/GoalCelebration.qml)
 set_source_files_properties(qml/system/goals.js                      PROPERTIES QT_RESOURCE_ALIAS system/goals.js)
 set_source_files_properties(qml/system/VolumePopup.qml               PROPERTIES QT_RESOURCE_ALIAS system/VolumePopup.qml)
+set_source_files_properties(qml/system/VolumeStepSound.qml           PROPERTIES QT_RESOURCE_ALIAS system/VolumeStepSound.qml)
 set_source_files_properties(qml/system/LiveUpdate.qml                PROPERTIES QT_RESOURCE_ALIAS system/LiveUpdate.qml)
 set_source_files_properties(qml/system/liveupdate.js                 PROPERTIES QT_RESOURCE_ALIAS system/liveupdate.js)
 set_source_files_properties(qml/system/ThermalUi.qml                 PROPERTIES QT_RESOURCE_ALIAS system/ThermalUi.qml)
@@ -413,6 +416,7 @@ set_source_files_properties(qml/charging/ChargerProblem.qml               PROPER
 set_source_files_properties(qml/home/HomeOverlays.qml                     PROPERTIES QT_RESOURCE_ALIAS home/HomeOverlays.qml)
 set_source_files_properties(qml/home/StatusSlot.qml                       PROPERTIES QT_RESOURCE_ALIAS home/StatusSlot.qml)
 set_source_files_properties(qml/home/ambient.js                           PROPERTIES QT_RESOURCE_ALIAS home/ambient.js)
+set_source_files_properties(qml/home/requests.js                          PROPERTIES QT_RESOURCE_ALIAS home/requests.js)
 set_source_files_properties(qml/home/status.js                    PROPERTIES QT_RESOURCE_ALIAS home/status.js)
 set_source_files_properties(qml/home/unread.js                    PROPERTIES QT_RESOURCE_ALIAS home/unread.js)
 set_source_files_properties(qml/home/ongoing.js                   PROPERTIES QT_RESOURCE_ALIAS home/ongoing.js)

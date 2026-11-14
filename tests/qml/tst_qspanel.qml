@@ -801,6 +801,17 @@ Item {
             no()
         }
 
+        // ---- FP-L2 (CR-56): the ngfd names of a volume step ----
+        function test_49_volume_step_event_names() {
+            compare(QS.volumeStepEvent("media", false), "volume_step")
+            compare(QS.volumeStepEvent("media", true), "volume_step_max")
+            var roles = ["ring", "notification", "alarm", "call"]
+            for (var i = 0; i < roles.length; i++) {
+                compare(QS.volumeStepEvent(roles[i], false), "volume_step_" + roles[i])
+                compare(QS.volumeStepEvent(roles[i], true), "volume_step_max_" + roles[i])
+            }
+        }
+
         // ---- Notifications and ring --------------------------------------------------
 
         function test_50_sound_tile() {
@@ -818,6 +829,29 @@ Item {
             // no volume slider, no scrub: a drag does not change the volume
             hold(s, 520)
             compare(volume.volume, 70)
+        }
+
+        // FP-L2 (CR-56): turning the sound on again plays the sample of a volume step, as Settings plays it
+        function test_50b_unmute_plays_volume_step() {
+            var s = tile("soundToggle")
+            tap(s)
+            compare(volume.volume, 0)
+            Backend.clearCalls()
+            wait(200)
+            tap(s)
+            compare(volume.volume, 70)
+            tryVerify(function () { return Backend.find("ngfd", "volume_step") !== null }, 2000)
+            compare(Backend.find("ngfd", "notification"), null, "no more the notification sound")
+            compare(Backend.find("ngfd", "volume_step_max"), null)
+        }
+        function test_50c_unmute_to_the_top_plays_volume_step_max() {
+            var s = tile("soundToggle")
+            Backend.confSet("/desktop/asteroid/pre-mute-level", 100)
+            Backend.clearCalls()
+            tap(s)
+            compare(volume.volume, 100)
+            tryVerify(function () { return Backend.find("ngfd", "volume_step_max") !== null }, 2000)
+            compare(Backend.find("ngfd", "volume_step"), null)
         }
 
         // ---- Airplane mode -----------------------------------------------------------
@@ -857,6 +891,32 @@ Item {
             tap(a)
             verify(!dialog().shown)
             verify(Backend.offline)
+        }
+
+        // FP-L2 (CR-25): Bluetooth stays on in airplane mode unless the user turned it off there (settings/bluetooth-off-in-airplane)
+        function test_60b_bluetooth_off_in_airplane_keeps_bluetooth_off() {
+            Backend.confSet("/org/asteroidos/modes/ask/airplane", false)
+            Backend.confSet("/org/asteroidos/settings/bluetooth-off-in-airplane", true)
+            var a = tile("airplaneToggle")
+            tap(a)
+            verify(Backend.offline)
+            // connman's offline mode took the radio: it is not powered back
+            Backend.btPowered = false
+            wait(2300)
+            compare(Backend.btPowered, false, "the user wants it off")
+            tap(a)
+            verify(!Backend.offline)
+        }
+        function test_60c_bluetooth_off_in_airplane_false_powers_it_back() {
+            Backend.confSet("/org/asteroidos/modes/ask/airplane", false)
+            Backend.confSet("/org/asteroidos/settings/bluetooth-off-in-airplane", false)
+            var a = tile("airplaneToggle")
+            tap(a)
+            verify(Backend.offline)
+            Backend.btPowered = false
+            tryCompare(Backend, "btPowered", true, 3000)
+            tap(a)
+            verify(!Backend.offline)
         }
 
         function test_61_airplane_long_press_is_an_info_dialog() {

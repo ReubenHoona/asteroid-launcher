@@ -30,12 +30,14 @@
  */
 
 import QtQuick
+import Nemo.Configuration
 import org.nemomobile.lipstick
 import org.asteroid.controls
 import "../desktop.js" as Desktop
 import "../tiles"
 import "../complications"
 import "../firstrun"
+import "requests.js" as Requests
 import ".."
 
 /* What opens over the home screen (split out of MainScreen.qml): the app
@@ -102,11 +104,73 @@ Item {
             startTutorial()
         })
     }
-    function startTutorial() {
-        if (!firstRun.tutorialPending())
+    // the coach on the screen, if any (one at a time)
+    property Item tutorialCoach: null
+    // force: Settings asked for it (the start-tutorial request), pending or not
+    function startTutorial(force) {
+        if ((force !== true && !firstRun.tutorialPending()) || tutorialCoach !== null)
             return
         var coach = tutorialComponent.createObject(overlays)
-        coach.done.connect(function () { coach.destroy() })
+        tutorialCoach = coach
+        coach.done.connect(function () {
+            coach.destroy()
+            if (tutorialCoach === coach)
+                tutorialCoach = null
+        })
+    }
+
+    /* What Settings asks of the launcher (dconf, "<route>@<ms>", requests.js: acted on only while
+     * younger than 60 s; a value is acted on once):
+     *  - /org/asteroidos/launcher/start-tutorial "tutorial@<ms>" (General > Start tutorial, CR-11):
+     *    the tutorial is pending (the launcher's own flag, tutorialPending) and starts over the face
+     *  - /org/asteroidos/launcher/open-face-picker "picker@<ms>" (Display > Change watch face, CR-12):
+     *    the face, with the picker open over it (the long press' path, openFacePicker)
+     * Neither while the setup wizard is up (the wizard starts the tutorial itself at its end). */
+    ConfigurationValue {
+        id: tutorialRequest
+        key: "/org/asteroidos/launcher/start-tutorial"
+        defaultValue: ""
+        onValueChanged: overlays.handleTutorialRequest(String(value))
+    }
+    ConfigurationValue {
+        id: pickerRequest
+        key: "/org/asteroidos/launcher/open-face-picker"
+        defaultValue: ""
+        onValueChanged: overlays.handlePickerRequest(String(value))
+    }
+    ConfigurationValue {
+        id: tutorialPendingKey
+        key: "/org/asteroidos/launcher/tutorialPending"
+        defaultValue: false
+    }
+    property string handledTutorial: ""
+    property string handledPicker: ""
+
+    // an application in front goes to the background, the overlays go: the face is what is shown
+    function showFace() {
+        if (!Lipstick.compositor.homeActive && Desktop.compositorRoot && Desktop.compositorRoot.leaveApp)
+            Desktop.compositorRoot.leaveApp()
+        closeOverlays()
+        grid.moveTo(0, 0)
+    }
+    function handleTutorialRequest(value) {
+        if (value === handledTutorial || !Requests.fresh(value, "tutorial", Date.now()))
+            return
+        handledTutorial = value
+        if (firstRun.isFirstRun())
+            return
+        tutorialPendingKey.value = true
+        showFace()
+        startTutorial(true)
+    }
+    function handlePickerRequest(value) {
+        if (value === handledPicker || !Requests.fresh(value, "picker", Date.now()))
+            return
+        handledPicker = value
+        if (firstRun.isFirstRun())
+            return
+        showFace()
+        desktop.openFacePicker()
     }
 
     // the face picker goes without applying (an application or the assistant came up)

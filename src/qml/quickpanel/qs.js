@@ -236,3 +236,12 @@ var AUTO_CLOSE_MS = 700       /* kzc: Theater mode and Touch lock close the tray
 function acceptTap(now, last, debounce) {
     return now - last >= debounce
 }
+
+/* ---- the sample of a volume step (haptics-sounds-14, CR-56) ---- */
+
+/* The ngfd event of a volume step: volume_step and volume_step_max for media (the main volume),
+ * volume_step_<role> and volume_step_max_<role> for ring, notification, alarm and call: the names
+ * Settings plays (asteroid-settings VolumeStepSound.qml). */
+function volumeStepEvent(role, atMax) {
+    return "volume_step" + (atMax ? "_max" : "") + (role === "media" ? "" : "_" + role)
+}
