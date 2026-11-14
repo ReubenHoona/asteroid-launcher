@@ -16,9 +16,14 @@ import "system.js" as Sys
  *    0.4 in 250 ms on path (0.2, 0, 0, 1) about its bottom centre;
  *  - held 1350 ms, then slid down 400 px in 150 ms on path (0.3, 0, 0.8,
  *    0.49); a touch on it starts that exit early;
- *  - a thud 100 ms after the capture and the shutter sound: ngfd's event
- *    "eos_screenshot" (class crown as stock's hardware feedback; its sample
- *    is ours, and it is silent in a silent profile).
+ *  - the shutter sound at once and the thud 100 ms after the capture: ngfd's
+ *    event "eos_screenshot" is played at the start of the show (stock plays
+ *    the sound immediately and vibrates a raw effect whose one primitive has
+ *    delayMs=100: WearScreenshotService lambda line 79; res/raw/screenshot_haptic),
+ *    so the 100 ms live in the event's pattern "thud:1:100" (the delay of
+ *    ngfd patch 0005 counts from the start of the event for the first
+ *    primitive) and there is no timer here. Class hardware as stock's
+ *    hardware feedback; the sample is ours, silent in a silent profile.
  * Driven by `screenshotService.captured(path)` (lipstick ScreenshotService);
  * capture() asks the service for one (the chord of mce, KeyRouter). Nothing
  * runs or draws while it is not up. Instantiated in compositor.qml above
@@ -74,16 +79,16 @@ Item {
         function onCaptured(path) { shot.begin(path) }
     }
 
-    // the thud and the shutter, 100 ms after the capture
-    Timer {
-        id: feedback
-        interval: Sys.SHOT_HAPTIC_DELAY_MS
-        onTriggered: Haptics.play("eos_screenshot")
+    // the shutter and the thud: played at once, the thud's 100 ms are in the event's pattern
+    signal feedbackPlayed()
+    function playFeedback() {
+        Haptics.play("eos_screenshot")
+        feedbackPlayed()
     }
 
     SequentialAnimation {
         id: seq
-        ScriptAction { script: feedback.restart() }
+        ScriptAction { script: shot.playFeedback() }
         // the flash
         NumberAnimation { target: flash; property: "opacity"; from: 0; to: Sys.SHOT_FLASH_ALPHA
                           duration: Sys.SHOT_FLASH_RISE_MS; easing.type: Easing.Linear }

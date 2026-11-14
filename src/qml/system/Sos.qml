@@ -18,7 +18,9 @@ import "system.js" as Sys
  * down 5 s (twice that with a touch-exploring screen reader), the caption
  * "Calling" 31 dp from the top, the number 12 dp below it and a round X to
  * cancel 19 dp from the bottom; at zero the phone dials the local
- * emergency number (Gadgetbridge, the assistant's relay: {a: "dial"}) and
+ * emergency number (Gadgetbridge, the assistant's relay: {a: "dial", nm, dry};
+ * NEEDS the "dial" action in Gadgetbridge: until its ACTIONS list has it the
+ * relay answers old-app and the screen says the phone is not connected) and
  * the screen says "Calling <number>...". With no phone link: "Your watch
  * is not connected to your phone".
  *

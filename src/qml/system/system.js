@@ -223,8 +223,7 @@ var SHOT_HOLD_MS = 1350
 var SHOT_EXIT_Y = 400
 var SHOT_EXIT_MS = 150
 var SHOT_EXIT_EASING = [0.3, 0, 0.8, 0.49, 1, 1]
-// the thud 100 ms after the capture
-var SHOT_HAPTIC_DELAY_MS = 100
+// no delay constant: the event plays at once, its thud primitive carries the 100 ms (ngfd pattern thud:1:100)
 
 /* ---- error dialogs --------------------------------------------------------- */
 
