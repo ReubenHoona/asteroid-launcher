@@ -203,9 +203,24 @@ Item {
                 property bool forbidLeft: false
                 property bool forbidRight: false
             }
-
-            TimeText { }
         }
+    }
+
+    // a new view (Grid view, List view): it fades in over 100 ms (izy.java changeUiModeFromViewSwitcher)
+    Connections {
+        target: launcher
+        function onSourceChanged() {
+            if (drawer.isOpen && launcher.source != "" && Motion.animationScale > 0)
+                viewFade.restart()
+        }
+    }
+    NumberAnimation {
+        id: viewFade
+        target: launcher
+        property: "opacity"
+        from: 0
+        to: 1
+        duration: 100
     }
 
     NumberAnimation {

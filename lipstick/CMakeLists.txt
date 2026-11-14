@@ -9,6 +9,7 @@ set(LIPSTICK_SRC
 	src/components/launchermodel.cpp
 	src/components/launchermonitor.cpp
 	src/components/launcherdbus.cpp
+	src/components/launchersortmodel.cpp
 	src/compositor/lipstickcompositor.cpp
 	src/compositor/lipstickcompositorwindow.cpp
 	src/compositor/asteroidgesturesextension.cpp

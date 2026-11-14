@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Find my phone
+Comment=Make your phone ring
+Icon=ios-phone-portrait
+# An entry of the launcher's own: asteroid-launcher opens the Find my phone
+# page for it (MainScreen.launchApp) and never runs Exec
+Exec=true
+X-Asteroid-Center-Color=#34a853
+X-Asteroid-Outer-Color=#14532d

@@ -56,6 +56,7 @@ Item {
     readonly property Item facePicker: facePickerItem
     readonly property Item tilesEditor: tilesEditorItem
     readonly property Item confirmation: confirmationItem
+    readonly property Item recents: recentsItem
     readonly property Item splash: splashItem
 
     Splash {
@@ -82,6 +83,7 @@ Item {
     // the drawer, the face picker and the tiles editor go
     function closeOverlays() {
         appDrawerItem.closeNow()
+        recentsItem.closeNow()
         if (facePickerItem.visible) facePickerItem.close()
         if (tilesEditorItem.visible) tilesEditorItem.close()
     }
@@ -110,6 +112,11 @@ Item {
             closeOverlays()
             return
         }
+        // Recents goes to the face (stock Home)
+        if (recentsItem.isOpen) {
+            recentsItem.close()
+            return
+        }
         if (appDrawerItem.isOpen) {
             appDrawerItem.close()
             return
@@ -122,6 +129,30 @@ Item {
             appDrawerItem.open()
         else
             grid.animateTo(0, 1)
+    }
+
+    /* The side button's short press (KeyRouter -> compositor.toggleRecents ->
+     * MainScreen): Recents opens over whatever is on the screen, or closes
+     * when it is open (the second press of a double press, which then goes
+     * to the previous app). Not over the boot splash or a full screen keyboard. */
+    function toggleRecents() {
+        if (recentsItem.isOpen && recentsItem.progress > 0.5)
+            return recentsItem.toggle()
+        if (splashItem.visible || Desktop.keyboard || Desktop.pictureViewer)
+            return false
+        closeOverlays()
+        return recentsItem.toggle()
+    }
+
+    /* "All apps" of Recents: the app list at its top over the face (an
+     * application in front goes to the background first) */
+    function openAppList() {
+        if (!Lipstick.compositor.homeActive && Desktop.compositorRoot && Desktop.compositorRoot.leaveApp)
+            Desktop.compositorRoot.leaveApp()
+        closeOverlays()
+        grid.moveTo(0, 0)
+        appDrawerItem.reset()
+        appDrawerItem.open()
     }
 
     // The app list is drawn once, unseen, a few seconds after the start, so
@@ -148,6 +179,13 @@ Item {
         id: appDrawerItem
         z: 5
         onIsOpenChanged: if (isOpen && launcher.item) Desktop.appLauncher = launcher.item
+    }
+
+    Recents {
+        id: recentsItem
+        z: 5.5
+        onAllAppsRequested: overlays.openAppList()
+        onAppInfoRequested: (item) => desktop.openAppInfo(item)
     }
 
     FacePicker {

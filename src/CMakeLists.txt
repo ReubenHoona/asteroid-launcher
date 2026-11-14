@@ -53,6 +53,8 @@ set(QML_FILES
 	qml/misc/tray.js
 	qml/misc/pager.js
 	qml/misc/AppDrawer.qml
+	qml/misc/Recents.qml
+	qml/misc/recents.js
 	qml/misc/FacePicker.qml
 	qml/notifications/NotificationStream.qml
 	qml/notifications/NotificationCard.qml
@@ -131,6 +133,8 @@ set_source_files_properties(qml/misc/desktop.js                      PROPERTIES 
 set_source_files_properties(qml/misc/tray.js                         PROPERTIES QT_RESOURCE_ALIAS tray.js)
 set_source_files_properties(qml/misc/pager.js                        PROPERTIES QT_RESOURCE_ALIAS pager.js)
 set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES QT_RESOURCE_ALIAS AppDrawer.qml)
+set_source_files_properties(qml/misc/Recents.qml                     PROPERTIES QT_RESOURCE_ALIAS Recents.qml)
+set_source_files_properties(qml/misc/recents.js                      PROPERTIES QT_RESOURCE_ALIAS recents.js)
 set_source_files_properties(qml/misc/FacePicker.qml                  PROPERTIES QT_RESOURCE_ALIAS FacePicker.qml)
 set_source_files_properties(qml/notifications/NotificationStream.qml    PROPERTIES QT_RESOURCE_ALIAS NotificationStream.qml)
 set_source_files_properties(qml/notifications/NotificationCard.qml      PROPERTIES QT_RESOURCE_ALIAS NotificationCard.qml)
@@ -237,4 +241,9 @@ install(
 install(
 	DIRECTORY applauncher
 	DESTINATION ${CMAKE_INSTALL_DATADIR}/asteroid-launcher
+)
+# the launcher's own entries of the app list (no program: MainScreen.launchApp answers them)
+install(
+	FILES desktop/asteroid-find-my-phone.desktop
+	DESTINATION ${CMAKE_INSTALL_DATADIR}/applications
 )

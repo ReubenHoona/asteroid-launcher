@@ -150,6 +150,8 @@ Compositor {
     property var meta: ({})
     // the keys of the applications with an ongoing activity (notifications)
     property var ongoingKeys: ({})
+    // the status text of those activities (the hint x-eos-ongoing-status), by key: Recents' second line
+    property var ongoingStatus: ({})
     // a short counter of the hidden apps, for tests and Recents
     property int hiddenCount: 0
 
@@ -358,13 +360,19 @@ Compositor {
 
     function refreshOngoing() {
         var keys = {}
+        var status = {}
         for (var i = 0; i < ongoingModel.itemCount; i++) {
             var n = ongoingModel.get(i)
             var k = Life.ongoingKey(n.hints, n.category, n.appName)
-            if (k !== "")
+            if (k !== "") {
                 keys[k] = true
+                var st = n.hints ? n.hints["x-eos-ongoing-status"] : undefined
+                if (typeof st === "string" && st !== "")
+                    status[k] = st
+            }
         }
         ongoingKeys = keys
+        ongoingStatus = status
         var frontWas = topmostWindow ? entry(topmostWindow).ongoing : false
         for (var id in meta) {
             var m = meta[id]

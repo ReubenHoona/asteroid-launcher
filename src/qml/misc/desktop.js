@@ -9,3 +9,5 @@ var compositorRoot
 var keyboard
 // a notification's picture open full screen (the crown closes it)
 var pictureViewer
+// the Find my phone page (apps-misc-04): an item with open(); null until it exists
+var findMyPhone

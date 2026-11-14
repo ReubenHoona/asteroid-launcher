@@ -63,9 +63,10 @@ Item {
     id: desktop
     width: Dims.w(100)
     height: Dims.h(100)
-    z: splash.visible ? 10 : 0
+    // Recents opens over an application too: above it, below calls, alarms and the assistant (compositor.qml)
+    z: splash.visible ? 10 : (recents.isOpen ? 2.4 : 0)
 
-    visible: Lipstick.compositor.homeActive || aboutToOpen || aboutToClose || aboutToMinimize
+    visible: Lipstick.compositor.homeActive || aboutToOpen || aboutToClose || aboutToMinimize || recents.isOpen
     enabled: visible
 
     // Requests the active watchface Loader to reload from disk. A signal, so
@@ -161,6 +162,9 @@ Item {
     // the drawer, the face picker and the tiles editor go (HomeOverlays)
     function closeOverlays() { overlays.closeOverlays() }
 
+    // the side button's Recents (the compositor's KeyRouter): opens it, or closes it when open
+    function toggleRecents() { return overlays.toggleRecents() }
+
     // the crown button on the home screen (HomeOverlays)
     function crownPressed() { overlays.crownPressed() }
 
@@ -184,6 +188,50 @@ Item {
             streamItem.openDetail(n)
         } else {
             grid.moveTo(-1, 0)
+        }
+    }
+
+    /* Settings > Apps > App info of an app: the launcher writes "<page>@<ms>" to
+     * /org/asteroidos/settings/ui/open (asteroid-settings main.qml openRequested)
+     * and starts Settings; the desktop file name of the app goes to
+     * /org/asteroidos/settings/ui/open-app for the page of that app. A long
+     * press on an app of the list or the grid, and Recents' "App Info" */
+    ConfigurationValue {
+        id: settingsOpen
+        key: "/org/asteroidos/settings/ui/open"
+        defaultValue: ""
+    }
+    ConfigurationValue {
+        id: settingsOpenApp
+        key: "/org/asteroidos/settings/ui/open-app"
+        defaultValue: ""
+    }
+    function openAppInfo(item) {
+        if (!item || !item.filePath)
+            return
+        settingsOpenApp.value = item.filePath.split("/").pop()
+        settingsOpen.value = "app_info@" + Date.now()
+        launchByName("asteroid-settings", null)
+    }
+
+    /* "Find my phone" of the app list: the launcher's own page (the entry
+     * asteroid-find-my-phone.desktop has no program). The page registers
+     * itself as Desktop.findMyPhone (apps-misc-04); until it does, quick
+     * settings, where the Find my phone button is, opens (3 = REASON.nonDrag) */
+    function openFindMyPhone() {
+        closeOverlays()
+        if (Desktop.findMyPhone && Desktop.findMyPhone.open)
+            Desktop.findMyPhone.open()
+        else
+            grid.openTray(-1, 3, 0)
+    }
+
+    // the crown (or the app ending) takes Recents away from the face: it closes
+    Connections {
+        target: Lipstick.compositor
+        function onHomeActiveChanged() {
+            if (Lipstick.compositor.homeActive && recents.isOpen)
+                recents.closeNow()
         }
     }
 
@@ -218,6 +266,13 @@ Item {
                 Desktop.compositorRoot.openAssistant("")
             return
         }
+        // "Find my phone" in the app list is the launcher's own page too
+        if (launcherItem.filePath && launcherItem.filePath.split("/").pop() === "asteroid-find-my-phone.desktop") {
+            openFindMyPhone()
+            return
+        }
+        // Recents: this launch is the newest (the history is written now, never by a timer)
+        recents.record(launcherItem)
         // already running, hidden in the background: it comes back warm, with
         // the open motion and no splash (AppLifecycle.resumeApp)
         if (Desktop.compositorRoot && Desktop.compositorRoot.resumeApp
@@ -323,6 +378,7 @@ Item {
     readonly property Item facePicker: overlays.facePicker
     readonly property Item tilesEditor: overlays.tilesEditor
     readonly property Item confirmation: overlays.confirmation
+    readonly property Item recents: overlays.recents
     readonly property bool prewarmPending: overlays.prewarmPending
 
     // the status slot's indicators (StatusSlot)

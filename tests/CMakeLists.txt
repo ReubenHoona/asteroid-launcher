@@ -36,3 +36,9 @@ target_link_libraries(tst_keyclaims PRIVATE Qt6::Core Qt6::DBus)
 # The finger speed of a swipe (src/swipevelocity.h), plain C++
 add_executable(tst_swipevelocity tst_swipevelocity.cpp)
 target_include_directories(tst_swipevelocity PRIVATE ../src)
+
+# The order of the Wear app list (lipstick/src/components/launchersortmodel.h), Qt Core only
+add_executable(tst_launchersort tst_launchersort.cpp ../lipstick/src/components/launchersortmodel.cpp ../lipstick/src/components/launchersortmodel.h)
+set_target_properties(tst_launchersort PROPERTIES AUTOMOC ON)
+target_include_directories(tst_launchersort PRIVATE ../lipstick/src/components)
+target_link_libraries(tst_launchersort PRIVATE Qt6::Core)
