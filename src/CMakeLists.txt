@@ -106,6 +106,17 @@ set(QML_FILES
 	qml/tiles/AssistantTile.qml
 	qml/tiles/AlarmTile.qml
 	qml/tiles/BatteryTile.qml
+	qml/tiles/WeatherSource.qml
+	qml/tiles/SleepTile.qml
+	qml/tiles/ExerciseTile.qml
+	qml/tiles/SolarTile.qml
+	qml/tiles/UvTile.qml
+	qml/tiles/FavoritesTile.qml
+	qml/tiles/ContactTile.qml
+	qml/tiles/MapsTile.qml
+	qml/tiles/QuickAddTile.qml
+	qml/tiles/tilecontent.js
+	qml/tiles/exercisetypes.js
 	qml/complications/ComplicationSources.qml
 	qml/complications/ComplicationView.qml
 	qml/complications/AgendaSource.qml
@@ -297,6 +308,17 @@ set_source_files_properties(qml/tiles/MediaTile.qml                  PROPERTIES 
 set_source_files_properties(qml/tiles/AssistantTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/AssistantTile.qml)
 set_source_files_properties(qml/tiles/AlarmTile.qml                  PROPERTIES QT_RESOURCE_ALIAS tiles/AlarmTile.qml)
 set_source_files_properties(qml/tiles/BatteryTile.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/BatteryTile.qml)
+set_source_files_properties(qml/tiles/WeatherSource.qml          PROPERTIES QT_RESOURCE_ALIAS tiles/WeatherSource.qml)
+set_source_files_properties(qml/tiles/SleepTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/SleepTile.qml)
+set_source_files_properties(qml/tiles/ExerciseTile.qml           PROPERTIES QT_RESOURCE_ALIAS tiles/ExerciseTile.qml)
+set_source_files_properties(qml/tiles/SolarTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/SolarTile.qml)
+set_source_files_properties(qml/tiles/UvTile.qml                 PROPERTIES QT_RESOURCE_ALIAS tiles/UvTile.qml)
+set_source_files_properties(qml/tiles/FavoritesTile.qml          PROPERTIES QT_RESOURCE_ALIAS tiles/FavoritesTile.qml)
+set_source_files_properties(qml/tiles/ContactTile.qml            PROPERTIES QT_RESOURCE_ALIAS tiles/ContactTile.qml)
+set_source_files_properties(qml/tiles/MapsTile.qml               PROPERTIES QT_RESOURCE_ALIAS tiles/MapsTile.qml)
+set_source_files_properties(qml/tiles/QuickAddTile.qml           PROPERTIES QT_RESOURCE_ALIAS tiles/QuickAddTile.qml)
+set_source_files_properties(qml/tiles/tilecontent.js             PROPERTIES QT_RESOURCE_ALIAS tiles/tilecontent.js)
+set_source_files_properties(qml/tiles/exercisetypes.js           PROPERTIES QT_RESOURCE_ALIAS tiles/exercisetypes.js)
 set_source_files_properties(qml/complications/ComplicationSources.qml PROPERTIES QT_RESOURCE_ALIAS complications/ComplicationSources.qml)
 set_source_files_properties(qml/complications/ComplicationView.qml   PROPERTIES QT_RESOURCE_ALIAS complications/ComplicationView.qml)
 set_source_files_properties(qml/complications/AgendaSource.qml       PROPERTIES QT_RESOURCE_ALIAS complications/AgendaSource.qml)

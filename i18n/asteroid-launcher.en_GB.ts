@@ -2387,5 +2387,620 @@ Only selected people and apps can reach you.</translation>
         <source>Exercise</source>
         <translation>Exercise</translation>
     </message>
+    <message id="id-tile-feels-like">
+        <location filename="../src/qml/tiles/WeatherTile.qml"/>
+        <source>Feels %1</source>
+        <translation>Feels %1</translation>
+    </message>
+    <message id="id-tile-high-low">
+        <location filename="../src/qml/tiles/WeatherTile.qml"/>
+        <source>High of %1 and low of %2</source>
+        <translation>High of %1 and low of %2</translation>
+    </message>
+    <message id="id-tile-percent">
+        <location filename="../src/qml/tiles/WeatherTile.qml"/>
+        <source>%1%</source>
+        <translation>%1%</translation>
+    </message>
+    <message id="id-tile-uv-index">
+        <location filename="../src/qml/tiles/WeatherTile.qml"/>
+        <source>UV %1</source>
+        <translation>UV %1</translation>
+    </message>
+    <message id="id-tile-now">
+        <location filename="../src/qml/tiles/AgendaTile.qml"/>
+        <source>Now</source>
+        <translation>Now</translation>
+    </message>
+    <message id="id-tile-today-date">
+        <location filename="../src/qml/tiles/AgendaTile.qml"/>
+        <source>Today • %1 %2</source>
+        <translation>Today • %1 %2</translation>
+    </message>
+    <message id="id-tile-day-clear">
+        <location filename="../src/qml/tiles/AgendaTile.qml"/>
+        <source>Your day is clear</source>
+        <translation>Your day is clear</translation>
+    </message>
+    <message id="id-tile-daily-goal">
+        <location filename="../src/qml/tiles/StepsTile.qml"/>
+        <source>Daily Goal</source>
+        <translation>Daily Goal</translation>
+    </message>
+    <message id="id-tile-goal-met">
+        <location filename="../src/qml/tiles/StepsTile.qml"/>
+        <source>Goal met</source>
+        <translation>Goal met</translation>
+    </message>
+    <message id="id-tile-goal-over">
+        <location filename="../src/qml/tiles/StepsTile.qml"/>
+        <source>%1 over goal</source>
+        <translation>%1 over goal</translation>
+    </message>
+    <message id="id-tile-goal-left">
+        <location filename="../src/qml/tiles/StepsTile.qml"/>
+        <source>%1 left</source>
+        <translation>%1 left</translation>
+    </message>
+    <message id="id-tile-current-bpm">
+        <location filename="../src/qml/tiles/HeartRateTile.qml"/>
+        <source>Current bpm</source>
+        <translation>Current bpm</translation>
+    </message>
+    <message id="id-tile-hr-description">
+        <location filename="../src/qml/tiles/HeartRateTile.qml"/>
+        <source>Heart rate in past 2 hours, highest %1 bpm, lowest %2 bpm</source>
+        <translation>Heart rate in past 2 hours, highest %1 bpm, lowest %2 bpm</translation>
+    </message>
+    <message id="id-tile-hr-empty">
+        <location filename="../src/qml/tiles/HeartRateTile.qml"/>
+        <source>No heart rate data has been collected in the last 2 hrs.</source>
+        <translation>No heart rate data has been collected in the last 2 hrs.</translation>
+    </message>
+    <message id="id-tile-sleep">
+        <location filename="../src/qml/tiles/SleepTile.qml"/>
+        <source>Sleep</source>
+        <translation>Sleep</translation>
+    </message>
+    <message id="id-tile-sleep-score">
+        <location filename="../src/qml/tiles/SleepTile.qml"/>
+        <source>Sleep score</source>
+        <translation>Sleep score</translation>
+    </message>
+    <message id="id-tile-sleep-times">
+        <location filename="../src/qml/tiles/SleepTile.qml"/>
+        <source>%1x</source>
+        <translation>%1x</translation>
+    </message>
+    <message id="id-tile-sleep-empty">
+        <location filename="../src/qml/tiles/SleepTile.qml"/>
+        <source>No recent data. Wear your watch to sleep.</source>
+        <translation>No recent data. Wear your watch to sleep.</translation>
+    </message>
+    <message id="id-tile-exercise">
+        <location filename="../src/qml/tiles/ExerciseTile.qml"/>
+        <source>Exercise</source>
+        <translation>Exercise</translation>
+    </message>
+    <message id="id-tile-quick-start">
+        <location filename="../src/qml/tiles/ExerciseTile.qml"/>
+        <source>Quick start</source>
+        <translation>Quick start</translation>
+    </message>
+    <message id="id-tile-more">
+        <location filename="../src/qml/tiles/ExerciseTile.qml"/>
+        <source>More</source>
+        <translation>More</translation>
+    </message>
+    <message id="id-tile-start-exercise">
+        <location filename="../src/qml/tiles/ExerciseTile.qml"/>
+        <source>Start %1</source>
+        <translation>Start %1</translation>
+    </message>
+    <message id="id-tile-in-progress">
+        <location filename="../src/qml/tiles/ExerciseTile.qml"/>
+        <source>In progress</source>
+        <translation>In progress</translation>
+    </message>
+    <message id="id-tile-solar">
+        <location filename="../src/qml/tiles/SolarTile.qml"/>
+        <source>Solar</source>
+        <translation>Solar</translation>
+    </message>
+    <message id="id-tile-sunset">
+        <location filename="../src/qml/tiles/SolarTile.qml"/>
+        <source>Sunset</source>
+        <translation>Sunset</translation>
+    </message>
+    <message id="id-tile-sunrise">
+        <location filename="../src/qml/tiles/SolarTile.qml"/>
+        <source>Sunrise</source>
+        <translation>Sunrise</translation>
+    </message>
+    <message id="id-tile-sunset-in">
+        <location filename="../src/qml/tiles/SolarTile.qml"/>
+        <source>Sunset in</source>
+        <translation>Sunset in</translation>
+    </message>
+    <message id="id-tile-sunrise-in">
+        <location filename="../src/qml/tiles/SolarTile.qml"/>
+        <source>Sunrise in</source>
+        <translation>Sunrise in</translation>
+    </message>
+    <message id="id-tile-no-sun">
+        <location filename="../src/qml/tiles/SolarTile.qml"/>
+        <source>No sunrise/sunset data</source>
+        <translation>No sunrise/sunset data</translation>
+    </message>
+    <message id="id-tile-uv-title">
+        <location filename="../src/qml/tiles/UvTile.qml"/>
+        <source>UV Index</source>
+        <translation>UV Index</translation>
+    </message>
+    <message id="id-tile-max-uv">
+        <location filename="../src/qml/tiles/UvTile.qml"/>
+        <source>Max UV</source>
+        <translation>Max UV</translation>
+    </message>
+    <message id="id-tile-no-data">
+        <location filename="../src/qml/tiles/UvTile.qml"/>
+        <source>No data</source>
+        <translation>No data</translation>
+    </message>
+    <message id="id-tile-favorites">
+        <location filename="../src/qml/tiles/FavoritesTile.qml"/>
+        <source>Favorites</source>
+        <translation>Favorites</translation>
+    </message>
+    <message id="id-tile-see-all">
+        <location filename="../src/qml/tiles/FavoritesTile.qml"/>
+        <source>See all</source>
+        <translation>See all</translation>
+    </message>
+    <message id="id-tile-add">
+        <location filename="../src/qml/tiles/FavoritesTile.qml"/>
+        <source>Add</source>
+        <translation>Add</translation>
+    </message>
+    <message id="id-tile-refresh">
+        <location filename="../src/qml/tiles/FavoritesTile.qml"/>
+        <source>Refresh</source>
+        <translation>Refresh</translation>
+    </message>
+    <message id="id-tile-fav-add-text">
+        <location filename="../src/qml/tiles/FavoritesTile.qml"/>
+        <source>Add contacts to your Favorites to see them here</source>
+        <translation>Add contacts to your Favorites to see them here</translation>
+    </message>
+    <message id="id-tile-fav-setup-text">
+        <location filename="../src/qml/tiles/FavoritesTile.qml"/>
+        <source>To see favorites here, add them on your phone</source>
+        <translation>To see favorites here, add them on your phone</translation>
+    </message>
+    <message id="id-tile-contact">
+        <location filename="../src/qml/tiles/ContactTile.qml"/>
+        <source>Contact</source>
+        <translation>Contact</translation>
+    </message>
+    <message id="id-tile-select">
+        <location filename="../src/qml/tiles/ContactTile.qml"/>
+        <source>Select</source>
+        <translation>Select</translation>
+    </message>
+    <message id="id-tile-call">
+        <location filename="../src/qml/tiles/ContactTile.qml"/>
+        <source>Call</source>
+        <translation>Call</translation>
+    </message>
+    <message id="id-tile-text">
+        <location filename="../src/qml/tiles/ContactTile.qml"/>
+        <source>Text</source>
+        <translation>Text</translation>
+    </message>
+    <message id="id-tile-contact-setup">
+        <location filename="../src/qml/tiles/ContactTile.qml"/>
+        <source>Select who you want to quickly reach out to</source>
+        <translation>Select who you want to quickly reach out to</translation>
+    </message>
+    <message id="id-tile-maps">
+        <location filename="../src/qml/tiles/MapsTile.qml"/>
+        <source>Maps</source>
+        <translation>Maps</translation>
+    </message>
+    <message id="id-tile-map">
+        <location filename="../src/qml/tiles/MapsTile.qml"/>
+        <source>Map</source>
+        <translation>Map</translation>
+    </message>
+    <message id="id-tile-open-map">
+        <location filename="../src/qml/tiles/MapsTile.qml"/>
+        <source>Open the map</source>
+        <translation>Open the map</translation>
+    </message>
+    <message id="id-tile-home">
+        <location filename="../src/qml/tiles/MapsTile.qml"/>
+        <source>Home</source>
+        <translation>Home</translation>
+    </message>
+    <message id="id-tile-work">
+        <location filename="../src/qml/tiles/MapsTile.qml"/>
+        <source>Work</source>
+        <translation>Work</translation>
+    </message>
+    <message id="id-tile-add-new-widget">
+        <location filename="../src/qml/tiles/QuickAddTile.qml"/>
+        <source>Add new widget</source>
+        <translation>Add new widget</translation>
+    </message>
+    <message id="id-tile-add-new">
+        <location filename="../src/qml/tiles/QuickAddTile.qml"/>
+        <source>Add new</source>
+        <translation>Add new</translation>
+    </message>
+    <message id="id-tile-uv-low">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Low</source>
+        <translation>Low</translation>
+    </message>
+    <message id="id-tile-uv-moderate">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Moderate</source>
+        <translation>Moderate</translation>
+    </message>
+    <message id="id-tile-uv-high">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>High</source>
+        <translation>High</translation>
+    </message>
+    <message id="id-tile-uv-very-high">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Very High</source>
+        <translation>Very High</translation>
+    </message>
+    <message id="id-tile-uv-extreme">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Extreme</source>
+        <translation>Extreme</translation>
+    </message>
+    <message id="id-tile-uv-no-protection">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>No protection needed</source>
+        <translation>No protection needed</translation>
+    </message>
+    <message id="id-tile-uv-protection">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Protection needed</source>
+        <translation>Protection needed</translation>
+    </message>
+    <message id="id-tile-uv-extra-protection">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Extra protection needed</source>
+        <translation>Extra protection needed</translation>
+    </message>
+    <message id="id-tile-wx-no-internet">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Couldn’t connect to internet. Please check network connectivity.</source>
+        <translation>Couldn’t connect to internet. Please check network connectivity.</translation>
+    </message>
+    <message id="id-tile-wx-no-location">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Couldn’t retrieve your location</source>
+        <translation>Couldn’t retrieve your location</translation>
+    </message>
+    <message id="id-tile-wx-download-failed">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Can’t download weather data</source>
+        <translation>Can’t download weather data</translation>
+    </message>
+    <message id="id-tile-wx-loading">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Loading Weather…</source>
+        <translation>Loading Weather…</translation>
+    </message>
+    <message id="id-tile-wx-settings">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Settings</source>
+        <translation>Settings</translation>
+    </message>
+    <message id="id-tile-wx-retry">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Retry</source>
+        <translation>Retry</translation>
+    </message>
+    <message id="id-tile-solar-now">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>Now</source>
+        <translation>Now</translation>
+    </message>
+    <message id="id-tile-solar-hm">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>%1h %2m</source>
+        <translation>%1h %2m</translation>
+    </message>
+    <message id="id-tile-solar-h">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>%1h</source>
+        <translation>%1h</translation>
+    </message>
+    <message id="id-tile-solar-m">
+        <location filename="../src/qml/tiles/tilecontent.js"/>
+        <source>%1m</source>
+        <translation>%1m</translation>
+    </message>
+    <message id="id-ex-type-aerobics">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Aerobics</source>
+        <translation>Aerobics</translation>
+    </message>
+    <message id="id-ex-type-badminton">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Badminton</source>
+        <translation>Badminton</translation>
+    </message>
+    <message id="id-ex-type-baseball">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Baseball</source>
+        <translation>Baseball</translation>
+    </message>
+    <message id="id-ex-type-basketball">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Basketball</source>
+        <translation>Basketball</translation>
+    </message>
+    <message id="id-ex-type-bike">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Bike</source>
+        <translation>Bike</translation>
+    </message>
+    <message id="id-ex-type-bootcamp">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Bootcamp</source>
+        <translation>Bootcamp</translation>
+    </message>
+    <message id="id-ex-type-canoeing">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Canoeing</source>
+        <translation>Canoeing</translation>
+    </message>
+    <message id="id-ex-type-circuittraining">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Circuit training</source>
+        <translation>Circuit training</translation>
+    </message>
+    <message id="id-ex-type-coretraining">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Core training</source>
+        <translation>Core training</translation>
+    </message>
+    <message id="id-ex-type-cricket">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Cricket</source>
+        <translation>Cricket</translation>
+    </message>
+    <message id="id-ex-type-crosscountryski">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Cross-country skiing</source>
+        <translation>Cross-country skiing</translation>
+    </message>
+    <message id="id-ex-type-crossfit">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>CrossFit</source>
+        <translation>CrossFit</translation>
+    </message>
+    <message id="id-ex-type-dance">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Dancing</source>
+        <translation>Dancing</translation>
+    </message>
+    <message id="id-ex-type-elliptical">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Elliptical</source>
+        <translation>Elliptical</translation>
+    </message>
+    <message id="id-ex-type-fieldhockey">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Field hockey</source>
+        <translation>Field hockey</translation>
+    </message>
+    <message id="id-ex-type-football">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Football</source>
+        <translation>Football</translation>
+    </message>
+    <message id="id-ex-type-golf">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Golf</source>
+        <translation>Golf</translation>
+    </message>
+    <message id="id-ex-type-hiit">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>HIIT</source>
+        <translation>HIIT</translation>
+    </message>
+    <message id="id-ex-type-hike">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Hike</source>
+        <translation>Hike</translation>
+    </message>
+    <message id="id-ex-type-indoorclimbing">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Indoor climbing</source>
+        <translation>Indoor climbing</translation>
+    </message>
+    <message id="id-ex-type-intervalworkout">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Interval workout</source>
+        <translation>Interval workout</translation>
+    </message>
+    <message id="id-ex-type-kayaking">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Kayaking</source>
+        <translation>Kayaking</translation>
+    </message>
+    <message id="id-ex-type-kickboxing">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Kickboxing</source>
+        <translation>Kickboxing</translation>
+    </message>
+    <message id="id-ex-type-martialarts">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Martial arts</source>
+        <translation>Martial arts</translation>
+    </message>
+    <message id="id-ex-type-mountainbiking">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Mountain Biking</source>
+        <translation>Mountain Biking</translation>
+    </message>
+    <message id="id-ex-type-outdoorworkout">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Outdoor workout</source>
+        <translation>Outdoor workout</translation>
+    </message>
+    <message id="id-ex-type-openwaterswim">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Swim - Open</source>
+        <translation>Swim - Open</translation>
+    </message>
+    <message id="id-ex-type-pickleball">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Pickleball</source>
+        <translation>Pickleball</translation>
+    </message>
+    <message id="id-ex-type-padel">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Padel</source>
+        <translation>Padel</translation>
+    </message>
+    <message id="id-ex-type-pilates">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Pilates</source>
+        <translation>Pilates</translation>
+    </message>
+    <message id="id-ex-type-poolswim">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Swim - Pool</source>
+        <translation>Swim - Pool</translation>
+    </message>
+    <message id="id-ex-type-powerlifting">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Powerlifting</source>
+        <translation>Powerlifting</translation>
+    </message>
+    <message id="id-ex-type-rollerblading">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Rollerblading</source>
+        <translation>Rollerblading</translation>
+    </message>
+    <message id="id-ex-type-rowingmachine">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Rowing machine</source>
+        <translation>Rowing machine</translation>
+    </message>
+    <message id="id-ex-type-rugby">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Rugby</source>
+        <translation>Rugby</translation>
+    </message>
+    <message id="id-ex-type-run">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Run</source>
+        <translation>Run</translation>
+    </message>
+    <message id="id-ex-type-skating">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Skating</source>
+        <translation>Skating</translation>
+    </message>
+    <message id="id-ex-type-skiing">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Skiing</source>
+        <translation>Skiing</translation>
+    </message>
+    <message id="id-ex-type-snowboarding">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Snowboarding</source>
+        <translation>Snowboarding</translation>
+    </message>
+    <message id="id-ex-type-soccer">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Soccer</source>
+        <translation>Soccer</translation>
+    </message>
+    <message id="id-ex-type-spinning">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Spinning</source>
+        <translation>Spinning</translation>
+    </message>
+    <message id="id-ex-type-sport">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Sport</source>
+        <translation>Sport</translation>
+    </message>
+    <message id="id-ex-type-stairclimber">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Stair climber</source>
+        <translation>Stair climber</translation>
+    </message>
+    <message id="id-ex-type-strengthtraining">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Strength training</source>
+        <translation>Strength training</translation>
+    </message>
+    <message id="id-ex-type-sup">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Paddleboarding</source>
+        <translation>Paddleboarding</translation>
+    </message>
+    <message id="id-ex-type-surfing">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Surfing</source>
+        <translation>Surfing</translation>
+    </message>
+    <message id="id-ex-type-swim">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Swim</source>
+        <translation>Swim</translation>
+    </message>
+    <message id="id-ex-type-tennis">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Tennis</source>
+        <translation>Tennis</translation>
+    </message>
+    <message id="id-ex-type-treadmill">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Treadmill</source>
+        <translation>Treadmill</translation>
+    </message>
+    <message id="id-ex-type-walk">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Walk</source>
+        <translation>Walk</translation>
+    </message>
+    <message id="id-ex-type-weightlifting">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Weightlifting</source>
+        <translation>Weightlifting</translation>
+    </message>
+    <message id="id-ex-type-weights">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Weights</source>
+        <translation>Weights</translation>
+    </message>
+    <message id="id-ex-type-workout">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Workout</source>
+        <translation>Workout</translation>
+    </message>
+    <message id="id-ex-type-yoga">
+        <location filename="../src/qml/tiles/exercisetypes.js"/>
+        <source>Yoga</source>
+        <translation>Yoga</translation>
+    </message>
+    <message id="id-tile-quick-add">
+        <location filename="../src/qml/home/TilesRing.qml"/>
+        <source>Quick Add</source>
+        <translation>Quick Add</translation>
+    </message>
 </context>
 </TS>

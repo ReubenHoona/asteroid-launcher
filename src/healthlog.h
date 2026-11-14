@@ -33,6 +33,18 @@
  *                     midnight) between 25 and 250 bpm (0 is off the wrist)
  *   stepCounter:      value = steps so far today (the log is cumulative);
  *                     buckets = the steps taken in each bucket
+ *
+ * windowMinutes > 0 (heartrateMonitor only; W3-launcher-tiles-content-b, the
+ * Daily heart rate tile): the readings of the last windowMinutes up to the
+ * moment of the read instead of today, in `buckets` equal parts (stock:
+ * 2 h in 3 minute means, aapt.java:27-32). values = the mean of each part
+ * (0: none), lows / highs its lowest and highest reading, minValue /
+ * maxValue the lowest and highest of the means (stock labels the chart with
+ * those), lastValue / lastTime the latest reading in the window, resting =
+ * -1. windowStart / windowEnd are the ends of the window (the caption). The
+ * window is as old as the last read: nothing runs to slide it, the tile
+ * reads again when it comes on screen and when the log changes. The window
+ * may reach into yesterday's file.
  */
 class HealthLog : public QObject
 {
@@ -49,6 +61,9 @@ class HealthLog : public QObject
     Q_PROPERTY(QVariantList lows READ lows NOTIFY changed)
     Q_PROPERTY(QVariantList highs READ highs NOTIFY changed)
     Q_PROPERTY(int restingValue READ restingValue NOTIFY changed)
+    Q_PROPERTY(int windowMinutes READ windowMinutes WRITE setWindowMinutes NOTIFY windowMinutesChanged)
+    Q_PROPERTY(QDateTime windowStart READ windowStart NOTIFY changed)
+    Q_PROPERTY(QDateTime windowEnd READ windowEnd NOTIFY changed)
 
 public:
     explicit HealthLog(QObject *parent = nullptr);
@@ -69,6 +84,10 @@ public:
     QVariantList lows() const { return m_lows; }
     QVariantList highs() const { return m_highs; }
     int restingValue() const { return m_resting; }
+    int windowMinutes() const { return m_windowMinutes; }
+    void setWindowMinutes(int minutes);
+    QDateTime windowStart() const { return m_windowStart; }
+    QDateTime windowEnd() const { return m_windowEnd; }
 
     Q_INVOKABLE void reload();
 
@@ -84,9 +103,15 @@ public:
      * held for 30 minutes over at least 3 readings; -1 if none */
     static int restingRate(QList<QPointF> points);
 
+    /* The window summary of the log files `paths` (older first) as a map for
+     * the host test: ok, last, lastTime (epoch), min, max, values, lows,
+     * highs, start, end (epochs). */
+    static QVariantMap summarizeWindow(const QStringList &paths, qint64 endEpoch, int minutes, int buckets);
+
 signals:
     void sensorChanged();
     void bucketsChanged();
+    void windowMinutesChanged();
     void activeChanged();
     void changed();
 
@@ -101,8 +126,11 @@ private:
         QVariantList lows;
         QVariantList highs;
         int resting = -1;
+        QDateTime windowStart;
+        QDateTime windowEnd;
     };
     static Result read(const QString &path, const QString &sensor, int buckets, QDate day);
+    static Result readWindow(const QStringList &paths, qint64 endEpoch, int minutes, int buckets);
     void apply(const Result &r, quint64 generation);
     void watch();
 
@@ -117,6 +145,9 @@ private:
     QVariantList m_lows;
     QVariantList m_highs;
     int m_resting = -1;
+    int m_windowMinutes = 0;
+    QDateTime m_windowStart;
+    QDateTime m_windowEnd;
     QDate m_day;
     quint64 m_generation = 0;
     QFileSystemWatcher *m_watcher = nullptr;

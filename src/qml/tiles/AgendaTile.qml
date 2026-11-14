@@ -7,129 +7,174 @@ import QtQuick
 import Nemo.Configuration
 import org.asteroid.controls
 import org.nemomobile.calendar
+import "tilecontent.js" as TC
 
-// The next events of today and tomorrow (the phone's calendar arrives in
-// the "Phone" notebook), as Wear OS's agenda tile
+/*
+ * Next event, as the Google Calendar tile (tiles-individual-18, weather-calendar-36; CalendarTileService.java
+ * :112, :437-468, :753-790, :1810-1906; mkp.java:720-746): one event at a time, the first that has not ended (the
+ * phone's calendar arrives in the "Phone" notebook; a week ahead is looked at). The title says "Now" for a timed
+ * event in progress, else "Today", "Tomorrow" or the date; the main slot is one card (surfaceContainer, corner 52 px,
+ * 24 px above and below the text and 28 px at the sides, the width of the slot) with the title in two lines at most
+ * and under it the time range ("8:30 - 9:30 AM", the 12 or 24 hour format of Settings) or "All day"; a tap on the card
+ * opens the Calendar app on that event. The edge button "Calendar" opens the app. Without an event: the title is
+ * "Today • Tue 10", a small picture and "Your day is clear".
+ *
+ * Battery: the tile looks again when it comes on screen, when the calendar changes while it shows, and at the one moment
+ * the shown event starts or ends: a single-shot timer, only while the tile is on screen with the display on.
+ */
 TileBase {
     id: tile
-    //% "Agenda"
-    title: qsTrId("id-tile-agenda") + localeManager.changesObserver
+    title: tile.titleText + localeManager.changesObserver
+    backgroundTap: false
     accent: Theme.color.primary
     //% "Calendar"
     chipText: qsTrId("id-tile-calendar") + localeManager.changesObserver
     onChipClicked: desktop.launchByName("asteroid-calendar", null)
-    onClicked: desktop.launchByName("asteroid-calendar", tile)
 
-    ConfigurationValue { id: use12H; key: "/org/asteroidos/settings/use-12h-format"; defaultValue: false }
+    ConfigurationValue { id: calendarRequest; key: "/org/asteroidos/calendar/ui/open"; defaultValue: "" }
 
-    // the day the window starts on; moved on when the tile shows on another day
-    property date day: new Date()
-    onLiveChanged: {
-        if (!live)
-            return
-        var now = new Date()
-        if (now.toDateString() !== day.toDateString())
-            day = now
-        upcoming = nextEvents()
-    }
+    // the window of the model: from the start of today a week ahead; moved on when the tile shows on another day
+    property date windowDay: new Date()
+    property var shown: null
+    // the time the shown event was chosen for (the title and the timer follow it)
+    property real stamp: Date.now()
 
     AgendaModel {
         id: agenda
-        startDate: new Date(tile.day.getFullYear(), tile.day.getMonth(), tile.day.getDate(), 0, 0, 0)
-        endDate: new Date(tile.day.getFullYear(), tile.day.getMonth(), tile.day.getDate() + 1, 23, 59, 59)
-        onUpdated: if (tile.live) tile.upcoming = tile.nextEvents()
+        objectName: "agenda"
+        startDate: new Date(tile.windowDay.getFullYear(), tile.windowDay.getMonth(), tile.windowDay.getDate(), 0, 0, 0)
+        endDate: new Date(tile.windowDay.getFullYear(), tile.windowDay.getMonth(), tile.windowDay.getDate() + 7, 23, 59, 59)
+        onUpdated: if (tile.live) tile.refresh()
     }
 
-    // the first two events that have not ended yet; how many more there are
-    // (stock's calendar tile: two at a time, then "More")
-    property var upcoming: []
-    property int more: 0
-    function nextEvents() {
+    onLiveChanged: if (live) refresh()
+    Component.onCompleted: refresh()
+
+    function refresh() {
         var now = new Date()
+        if (now.toDateString() !== windowDay.toDateString())
+            windowDay = now
+        stamp = now.getTime()
         var list = []
-        var rest = 0
         for (var i = 0; i < agenda.count; i++) {
             var o = agenda.get(i, AgendaModel.OccurrenceObjectRole)
             var e = agenda.get(i, AgendaModel.EventObjectRole)
-            if (!o || !e || o.endTime < now)
-                continue
-            if (list.length < 2)
-                list.push({ start: o.startTime, end: o.endTime, title: e.displayLabel, allDay: e.allDay })
-            else
-                rest++
+            if (o && e)
+                list.push({ start: o.startTime.getTime(), end: o.endTime.getTime(), title: e.displayLabel, allDay: e.allDay })
         }
-        more = rest
-        return list
+        shown = TC.pickEvent(list, stamp)
     }
 
-    function when(ev) {
-        var today = new Date()
-        var tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
-        var s = ev.start
-        //% "Tomorrow"
-        var dayPart = s >= tomorrow ? qsTrId("id-tile-tomorrow") + " " : ""
+    readonly property string when: shown ? TC.eventWhen(shown, stamp) : "none"
+    readonly property string titleText: {
+        var d = new Date(stamp)
+        switch (when) {
+        case "now":
+            //% "Now"
+            return qsTrId("id-tile-now")
+        case "today":
+            //% "Today"
+            return qsTrId("id-tile-today")
+        case "tomorrow":
+            //% "Tomorrow"
+            return qsTrId("id-tile-tomorrow")
+        case "date":
+            return TimeFormat.date(new Date(shown.start), "EEEMMMd")
+        }
+        // nothing to show: 'Today • Tue 10'
+        //% "Today • %1 %2"
+        return qsTrId("id-tile-today-date").replace("%1", Qt.locale().toString(d, "ddd")).replace("%2", d.getDate())
+    }
+    readonly property string rangeText: !shown ? ""
         //% "All day"
-        if (ev.allDay) return dayPart + qsTrId("id-tile-all-day")
-        return dayPart + s.toLocaleString(Qt.locale(), use12H.value ? "h:mm AP" : "HH:mm")
+        : shown.allDay ? qsTrId("id-tile-all-day")
+                       : TimeFormat.range(new Date(shown.start), new Date(shown.end))
+
+    // the moment to look again (the event starts, or ends), a single shot while on screen with the display on
+    Timer {
+        id: changeTimer
+        objectName: "agendaChange"
+        readonly property real at: TC.nextChangeMs(tile.shown, tile.stamp)
+        interval: Math.max(1000, Math.min(2147483000, at - Date.now() + 500))
+        repeat: false
+        running: tile.awake && !tile.preview && at > 0
+        onTriggered: tile.refresh()
     }
 
-    Column {
-        anchors.centerIn: parent
-        width: parent.width
-        spacing: Math.round(tile.height * 0.025)
-        visible: tile.upcoming.length > 0
+    TileCard {
+        id: card
+        objectName: "agendaCard"
+        visible: tile.shown !== null
+        width: tile.body.width
+        height: Math.min(tile.body.height, column.implicitHeight + 2 * Theme.dp(12))
+        anchors.verticalCenter: parent.verticalCenter
+        radius: Theme.dp(26)
+        containerColor: Theme.color.surfaceContainer
+        contentColor: Theme.color.onSurface
+        preview: tile.preview
+        accessibleName: (tile.shown ? tile.shown.title : "") + ", " + tile.rangeText
+        onClicked: {
+            // the Calendar app on that event (the same request the next event complication writes)
+            if (tile.shown)
+                calendarRequest.value = "event:" + tile.shown.start + "@" + Date.now()
+            desktop.launchByName("asteroid-calendar", card)
+        }
 
-        Repeater {
-            model: tile.upcoming
-            delegate: Column {
+        Column {
+            id: column
+            x: Theme.dp(14)
+            y: Theme.dp(12)
+            width: parent.width - 2 * Theme.dp(14)
+            Label {
+                id: eventTitle
+                objectName: "agendaEvent"
                 width: parent.width
-                Label {
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
-                    text: tile.when(modelData) + localeManager.changesObserver
-                    color: tile.accent
-                    opacity: 0.9
-                    font.pixelSize: Math.round(tile.height * 0.05)
-                }
-                Label {
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
-                    text: modelData.title
-                    elide: Text.ElideRight
-                    maximumLineCount: index === 0 && tile.upcoming.length === 1 ? 2 : 1
-                    wrapMode: Text.Wrap
-                    font.pixelSize: Math.round(tile.height * 0.065)
-                    font.styleName: "SemiCondensed Medium"
-                }
+                text: tile.shown ? tile.shown.title : ""
+                role: "labelMedium"
+                font.weight: Font.Medium
+                color: Theme.color.onSurface
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                elide: Text.ElideRight
+            }
+            Label {
+                id: eventRange
+                objectName: "agendaRange"
+                width: parent.width
+                text: tile.rangeText
+                role: "bodyMedium"
+                color: Theme.color.onSurfaceVariant
+                maximumLineCount: 1
+                elide: Text.ElideRight
             }
         }
-        Label {
-            anchors.horizontalCenter: parent.horizontalCenter
-            visible: tile.more > 0
-            opacity: 0.7
-            font.pixelSize: Math.round(tile.height * 0.045)
-            //% "+%1 more"
-            text: qsTrId("id-tile-more-events").arg(tile.more) + localeManager.changesObserver
-        }
     }
 
+    // a day with nothing left: a small picture, "Your day is clear"
     Column {
+        id: clear
+        objectName: "agendaClear"
+        visible: tile.shown === null
         anchors.centerIn: parent
-        visible: tile.upcoming.length === 0
-        spacing: Math.round(tile.height * 0.02)
+        width: parent.width
+        spacing: Theme.dp(4)
         Icon {
             anchors.horizontalCenter: parent.horizontalCenter
-            name: "ios-calendar-outline"
-            width: Math.round(tile.height * 0.12)
+            name: "ms-calendar_month"
+            color: Theme.color.onSurfaceVariant
+            width: Theme.dp(28)
             height: width
-            opacity: 0.7
         }
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
-            opacity: 0.7
-            font.pixelSize: Math.round(tile.height * 0.055)
-            //% "No more events"
-            text: qsTrId("id-tile-no-events") + localeManager.changesObserver
+            width: parent.width
+            horizontalAlignment: Text.AlignHCenter
+            //% "Your day is clear"
+            text: qsTrId("id-tile-day-clear") + localeManager.changesObserver
+            role: "titleSmall"
+            color: Theme.color.onSurface
+            wrapMode: Text.Wrap
+            maximumLineCount: 2
         }
     }
 }

@@ -68,15 +68,32 @@ Item {
         //% "Next Alarm"
         "alarm": { app: "asteroid-alarmclock", file: "tiles/AlarmTile.qml", name: qsTrId("id-tile-label-alarm"), icon: "ios-alarm-outline" },
         //% "Battery"
-        "battery": { app: "asteroid-settings", file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full" }
+        "battery": { app: "asteroid-settings", file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full" },
+        // W3-launcher-tiles-content-b: the rest of stock's widgets that this watch can show
+        //% "Sleep"
+        "sleep": { app: "asteroid-health", file: "tiles/SleepTile.qml", name: qsTrId("id-tile-sleep"), icon: "ms-bedtime" },
+        //% "Quick start"
+        "exercise": { app: "asteroid-exercise", file: "tiles/ExerciseTile.qml", name: qsTrId("id-tile-quick-start"), icon: "ios-run" },
+        //% "Maps"
+        "maps": { app: "asteroid-map", file: "tiles/MapsTile.qml", name: qsTrId("id-tile-maps"), icon: "ios-map-outline" },
+        //% "Solar"
+        "solar": { app: "asteroid-weather", file: "tiles/SolarTile.qml", name: qsTrId("id-tile-solar"), icon: "ms-sunny" },
+        //% "UV Index"
+        "uv": { app: "asteroid-weather", file: "tiles/UvTile.qml", name: qsTrId("id-tile-uv-title"), icon: "ms-sunny" },
+        //% "Favorites"
+        "favorites": { app: "asteroid-contacts", file: "tiles/FavoritesTile.qml", name: qsTrId("id-tile-favorites"), icon: "ms-contacts" },
+        //% "Contact"
+        "contact": { app: "asteroid-contacts", file: "tiles/ContactTile.qml", name: qsTrId("id-tile-contact"), icon: "ms-person" },
+        //% "Quick Add"
+        "quickadd": { app: "", file: "tiles/QuickAddTile.qml", name: qsTrId("id-tile-quick-add"), icon: "ms-add" }
     })
     ConfigurationValue {
         id: tilesSetting
         key: "/org/asteroidos/ux/tiles"
-        // stock's eos set and order (Main goal, Daily heart rate, Next event,
-        // Google/Assistant, Forecast) with our tiles; Exercise, Sleep and Maps have none.
-        // Alarm, timer, battery and media stay in the add list. A saved list wins.
-        defaultValue: ["steps", "heartrate", "agenda", "assistant", "weather"]
+        // stock's eos set and order (default_tiles of the eos overlay: Main goal, Daily heart rate, Quick start,
+        // Sleep, Next event, Assistant, Forecast, Maps). Alarm, timer, battery, media, Solar, UV Index, Favorites,
+        // Contact and Quick Add stay in the add list. A saved list wins.
+        defaultValue: ["steps", "heartrate", "exercise", "sleep", "agenda", "assistant", "weather", "maps"]
         onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
     }
     property var builtTiles: []
@@ -153,11 +170,14 @@ Item {
         tilesSetting.value = tiles
     }
 
-    // the tile on screen (a long press on it) in the middle of the editor
-    function openTilesEditor() {
+    // the tile on screen (a long press on it) in the middle of the editor; addList: straight into the list of
+    // widgets to add (the Quick Add tile)
+    function openTilesEditor(addList) {
         tilesEditor.registry = tileRegistry
         tilesEditor.iconOf = appIcon
         tilesEditor.open(builtTiles, Math.max(0, grid.currentHorizontalPos - 1))
+        if (addList === true)
+            Qt.callLater(function () { tilesEditor.addTapped() })
     }
 
     Component {

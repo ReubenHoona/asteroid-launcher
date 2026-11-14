@@ -4,131 +4,244 @@
  */
 
 import QtQuick
-import Nemo.Configuration
 import org.asteroid.controls
-import "../weathericons.js" as IconTools
+import "tilecontent.js" as TC
+import "file:///usr/share/asteroid-weather/weatherdata.js" as WD
+import "file:///usr/share/asteroid-weather/icons.js" as WI
 
-// Today's weather and the next three days, from the forecast the phone
-// sends (asteroid-btsyncd writes it to dconf /org/asteroidos/weather)
+/*
+ * Forecast, as Pixel Weather's tile (tiles-individual-14, -15, weather-calendar-15; ForecastTileService, hlh.java:41-196):
+ * the title is the city (white, the frame's); under it three cards in the 344 x 180 px of the middle: on the left a
+ * tall card (164 px, corner 52 px) in the colour of the condition (the app's own art, icons.js) with the current
+ * temperature (60 px) and "Feels 12°" (24 px); on the right two 172 x 86 px pills 8 px apart: the day's high
+ * and low with arrows (tertiary container), and "UV 3" on the colour of its band (0-2 #BEEFBB, 3-5 #FFE07C, 6-7 #FFB683,
+ * 8-10 #FF8983, 11+ #C597FF) or, when the chance of rain is above 5 %, "40%" on #A1C9FF. No edge button; each card is
+ * its own click target and opens the Weather app. A field the source does not have shows "--".
+ *
+ * The data and the day logic are the Weather app's (weatherdata.js, installed with its icons under
+ * /usr/share/asteroid-weather: the extended forecast of Gadgetbridge or eos-weather, the old five-day keys as the
+ * fallback, units converted once). States as the stock tile: "Loading Weather…" while nothing has come; "Can’t
+ * download weather data" and "Couldn’t retrieve your location" with the edge button Retry (a request for eos-weather,
+ * /org/asteroidos/weather/refresh-request, as the app's Refresh); "Couldn’t connect to internet..." with Settings.
+ *
+ * Battery: nothing runs but the 30 s wait of a request, one single shot, only while the tile is awake on screen.
+ */
 TileBase {
     id: tile
-    title: city.value !== "" ? city.value
-                             //% "Weather"
-                             : qsTrId("id-tile-weather") + localeManager.changesObserver
-    accent: "#fdd663"
-    //% "Forecast"
-    chipText: qsTrId("id-tile-forecast") + localeManager.changesObserver
-    onChipClicked: desktop.launchByName("asteroid-weather", null)
-
-    ConfigurationValue { id: city; key: "/org/asteroidos/weather/city-name"; defaultValue: "" }
-    ConfigurationValue { id: day0Stamp; key: "/org/asteroidos/weather/timestamp-day0"; defaultValue: 0 }
-    ConfigurationValue { id: fahrenheit; key: "/org/asteroidos/settings/use-fahrenheit"; defaultValue: false }
-
-    // which forecast day is today: the phone sends five days starting with
-    // the day of its last update
-    property int offset: 0
-    onLiveChanged: if (live) refresh()
-    Component.onCompleted: refresh()
-    function refresh() {
-        var d0 = new Date(day0Stamp.value * 1000)
-        d0.setHours(0, 0, 0, 0)
-        var today = new Date()
-        today.setHours(0, 0, 0, 0)
-        offset = Math.round((today - d0) / 86400000)
-    }
-    readonly property bool available: day0Stamp.value > 0 && offset >= 0 && offset < 5
-
-    function temp(kelvin) {
-        var c = kelvin - 273
-        return (fahrenheit.value ? Math.round(c * 9 / 5 + 32) : Math.round(c)) + "°"
+    title: (src.city.value !== "" ? String(src.city.value)
+                              //% "Forecast"
+                              : qsTrId("id-tile-forecast")) + localeManager.changesObserver
+    backgroundTap: false
+    accent: Theme.color.primary
+    chipText: tile.screenState === "ok" ? "" : TC.weatherStateButton(tile.screenState)
+    onChipClicked: {
+        if (tile.screenState === "noconnection")
+            desktop.openSettings("connectivity")
+        else
+            tile.refresh()
     }
 
-    Repeater {
-        id: days
-        model: 4
-        delegate: Item {
-            ConfigurationValue { id: owm; key: "/org/asteroidos/weather/day" + (tile.offset + index) + "/id"; defaultValue: 0 }
-            ConfigurationValue { id: lo; key: "/org/asteroidos/weather/day" + (tile.offset + index) + "/min-temp"; defaultValue: 273 }
-            ConfigurationValue { id: hi; key: "/org/asteroidos/weather/day" + (tile.offset + index) + "/max-temp"; defaultValue: 273 }
-            readonly property string icon: IconTools.getIconName(owm.value)
-            readonly property string low: tile.temp(lo.value)
-            readonly property string high: tile.temp(hi.value)
-            readonly property bool known: tile.offset + index < 5
-        }
+    // the forecast, its day logic and its state (the Weather app's), shared with the Solar and UV tiles
+    WeatherSource {
+        id: src
+        live: tile.live
+        awake: tile.awake && !tile.preview
     }
+    readonly property alias source: src
+    readonly property string screenState: src.screenState
+    readonly property var weather: src.weather
+    function refresh() { src.refresh() }
 
-    Column {
-        anchors.centerIn: parent
-        visible: tile.available && days.count === 4
-        spacing: Math.round(tile.height * 0.015)
+    // what the cards show
+    readonly property var current: weather.now
+    readonly property var today: src.today
+    readonly property bool fahr: src.fahrenheit.value === true
+    readonly property string tempText: TC.degrees(current ? current.c : null, fahr)
+    readonly property string feelsText: TC.degrees(current ? current.feels : null, fahr)
+    readonly property string highText: TC.degrees(today ? today.hi : (current ? current.hi : null), fahr)
+    readonly property string lowText: TC.degrees(today ? today.lo : (current ? current.lo : null), fahr)
+    readonly property var pill: TC.forecastPill(current ? current.pop : null, current && current.uv !== null ? current.uv : (today ? today.uv : null))
+    readonly property string conditionKey: current ? current.key : "not_available"
+    readonly property bool isDay: current ? current.isDay : true
 
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Math.round(tile.width * 0.03)
-            Icon {
-                name: days.count > 0 && days.itemAt(0) ? days.itemAt(0).icon : ""
-                width: Math.round(tile.height * 0.17)
+    // the three cards, in the middle slot: 344 x 180 px
+    Item {
+        id: cards
+        objectName: "weatherCards"
+        visible: tile.screenState === "ok"
+        width: tile.body.width
+        height: Math.min(Theme.dp(90), tile.body.height)
+        anchors.verticalCenter: parent.verticalCenter
+        readonly property real gap: Theme.dp(4)
+        readonly property real leftWidth: Math.round(width * 0.4767)
+        readonly property real rightHeight: (height - gap) / 2
+
+        TileCard {
+            id: leftCard
+            objectName: "weatherNow"
+            width: cards.leftWidth
+            height: cards.height
+            radius: Theme.dp(26)
+            containerColor: WI.backgroundColor(tile.conditionKey, tile.isDay)
+            contentColor: "#FFFFFF"
+            preview: tile.preview
+            accessibleName: tile.title + ", " + tile.tempText
+            onClicked: desktop.launchByName("asteroid-weather", leftCard)
+
+            // the art: the condition's colour darkening towards the bottom
+            Rectangle {
+                anchors.fill: parent
+                radius: leftCard.radius
+                gradient: Gradient {
+                    GradientStop { position: 0; color: "#00000000" }
+                    GradientStop { position: 1; color: "#59000000" }
+                }
+            }
+            Image {
+                id: conditionIcon
+                objectName: "weatherIcon"
+                x: (parent.width - width) / 2
+                y: Theme.dp(8)
+                width: Theme.dp(28)
                 height: width
-                anchors.verticalCenter: parent.verticalCenter
+                sourceSize: Qt.size(width, height)
+                fillMode: Image.PreserveAspectFit
+                source: "file:///usr/share/asteroid-weather/icons/" + WI.iconPath(tile.conditionKey, tile.isDay, false)
             }
-            Column {
-                anchors.verticalCenter: parent.verticalCenter
-                Label {
-                    text: days.count > 0 && days.itemAt(0) ? days.itemAt(0).high : ""
-                    font.pixelSize: Math.round(tile.height * 0.12)
-                    font.styleName: "SemiCondensed Medium"
-                }
-                Label {
-                    text: days.count > 0 && days.itemAt(0) ? days.itemAt(0).low : ""
-                    opacity: 0.7
-                    font.pixelSize: Math.round(tile.height * 0.06)
-                }
+            Label {
+                id: tempLabel
+                objectName: "weatherTemp"
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Theme.dp(38)
+                text: tile.tempText
+                role: "numeralSmall"
+                font.features: Theme.tabularNumerals
+                color: "#FFFFFF"
+                maximumLineCount: 1
+            }
+            Label {
+                id: feelsLabel
+                objectName: "weatherFeels"
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Theme.dp(68)
+                width: parent.width - Theme.dp(8)
+                horizontalAlignment: Text.AlignHCenter
+                //% "Feels %1"
+                text: qsTrId("id-tile-feels-like").replace("%1", tile.feelsText) + localeManager.changesObserver
+                role: "bodySmall"
+                color: "#FFFFFF"
+                elide: Text.ElideRight
+                maximumLineCount: 1
             }
         }
 
-        Row {
-            anchors.horizontalCenter: parent.horizontalCenter
-            spacing: Math.round(tile.width * 0.05)
-            Repeater {
-                model: 3
-                delegate: Column {
-                    readonly property Item day: days.count === 4 ? days.itemAt(index + 1) : null
-                    visible: day !== null && day.known
-                    Label {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: {
-                            var d = new Date()
-                            d.setDate(d.getDate() + index + 1)
-                            return d.toLocaleString(Qt.locale(), "ddd")
-                        }
-                        opacity: 0.7
-                        font.pixelSize: Math.round(tile.height * 0.045)
-                    }
+        // the day's high and low, arrows before them
+        TileCard {
+            id: highLowCard
+            objectName: "weatherHighLow"
+            x: cards.leftWidth + cards.gap
+            width: cards.width - x
+            height: cards.rightHeight
+            containerColor: Theme.color.tertiaryContainer
+            contentColor: Theme.color.onTertiaryContainer
+            preview: tile.preview
+            //% "High of %1 and low of %2"
+            accessibleName: qsTrId("id-tile-high-low").replace("%1", tile.highText).replace("%2", tile.lowText)
+            onClicked: desktop.launchByName("asteroid-weather", highLowCard)
+
+            Row {
+                anchors.centerIn: parent
+                spacing: Theme.dp(10)
+                Row {
+                    spacing: Theme.dp(1)
                     Icon {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        name: parent.day ? parent.day.icon : ""
-                        width: Math.round(tile.height * 0.07)
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "ms-arrow_upward"
+                        color: Theme.color.onTertiaryContainer
+                        width: Theme.dp(14)
                         height: width
                     }
                     Label {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        text: parent.day ? parent.day.high : ""
-                        font.pixelSize: Math.round(tile.height * 0.045)
+                        objectName: "weatherHigh"
+                        text: tile.highText
+                        role: "titleMedium"
+                        font.features: Theme.tabularNumerals
+                        color: Theme.color.onTertiaryContainer
                     }
+                }
+                Row {
+                    spacing: Theme.dp(1)
+                    Icon {
+                        anchors.verticalCenter: parent.verticalCenter
+                        name: "ms-arrow_downward"
+                        color: Theme.color.onTertiaryContainer
+                        width: Theme.dp(14)
+                        height: width
+                    }
+                    Label {
+                        objectName: "weatherLow"
+                        text: tile.lowText
+                        role: "titleMedium"
+                        font.features: Theme.tabularNumerals
+                        color: Theme.color.onTertiaryContainer
+                    }
+                }
+            }
+        }
+
+        // UV on the colour of its band, or the chance of rain above 5 %
+        TileCard {
+            id: pillCard
+            objectName: "weatherPill"
+            x: cards.leftWidth + cards.gap
+            y: cards.rightHeight + cards.gap
+            width: cards.width - x
+            height: cards.rightHeight
+            readonly property bool rain: tile.pill.kind === "rain"
+            readonly property var band: tile.pill.uv !== null ? TC.uvBand(tile.pill.uv) : null
+            containerColor: rain ? TC.PRECIP_BG : (band ? band.bg : Theme.color.surfaceContainer)
+            contentColor: rain ? TC.PRECIP_FG : (band ? band.fg : Theme.color.onSurface)
+            preview: tile.preview
+            accessibleName: pillLabel.text
+            onClicked: desktop.launchByName("asteroid-weather", pillCard)
+
+            Row {
+                anchors.centerIn: parent
+                spacing: Theme.dp(4)
+                Icon {
+                    anchors.verticalCenter: parent.verticalCenter
+                    name: pillCard.rain ? "ms-rainy" : "ms-sunny"
+                    color: pillCard.contentColor
+                    width: Theme.dp(14)
+                    height: width
+                }
+                Label {
+                    id: pillLabel
+                    objectName: "weatherPillText"
+                    text: pillCard.rain
+                          //% "%1%"
+                          ? qsTrId("id-tile-percent").replace("%1", tile.pill.pop)
+                          //% "UV %1"
+                          : qsTrId("id-tile-uv-index").replace("%1", tile.pill.uv !== null ? tile.pill.uv : "--")
+                    role: "titleMedium"
+                    font.features: Theme.tabularNumerals
+                    color: pillCard.contentColor
                 }
             }
         }
     }
 
+    // not ready: the text in the middle, Retry or Settings as the edge button
     Label {
+        id: stateLabel
+        objectName: "weatherState"
+        visible: tile.screenState !== "ok"
         anchors.centerIn: parent
-        visible: !tile.available
-        width: parent.width
+        width: parent.width - Theme.dp(8)
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.Wrap
-        opacity: 0.7
-        font.pixelSize: Math.round(tile.height * 0.055)
-        //% "No forecast from the phone yet"
-        text: qsTrId("id-tile-no-forecast") + localeManager.changesObserver
+        text: TC.weatherStateText(tile.screenState) + localeManager.changesObserver
+        role: "bodyMedium"
+        color: tile.screenState === "loading" ? Theme.color.onSurfaceVariant : Theme.color.onSurface
     }
 }

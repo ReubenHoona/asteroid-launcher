@@ -179,7 +179,7 @@ Item {
     readonly property var builtTiles: tilesRing.builtTiles
     readonly property int tileCount: tilesRing.tileCount
     function buildTiles() { tilesRing.buildTiles() }
-    function openTilesEditor() { tilesRing.openTilesEditor() }
+    function openTilesEditor(addList) { tilesRing.openTilesEditor(addList) }
 
     // the face picker (FaceLayer, HomeOverlays)
     function openFacePicker() { faceLayer.openFacePicker() }

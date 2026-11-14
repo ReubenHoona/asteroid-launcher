@@ -66,6 +66,16 @@ void HealthLog::setBuckets(int buckets)
     reload();
 }
 
+void HealthLog::setWindowMinutes(int minutes)
+{
+    minutes = qBound(0, minutes, 24 * 60);
+    if (minutes == m_windowMinutes)
+        return;
+    m_windowMinutes = minutes;
+    emit windowMinutesChanged();
+    reload();
+}
+
 void HealthLog::setActive(bool active)
 {
     if (active == m_active)
@@ -109,9 +119,37 @@ void HealthLog::reload()
         m_day = day;
         watch();   /* the new day's file */
     }
-    /* again just after midnight: the day's graph starts over */
     const QDateTime now = QDateTime::currentDateTime();
-    m_midnight.start(int(qBound(qint64(1000), now.msecsTo(QDateTime(day.addDays(1), QTime(0, 0, 5))), qint64(86400000))));
+    const bool windowed = m_windowMinutes > 0 && m_sensor == QLatin1String("heartrateMonitor");
+    /* again just after midnight: the day's graph starts over (a window has no
+     * day and never needs it: no timer) */
+    if (!windowed)
+        m_midnight.start(int(qBound(qint64(1000), now.msecsTo(QDateTime(day.addDays(1), QTime(0, 0, 5))), qint64(86400000))));
+    else
+        m_midnight.stop();
+
+    if (windowed) {
+        const QString dir = sensorDir(m_sensor);
+        QStringList paths;
+        const qint64 end = now.toSecsSinceEpoch();
+        if (QDateTime::fromSecsSinceEpoch(end - qint64(m_windowMinutes) * 60).date() < day)
+            paths << dir + day.addDays(-1).toString(QStringLiteral("yyyy-MM-dd")) + QStringLiteral(".log");
+        paths << dir + day.toString(QStringLiteral("yyyy-MM-dd")) + QStringLiteral(".log");
+        const int minutes = m_windowMinutes;
+        const int wbuckets = m_buckets;
+        const quint64 wgeneration = ++m_generation;
+        QPointer<HealthLog> wself(this);
+        QThreadPool::globalInstance()->start([wself, paths, end, minutes, wbuckets, wgeneration]() {
+            const Result r = readWindow(paths, end, minutes, wbuckets);
+            if (!wself)
+                return;
+            QMetaObject::invokeMethod(wself, [wself, r, wgeneration]() {
+                if (wself)
+                    wself->apply(r, wgeneration);
+            }, Qt::QueuedConnection);
+        });
+        return;
+    }
 
     const QString path = sensorDir(m_sensor) + day.toString(QStringLiteral("yyyy-MM-dd")) + QStringLiteral(".log");
     const QString sensor = m_sensor;
@@ -151,6 +189,88 @@ int HealthLog::restingRate(QList<QPointF> points)
         sum -= points[i].y();
     }
     return std::isfinite(best) ? int(std::floor(best + 0.5)) : -1;
+}
+
+HealthLog::Result HealthLog::readWindow(const QStringList &paths, qint64 endEpoch, int minutes, int buckets)
+{
+    Result r;
+    const qint64 span = qMax<qint64>(1, qint64(minutes) * 60);
+    const qint64 start = endEpoch - span;
+    r.windowStart = QDateTime::fromSecsSinceEpoch(start);
+    r.windowEnd = QDateTime::fromSecsSinceEpoch(endEpoch);
+    QVector<double> sum(buckets, 0);
+    QVector<int> count(buckets, 0);
+    QVector<double> low(buckets, 0);
+    QVector<double> high(buckets, 0);
+    double lastValue = 0;
+    qint64 lastEpoch = -1;
+    for (const QString &path : paths) {
+        QFile file(path);
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+        const QList<QByteArray> lines = file.readAll().split('\n');
+        for (const QByteArray &line : lines) {
+            const int colon = line.indexOf(':');
+            if (colon <= 0)
+                continue;
+            bool ok1 = false, ok2 = false;
+            const qint64 epoch = line.left(colon).trimmed().toLongLong(&ok1);
+            const double value = line.mid(colon + 1).trimmed().toDouble(&ok2);
+            if (!ok1 || !ok2 || !std::isfinite(value) || value < HR_MIN_VALID || value > HR_MAX_VALID)
+                continue;
+            if (epoch < start || epoch > endEpoch)
+                continue;
+            const int b = int(qBound(qint64(0), (epoch - start) * buckets / span, qint64(buckets - 1)));
+            low[b] = count[b] > 0 ? qMin(low[b], value) : value;
+            high[b] = count[b] > 0 ? qMax(high[b], value) : value;
+            sum[b] += value;
+            count[b]++;
+            if (epoch >= lastEpoch) {
+                lastEpoch = epoch;
+                lastValue = value;
+            }
+        }
+    }
+    if (lastEpoch < 0)
+        return r;
+    const auto round = [](double v) { return int(std::floor(v + 0.5)); };
+    r.ok = true;
+    r.last = round(lastValue);
+    r.lastTime = QDateTime::fromSecsSinceEpoch(lastEpoch);
+    bool first = true;
+    for (int b = 0; b < buckets; b++) {
+        if (count[b] > 0) {
+            const int mean = round(sum[b] / count[b]);
+            r.values << mean;
+            r.lows << round(low[b]);
+            r.highs << round(high[b]);
+            r.min = first ? mean : qMin(r.min, mean);
+            r.max = first ? mean : qMax(r.max, mean);
+            first = false;
+        } else {
+            r.values << 0;
+            r.lows << 0;
+            r.highs << 0;
+        }
+    }
+    return r;
+}
+
+QVariantMap HealthLog::summarizeWindow(const QStringList &paths, qint64 endEpoch, int minutes, int buckets)
+{
+    const Result r = readWindow(paths, endEpoch, minutes, qBound(1, buckets, 288));
+    QVariantMap m;
+    m[QStringLiteral("ok")] = r.ok;
+    m[QStringLiteral("last")] = r.last;
+    m[QStringLiteral("lastTime")] = r.ok ? r.lastTime.toSecsSinceEpoch() : qint64(-1);
+    m[QStringLiteral("min")] = r.min;
+    m[QStringLiteral("max")] = r.max;
+    m[QStringLiteral("values")] = r.values;
+    m[QStringLiteral("lows")] = r.lows;
+    m[QStringLiteral("highs")] = r.highs;
+    m[QStringLiteral("start")] = r.windowStart.toSecsSinceEpoch();
+    m[QStringLiteral("end")] = r.windowEnd.toSecsSinceEpoch();
+    return m;
 }
 
 HealthLog::Result HealthLog::read(const QString &path, const QString &sensor, int buckets, QDate day)
@@ -249,8 +369,11 @@ void HealthLog::apply(const Result &r, quint64 generation)
         return;   /* a newer read is on its way */
     const QDateTime lastTime = r.ok ? r.lastTime : QDateTime();
     if (lastTime == m_lastTime && r.last == m_lastValue && r.values == m_values
-            && r.lows == m_lows && r.highs == m_highs && r.resting == m_resting)
+            && r.lows == m_lows && r.highs == m_highs && r.resting == m_resting
+            && r.windowStart == m_windowStart && r.windowEnd == m_windowEnd)
         return;   /* nothing new: nothing on screen changes */
+    m_windowStart = r.windowStart;
+    m_windowEnd = r.windowEnd;
     m_lastValue = r.ok ? r.last : 0;
     m_lastTime = r.ok ? r.lastTime : QDateTime();
     m_min = r.min;

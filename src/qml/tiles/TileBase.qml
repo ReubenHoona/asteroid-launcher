@@ -62,11 +62,22 @@ Item {
     // the bottom text slot (the tiles of one value: Main goal, Heart rate...)
     property string bottomLabel: ""
     property string bottomValue: ""
+    // an icon before the label (Daily heart rate: the heart, in its own colour) and the value's colour
+    // (Main goal: the goal in green); W3-launcher-tiles-content-b
+    property string bottomIcon: ""
+    property color bottomIconColor: Theme.color.onSurface
+    property color bottomValueColor: Theme.color.onSurface
+    // the type roles of the bottom text (28 px by default; a longer line takes smaller ones)
+    property string bottomLabelRole: "bodyMedium"
+    property string bottomValueRole: "titleSmall"
     default property alias content: body.data
     readonly property alias body: body
     readonly property alias chip: chip
     readonly property alias titleItem: titleLabel
     readonly property alias bottomText: bottomSlot
+    readonly property alias bottomIconItem: bottomIconItem
+    readonly property alias bottomValueItem: bottomValueItem
+    readonly property alias bottomLabelItem: bottomLabelItem
     // the tap area, for the long press timeout and the tests
     readonly property alias tapArea: bodyArea
     readonly property bool pressed: bodyArea.pressed
@@ -93,7 +104,7 @@ Item {
     // no edge button: the content ends 19.6 % above the bottom (ehr.java:72-81)
     readonly property real noBottomMargin: Math.round(height * 0.196)
     // a bottom text: 26 % sides, 5.2 % from the bottom, 6 dp under the content
-    readonly property bool hasBottomText: bottomLabel !== "" || bottomValue !== ""
+    readonly property bool hasBottomText: bottomLabel !== "" || bottomValue !== "" || bottomIcon !== ""
     readonly property real bottomTextSide: width * 0.26
     readonly property real bottomTextBottom: Math.round(height * 0.052)
     readonly property real bottomTextGap: Theme.dp(6)
@@ -165,11 +176,21 @@ Item {
         width: Math.min(implicitWidth, tile.width - 2 * tile.bottomTextSide)
         height: visible ? implicitHeight : 0
         spacing: Theme.dp(4)
+        Icon {
+            id: bottomIconItem
+            objectName: "tileBottomIcon"
+            visible: name !== ""
+            name: tile.bottomIcon
+            color: tile.bottomIconColor
+            width: Theme.dp(16)
+            height: width
+            anchors.verticalCenter: parent.verticalCenter
+        }
         Label {
             id: bottomLabelItem
             visible: text !== ""
             text: tile.bottomLabel
-            role: "bodyMedium"
+            role: tile.bottomLabelRole
             color: Theme.color.onSurface
             maximumLineCount: 1
         }
@@ -177,8 +198,8 @@ Item {
             id: bottomValueItem
             visible: text !== ""
             text: tile.bottomValue
-            role: "titleSmall"
-            color: Theme.color.onSurface
+            role: tile.bottomValueRole
+            color: tile.bottomValueColor
             maximumLineCount: 1
         }
     }

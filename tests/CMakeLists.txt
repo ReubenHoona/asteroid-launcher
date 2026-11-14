@@ -116,3 +116,9 @@ add_executable(tst_btagent_dbus tst_btagent_dbus.cpp ../lipstick/src/bluetoothag
 set_target_properties(tst_btagent_dbus PROPERTIES AUTOMOC ON)
 target_include_directories(tst_btagent_dbus PRIVATE ../lipstick/src)
 target_link_libraries(tst_btagent_dbus PRIVATE Qt6::Core Qt6::DBus)
+
+# HealthLog window mode (src/healthlog.h): the Daily heart rate tile reads 2 hours in 3 minute means, Qt Core only
+add_executable(tst_healthlog tst_healthlog.cpp ../src/healthlog.cpp ../src/healthlog.h)
+set_target_properties(tst_healthlog PROPERTIES AUTOMOC ON)
+target_include_directories(tst_healthlog PRIVATE ../src)
+target_link_libraries(tst_healthlog PRIVATE Qt6::Core)
