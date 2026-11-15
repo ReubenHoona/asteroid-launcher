@@ -353,7 +353,10 @@ Item {
     }
     onOffBodyNowChanged: offWristApply()
     onPluggedChanged: offWristApply()
-    onAlwaysOnWantedChanged: offWristApply()
+    // the choice itself: Settings and the quick panel write the key alone, so mce's low power
+    // mode follows here (without this the always-on screen stayed on after "off" until a mode
+    // or the off-wrist rule changed)
+    onAlwaysOnWantedChanged: { applyLowPower(); offWristApply() }
     Connections {
         target: offWristSetting
         function onValueChanged() { ambientController.offWristApply() }
