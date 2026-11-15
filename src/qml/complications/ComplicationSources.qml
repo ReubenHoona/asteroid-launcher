@@ -510,8 +510,11 @@ Item {
             desktop.launchByName("asteroid-calendar", fromItem)
             break
         case "battery":
-            // Settings > Battery > Battery Saver (the page opens from this request)
-            settingsRequest.value = "battery-saver"
+            // Settings > Battery > Battery Saver: the request is "<route>@<ms>" (CR-16), the route as Settings
+            // names it; the launcher starts Settings itself, so MainScreen leaves this value alone
+            var saverRequest = "battery_saver@" + Date.now()
+            Desktop.ownSettingsRequest = saverRequest
+            settingsRequest.value = saverRequest
             desktop.launchByName("asteroid-settings", fromItem)
             break
         case "phonebattery":
