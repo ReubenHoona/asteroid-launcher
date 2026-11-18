@@ -18,6 +18,7 @@
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QStandardPaths>
+#include <algorithm>
 #include <QTextLayout>
 #include <QTime>
 #include <cmath>
@@ -282,6 +283,55 @@ bool renderAtlas(Atlas *a, qreal ascent, qreal step)
     return true;
 }
 
+// Where a digit of the atlas can be, over its digit cells (not the blank one): a pixel with
+// coverage, or one the coverage encloses (the outline style's black fill, a counter) - every
+// zero pixel not reachable from the cell's edge. 1 = a digit can cover it. cw x ch bytes, in the
+// strip's (= the sprite's) orientation.
+QByteArray digitMask(const Atlas &a)
+{
+    const int cw = a.ink.width(), ch = a.ink.height(), stride = cw * a.cells;
+    const int n = a.hi - a.lo + 1;
+    QByteArray mask(cw * ch, 0);
+    QVector<uchar> out(cw * ch);
+    QVector<int> q;
+    q.reserve(cw * ch);
+    for (int c = 0; c < n && c < a.cells; c++) {
+        const uchar *cell = reinterpret_cast<const uchar *>(a.strip.constData()) + c * cw;
+        std::fill(out.begin(), out.end(), uchar(0));
+        q.clear();
+        auto push = [&](int x, int y) {
+            const int i = y * cw + x;
+            if (!out[i] && !cell[y * stride + x]) {
+                out[i] = 1;
+                q << i;
+            }
+        };
+        for (int x = 0; x < cw; x++) {
+            push(x, 0);
+            push(x, ch - 1);
+        }
+        for (int y = 0; y < ch; y++) {
+            push(0, y);
+            push(cw - 1, y);
+        }
+        for (int k = 0; k < q.size(); k++) {
+            const int x = q[k] % cw, y = q[k] / cw;
+            if (x > 0)
+                push(x - 1, y);
+            if (x < cw - 1)
+                push(x + 1, y);
+            if (y > 0)
+                push(x, y - 1);
+            if (y < ch - 1)
+                push(x, y + 1);
+        }
+        for (int i = 0; i < cw * ch; i++)
+            if (!out[i])
+                mask[i] = 1;
+    }
+    return mask;
+}
+
 // the bytes of an atlas on the hub (cells padded to 16 pixels, as the HAL)
 int atlasBytes(const Atlas &a)
 {
@@ -513,21 +563,42 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     }
     bg = bg.convertToFormat(QImage::Format_RGBA8888).scaled(EL_FB_W, EL_FB_H);
     // the hub draws the digits over it: it must be black where they go, as
-    // the AP's own digits cover it. An overlay (Ambient Lite) has the blurred
-    // application there on purpose: the glyphs blend over it as the AP's did.
-    for (const Sprite &s : sprites) {
-        if (m_overlay)
-            break;
-        const Atlas &a = atlases[s.atlas];
-        const QRect r = QRect(EosHub::spriteTopLeft(s.origin, a.ink, turned), a.ink.size()) & bg.rect();
-        for (int y = r.top(); y <= r.bottom(); y++) {
-            const uchar *p = bg.constScanLine(y) + 4 * r.left();
-            for (int x = 0; x < r.width(); x++, p += 4) {
-                if (qMax(p[0], qMax(p[1], p[2])) > 24) {
-                    *why = QString("the background under the digits is not black at %1,%2")
-                           .arg(r.left() + x).arg(y);
-                    return false;
+    // the AP's own digits cover it (the outline style's fill is black). Only
+    // where a digit can be: the rest of a slot's cell rectangle shows the
+    // background on the AP as well (2026-11-17: the steps line under the
+    // minutes reached the cell's bottom row, under no digit). An overlay
+    // (Ambient Lite) has the blurred application there on purpose: the
+    // glyphs blend over it as the AP's did.
+    if (!m_overlay) {
+        QList<QByteArray> masks;
+        for (const Atlas &a : atlases)
+            masks << digitMask(a);
+        for (const Sprite &s : sprites) {
+            const Atlas &a = atlases[s.atlas];
+            const QByteArray &mask = masks[s.atlas];
+            const QRect cell(EosHub::spriteTopLeft(s.origin, a.ink, turned), a.ink.size());
+            const QRect r = cell & bg.rect();
+            int bad = 0;
+            QRect where;
+            for (int y = r.top(); y <= r.bottom(); y++) {
+                const uchar *p = bg.constScanLine(y) + 4 * r.left();
+                const char *m = mask.constData() + (y - cell.top()) * cell.width() + (r.left() - cell.left());
+                for (int x = 0; x < r.width(); x++, p += 4) {
+                    if (m[x] && qMax(p[0], qMax(p[1], p[2])) > 24) {
+                        bad++;
+                        where |= QRect(r.left() + x, y, 1, 1);
+                    }
                 }
+            }
+            if (bad) {
+                *why = QString("the background under the digits is not black at %1,%2 (%3 pixels in %4,%5 %6x%7, cell %8,%9 %10x%11)")
+                       .arg(where.left()).arg(where.top()).arg(bad).arg(where.left()).arg(where.top())
+                       .arg(where.width()).arg(where.height()).arg(cell.left()).arg(cell.top())
+                       .arg(cell.width()).arg(cell.height());
+                // the grab, for a look (the runtime directory: RAM)
+                bg.save(QStandardPaths::writableLocation(QStandardPaths::RuntimeLocation) +
+                        "/eos-hub-refused.png");
+                return false;
             }
         }
     }

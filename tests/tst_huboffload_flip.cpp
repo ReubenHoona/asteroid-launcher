@@ -223,6 +223,42 @@ int main(int argc, char **argv)
         CHECK(LipstickCompositor::instance()->layouts.size() == 2);
     }
 
+    // the background must be black only where a digit can be (its ink and what the ink encloses),
+    // not in the whole cell rectangle: 2026-11-17 the steps line of face 003 reached the bottom row
+    // of the minutes' cell, under no digit, and nearly every layout was refused
+    {
+        auto probe = [&](const QString &item) {
+            sprites.clear();
+            warnings.clear();
+            LipstickCompositor::instance()->layouts.clear();
+            QString qml = faceQml(QString(), QStringLiteral("10"), QStringLiteral("09"));
+            qml.insert(qml.lastIndexOf(QLatin1Char('}')), item + QLatin1Char('\n'));
+            Scene s(&engine, qml);
+            HubOffload hub;
+            const bool ok = s.face && hub.update(s.face, false, QStringLiteral("probe"), shown(10, 9));
+            return qMakePair(ok, warnings.join(QStringLiteral(" | ")));
+        };
+        // a white bar through the middle of the minutes: refused, the reason names the cell
+        const auto in = probe(QStringLiteral("Rectangle { x: 150; y: 245; width: 120; height: 6; color: \"white\" }"));
+        CHECK(!in.first);
+        const QRegularExpression cellRe(QStringLiteral("cell (\\d+),(\\d+) (\\d+)x(\\d+)"));
+        const auto m = cellRe.match(in.second);
+        if (!m.hasMatch())
+            fprintf(stderr, "  bar: %s\n", qPrintable(in.second));
+        CHECK(m.hasMatch());
+        if (m.hasMatch()) {
+            const int cx = m.captured(1).toInt(), cy = m.captured(2).toInt(), ch = m.captured(4).toInt();
+            // one pixel at that cell's bottom-left corner, where no digit reaches: accepted
+            const auto corner = probe(QStringLiteral("Rectangle { x: %1; y: %2; width: 1; height: 1; color: \"white\" }")
+                                      .arg(cx).arg(cy + ch - 1));
+            if (!corner.first)
+                fprintf(stderr, "  corner %d,%d: %s\n", cx, cy + ch - 1, qPrintable(corner.second));
+            CHECK(corner.first);
+        }
+        // the plain face: accepted
+        CHECK(probe(QString()).first);
+    }
+
     if (failures)
         fprintf(stderr, "tst_huboffload_flip: %d of %d checks failed\n", failures, checks);
     else
