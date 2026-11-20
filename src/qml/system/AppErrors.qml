@@ -74,7 +74,9 @@ Item {
             var v = "app_info@" + Date.now()
             Desktop.ownSettingsRequest = v
             settingsOpen.value = v
-            launcher.launchApp("asteroid-settings")
+            // a hidden Settings comes back rather than a second one starting (CR-16)
+            if (!(Desktop.desktop && Desktop.desktop.launchByName && Desktop.desktop.launchByName("asteroid-settings", null)))
+                launcher.launchApp("asteroid-settings")
         }
         onCloseAppRequested: (key) => {
             if (kind === "anr" && errors.anrWindowId >= 0 && Lipstick.compositor.killClientForWindowId)

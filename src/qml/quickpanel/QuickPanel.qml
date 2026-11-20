@@ -143,7 +143,12 @@ Item {
         // the launcher's own request: MainScreen's watcher of this key leaves it alone (CR-16)
         Desktop.ownSettingsRequest = v
         settingsRequest.value = v
-        appLauncher.launchApp("asteroid-settings")
+        // a Settings that runs hidden comes back and reads the request (desktop.launchApp resumes it);
+        // a plain start would run a second asteroid-settings next to it (CR-16)
+        if (!(Desktop.desktop && Desktop.desktop.launchByName && Desktop.desktop.launchByName("asteroid-settings", null)))
+            appLauncher.launchApp("asteroid-settings")
+        // the tray closes behind Settings, as stock collapses the panel when an app opens from it
+        grid.moveTo(0, 0)
     }
 
     /* The Find my phone button opens the launcher's page (stock: RingMyPhoneActivity), which rings
