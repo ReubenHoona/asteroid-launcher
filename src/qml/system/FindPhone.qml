@@ -101,7 +101,8 @@ Item {
             page.connected = connected
             page.known = true
         }
-        function rcBatteryLevelChanged(level: int) {
+        // btsyncd sends BatteryChanged(i level, b charging); there is no BatteryLevelChanged
+        function rcBatteryChanged(level: int, charging: bool) {
             page.level = (level >= 0 && level <= 100) ? level : -1
         }
     }
