@@ -52,7 +52,7 @@ Item {
     // file, name and the icon of the tiles editor's list
     readonly property var tileRegistry: ({
         //% "Daily heart rate"
-        "heartrate": { app: "asteroid-hrm", file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-label-heart-rate"), icon: "ios-heart-outline" },
+        "heartrate": { app: "asteroid-health", file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-label-heart-rate"), icon: "ios-heart-outline" },
         //% "Main goal"
         "steps": { app: "asteroid-health", file: "tiles/StepsTile.qml", name: qsTrId("id-tile-label-steps"), icon: "ios-walk" },
         //% "Forecast"

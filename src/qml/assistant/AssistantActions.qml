@@ -64,6 +64,8 @@ Item {
     ConfigurationValue { id: city; key: "/org/asteroidos/weather/city-name"; defaultValue: "" }
     ConfigurationValue { id: day0Stamp; key: "/org/asteroidos/weather/timestamp-day0"; defaultValue: 0 }
     ConfigurationValue { id: currentTemp; key: "/org/asteroidos/weather/current-temp"; defaultValue: 0 }
+    // Health's page request, "<page>@<ms>" (the heart rate tile writes the same)
+    ConfigurationValue { id: healthOpen; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
 
     AlarmsModel { id: countdowns; onlyCountdown: true }
     AlarmsModel { id: alarms }
@@ -166,6 +168,14 @@ Item {
     }
     function chipOpen(label, name) {
         return { label: label, icon: "", run: function (done) { openApp(name, done) } }
+    }
+    // Health on one of its pages (asteroid-health main.qml openRequested)
+    function openHealth(page, onDone) {
+        onDone({ close: true, then: function () {
+            healthOpen.value = page + "@" + Date.now()
+            if (typeof Desktop !== "undefined" && Desktop.desktop)
+                Desktop.desktop.launchByName("asteroid-health", null)
+        } })
     }
     function forEachAlarm(model, f) {
         for (var i = 0; i < model.rowCount(); i++) {
@@ -491,17 +501,23 @@ Item {
     Connections { target: stepLog; function onChanged() { actions.logRead(stepLog) } }
     Timer { id: logTimeout; interval: 1500; onTriggered: { actions.logRead(heartLog); actions.logRead(stepLog) } }
 
+    // asteroid-hrm is hidden (NoDisplay since W3-app-hrm, not in the launcher model): stock has no
+    // measuring screen, the rate is measured all day; the answer is the last reading, the chip Health's page
     function heartRate(measure, done) {
         if (measure)
-            return openApp("asteroid-hrm", done)
+            return openHealth("heartrate", done)
         readLog(heartLog, function () {
             var t = heartLog.lastTime
             var recent = heartLog.hasData && t && (Date.now() - t.getTime()) < 12 * 3600000
+            var chips = [{ label: loc("id-asst-open-health", "Open Health"), icon: "",
+                           run: function (d) { openHealth("heartrate", d) } }]
             if (!recent)
-                return openApp("asteroid-hrm", done)
+                return done(card("ios-heart", "-- " + loc("id-asst-bpm", "bpm"),
+                                 loc("id-asst-heart-none", "No heart rate reading in the last 12 hours."),
+                                 chips, "#f28b82"))
             done(card("ios-heart", heartLog.lastValue + " " + loc("id-asst-bpm", "bpm"),
                       loc("id-asst-heart-last", "Your heart rate was %1 beats per minute %2.").arg(heartLog.lastValue).arg(ago(t)),
-                      [chipOpen(loc("id-asst-measure", "Measure"), "asteroid-hrm")], "#f28b82"))
+                      chips, "#f28b82"))
         })
     }
     function steps(done) {
