@@ -435,6 +435,48 @@ Compositor {
         scheduleFreeze()
     }
 
+    // Stock runs the go-to-face count through the always-on screen as well:
+    // the TaskTimeoutController non-wakeup alarm fires at the first AP wake
+    // after the timeout (a notification, the hub, a check-in), the task goes
+    // to the back and the always-on screen shows the face. Without this an
+    // application left open when the display went off stayed under Ambient
+    // Lite (its blurred last frame, the time drawn by the hub) until the next
+    // real wake: an hour of a Settings page on 2026-11-20. Qt timers run only
+    // while the AP is awake, like that alarm.
+    property Timer ambientExpiry: Timer {
+        interval: 2000
+        repeat: true
+        // not displayIsOff: every hand-over of a layout to the hub is an AP
+        // ambient update, which emits displayAboutToBeOn (wake() clears it)
+        running: comp.appActive && comp.liteShowing()
+        onTriggered: comp.expireWhileOff()
+    }
+    // Ambient Lite (an application under the always-on time) is up; the
+    // media layout is not: the player in front with a session never expires
+    function liteShowing() {
+        return !!root.ambientLite && root.ambientLite.kind === "lite"
+    }
+    function expireWhileOff() {
+        if (!appActive || !liteShowing() || frontExempt())
+            return false
+        if (!Life.expired(episode, nowMs(), goToFaceMs))
+            return false
+        goToFace()
+        // the face, not the application, under the always-on time: Ambient
+        // Lite goes and the face layout is drawn and handed to the hub
+        if (root.ambientLite)
+            root.ambientLite.finish()
+        // the hub still holds the Ambient Lite layout: drop it, then redraw
+        // (as AmbientController does when the face changes)
+        if (typeof hubOffload !== "undefined" && hubOffload)
+            hubOffload.invalidate()
+        Qt.callLater(function() {
+            if (Lipstick.compositor.displayAmbient && Lipstick.compositor.offloadAmbientUpdateWanted())
+                Lipstick.compositor.setAmbientUpdatesEnabled(true)
+        })
+        return true
+    }
+
     function wake() {
         if (!displayIsOff)
             return
