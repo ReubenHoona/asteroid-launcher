@@ -336,10 +336,12 @@ bool NotificationPreviewPresenter::notificationShouldBeShown(LipstickNotificatio
     if (!EosQuiet::previewAllowedDnd(NotificationManager::instance()->dnd(), feedbackHint))
         return false;
 
-    const bool screenLocked = locks->locked();
-    const bool notificationIsCritical = notification->urgency() >= 2 || notification->hints().value(NotificationManager::HINT_DISPLAY_ON).toBool();
-
-    return !screenLocked || notificationIsCritical;
+    // eos: no tklock condition. The launcher locks mce's tklock at start (the face is
+    // the lock screen) and never unlocks it, so "locked" held with the display on and
+    // only urgency >= 2 got a banner: the phone's cards (urgency 3) did, the watch's own
+    // (the Battery Saver notice, the morning brief, every app's) never. Stock shows the
+    // glanceable for every alerting notification; the PIN lock (Keyguard) is not this.
+    return true;
 }
 
 void NotificationPreviewPresenter::setCurrentNotification(LipstickNotification *notification, int kind, bool resumed)
