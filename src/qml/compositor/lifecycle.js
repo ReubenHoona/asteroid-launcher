@@ -167,7 +167,8 @@ function closesWhenHidden(key) {
 /* ---- naming apps ------------------------------------------------------ */
 
 /* "/usr/bin/asteroid-settings --x", "asteroid-settings.desktop",
- * "Asteroid-Settings" -> "asteroid-settings" */
+ * "Asteroid-Settings", "/usr/lib/asteroid-settings.so" (the window of an
+ * application a booster runs) -> "asteroid-settings" */
 function appKey(s) {
     var t = String(s || "").trim()
     if (t === "")
@@ -179,6 +180,8 @@ function appKey(s) {
     t = t.substring(t.lastIndexOf("/") + 1)
     if (t.length > 8 && t.substring(t.length - 8) === ".desktop")
         t = t.substring(0, t.length - 8)
+    else if (t.length > 3 && t.substring(t.length - 3) === ".so")
+        t = t.substring(0, t.length - 3)
     return t.toLowerCase()
 }
 

@@ -33,9 +33,15 @@ inline std::string base(const std::string &path)
 {
     const size_t slash = path.rfind('/');
     std::string b = slash == std::string::npos ? path : path.substr(slash + 1);
-    const std::string suffix = ".desktop";
-    if (b.size() > suffix.size() && b.compare(b.size() - suffix.size(), suffix.size(), suffix) == 0)
-        b.erase(b.size() - suffix.size());
+    // a desktop file, or the library a booster runs (an application started by invoker
+    // runs as /usr/lib/<app>.so: the window of asteroid-settings has that command line)
+    for (const char *suffix : { ".desktop", ".so" }) {
+        const size_t n = std::char_traits<char>::length(suffix);
+        if (b.size() > n && b.compare(b.size() - n, n, suffix) == 0) {
+            b.erase(b.size() - n);
+            break;
+        }
+    }
     return lower(b);
 }
 

@@ -132,7 +132,12 @@ Item {
                                                faceLayer.faceAmbientStyleValue,
                                                JSON.stringify(faceLayer.faceStyleValue),
                                                JSON.stringify(faceLayer.faceComplicationsValue),
-                                               unreadDotShown ? "dot" : "", statusIconsKey].join("|")
+                                               unreadDotShown ? "dot" : "", statusIconsKey,
+                                               // the face or an application in front: a layout of the one
+                                               // must never be handed to the hub at the next display off
+                                               // for the other (the compositor reuses the held layout at
+                                               // the blank, before the ambient update could replace it)
+                                               Lipstick.compositor.homeActive ? "home" : "app"].join("|")
     onHubLayoutInputsChanged: {
         hubOffload.invalidate()
         // In the always-on screen the AP is awake for whatever changed it (a

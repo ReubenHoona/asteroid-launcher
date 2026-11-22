@@ -164,6 +164,10 @@ Item {
     function end() {
         if (!showing)
             return
+        // the hub holds the blurred frame of this entry: never again after the wake (the
+        // compositor would hand it over at the next display off, over the face or another
+        // application, until it expires); the next entry builds its own
+        hubOffload.invalidate()
         enterAnim.stop()
         if (Motion.animationScale > 0 && kind === "lite" && progress > 0)
             exitAnim.restart()

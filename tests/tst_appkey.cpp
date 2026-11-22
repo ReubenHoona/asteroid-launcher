@@ -27,6 +27,11 @@ int main()
 {
     using namespace EosAppKey;
     CHECK(fromCmdline(cmd({ "/usr/bin/asteroid-settings" })) == "asteroid-settings");
+    // what the watch has: invoker starts the application in a booster as /usr/lib/<app>.so
+    CHECK(fromCmdline(cmd({ "/usr/lib/asteroid-settings.so" })) == "asteroid-settings");
+    CHECK(fromCmdline(cmd({ "/usr/lib/Asteroid-Music.so", "--x" })) == "asteroid-music");
+    CHECK(fromCmdline(cmd({ "/usr/bin/invoker", "--single-instance", "--type=asteroid-qt6", "/usr/lib/asteroid-stopwatch.so" })) == "asteroid-stopwatch");
+    CHECK(base(".so") == ".so");
     CHECK(fromCmdline(cmd({ "asteroid-timer", "--icon", "x" })) == "asteroid-timer");
     CHECK(fromCmdline(cmd({ "/usr/bin/Asteroid-Music" })) == "asteroid-music");
     // through a launcher or interpreter: the first argument that is a program

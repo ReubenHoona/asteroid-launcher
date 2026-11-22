@@ -3122,5 +3122,45 @@ for %1 seconds to</translation>
         <source>Good morning! Here’s how your day is shaping up.</source>
         <translation>Good morning! Here’s how your day is shaping up.</translation>
     </message>
+    <message id="id-all-apps">
+        <source>All apps</source>
+        <translation>All apps</translation>
+    </message>
+    <message id="id-apps-header">
+        <source>Apps</source>
+        <translation>Apps</translation>
+    </message>
+    <message id="id-grid-view">
+        <source>Grid view</source>
+        <translation>Grid view</translation>
+    </message>
+    <message id="id-list-view">
+        <source>List view</source>
+        <translation>List view</translation>
+    </message>
+    <message id="id-recents-app-info">
+        <source>App Info</source>
+        <translation>App Info</translation>
+    </message>
+    <message id="id-recents-clear">
+        <source>Clear from Recents</source>
+        <translation>Clear from Recents</translation>
+    </message>
+    <message id="id-recents-empty">
+        <source>Recently used apps will appear here</source>
+        <translation>Recently used apps will appear here</translation>
+    </message>
+    <message id="id-recents-header">
+        <source>Recents</source>
+        <translation>Recents</translation>
+    </message>
+    <message id="id-tiles-empty-message">
+        <source>Long press any widget to edit your carousel</source>
+        <translation>Long press any widget to edit your carousel</translation>
+    </message>
+    <message id="id-tiles-empty-title">
+        <source>Add a widget</source>
+        <translation>Add a widget</translation>
+    </message>
 </context>
 </TS>
