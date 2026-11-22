@@ -272,8 +272,16 @@ void LipstickCompositorWindow::wheelEvent(QWheelEvent *event)
             if (m_focusOnTouch && inputDevice->keyboardFocus() != m_surface)
                 takeFocus();
         }
-        QPoint angle = event->angleDelta();
-        inputDevice->sendMouseWheelEvent(Qt::Vertical, angle.y());
+        // whole 1/10 notches (12 units) go to the client, the rest waits for the
+        // next event of the same direction (a slow crown turn was lost entirely)
+        const int dy = event->angleDelta().y();
+        if (dy != 0 && m_wheelRemainder != 0 && (m_wheelRemainder > 0) != (dy > 0))
+            m_wheelRemainder = 0;
+        m_wheelRemainder += dy;
+        const int send = m_wheelRemainder / 12 * 12;
+        m_wheelRemainder -= send;
+        if (send != 0)
+            inputDevice->sendMouseWheelEvent(Qt::Vertical, send);
     } else {
         event->ignore();
     }

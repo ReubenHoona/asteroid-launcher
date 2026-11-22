@@ -134,6 +134,9 @@ private:
     bool m_overridesSystemGestures : 1;
     bool m_backFromAnywhere = false;
     bool m_backTracking = false;
+    // the crown's wheel delta not sent yet: QWaylandPointer sends delta / 12 as an
+    // integer, so the hi-res steps of a slow turn (5 per sensor count) became 0
+    int m_wheelRemainder = 0;
     bool m_backSwiping = false;
     QPointF m_backStart;        // in the user's x (m_backSign), the screen's y
     int m_backSign = 1;         // -1 while the picture is flipped (EosWrist::axisSign)
