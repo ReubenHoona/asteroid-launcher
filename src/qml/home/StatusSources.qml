@@ -86,7 +86,10 @@ Item {
             sources.phoneConnected = connected
         }
     }
-    // Ask once; btsyncd not there yet leaves it unknown (no icon), its signal or the next screen on settles it
+    // Ask at the start and at every screen on: btsyncd not there yet leaves it unknown (no icon). The
+    // signal alone is not enough: a phone that connects while the launcher starts (before this interface
+    // listens) was never heard of, and the face showed "phone disconnected" with the phone connected
+    // (2026-11-22). One D-Bus call per screen on.
     function ask() {
         phoneBus.typedCall("Connected", [], function (c) {
             sources.phoneKnown = true
@@ -96,9 +99,6 @@ Item {
     Component.onCompleted: ask()
     Connections {
         target: Lipstick.compositor
-        function onDisplayOn() {
-            if (!sources.phoneKnown)
-                sources.ask()
-        }
+        function onDisplayOn() { sources.ask() }
     }
 }
