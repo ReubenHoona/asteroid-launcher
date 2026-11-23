@@ -337,13 +337,29 @@ Item {
         }
 
         function test_05_status_pill_scale() {
-            near(QS.pillScale(0), 0.4, 1e-9)
-            near(QS.pillScale(0.2), 0.7, 1e-9)
-            near(QS.pillScale(0.4), 1, 1e-9)
-            near(QS.pillScale(0.5), 1, 1e-9)
-            near(QS.pillScale(0.6), 1, 1e-9)
-            near(QS.pillScale(0.8), 0.8, 1e-9)
-            near(QS.pillScale(1), 0.6, 1e-9)
+            // D60-16: CP3A's layer of kxf.java case 16 on the 84 px box
+            // at rest (box 300..384): full size, alpha 0.773, 3.8 px up
+            var r = QS.statusTransform(300 / 384, 1, 84)
+            compare(r.scale, 1)
+            near(r.alpha, 1 - 0.5 * (300 / 384 - 0.6) / 0.4, 1e-9)
+            near(r.alpha, 0.773, 0.001)
+            near(r.dy, -84 * 0.4 * (300 / 384 - 0.6) / 0.4 / 4, 1e-9)
+            near(r.dy, -3.81, 0.01)
+            // in the middle of the screen: nothing
+            r = QS.statusTransform(0.4, 0.6, 84)
+            compare(r.scale, 1); compare(r.alpha, 1); compare(r.dy, 0)
+            // going down: the top past 0.8 shrinks it to 0.35 at the edge, alpha to 0.5
+            r = QS.statusTransform(0.9, 1.1, 84)
+            near(r.scale, 1 - 0.65 * 0.5, 1e-9); near(r.alpha, 1 - 0.5 * 0.75, 1e-9)
+            near(r.dy, -84 * 0.4 * 0.75 / 4, 1e-9)
+            r = QS.statusTransform(1, 1.2, 84)
+            near(r.scale, 0.35, 1e-9); near(r.alpha, 0.5, 1e-9); near(r.dy, -84 * 0.4 / 4, 1e-9)
+            // coming in at the top: the bottom under 0.2 / 0.4, a shift down
+            r = QS.statusTransform(-0.12, 0.1, 84)
+            near(r.scale, 0.35 + 0.65 * 0.5, 1e-9); near(r.alpha, 0.5 + 0.5 * 0.25, 1e-9)
+            near(r.dy, 84 * (1 - (0.4 + 0.6 * 0.25)) / 4, 1e-9)
+            r = QS.statusTransform(-0.3, -0.1, 84)
+            near(r.scale, 0.35, 1e-9); near(r.alpha, 0.5, 1e-9); near(r.dy, 84 * 0.6 / 4, 1e-9)
         }
 
         function test_06_battery_steps_and_pill_rules() {
@@ -403,7 +419,7 @@ Item {
             compare(find(panel(), "qsRow0").y, 40 + 19)
             // the status tray is the last item, under the rows
             var st = find(panel(), "statusTray")
-            verify(st.parent.y >= find(panel(), "qsRow3").y + 104)
+            verify(find(panel(), "statusLayer").parent.y >= find(panel(), "qsRow3").y + 104)
         }
 
         function test_11_top_row_of_three_and_two_with_more_tiles() {
@@ -437,10 +453,11 @@ Item {
             l.contentY = 0
             grid.topTrayFraction = 0.4
             compare(l.contentY, l.contentHeight - l.height)
-            // the pill is at the bottom of the screen: 20 px under it
+            // the pill is at the bottom of the screen: 20 px under it in its box, the box's layer
+            // 3.8 px up (kxf.java case 16)
             var st = find(panel(), "statusTray")
             var b = st.parent.mapToItem(root, 0, st.y + st.height).y
-            near(b, 384 - 20, 1, "pill bottom")
+            near(b, 384 - 20 - 3.8, 1, "pill bottom")
             near(st.mapToItem(root, st.width / 2, 0).x, 192, 1, "pill centred")
             shot("qs-01-bottom")
             l.contentY = 0
@@ -1131,6 +1148,44 @@ Item {
         }
 
         // ---- the status pill ---------------------------------------------------------------
+
+        function test_79_status_pill_full_size_at_rest() {
+            // D60-16: open and at rest the pill is full size (stock S11: 100 x 52 px), its layer at
+            // CP3A's alpha: #24262B shows as #1C1D21 (stock S11: #1C1D21)
+            var l = list()
+            compare(l.contentY, l.contentHeight - l.height)
+            var st = find(panel(), "statusTray")
+            var lay = find(panel(), "statusLayer")
+            compare(lay.height, 84)
+            near(lay.mapToItem(root, 0, 0).y, 300 - 3.8, 0.1, "box top")
+            compare(lay.scale, 1)
+            compare(st.scale, 1)
+            near(lay.opacity, 0.773, 0.001)
+            var a = st.mapToItem(root, 0, 0), z = st.mapToItem(root, st.width, st.height)
+            near(z.y - a.y, 52, 0.1, "pill height")
+            near(z.x - a.x, st.width, 0.1, "pill width")
+            verify(st.width >= 100 && st.width <= 2 * (QS.pillWidthDp(4, 0)), "pill width " + st.width)
+            near((a.x + z.x) / 2, 192, 0.5, "pill centred")
+            colourIs(st.pill.color, Theme.color.surfaceContainerLow, "pill colour")
+            colourIs(Theme.color.surfaceContainerLow, "#24262B", "the static palette's surfaceContainerLow")
+            // the colour on the screen: a point of the pill's left padding, off its icons
+            wait(100)
+            var img = grabImage(screen)
+            var px = img.pixel(Math.round(a.x + 5), Math.round((a.y + z.y) / 2))
+            verify(Math.abs(px.r * 255 - 0x1C) <= 3 && Math.abs(px.g * 255 - 0x1D) <= 3 && Math.abs(px.b * 255 - 0x21) <= 3,
+                   "pill on the screen " + px)
+            // scrolled so the box goes down the screen: it shrinks and fades by the rule
+            l.contentY = l.contentHeight - l.height - 60
+            wait(80)
+            near(lay.topFraction * l.height, 360, 0.5, "box top")
+            var t = QS.statusTransform(360 / 384, 444 / 384, 84)
+            near(lay.scale, t.scale, 1e-6); near(lay.opacity, t.alpha, 1e-6)
+            verify(t.scale < 1 && t.alpha < 0.773)
+            shot("qs-06-pill-scrolled")
+            l.contentY = l.contentHeight - l.height
+            wait(80)
+            shot("qs-07-pill-rest")
+        }
 
         function test_80_status_pill() {
             var st = find(panel(), "statusTray")

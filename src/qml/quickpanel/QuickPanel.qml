@@ -348,25 +348,42 @@ Item {
             }
 
             // the status tray: a box 21.8 % of the height, the pill bottom-centred with 5.2 % under it
+            // (kxr.java:2419-2470), drawn through CP3A's layer of kxf.java case 16 (QS.statusTransform):
+            // full size at rest, alpha 0.773 and 3.8 px up there; it shrinks and fades as it goes
+            // down the screen and as it comes in at the top
             Item {
                 id: statusBox
                 width: col.width
                 height: Math.max(QS.statusBoxHeight(rootitem.height), list.height - y)
-                StatusTray {
-                    id: statusTray
-                    objectName: "statusTray"
-                    dialogHost: rootitem
-                    anchors.horizontalCenter: parent.horizontalCenter
+                Item {
+                    id: statusLayer
+                    objectName: "statusLayer"
+                    width: parent.width
+                    height: QS.statusBoxHeight(rootitem.height)
                     anchors.bottom: parent.bottom
-                    anchors.bottomMargin: QS.statusBottomPadding(rootitem.height)
-                    phoneKnown: findPhone.known
-                    phoneConnected: findPhone.connected
-                    btPowered: btStatus.powered
-                    wifiConnected: wifiStatus.powered && wifiStatus.connected
-                    wifiName: connman.connectedWifi ? connman.connectedWifi.name : ""
-                    alarmMs: rootitem.nextAlarmMs
-                    scale: QS.pillScale((statusBox.y - list.contentY + statusBox.height - QS.statusBottomPadding(rootitem.height) - height / 2) / Math.max(1, list.height))
-                    onSettingsRequested: (page) => rootitem.openSettings(page)
+                    // the box's edges in the list's viewport, fractions of its height
+                    readonly property real topFraction: (statusBox.y + y - list.contentY) / Math.max(1, list.height)
+                    readonly property real bottomFraction: (statusBox.y + y + height - list.contentY) / Math.max(1, list.height)
+                    readonly property var t: QS.statusTransform(topFraction, bottomFraction, height)
+                    scale: t.scale
+                    opacity: t.alpha
+                    transform: Translate { y: statusLayer.t.dy }
+
+                    StatusTray {
+                        id: statusTray
+                        objectName: "statusTray"
+                        dialogHost: rootitem
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        anchors.bottom: parent.bottom
+                        anchors.bottomMargin: QS.statusBottomPadding(rootitem.height)
+                        phoneKnown: findPhone.known
+                        phoneConnected: findPhone.connected
+                        btPowered: btStatus.powered
+                        wifiConnected: wifiStatus.powered && wifiStatus.connected
+                        wifiName: connman.connectedWifi ? connman.connectedWifi.name : ""
+                        alarmMs: rootitem.nextAlarmMs
+                        onSettingsRequested: (page) => rootitem.openSettings(page)
+                    }
                 }
             }
         }

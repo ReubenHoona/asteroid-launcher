@@ -151,16 +151,31 @@ function slide(index, count, size, scale) {
     return 0
 }
 
-/* the status pill's own scale (kxr.java): 0.4 -> 1 over the top 40 % of the
- * screen, 1 in the middle, 1 -> 0.6 over the bottom 40 %; `centre` is the
- * pill's centre as a fraction of the screen height */
-function pillScale(centre) {
-    var c = Math.max(0, Math.min(1, centre))
-    if (c < 0.4)
-        return 0.4 + 0.6 * (c / 0.4)
-    if (c > 0.6)
-        return 1 - 0.4 * ((c - 0.6) / 0.4)
-    return 1
+function clamp01(v) { return Math.max(0, Math.min(1, v)) }
+
+/* The status tray's transform: kxf.java case 16, the graphics layer of
+ * lav.java:24-68 around the tray's box (kxr.java:2419-2470: statusBoxHeight
+ * high, the pill at its bottom with statusBottomPadding under it). `top` and
+ * `bottom` are the box's edges as fractions of the list's height (the item's
+ * scroll progress), `h` its height in px. About the box's centre (byl.a):
+ *  - scale 1, falling to 0.35 as its top goes from 0.8 to 1 of the screen
+ *    (rising from 0.35 as its bottom comes from 0 to 0.2 at the top);
+ *  - alpha 1, falling to 0.5 as its top goes from 0.6 to 1 (from 0.5 as its
+ *    bottom comes from 0 to 0.4);
+ *  - a shift towards the middle of h (1 - c) / 4, c = lav.c (lav.java:13-22):
+ *    0.4 -> 1 as the bottom comes from 0 to 0.4, 1, then 1 -> 0.6 as the top
+ *    goes from 0.6 to 1.
+ * At rest (box top 300 / 384 = 0.781, bottom 1): scale 1, alpha 0.773,
+ * shift -3.8 px; the pill (surfaceContainerLow #24262B) shows as #1C1D21. */
+function statusTransform(top, bottom, h) {
+    var scale = top > 0.8 ? 1 - 0.65 * clamp01((top - 0.8) / 0.2)
+              : bottom < 0.2 ? 0.35 + 0.65 * clamp01(bottom / 0.2) : 1
+    var alpha = bottom < 0.4 ? 0.5 + 0.5 * clamp01(bottom / 0.4)
+              : top > 0.6 ? 1 - 0.5 * clamp01((top - 0.6) / 0.4) : 1
+    var c = bottom < 0.4 ? 0.4 + 0.6 * clamp01(bottom / 0.4)
+          : top <= 0.6 ? 1 : 1 - 0.4 * clamp01((top - 0.6) / 0.4)
+    var dy = 1 - bottom > 0.6 ? h * (1 - c) / 4 : 1 - top < 0.4 ? -h * (1 - c) / 4 : 0
+    return { scale: scale, alpha: alpha, dy: dy }
 }
 
 /* ---- the tiles ------------------------------------------------------------ */
