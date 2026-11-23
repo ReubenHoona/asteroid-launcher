@@ -412,7 +412,9 @@ Item {
             var l = list()
             // a plain vertical Flickable: RotaryInput scrolls it freely, no snapping, no page dots
             verify(l.flickableDirection === Flickable.VerticalFlick)
-            verify(l.boundsBehavior === Flickable.StopAtBounds)
+            // the stock stretch overscroll (motion D2): the finger pulls past an end, the content stops
+            verify(l.boundsBehavior === Flickable.DragOverBounds)
+            verify(l.boundsMovement === Flickable.StopAtBounds)
             verify(findBy(panel(), function (o) { return o.hasOwnProperty("dotNumber") }) === null, "no page dots")
             verify(!l.hasOwnProperty("snapMode"))
             // the panel is the crown's exit receiver: forward past its end closes the tray

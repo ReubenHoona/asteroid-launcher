@@ -284,7 +284,20 @@ Item {
         contentWidth: width
         contentHeight: Math.max(height, col.height)
         flickableDirection: Flickable.VerticalFlick
-        boundsBehavior: Flickable.StopAtBounds
+        // the stretch overscroll of the stock lists (motion D2, EdgeEffect TYPE_STRETCH; the app
+        // list's ScrollPhysics): the finger pulls past the top, the content stops at the bounds and
+        // stretches about the pulled edge. At the end a drag on goes to the tray (PanelsGrid's
+        // hand-over keeps StopAtBounds while it has the finger and gives this back)
+        boundsBehavior: Flickable.DragOverBounds
+        boundsMovement: Flickable.StopAtBounds
+        ScrollPhysics {
+            id: qsPhysics
+            flickable: list
+        }
+        transform: Scale {
+            origin.y: qsPhysics.stretchOrigin
+            yScale: qsPhysics.stretchScale
+        }
         onContentHeightChanged: if (!dragging && !flicking) rootitem.toEnd()
 
         Column {
