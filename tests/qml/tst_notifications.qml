@@ -17,7 +17,8 @@
 //    only (CP3A's heads-up view, ktk.java:139-158, runs no klg);
 //  - D60-08: the empty stream's filled trophy (trophy_40px at 28 dp) and its 140 dp text box with
 //    7.3 % side padding (kvn.java);
-//  - D60-09: the stream's scroll indicator shows for 2 s once the tray is fully open and at rest.
+//  - D60-09: the stream's scroll indicator shows for 2 s once the tray is fully open and at rest,
+//    not while a page (a reply or a menu) is open over the list.
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -78,6 +79,16 @@ Item {
 
     // measures a card title (D60-05)
     TextMetrics { id: titleMetrics }
+
+    // a page over the stream's list, as the reply and menu pages are (LayerStack sets these)
+    Component {
+        id: pageC
+        Item {
+            property int depth: 0
+            property var pop: null
+            property int innerDepth: 0
+        }
+    }
 
     // the face under the heads-up: white, so anything that lets it through shows
     Rectangle {
@@ -648,6 +659,57 @@ Item {
             verify(!s.openAtRest)
             gridMock.trayDragging = false
             verify(ind.shown, "at rest again")
+        }
+
+        // the stream's LayerStack (its reply and menu pages go there)
+        function layerStack(s) {
+            var r = findAll(s, function (it) {
+                return it.layers !== undefined && it.firstPageItem !== undefined && typeof it.push === "function"
+            })
+            return r.length ? r[0] : null
+        }
+
+        // A page open over the list (a reply or a menu): the tray coming to rest shows no
+        // indicator and flashIndicator() refuses; once the page is gone the next rest shows it on
+        // the list again
+        function test_d60_09_stream_layer() {
+            var s = stream()
+            fill(s, 4)
+            var lv = s.listView
+            verify(lv.contentHeight + lv.topMargin + lv.bottomMargin > lv.height, "a list that scrolls")
+            var st = layerStack(s)
+            verify(st !== null, "the stream's LayerStack")
+            var page = st.push(pageC, {})
+            verify(page !== null, "a page pushed")
+            compare(st.layers.length, 1)
+            verify(s.handOverView === null, "the list is under a page")
+            var ind = indicator()
+            if (ind)
+                ind.shown = false
+            // the tray comes out and its spring stops
+            gridMock.trayAnimation.running = true
+            gridMock.currentVerticalPos = 1
+            gridMock.normalizedVerOffset = 1
+            wait(50)
+            verify(!s.openAtRest, "still on the spring")
+            gridMock.trayAnimation.running = false
+            verify(s.openAtRest, "open and at rest")
+            ind = indicator()
+            verify(!ind || !ind.shown, "no indicator under the page")
+            compare(s.flashIndicator(), false, "flashIndicator refuses under a page")
+            wait(100)
+            ind = indicator()
+            verify(!ind || !ind.shown, "still none")
+            // the page gone: the next rest shows the list's indicator
+            st.pop(page)
+            compare(st.layers.length, 0)
+            gridMock.trayDragging = true
+            verify(!s.openAtRest)
+            gridMock.trayDragging = false
+            verify(s.openAtRest, "at rest again")
+            ind = indicator()
+            verify(ind !== null && ind.shown, "the indicator once the page is gone")
+            compare(ind.flickable, lv)
         }
 
         function test_d60_09_stream_empty() {
