@@ -305,13 +305,15 @@ Item {
         var lv = stream.listView
         stream.scrollWritten = NaN
         for (var i = 0; lv && stream.scrollGoalFn && i < 4; i++) {
+            // lay the list out now, not at the next frame, before the goal is asked: the rows'
+            // scaled heights change with each move (a jump moves the list far in one step), and
+            // under reduce motion the card snapped to its new height in the call that started the
+            // scroll, which ended there too, so the list's end still had the card's old height
+            lv.forceLayout()
             var g = stream.scrollGoalFn()
             if (Math.abs(g - lv.contentY) < 0.5)
                 break
             lv.contentY = g
-            // the rows' scaled heights changed with the move: lay them out now, not at the next
-            // frame, so the next goal sees where the card is (a jump moves the list far in one step)
-            lv.forceLayout()
         }
         stream.scrollGoalFn = null
         if (stream.pendingExpanded !== -2) {
