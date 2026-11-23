@@ -475,7 +475,8 @@ Item {
                     }
                 }
 
-                // the name along the top edge of the screen, with the item
+                // the name along the top edge of the screen, with the item, in onSurface #E8E7EE (the curved
+                // title of stock's carousel item)
                 CurvedTopText {
                     objectName: "eosFaceName"
                     width: picker.width
@@ -488,7 +489,7 @@ Item {
                     maxSweep: FP.NAME_SWEEP
                     topMargin: Math.round(picker.height * FP.NAME_TOP_PERCENT / 100)
                     shadow: FP.NAME_SHADOW
-                    color: Theme.color.onBackground
+                    color: Theme.color.onSurface
                     opacity: picker.namesOpacity * cell.nameLift
                 }
 
