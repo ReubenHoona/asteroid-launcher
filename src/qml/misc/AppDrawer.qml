@@ -28,7 +28,9 @@ import "compositor/windowmotion.js" as WM
 Item {
     id: drawer
 
-    property alias source: launcher.source
+    // the launcher to show; a change while the list is open cross-fades (D4, _switchTo)
+    property url source
+    onSourceChanged: _switchTo(source)
     property alias launcher: launcher
     // 0 closed .. 1 open
     property real progress: 0
@@ -183,6 +185,7 @@ Item {
     }
 
     function reset() {
+        _endSwitch()
         commitSpring.stop()
         cancelSpring.stop()
         _back = ""
@@ -292,24 +295,80 @@ Item {
                 property bool forbidLeft: false
                 property bool forbidRight: false
             }
+            // the old view while the new one comes in (D4): a still picture of it, taken
+            // only for the switch
+            ShaderEffectSource {
+                id: oldView
+                anchors.fill: parent
+                visible: false
+                live: false
+                hideSource: false
+            }
         }
     }
 
-    // a new view (Grid view, List view): it fades in over 100 ms (izy.java changeUiModeFromViewSwitcher)
+    /* A new view (Grid view, List view) while the list is open: the AnimatedContent of
+     * the switch (izy.java changeUiModeFromViewSwitcher; D/ivh.java:19-22, hdu.java:578-590,
+     * launcher_ui_mode_reload_fade_anim_duration_ms 100): the old view fades out in 100 ms
+     * and the new one fades in in 100 ms after 100 ms, both linear (motion D4). The old view
+     * is pictured in the frames before the swap; the swap waits two frames (one may have
+     * been on its way already). */
+    property url _pendingSource
+    property bool _switching: false
+    property int _switchFrames: 0
+    function _switchTo(s) {
+        _endSwitch()
+        if (launcher.source == s)
+            return
+        if (!isOpen || s == "" || launcher.source == "" || !launcher.item || Motion.animationScale === 0) {
+            launcher.source = s
+            return
+        }
+        _pendingSource = s
+        _switchFrames = 0
+        _switching = true
+        oldView.sourceItem = launcher
+        oldView.visible = true
+        oldView.opacity = 1
+        oldView.scheduleUpdate()
+    }
+    function _swap() {
+        if (!_switching)
+            return
+        _switching = false
+        launcher.opacity = 0
+        launcher.source = _pendingSource
+        viewFade.restart()
+    }
+    function _endSwitch() {
+        if (_switching) {
+            _switching = false
+            launcher.source = _pendingSource
+        }
+        viewFade.stop()
+        launcher.opacity = 1
+        oldView.visible = false
+        oldView.sourceItem = null
+    }
     Connections {
-        target: launcher
-        function onSourceChanged() {
-            if (drawer.isOpen && launcher.source != "" && Motion.animationScale > 0)
-                viewFade.restart()
+        target: drawer.Window.window
+        enabled: drawer._switching
+        function onFrameSwapped() {
+            if (++drawer._switchFrames >= 2)
+                drawer._swap()
         }
     }
-    NumberAnimation {
+    ParallelAnimation {
         id: viewFade
-        target: launcher
-        property: "opacity"
-        from: 0
-        to: 1
-        duration: 100
+        NumberAnimation { target: oldView; property: "opacity"; to: 0; duration: 100 }
+        SequentialAnimation {
+            PauseAnimation { duration: 100 }
+            NumberAnimation { target: launcher; property: "opacity"; from: 0; to: 1; duration: 100 }
+        }
+        onFinished: {
+            oldView.visible = false
+            oldView.sourceItem = null
+        }
     }
 
     // the swipe let go short of the back rule: the progress springs back (B4, WM.BACK.cancel)
