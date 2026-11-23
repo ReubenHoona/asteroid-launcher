@@ -44,7 +44,8 @@ import "../eoskit/concentric.js" as C
  * eosHubDial: its numerals and long ticks are sprites on 60 fixed slots whose glyph the hub picks
  * from its minute (slot j shows value (minute + j) % 60 when that is a multiple of 5), the black
  * disk and the circle are eosHubCover, drawn by the hub over the dial; the outer ticks and the
- * inner short ticks are the background. So the AP sleeps through the minutes.
+ * inner short ticks are the background (always-on the short ticks stand still, so the background
+ * holds at every minute). So the AP sleeps through the minutes.
  */
 EosFace {
     id: face
@@ -90,12 +91,14 @@ EosFace {
 
     // ---- parts ----
     // a ring of 60 ticks round the middle, turned clockwise by `turn` degrees; the long ones at
-    // every fifth (the numerals); the short ones under them too
+    // every fifth (the numerals); the short ones under them too (showMinor, showMajor: one kind only)
     component TickRing: Item {
         id: ring
         property var spec: C.SECONDS_TICKS
         property real turn: 0
         property string majorName: ""
+        property bool showMinor: true
+        property bool showMajor: true
         x: face.width / 2
         y: face.height / 2
         width: 0
@@ -106,6 +109,7 @@ EosFace {
             delegate: Item {
                 rotation: -index * 6
                 Rectangle {
+                    visible: ring.showMinor
                     x: ring.spec.minor[0] * face.k
                     y: -height / 2
                     width: (ring.spec.minor[1] - ring.spec.minor[0]) * face.k
@@ -115,7 +119,7 @@ EosFace {
                 }
                 Rectangle {
                     objectName: ring.majorName
-                    visible: index % 5 === 0
+                    visible: ring.showMajor && index % 5 === 0
                     x: ring.spec.major[0] * face.k
                     y: -height / 2
                     width: (ring.spec.major[1] - ring.spec.major[0]) * face.k
@@ -223,12 +227,31 @@ EosFace {
             return { x1: l.x1 * face.k, y1: l.y1 * face.k, x2: l.x2 * face.k, y2: l.y2 * face.k }
         }
 
+        // awake: one ring of short and long ticks turning with the minutes (and the seconds)
         TickRing {
             objectName: "eosConcentricMinutesTicks"
             spec: C.MINUTES_TICKS
             turn: C.ringTurn(face.minutesT)
+            visible: face.ticksShown && !face.ambient
+        }
+        // always-on: the short ticks stand still, so they are the same pixels at every minute (the
+        // hub's background has them), and only the long ones turn with the minute (the hub's slots).
+        // The rings change at the switch (the turn is on the whole minute from then on), not over
+        // the blend: the same ticks, so no cross-fade of two copies
+        TickRing {
+            objectName: "eosConcentricMinutesShortTicks"
+            spec: C.MINUTES_TICKS
+            turn: 0
+            showMajor: false
+            visible: face.ticksShown && face.ambient
+        }
+        TickRing {
+            objectName: "eosConcentricMinutesLongTicks"
+            spec: C.MINUTES_TICKS
+            turn: C.ringTurn(face.minutesT)
+            showMinor: false
             majorName: "eosHubDialTick"
-            visible: face.ticksShown
+            visible: face.ticksShown && face.ambient
         }
         Repeater {
             id: minuteNumerals

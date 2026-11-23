@@ -9,8 +9,9 @@
  *    in 12 h);
  *  - the face awake (the dials where the maths puts them, the seconds dial in the pill, the pill
  *    running off the screen) and always-on (no seconds dial, the inner dial on the whole minute at
- *    the hub's slot origins, the long ticks where eosHubTick says, the hub's time items and covers,
- *    the circle), Dial II (no tick rings) and 24 h;
+ *    the hub's slot origins, the long ticks where eosHubTick says on the ring that turns, the short
+ *    ticks on a ring that stands still, the hub's time items and covers, the circle), Dial II (no
+ *    tick rings) and 24 h;
  *  - screenshots at 10:09:30 and 06:42:05, awake and always-on, into /tmp/concentric-shots.
  * qmltestrunner under qemu-aarch64 with the image rootfs (offscreen, software Qt Quick); the face
  * needs org.asteroid.controls (Motion) from the image.
@@ -230,6 +231,9 @@ Item {
             verify(near(find(f, "eosConcentricSecondsTicks").rotation, 180, 0.01))
             verify(near(find(f, "eosConcentricMinutesTicks").rotation, 57, 0.01))
             verify(!find(f, "eosConcentricAmbientTicks").visible)
+            verify(find(f, "eosConcentricMinutesTicks").visible)
+            verify(!find(f, "eosConcentricMinutesShortTicks").visible)
+            verify(!find(f, "eosConcentricMinutesLongTicks").visible)
             // the pill: the stadium off the right edge; no disk, the box over the inner numerals
             var covers = findAll(f, "eosHubCover")
             compare(covers.length, 2)
@@ -264,6 +268,12 @@ Item {
             verify(!find(f, "eosConcentricSecondsTicks").visible)
             verify(find(f, "eosConcentricAmbientTicks").visible)
             compare(find(f, "eosConcentricAmbientTicks").rotation, 0)
+            // the inner ring: the short ticks stand still, the long ones turn with the minute
+            verify(!find(f, "eosConcentricMinutesTicks").visible)
+            verify(find(f, "eosConcentricMinutesShortTicks").visible)
+            compare(find(f, "eosConcentricMinutesShortTicks").rotation, 0)
+            verify(find(f, "eosConcentricMinutesLongTicks").visible)
+            compare(find(f, "eosConcentricMinutesLongTicks").rotation, 42 * 6)
             verify(!find(f, "eosConcentricScrim").visible)
             // the dial: on the whole minute, every numeral at the hub's slot origin
             var dial = find(f, "eosHubDial")
@@ -320,7 +330,8 @@ Item {
             f = show(10, 9, 30, true, true)
             compare(find(f, "eosHubHour").text, "10")
             compare(find(f, "eosHubMinute").text, "09")
-            compare(find(f, "eosConcentricMinutesTicks").rotation, 54)
+            compare(find(f, "eosConcentricMinutesLongTicks").rotation, 54)
+            compare(find(f, "eosConcentricMinutesShortTicks").rotation, 0)
             shoot("concentric-1009-ambient.png")
         }
         function test_dial2_and_24h() {
@@ -329,6 +340,8 @@ Item {
             compare(visibleAll(f, "eosHubDialTick").length, 0)
             verify(!find(f, "eosConcentricAmbientTicks").visible)
             verify(!find(f, "eosConcentricMinutesTicks").visible)
+            verify(!find(f, "eosConcentricMinutesShortTicks").visible)
+            verify(!find(f, "eosConcentricMinutesLongTicks").visible)
             compare(find(f, "eosHubHour").text, "18")
             compare(find(f, "eosHubMinute").text, "05")
             compare(visibleAll(f, "eosHubDialNumeral").length, 12)
