@@ -99,6 +99,14 @@ var LIFT_MS = 150
 var SETTLE_MS = 300
 var BUTTONS_CHANGE_MS = 375         // ChangeBounds and Slide of the arrow buttons
 var BUTTONS_FADE_MS = 450
+// the bottom row (management_ui_root_layout.xml:31-65, values-round/dimens.xml): the chip 52 x 32 dp in the
+// middle, the arrows 32 dp, 4 dp from it (managementui_rearrange_padding_settings); the area is 8 dp of padding
+// on top, 13 dp of margin (managementui_rearrange_circular_settings), the 32 dp buttons, 5 dp of padding below
+var ROW_GAP_DP = 4
+var ROW_HEIGHT_DP = 58
+// the start delay of a button's Slide (ibj.java)
+var ROW_CHIP_WAIT_MS = 75
+var ROW_ARROW_WAIT_MS = 150
 
 // the glyphs of the bottom row, CP3A's vector drawables (sysui res/drawable): the arrows are
 // quantum_gm_ic_arrow_left/right_vd_theme_24 (management_ui_root_layout.xml:47, 62), a 24 x 24 viewport in a

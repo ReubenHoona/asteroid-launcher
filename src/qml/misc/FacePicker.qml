@@ -159,7 +159,9 @@ Item {
     function open() {
         if (!store || shown || opening)
             return
+        rowInstant = true
         sync()
+        rowInstant = false
         editing = false
         hideTimer.stop()
         addList.closeNow()
@@ -169,7 +171,9 @@ Item {
         picker.opacity = 1
         awayScale = 1
         revealRadius = 1
+        rowInstant = true
         positionAt(store.currentId)
+        rowInstant = false
         // a snapshot of the face the carousel opens over: the centre preview, exactly the face
         liveUrl = ""
         liveResult = null
@@ -410,6 +414,72 @@ Item {
     MouseArea {
         anchors.fill: parent
     }
+
+    // ---- a button of the bottom row --------------------------------------------------
+    /* Each visibility change of the row runs stock's transition set ibk (ibk.java:13-27, begun by X(),
+     * ManagementView.java:180-191) on the settings area: a Slide of 375 ms whose start waits by ibj
+     * (ibj.java: the chip 75 ms, the arrows 150 ms), a Fade of MODE_IN only (450 ms) and a ChangeBounds
+     * (nothing moves: a hidden button keeps its place). A button that hides stays as it is for the wait,
+     * slides down by the height of the area (Slide's bottom edge, the scene root: 8 + 13 + 32 + 5 = 58 dp)
+     * on Accelerate (t^2) and is gone at the end, not faded; one that shows starts down there, fades in at
+     * once on the ValueAnimator default (AccelerateDecelerate) and slides up after the wait on Decelerate. */
+    component RowButton: Rectangle {
+        id: rowButton
+        // shown (VISIBLE) or hidden (INVISIBLE)
+        property bool on: true
+        // the wait of the slide, ms
+        property int waitMs: 0
+        // the button's place in the row, and how far down it is slid
+        property real rowY: 0
+        property real drop: 0
+        y: rowY + drop
+        visible: opacity > 0
+        states: State {
+            name: "hidden"
+            when: !rowButton.on
+            PropertyChanges { target: rowButton; opacity: 0; drop: FP.ROW_HEIGHT_DP * 2 * picker.u }
+        }
+        transitions: [
+            Transition {
+                objectName: "eosRowHide"
+                to: "hidden"
+                enabled: !picker.rowInstant
+                SequentialAnimation {
+                    PauseAnimation { objectName: "eosRowHideWait"; duration: Motion.duration(rowButton.waitMs) }
+                    NumberAnimation {
+                        objectName: "eosRowHideSlide"
+                        property: "drop"
+                        duration: Motion.duration(FP.BUTTONS_CHANGE_MS)
+                        easing.type: Easing.InQuad
+                    }
+                    PropertyAction { property: "opacity" }
+                }
+            },
+            Transition {
+                objectName: "eosRowShow"
+                from: "hidden"
+                enabled: !picker.rowInstant
+                // (a Transition runs its animations together)
+                NumberAnimation {
+                    objectName: "eosRowShowFade"
+                    property: "opacity"
+                    duration: Motion.duration(FP.BUTTONS_FADE_MS)
+                    easing.type: Easing.InOutSine
+                }
+                SequentialAnimation {
+                    PauseAnimation { objectName: "eosRowShowWait"; duration: Motion.duration(rowButton.waitMs) }
+                    NumberAnimation {
+                        objectName: "eosRowShowSlide"
+                        property: "drop"
+                        duration: Motion.duration(FP.BUTTONS_CHANGE_MS)
+                        easing.type: Easing.OutQuad
+                    }
+                }
+            }
+        ]
+    }
+    // the row takes the state of the face it opens on at once (a fresh view in stock), and animates after
+    property bool rowInstant: false
 
     // ---- the carousel and the bottom row, one container that zooms ---------------
     Item {
@@ -666,7 +736,10 @@ Item {
             }
         }
 
-        // the bottom row: arrow, chip, arrow
+        // the bottom row: arrow, chip, arrow. Stock's settings area is a centred horizontal LinearLayout whose
+        // buttons are hidden INVISIBLE, never GONE (ibk.a(), ibk.java:30-31; ManagementView.java:213-219,
+        // 1153-1159, 1107-1139): a hidden button keeps its slot, so the chip stays in the middle
+        // (x 140-244) and the arrows at x 68 and 252, 4 dp from it, whichever are shown
         Item {
             id: bottomRow
             objectName: "eosFaceRow"
@@ -679,24 +752,23 @@ Item {
             readonly property bool onFace: picker.centredFid !== "" && !picker.centredAdd
             readonly property bool leftOn: onFace && picker.centredIndex > 0
             readonly property bool rightOn: onFace && store !== null && picker.centredIndex < store.entries.length - 1
-            readonly property real step: 72 * picker.u
-            readonly property real rowW: (leftOn ? step : 0) + 104 * picker.u + (rightOn ? step : 0)
-            readonly property real chipX: (picker.width - rowW) / 2 + (leftOn ? step : 0)
+            readonly property real chipW: 104 * picker.u
+            readonly property real arrowW: 64 * picker.u
+            readonly property real gap: FP.ROW_GAP_DP * 2 * picker.u
+            readonly property real chipX: (picker.width - chipW) / 2
             property QtObject store: picker.store
 
-            Rectangle {
+            RowButton {
                 id: leftArrow
                 objectName: "eosFaceLeft"
-                width: 64 * picker.u
+                width: bottomRow.arrowW
                 height: width
                 radius: width / 2
-                y: picker.arrowY
-                x: bottomRow.leftOn ? bottomRow.chipX - bottomRow.step : bottomRow.chipX + 20 * picker.u
-                opacity: bottomRow.leftOn ? 1 : 0
-                visible: opacity > 0
+                rowY: picker.arrowY
+                x: bottomRow.chipX - bottomRow.gap - width
+                on: bottomRow.leftOn
+                waitMs: FP.ROW_ARROW_WAIT_MS
                 color: Theme.color.surfaceContainer
-                Behavior on x { NumberAnimation { duration: Motion.duration(FP.BUTTONS_CHANGE_MS); easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy } }
-                Behavior on opacity { NumberAnimation { duration: Motion.duration(FP.BUTTONS_FADE_MS) } }
                 Accessible.role: Accessible.Button
                 //% "Move watchface position left in the list"
                 Accessible.name: qsTrId("id-face-move-left") + localeManager.changesObserver
@@ -721,19 +793,17 @@ Item {
                     onClicked: picker.moveCentred(-1)
                 }
             }
-            Rectangle {
+            RowButton {
                 id: chip
                 objectName: "eosFaceChip"
-                width: 104 * picker.u
+                width: bottomRow.chipW
                 height: 64 * picker.u
                 radius: height / 2
-                y: picker.chipY
+                rowY: picker.chipY
                 x: bottomRow.chipX
-                opacity: bottomRow.onFace ? 1 : 0
-                visible: opacity > 0
+                on: bottomRow.onFace
+                waitMs: FP.ROW_CHIP_WAIT_MS
                 color: Theme.color.primary
-                Behavior on x { NumberAnimation { duration: Motion.duration(FP.BUTTONS_CHANGE_MS); easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy } }
-                Behavior on opacity { NumberAnimation { duration: Motion.duration(FP.BUTTONS_FADE_MS) } }
                 Accessible.role: Accessible.Button
                 //% "Edit watch face"
                 Accessible.name: qsTrId("id-face-edit") + localeManager.changesObserver
@@ -767,19 +837,17 @@ Item {
                     opacity: chipArea.pressed ? 0.25 : 0
                 }
             }
-            Rectangle {
+            RowButton {
                 id: rightArrow
                 objectName: "eosFaceRight"
-                width: 64 * picker.u
+                width: bottomRow.arrowW
                 height: width
                 radius: width / 2
-                y: picker.arrowY
-                x: bottomRow.rightOn ? bottomRow.chipX + 104 * picker.u + 8 * picker.u : bottomRow.chipX + 20 * picker.u
-                opacity: bottomRow.rightOn ? 1 : 0
-                visible: opacity > 0
+                rowY: picker.arrowY
+                x: bottomRow.chipX + bottomRow.chipW + bottomRow.gap
+                on: bottomRow.rightOn
+                waitMs: FP.ROW_ARROW_WAIT_MS
                 color: Theme.color.surfaceContainer
-                Behavior on x { NumberAnimation { duration: Motion.duration(FP.BUTTONS_CHANGE_MS); easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy } }
-                Behavior on opacity { NumberAnimation { duration: Motion.duration(FP.BUTTONS_FADE_MS) } }
                 Accessible.role: Accessible.Button
                 //% "Move watchface position right in the list"
                 Accessible.name: qsTrId("id-face-move-right") + localeManager.changesObserver

@@ -3,6 +3,11 @@
 // The face picker (src/qml/misc/FacePicker.qml) and its Add new list (src/qml/misc/FaceAddList.qml) drawn with
 // the image's controls on the repo mocks. 384 x 384 px = 192 dp, 1 dp = 2 px. WO-11 of the image 60 defect list:
 //
+// D60-29: the chip stays in the middle (x 140-244) and the arrows keep their slots (x 68 and 252, 8 px gaps):
+// CP3A hides them INVISIBLE (ibk.java:30-31), the row is not centred again. A button that hides waits (chip
+// 75 ms, arrows 150 ms: ibj.java) and slides down by the row's height (8 + 13 + 32 + 5 = 58 dp) in 375 ms
+// (Slide, Accelerate); one that shows fades in over 450 ms (Fade IN, AccelerateDecelerate) and slides up after
+// the wait in 375 ms (Decelerate) (ibk.java:13-27).
 // D60-30: CP3A's glyphs: quantum_gm_ic_arrow_left/right_vd_theme_24 (management_ui_root_layout.xml:47,62),
 // filled carets in a 24 dp box in primary; pencil_icon.xml (iaf.java:277-283), the outlined pencil 20 x 18 dp
 // inset 2 / 3 dp in a 24 dp box, in onPrimary.
@@ -214,6 +219,79 @@ Item {
                 picker = null
                 wait(30)
             }
+        }
+
+        // ---- D60-29 ----------------------------------------------------------------------------------------
+        function test_d60_29_row() {
+            setup([["w1", "018-modular"], ["w2", "021-classic"], ["w3", "022-large"]], "w3")
+            openPicker()
+            settleRow()
+            var chip = find(picker, "eosFaceChip"), left = find(picker, "eosFaceLeft"), right = find(picker, "eosFaceRight")
+            var aY = picker.arrowY
+            // the last favourite: the right arrow is hidden, the chip stays in the middle
+            near(chip.x, 140, 1, "chip x on the last favourite")
+            near(chip.x + chip.width, 244, 1, "chip right edge")
+            near(left.x, 68, 0.5, "left arrow slot")
+            compare(left.opacity, 1, "left arrow shown")
+            near(left.y, aY, 0.5, "left arrow in its row")
+            near(right.x, 252, 0.5, "the hidden right arrow keeps its slot")
+            compare(right.opacity, 0, "right arrow hidden")
+            compare(right.visible, false, "and not drawn")
+            near(right.y, aY + 58 * dp, 0.5, "slid down by the row's 58 dp")
+            near(chip.y, picker.chipY, 0.5, "chip in its row")
+            grabImage(picker).save("/tmp/wo11-shots/d60-29-last.png")
+
+            // the middle: both arrows, the same slots
+            picker.positionAt("w2")
+            settleRow()
+            near(chip.x, 140, 1, "chip x in the middle")
+            near(left.x, 68, 0.5, "left arrow")
+            near(right.x, 252, 0.5, "right arrow")
+            compare(right.opacity, 1, "right arrow shown again")
+            near(right.y, aY, 0.5, "right arrow slid back up")
+            // the show it ran (a Transition makes its animations when it first runs)
+            var show = findAnim(right, "eosRowShow")
+            verify(show !== null, "the show transition")
+            compare(findAnim(show, "eosRowShowWait").duration, Motion.duration(150), "arrow show waits 150 ms")
+            var ss = findAnim(show, "eosRowShowSlide")
+            compare(ss.duration, Motion.duration(375), "show slide 375 ms")
+            compare(ss.easing.type, Easing.OutQuad, "Slide in on DecelerateInterpolator (1 - (1 - t)^2)")
+            var sf = findAnim(show, "eosRowShowFade")
+            compare(sf.duration, Motion.duration(450), "Fade in 450 ms")
+            compare(sf.easing.type, Easing.InOutSine, "Fade on the ValueAnimator default (AccelerateDecelerate)")
+
+            // to the first: the left arrow hides. It stays where it is during the 150 ms wait, then slides down
+            // 116 px; it goes transparent only at the end (Fade is MODE_IN only)
+            picker.positionAt("w1")
+            compare(left.opacity, 1, "not faded at the start")
+            near(left.y, aY, 0.5, "not moved at the start (the 150 ms wait)")
+            near(left.x, 68, 0.5, "never moves sideways")
+            near(chip.x, 140, 1, "the chip does not move")
+            tryCompare(left, "opacity", 0, 5000)
+            near(left.y, aY + 116, 0.5, "slid down by 116 px")
+            near(left.x, 68, 0.5, "slot kept")
+            near(chip.x, 140, 1, "chip x on the first favourite")
+            near(right.x, 252, 0.5, "right arrow")
+
+            // the hide it ran (ibk.java, ibj.java)
+            var hide = findAnim(left, "eosRowHide")
+            verify(hide !== null, "the hide transition")
+            compare(findAnim(hide, "eosRowHideWait").duration, Motion.duration(150), "arrow hide waits 150 ms")
+            var hs = findAnim(hide, "eosRowHideSlide")
+            compare(hs.duration, Motion.duration(375), "hide slide 375 ms")
+            compare(hs.easing.type, Easing.InQuad, "Slide out on AccelerateInterpolator (t^2)")
+
+            // Add new: the chip and the right arrow hide in their places; the chip waits 75 ms
+            find(picker, "eosFaceList").currentIndex = store.entries.length
+            compare(chip.opacity, 1, "the chip is not faded at the start")
+            near(chip.y, picker.chipY, 0.5, "nor moved (its 75 ms wait)")
+            tryCompare(chip, "opacity", 0, 5000)
+            near(chip.x, 140, 1, "chip slot kept on Add new")
+            near(chip.y, picker.chipY + 116, 0.5, "chip slid down")
+            compare(findAnim(findAnim(chip, "eosRowHide"), "eosRowHideWait").duration, Motion.duration(75),
+                    "the chip waits 75 ms")
+            tryCompare(right, "opacity", 0, 5000)
+            near(right.x, 252, 0.5, "right arrow slot kept on Add new")
         }
 
         // ---- D60-30 ----------------------------------------------------------------------------------------
