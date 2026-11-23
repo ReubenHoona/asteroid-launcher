@@ -76,6 +76,39 @@ var MORPH = {
 // On wrist raise / Immediately (juh.java:360-399)
 var STAGE = { hold: 1000, holdImmediate: 1500 }
 
+// ---- the full view's header arrow (D60-07) ----
+// CP3A (full_view_container.xml shy_view_header_arrow, style FullViewNotificationScrimView): a
+// view as wide as the screen and 24 dp tall, 8 dp below the top, turned 180 degrees, showing the
+// Lottie raw/full_view_arrow.json fitted to its height and held at progress 0.75 (set by
+// LottieAnimationView.j(): juh.java:623, kln.java constructor; it is never played). At 0.75 the
+// Lottie's one white open stroke is most of the way from its flat line to its chevron; turned, it
+// points down. In px at 384 (1 dp = 2 px), from the view's centre (y 40): the ends 15.04 px to each
+// side and 5.90 px above, the point 0.17 px right and 5.57 px below; a 4 px (2 dp) stroke with flat
+// ends and a mitred point. It shows when the view has come in (klg.c(), run when the morph ends:
+// kmp.java onAnimationEnd -> jpb.java:370-371) and fades 150 ms later over 300 ms on
+// PathInterpolator(0.3, 0, 1, 1) (kln.f(150) -> klp.b())
+var ARROW = {
+    centreY: 40,
+    endX: 15.038,
+    endY: -5.897,
+    tipX: 0.167,
+    tipY: 5.570,
+    stroke: 4,
+    holdMs: 150,
+    fadeMs: 300,
+    fadeEasing: [0.3, 0, 1, 1, 1, 1]
+}
+
+// the arrow's three points (Qt.point: PathPolyline takes points only) on a screen width px
+// wide, u = width / 384
+function arrowPoints(width, u) {
+    var cx = width / 2
+    var cy = ARROW.centreY * u
+    return [Qt.point(cx - ARROW.endX * u, cy + ARROW.endY * u),
+            Qt.point(cx + ARROW.tipX * u, cy + ARROW.tipY * u),
+            Qt.point(cx + ARROW.endX * u, cy + ARROW.endY * u)]
+}
+
 // ---- the bubble (heads-up-alerts-03, -04) ----
 var BUBBLE = {
     // the strip: 48 dp tall, a gradient from transparent at 12 dp to black at 48 dp

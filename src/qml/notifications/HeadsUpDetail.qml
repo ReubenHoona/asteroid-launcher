@@ -4,9 +4,11 @@
  */
 
 import QtQuick
+import QtQuick.Shapes
 import org.nemomobile.lipstick
 import org.asteroid.controls
 import ".."
+import "headsup.js" as HU
 
 /*
  * The full notification view that a heads-up opens (audit heads-up-alerts-02,
@@ -22,6 +24,12 @@ import ".."
  * shared NotificationRemote and a LayerStack here, as in the stream. Nothing
  * runs in it but what the card does (one minute timer: none; the time is read
  * when the card is made).
+ *
+ * When it has come in (the morph is over, or the bubble has grown into it: the
+ * preview calls entered(), CP3A's onFullViewShown, klg.c()) the header arrow
+ * shows at the top and fades 150 ms later over 300 ms, and the scroll indicator
+ * shows on its list for 2 s (RotaryInput.flashIndicator: the full view's
+ * ScreenScaffold, a screen that opens).
  */
 Item {
     id: detail
@@ -38,6 +46,36 @@ Item {
     readonly property QtObject remote: transport
     readonly property QtObject layers: stack
     readonly property Item card: stack.firstPageItem ? stack.firstPageItem.card : null
+    // the list of the open card (what the indicator shows)
+    readonly property Item scroller: stack.firstPageItem ? stack.firstPageItem.list : null
+    // the view has come in (entered())
+    property bool shown: false
+    // the header arrow's alpha: 1 when the view has come in, then faded (arrowAnimation)
+    property real arrowOpacity: 0
+    readonly property SequentialAnimation arrowAnimation: arrowFade
+
+    // The view has come in (CP3A klg.c(), when the morph ends): the header arrow at 1, faded
+    // 150 ms later over 300 ms (kln.f(150), klp.b()); the scroll indicator on the list for 2 s.
+    // Returns whether the indicator took the list (it does when the list scrolls)
+    function entered() {
+        shown = true
+        arrowOpacity = 1
+        arrowFade.restart()
+        return scroller !== null && RotaryInput.flashIndicator(scroller)
+    }
+    // a single run, only after entered()
+    SequentialAnimation {
+        id: arrowFade
+        PauseAnimation { duration: Motion.duration(HU.ARROW.holdMs) }
+        NumberAnimation {
+            target: detail
+            property: "arrowOpacity"
+            to: 0
+            duration: Motion.duration(HU.ARROW.fadeMs)
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: HU.ARROW.fadeEasing
+        }
+    }
     // a keyboard, emoji or voice page is open over the card
     readonly property bool layerOpen: stack.layers.length > 0
 
@@ -94,6 +132,7 @@ Item {
 
         Item {
             property alias card: openCard
+            property alias list: scroller
 
             Flickable {
                 id: scroller
@@ -114,6 +153,26 @@ Item {
                     timestamp: detail.ago(detail.notification)
                     remote: transport
                     layerHost: stack
+                }
+            }
+
+            // CP3A's header arrow over the list, at the top (full_view_container.xml; HU.ARROW)
+            Shape {
+                id: headerArrow
+                objectName: "headerArrow"
+                width: parent.width
+                height: Math.ceil((HU.ARROW.centreY + HU.ARROW.tipY + HU.ARROW.stroke) * detail.width / 384)
+                opacity: detail.arrowOpacity
+                visible: opacity > 0
+                preferredRendererType: Shape.CurveRenderer
+                ShapePath {
+                    strokeColor: "#ffffff"
+                    strokeWidth: HU.ARROW.stroke * detail.width / 384
+                    fillColor: "transparent"
+                    capStyle: ShapePath.FlatCap
+                    joinStyle: ShapePath.MiterJoin
+                    miterLimit: 4
+                    PathPolyline { path: HU.arrowPoints(detail.width, detail.width / 384) }
                 }
             }
         }

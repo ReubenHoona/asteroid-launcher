@@ -167,6 +167,14 @@ Item {
         finish()
     }
 
+    // The full view has come in (the morph is over, or the bubble has grown into it): its
+    // header arrow and scroll indicator (CP3A klg.c(), run by the morph's end, kmp.java)
+    function detailShown() {
+        var d = detailLoader.item as HeadsUpDetail
+        if (d)
+            d.entered()
+    }
+
     // The glanceable becomes the full view (its time ran out, or a tap)
     function toFull() {
         if (mode !== "glance")
@@ -235,6 +243,7 @@ Item {
                 easing.type: Easing.InOutSine
             }
         }
+        ScriptAction { script: preview.detailShown() }
     }
 
     ParallelAnimation {
@@ -282,6 +291,7 @@ Item {
         queued: notificationPreviewPresenter.waiting === true
         onFinished: if (preview.mode === "bubble") preview.finish()
         onWindowUpChanged: if (windowUp) preview.detailActive = true
+        onPhaseChanged: if (phase === "expanded" && preview.mode === "bubble") preview.detailShown()
     }
 
     Loader {

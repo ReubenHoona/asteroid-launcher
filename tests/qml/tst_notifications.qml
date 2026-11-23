@@ -10,9 +10,14 @@
 //    first frame and takes a new height at once until the user toggles it;
 //  - D60-06: CP3A's full_view_scrim, a black full-screen layer under the morph, neither scaled
 //    nor faded by it (the face never shows through); the crown's close takes it with the view;
+//  - D60-07: when the morph ends (CP3A's onFullViewShown) the full view shows CP3A's header arrow
+//    (shy_view_header_arrow: the Lottie held at progress 0.75, turned 180 degrees in a 24 dp view
+//    8 dp below the top) and fades it 150 ms later over 300 ms, and (D60-09) the scroll indicator
+//    shows on its list for 2 s (RotaryInput.flashIndicator);
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
+import QtQuick.Shapes
 import QtTest
 import org.asteroid.controls
 import org.nemomobile.lipstick
@@ -402,6 +407,121 @@ Item {
             notificationPreviewPresenter.notification = n
             compare(p.mode, "bubble")
             verify(!scrimOf(p).visible, "no scrim over the app")
+        }
+
+        /* ---- D60-07, D60-09: the full view comes in ---------------------- */
+
+        function longBody() {
+            return "The 7:42 to the city is cancelled. The next service leaves at 8:12 from platform 2. "
+                 + "Replacement buses run every ten minutes between the stations on the line, "
+                 + "allow an extra thirty minutes for your trip. We are sorry for the trouble."
+        }
+
+        // The header arrow: CP3A's chevron at Lottie progress 0.75 in a 24 dp view 8 dp below the
+        // top, turned to point down: ends 7.52 dp each side and 2.95 dp above the view's centre, the
+        // point 2.79 dp below it, white, a 2 dp stroke with flat ends and a mitred point
+        function test_d60_07_arrow_shape() {
+            var n = notif({ replacesId: 71, summary: "Trains", body: longBody() })
+            var d = make("notifications/HeadsUpDetail.qml", { width: 384, height: 384, notification: n })
+            tryVerify(function () { return d.card !== null }, 3000)
+            var a = byName(d, "headerArrow")
+            verify(a !== null, "an arrow")
+            compare(d.arrowOpacity, 0, "not shown before the view has come in")
+            verify(!a.visible)
+            var sp = a.data[0]
+            compare(String(sp.strokeColor), "#ffffff")
+            compare(sp.strokeWidth, 4)
+            compare(sp.capStyle, ShapePath.FlatCap)
+            compare(sp.joinStyle, ShapePath.MiterJoin)
+            compare(String(sp.fillColor), "#00000000")
+            var pts = sp.pathElements[0].path
+            compare(pts.length, 3)
+            fuzzyCompare(pts[0].x, 192 - 15.038, 0.01)
+            fuzzyCompare(pts[0].y, 34.103, 0.01)
+            fuzzyCompare(pts[1].x, 192 + 0.167, 0.01)
+            fuzzyCompare(pts[1].y, 45.570, 0.01)
+            fuzzyCompare(pts[2].x, 192 + 15.038, 0.01)
+            fuzzyCompare(pts[2].y, 34.103, 0.01)
+            // drawn: the arms and the point white, inside the V and beside it black
+            d.entered()
+            d.arrowAnimation.stop()
+            d.arrowOpacity = 1
+            wait(100)
+            var img = shot(d, "d60-07-arrow")
+            compare(px(img, 180, 36), [255, 255, 255], "left arm")
+            compare(px(img, 204, 36), [255, 255, 255], "right arm")
+            compare(px(img, 192, 45), [255, 255, 255], "the point")
+            compare(px(img, 192, 38), [0, 0, 0], "inside the V")
+            compare(px(img, 170, 34), [0, 0, 0], "left of the arm's end")
+            compare(px(img, 192, 52), [0, 0, 0], "below the point")
+        }
+
+        // entered() (CP3A's onFullViewShown, klg.c()): the arrow at 1, held 150 ms, then gone over
+        // 300 ms (PathInterpolator 0.3, 0, 1, 1); the scroll indicator shows on the full view's list
+        // and hides 2 s later
+        function test_d60_07_09_entered() {
+            var n = notif({ replacesId: 72, summary: "Trains", body: longBody() })
+            var d = make("notifications/HeadsUpDetail.qml", { width: 384, height: 384, notification: n })
+            tryVerify(function () { return d.card !== null }, 3000)
+            wait(200)
+            var an = d.arrowAnimation
+            compare(an.animations[0].duration, 150, "held 150 ms")
+            compare(an.animations[1].duration, 300, "fades over 300 ms")
+            compare(an.animations[1].to, 0)
+            compare(an.animations[1].easing.type, Easing.BezierSpline)
+            compare(an.animations[1].easing.bezierCurve, [0.3, 0, 1, 1, 1, 1])
+            verify(d.scroller !== null)
+            verify(d.scroller.contentHeight > d.scroller.height, "a full view that scrolls")
+            var shown = d.entered()
+            verify(d.shown, "shown")
+            compare(d.arrowOpacity, 1, "the arrow at once")
+            verify(shown, "flashIndicator took the full view's list")
+            var ind = indicator()
+            verify(ind !== null, "the shared indicator")
+            compare(ind.flickable, d.scroller)
+            verify(ind.shown, "the indicator shows")
+            tryCompare(d, "arrowOpacity", 0, 3000, "the arrow fades")
+            verify(ind.shown, "the indicator outlasts the arrow")
+            tryVerify(function () { return !ind.shown }, 4000, "the indicator hides 2 s later")
+        }
+
+        // The morph ends, then the view comes in: the arrow and the indicator follow the morph
+        // (CP3A: kmp.onAnimationEnd -> klg.c())
+        function test_d60_07_09_after_morph() {
+            var p = preview()
+            var n = notif({ replacesId: 73, summary: "Trains", body: longBody() })
+            notificationPreviewPresenter.kind = 1
+            notificationPreviewPresenter.notification = n
+            p.toFull()
+            tryVerify(function () { return p.detailItem !== null }, 3000)
+            var d = p.detailItem
+            verify(!d.shown, "not before the morph ends")
+            var at = null
+            d.shownChanged.connect(function () { at = { scale: p.detailScale, opacity: p.detailOpacity, glance: p.glanceOpacity } })
+            tryVerify(function () { return d.shown }, 4000, "in when the morph ends")
+            verify(at !== null)
+            compare(at.scale, 1, "the morph was over: scale 1")
+            compare(at.opacity, 1, "opacity 1")
+            compare(at.glance, 0, "the glanceable gone")
+            var ind = indicator()
+            verify(ind && ind.shown && ind.flickable === d.scroller, "the indicator on the full view's list")
+        }
+
+        // The bubble grown into the full view over an app: the same, once it has grown
+        function test_d60_07_09_bubble() {
+            var p = preview()
+            var n = notif({ replacesId: 74, summary: "Trains", body: longBody() })
+            notificationPreviewPresenter.kind = 2
+            notificationPreviewPresenter.notification = n
+            compare(p.mode, "bubble")
+            p.bubbleItem.expand()
+            tryVerify(function () { return p.detailItem !== null }, 3000)
+            var d = p.detailItem
+            verify(!d.shown, "not while it grows")
+            tryCompare(p.bubbleItem, "phase", "expanded", 4000)
+            verify(d.shown, "in once grown")
+            var ind = indicator()
+            verify(ind && ind.shown && ind.flickable === d.scroller, "the indicator on the full view's list")
         }
     }
 }
