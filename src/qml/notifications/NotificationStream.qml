@@ -332,6 +332,29 @@ Item {
         scrollGoalFn = null
         pendingExpanded = -2
     }
+    // The list (lv) moved while a scroll runs. When the cards' heights change under the scroll (a card
+    // closes as another opens, or as Clear all starts) the content can end above where the scroll
+    // put the list, and the list puts itself back inside its bounds: setContentHeight does it at once
+    // (a write to contentY does not set moving), the fixup after a layout at once too, or in a glide
+    // when the list's last move was the finger's (qquicklistview.cpp:1672). That is followed and the
+    // scroll goes on (its goal is held to the new bounds), as stock's scrollBy steps go on at the
+    // list's end (amk.java:53-58). Anything else that moves the list more than 1 px (ScrollPhysics'
+    // own test for another writer) from where the scroll put it is the crown: the scroll gives way
+    function listMoved(lv) {
+        if (isNaN(scrollWritten))
+            return
+        var y = lv.contentY
+        var lo = lv.originY - lv.topMargin
+        var hi = Math.max(lo, lv.originY + lv.contentHeight + lv.bottomMargin - lv.height)
+        var held = Math.max(lo, Math.min(hi, scrollWritten))
+        // on the bound, or on the way from where the scroll put the list to it
+        if (Math.abs(y - held) < 0.5 || (y - held) * (y - scrollWritten) < 0) {
+            scrollWritten = y
+            return
+        }
+        if (Math.abs(y - scrollWritten) > 1)
+            stopScroll()
+    }
     SequentialAnimation {
         id: scrollAnim
         PauseAnimation { id: scrollPause; duration: 0 }
@@ -678,10 +701,9 @@ Item {
                 // No stretch at the top (stock shows none: the tray takes that
                 // edge, PanelsGrid.handOverMoved); the end stretches as in any list
                 physics.stretchEnabled: !(lv.atYBeginning && !lv.atYEnd)
-                // the crown (or anything but the scroll itself) moved the list: the scroll gives way
-                // (1 px: ScrollPhysics' own test for another writer)
-                onContentYChanged: if (!isNaN(stream.scrollWritten) && Math.abs(lv.contentY - stream.scrollWritten) > 1)
-                                       stream.stopScroll()
+                // the crown (anything but the scroll itself and the list's hold on its bounds) moved
+                // the list: the scroll gives way (listMoved)
+                onContentYChanged: stream.listMoved(lv)
 
                 // animateItem (kwf.java:106-114, 632-633): fade in on a spring of
                 // stiffness 200 (~0.45 s: the row's fadeIn), moves on 1.0 / 10000
