@@ -40,9 +40,11 @@ class QQuickItem;
  * ticks become sprites on 60 fixed slots (j * 6 degrees) whose glyph the hub
  * picks from its minute (slot j shows value (minute + j) % 60 when that is a
  * multiple of 5, a blank cell otherwise), so the dial turns with no AP wake
- * and no new hub op (glyph bindings, % == ?:). Rectangles named eosHubCover
- * (the black under Concentric's circle, the circle) are drawn by the hub over
- * the dial's sprites and under the time, as the face draws them.
+ * and no new hub op (glyph bindings, % / == ?:). What does not turn (the
+ * short ticks) and the Rectangles named eosHubCover that the face draws over
+ * the dial (the black under Concentric's circle, the circle) are the
+ * background; their part is cut out of the slots' cells, so the hub draws
+ * the dial's sprites over black only, as it draws the digits.
  *
  * The layout is rebuilt only when something in it changes (face, date, item
  * geometry) and is valid until the background changes: the next local

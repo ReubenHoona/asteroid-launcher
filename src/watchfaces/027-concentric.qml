@@ -42,10 +42,11 @@ import "../eoskit/concentric.js" as C
  * The sensor hub draws the always-on face (huboffload.cpp): the hour and the minute are
  * eosHubHour and eosHubMinute (12 h with a leading zero: eosHubZeroPad); the inner dial is
  * eosHubDial: its numerals and long ticks are sprites on 60 fixed slots whose glyph the hub picks
- * from its minute (slot j shows value (minute + j) % 60 when that is a multiple of 5), the black
- * disk and the circle are eosHubCover, drawn by the hub over the dial; the outer ticks and the
- * inner short ticks are the background (always-on the short ticks stand still, so the background
- * holds at every minute). So the AP sleeps through the minutes.
+ * from its minute (slot j shows value (minute + j) % 60 when that is a multiple of 5). The rest is
+ * the background, which the AP draws once: the outer ticks, the inner short ticks (a ring that
+ * stands still always-on) and what lies over the dial, the black disk and the circle (eosHubCover):
+ * the hub cuts their part out of the slots' cells, so it never draws a sprite over anything but
+ * black. So the AP sleeps through the minutes.
  */
 EosFace {
     id: face

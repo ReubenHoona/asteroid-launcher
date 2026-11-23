@@ -5,10 +5,16 @@
  * HubOffload::build for the Concentric face (src/watchfaces/027-concentric.qml): the sensor hub's
  * always-on layout with the turning minutes dial (huboffload.h: eosHubDial, eosHubCover, eosHubZeroPad).
  *  - the layout is made and handed over, the 12 h hour as two digits ("06": four time sprites);
- *  - the dial is 60 numeral slots (cells of 60: one per value) and 60 long-tick slots (61 cells),
- *    the same at every minute (the hub turns it), each numeral slot exactly where the AP draws the
- *    numeral of that slot (one ink offset for all), each long tick inside its slot's cell;
- *  - the black disk and the circle are drawn by the hub over the dial;
+ *  - the dial is numeral slots (60 cells, one per value, and 12 more for each slot the covers reach)
+ *    and long-tick slots (61 cells), the same at every minute (the hub turns it), each numeral slot
+ *    exactly where the AP draws the numeral of that slot (one ink offset for all), each long tick
+ *    inside its slot's cell;
+ *  - the black disk and the circle stay in the background: no sprite of theirs; the numeral slots
+ *    they reach have cells of their own (cut by them), the ones they hide (3 o'clock: the minute's
+ *    circle) have no sprite, and an AP numeral there lies under the disk; at a whole five minutes
+ *    (10:40) the slot under the circle has no numeral sprite but its long tick (cut by the disk);
+ *  - the AP's always-on short ticks are the same pixels at every minute (the hub's background has
+ *    them; they stand still, only the long ones turn);
  *  - Dial II has no tick slots; under the wrist flip every slot is the point mirror;
  *  - a dial that shows another minute is refused (the AP draws).
  * The real face file, its eoskit and the image's org.asteroid.controls (Motion), software Qt Quick in an
@@ -26,6 +32,7 @@
 #include <QFile>
 #include <QGuiApplication>
 #include <QImage>
+#include <QMap>
 #include <QQmlComponent>
 #include <QQmlEngine>
 #include <QQuickItem>
@@ -41,22 +48,25 @@ static int failures = 0;
 static int checks = 0;
 #define CHECK(cond) do { checks++; if (!(cond)) { fprintf(stderr, "FAIL %s:%d: %s\n", __FILE__, __LINE__, #cond); failures++; } } while (0)
 
-static QStringList timeSprites, dialLines, warnings;
+static QStringList timeSprites, dialLines, dialSummary, warnings;
 static void handler(QtMsgType type, const QMessageLogContext &, const QString &msg)
 {
     if (msg.contains(QLatin1String("hub offload: sprite at")))
         timeSprites << msg;
     else if (msg.contains(QLatin1String("hub offload: dial cells")))
         dialLines << msg;
+    else if (msg.contains(QLatin1String("hub offload: dial of")))
+        dialSummary << msg;
     else if (type == QtWarningMsg || type == QtCriticalMsg)
         warnings << msg;
 }
 
-// one cells group of the log: "hub offload: dial cells <i> <w>x<h>x<n>: x,y x,y ..."
+// one cells group of the log: "hub offload: dial cells <i> <w>x<h>x<n>: j:x,y j:x,y ..." (slot j's
+// sprite top-left)
 struct Group {
     QSize cell;
     int n = 0;
-    QList<QPoint> at;
+    QMap<int, QPoint> at;
 };
 static QList<Group> groups()
 {
@@ -71,8 +81,9 @@ static QList<Group> groups()
         g.n = m.captured(4).toInt();
         const QStringList pts = m.captured(5).split(QLatin1Char(' '), Qt::SkipEmptyParts);
         for (const QString &p : pts) {
-            const QStringList xy = p.split(QLatin1Char(','));
-            g.at << QPoint(xy.value(0).toInt(), xy.value(1).toInt());
+            const QStringList jxy = p.split(QLatin1Char(':'));
+            const QStringList xy = jxy.value(1).split(QLatin1Char(','));
+            g.at.insert(jxy.value(0).toInt(), QPoint(xy.value(0).toInt(), xy.value(1).toInt()));
         }
         out << g;
     }
@@ -158,6 +169,9 @@ struct Built {
     QList<QPoint> numeralTopLeft;       // the AP's numeral Texts (scene, rounded) by slot, -1,-1 if none
     QList<QRect> tickRect;              // the AP's long ticks (scene) by slot
     QList<QRectF> covers;
+    // "dial of N numeral slots (K with cells of their own, H under the covers), C covers in the background"
+    int numeralSlots = -1, ownSlots = -1, hiddenSlots = -1, coversInBackground = -1;
+    QImage ap;                          // the AP's always-on frame
 };
 
 static Built build(QQmlEngine *engine, const QString &transform, int h, int m, bool use12h,
@@ -165,6 +179,7 @@ static Built build(QQmlEngine *engine, const QString &transform, int h, int m, b
 {
     timeSprites.clear();
     dialLines.clear();
+    dialSummary.clear();
     warnings.clear();
     LipstickCompositor::instance()->layouts.clear();
     LipstickCompositor::instance()->layout = false;
@@ -198,10 +213,22 @@ static Built build(QQmlEngine *engine, const QString &transform, int h, int m, b
     }
     for (QQuickItem *c : covers)
         b.covers << c->mapRectToScene(QRectF(0, 0, c->width(), c->height()));
+    b.ap = s.window.grabWindow().convertToFormat(QImage::Format_RGB32);
     HubOffload hub;
     b.ok = hub.update(s.face, use12h, QStringLiteral("concentric") + transform + style,
                       shown(h, shownMinute < 0 ? m : shownMinute));
     b.groups = groups();
+    if (!dialSummary.isEmpty()) {
+        const auto sm = QRegularExpression(QStringLiteral("dial of (\\d+) numeral slots \\((\\d+) with cells of their "
+                                                          "own, (\\d+) under the covers\\), (\\d+) covers"))
+                            .match(dialSummary.last());
+        if (sm.hasMatch()) {
+            b.numeralSlots = sm.captured(1).toInt();
+            b.ownSlots = sm.captured(2).toInt();
+            b.hiddenSlots = sm.captured(3).toInt();
+            b.coversInBackground = sm.captured(4).toInt();
+        }
+    }
     b.timeSprites = timeSprites.size();
     b.warn = warnings;
     b.layouts = LipstickCompositor::instance()->layouts.size();
@@ -221,24 +248,42 @@ static Built build(QQmlEngine *engine, const QString &transform, int h, int m, b
     return b;
 }
 
-// the dial of an upright layout: numerals (60 cells), ticks (61 cells), two covers
+// the dial of an upright layout: numeral slots (60 cells, 12 more per slot the covers reach), long-tick
+// slots (61 cells); the covers (the black disk, then the circle) in the background
 static void dialIsSlots(const Built &b, int m, bool ticks)
 {
     CHECK(b.ok);
     CHECK(b.layouts == 1 && b.fileSize > 20000);
-    CHECK(b.groups.size() == (ticks ? 4 : 3));
-    if (b.groups.size() != (ticks ? 4 : 3))
+    CHECK(b.groups.size() == (ticks ? 2 : 1));
+    if (b.groups.size() != (ticks ? 2 : 1))
         return;
+    CHECK(b.coversInBackground == 2);
     const Group &num = b.groups[0];
-    CHECK(num.n == 60 && num.at.size() == 60);
-    // every numeral of the AP is at its slot's sprite less one ink offset, the same for all 12
+    CHECK(b.numeralSlots == num.at.size());
+    CHECK(b.numeralSlots + b.hiddenSlots == 60);
+    CHECK(num.n == 60 + 12 * b.ownSlots);
+    // the disk under the circle hides the slots at 3 o'clock and reaches a few round them
+    CHECK(b.hiddenSlots >= 1 && b.hiddenSlots <= 5);
+    CHECK(b.ownSlots >= 2 && b.ownSlots <= 10);
+    CHECK(!num.at.contains(0));
+    const QRectF disk = b.covers.value(0);
+    // every numeral of the AP is at its slot's sprite less one ink offset, the same for all; one
+    // whose slot has no sprite lies under the disk
     QPoint offset(INT_MIN, INT_MIN);
-    int seen = 0;
-    for (int j = 0; j < 60 && num.at.size() == 60; j++) {
+    int seen = 0, under = 0;
+    for (int j = 0; j < 60; j++) {
         if (b.numeralTopLeft[j].x() < 0)
             continue;
         seen++;
         CHECK(((m + j) % 60) % 5 == 0);
+        if (!num.at.contains(j)) {
+            under++;
+            const QPointF c = QPointF(b.numeralTopLeft[j]) + QPointF(13, 10) - disk.center();
+            if (std::hypot(c.x(), c.y()) > disk.width() / 2 - 8)
+                fprintf(stderr, "  slot %d: no sprite, but the numeral is not under the disk\n", j);
+            CHECK(std::hypot(c.x(), c.y()) <= disk.width() / 2 - 8);
+            continue;
+        }
         const QPoint d = num.at[j] - b.numeralTopLeft[j];
         if (offset.x() == INT_MIN)
             offset = d;
@@ -247,15 +292,19 @@ static void dialIsSlots(const Built &b, int m, bool ticks)
         CHECK(d == offset);
     }
     CHECK(seen == 12);
+    CHECK(under <= 1);
     // the numeral cell is about a numeral's ink (23 px Roboto: two digits, 17 px tall)
     CHECK(num.cell.height() >= 16 && num.cell.height() <= 20 && num.cell.width() >= 20 && num.cell.width() <= 32);
-    int next = 1;
     if (ticks) {
-        const Group &tk = b.groups[next++];
-        CHECK(tk.n == 61 && tk.at.size() == 60);
-        int inside = 0;
-        for (int j = 0; j < 60 && tk.at.size() == 60; j++) {
+        const Group &tk = b.groups[1];
+        CHECK(tk.n == 61 && tk.at.size() >= 56 && tk.at.size() <= 60);
+        int inside = 0, ap = 0;
+        for (int j = 0; j < 60; j++) {
             if (b.tickRect[j].isNull())
+                continue;
+            ap++;
+            CHECK(tk.at.contains(j));
+            if (!tk.at.contains(j))
                 continue;
             const QRect cell(tk.at[j], tk.cell);
             // the scene graph's antialiasing reaches half a pixel over the bar
@@ -266,16 +315,46 @@ static void dialIsSlots(const Built &b, int m, bool ticks)
                         b.tickRect[j].y(), b.tickRect[j].width(), b.tickRect[j].height(), cell.x(), cell.y(),
                         cell.width(), cell.height());
         }
-        CHECK(inside == 12);
+        CHECK(ap == 12 && inside == 12);
         CHECK(tk.cell.width() <= 16 && tk.cell.height() <= 16);
     }
-    // the covers: the black disk, then the circle, each one cell over its Rectangle
-    for (int i = 0; i < 2; i++) {
-        const Group &cv = b.groups[next + i];
-        CHECK(cv.n == 1 && cv.at.size() == 1);
-        if (cv.at.size() == 1 && i < b.covers.size())
-            CHECK(QRect(cv.at[0], cv.cell).contains(b.covers[i].toAlignedRect()));
+}
+
+// the AP's short ticks of the inner ring (130.5..137.5 px out, 2 px wide) at the slots where neither
+// minute has a long tick: the same pixels in both frames, but for a level of rounding (the software
+// renderer of the test draws a window in parts); a tick a pixel over is a hundred levels
+static int shortTicksDiffer(const Built &a, int ma, const Built &b, int mb)
+{
+    int bad = 0;
+    for (int j = 0; j < 60; j++) {
+        if ((ma + j) % 5 == 0 || (mb + j) % 5 == 0)
+            continue;
+        const qreal t = j * 6 * M_PI / 180;
+        const QPointF p0(192 + 130.5 * std::cos(t), 192 - 130.5 * std::sin(t));
+        const QPointF p1(192 + 137.5 * std::cos(t), 192 - 137.5 * std::sin(t));
+        const QRect r = QRectF(p0, p1).normalized().toAlignedRect().adjusted(-2, -2, 2, 2);
+        for (int y = r.top(); y <= r.bottom(); y++)
+            for (int x = r.left(); x <= r.right(); x++)
+                if (std::abs(qRed(a.ap.pixel(x, y)) - qRed(b.ap.pixel(x, y))) > 2 ||
+                    std::abs(qGreen(a.ap.pixel(x, y)) - qGreen(b.ap.pixel(x, y))) > 2 ||
+                    std::abs(qBlue(a.ap.pixel(x, y)) - qBlue(b.ap.pixel(x, y))) > 2) {
+                    if (!bad)
+                        fprintf(stderr, "  short tick of slot %d differs at %d,%d\n", j, x, y);
+                    bad++;
+                }
     }
+    return bad;
+}
+
+// the same slots (keys and places) in two layouts
+static bool sameSlots(const Built &a, const Built &b)
+{
+    if (a.groups.size() != b.groups.size())
+        return false;
+    for (int i = 0; i < a.groups.size(); i++)
+        if (a.groups[i].at != b.groups[i].at || a.groups[i].cell != b.groups[i].cell || a.groups[i].n != b.groups[i].n)
+            return false;
+    return true;
 }
 
 int main(int argc, char **argv)
@@ -296,29 +375,43 @@ int main(int argc, char **argv)
     dialIsSlots(b, 9, true);
     CHECK(b.timeSprites == 4);
     // the slots do not depend on the minute: the hub turns the dial
-    CHECK(a.groups.size() == 4 && b.groups.size() == 4);
-    for (int i = 0; i < qMin(a.groups.size(), b.groups.size()); i++) {
-        CHECK(a.groups[i].at == b.groups[i].at);
-        CHECK(a.groups[i].cell == b.groups[i].cell);
-    }
+    CHECK(a.groups.size() == 2 && b.groups.size() == 2);
+    CHECK(sameSlots(a, b));
+    // the short ticks stand still always-on: the background holds at every minute
+    CHECK(shortTicksDiffer(a, 42, b, 9) == 0);
+
+    // a whole five minutes: 40 is under the circle (no numeral sprite at slot 0, the AP's 40 under the
+    // disk), the long tick at 3 o'clock is there, cut by the disk (the hub model's picture shows it)
+    const Built f = build(&engine, QString(), 10, 40, true, QString(), -1, QStringLiteral("hub-1040"));
+    dialIsSlots(f, 40, true);
+    CHECK(sameSlots(a, f));
+    CHECK(f.numeralTopLeft[0].x() >= 0 && f.groups.size() == 2 && !f.groups[0].at.contains(0));
+    CHECK(f.groups.size() == 2 && f.groups[1].at.contains(0));
+    // and one with partly covered numerals next to the circle (45 at slot 2, 40 at slot 57)
+    const Built g = build(&engine, QString(), 10, 43, true, QString(), -1, QStringLiteral("hub-1043"));
+    dialIsSlots(g, 43, true);
+    CHECK(sameSlots(a, g));
+    CHECK(shortTicksDiffer(f, 40, g, 43) == 0);
+    CHECK(shortTicksDiffer(b, 9, g, 43) == 0);
 
     // 24 h at 18:05, Dial II: no tick slots
     const Built c = build(&engine, QString(), 18, 5, false, QStringLiteral("dial2"));
     dialIsSlots(c, 5, false);
     CHECK(c.timeSprites == 4);
 
-    // the wrist flip: every slot is the point mirror of the upright one
+    // the wrist flip: every numeral slot is the point mirror of the upright one (the covers turn with
+    // the face, so the same slots have sprites and cells of their own)
     const Built t = build(&engine, kTurn, 6, 42, true);
     CHECK(t.ok);
-    CHECK(t.groups.size() == 4);
-    for (int i = 0; i < qMin(t.groups.size(), a.groups.size()); i++) {
-        CHECK(t.groups[i].at.size() == a.groups[i].at.size());
-        CHECK(t.groups[i].cell == a.groups[i].cell || i == 1);
-        if (i == 0) {
-            for (int j = 0; j < qMin(t.groups[0].at.size(), a.groups[0].at.size()); j++)
-                CHECK(t.groups[0].at[j] == QPoint(384, 384) - a.groups[0].at[j] - QPoint(a.groups[0].cell.width(),
+    CHECK(t.groups.size() == 2);
+    CHECK(t.ownSlots == a.ownSlots && t.hiddenSlots == a.hiddenSlots);
+    if (t.groups.size() == 2 && a.groups.size() == 2) {
+        CHECK(t.groups[0].cell == a.groups[0].cell && t.groups[0].n == a.groups[0].n);
+        CHECK(t.groups[0].at.keys() == a.groups[0].at.keys());
+        for (int j : a.groups[0].at.keys())
+            CHECK(t.groups[0].at.value(j) == QPoint(384, 384) - a.groups[0].at[j] - QPoint(a.groups[0].cell.width(),
                                                                                          a.groups[0].cell.height()));
-        }
+        CHECK(t.groups[1].at.size() == a.groups[1].at.size());
     }
 
     // a dial that is not at the minute of the layout: refused, no layout
