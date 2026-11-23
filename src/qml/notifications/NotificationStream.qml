@@ -232,6 +232,9 @@ Item {
     property real scrollProgress: 0
     property real scrollStart: 0
     property var scrollGoalFn: null
+    // where the running scroll last put the list; NaN: no scroll runs. Anything else that moves the
+    // list (the crown) moves it away from this, and the scroll then gives way (stopScroll)
+    property real scrollWritten: NaN
     // The card to open or close once the scroll is over (stock scrolls first,
     // then changes the card, kvy.java:98-99); -2: none
     property int pendingExpanded: -2
@@ -250,6 +253,7 @@ Item {
         scrollSpring.stop()
         scrollGoalFn = goalFn
         scrollStart = lv.contentY
+        scrollWritten = scrollStart
         scrollProgress = 0
         pendingExpanded = thenExpanded === undefined ? -2 : thenExpanded
         return true
@@ -292,11 +296,14 @@ Item {
         return Math.max(lo, Math.min(hi, want))
     }
     onScrollProgressChanged: {
-        if (listView && scrollGoalFn)
-            listView.contentY = scrollStart + (scrollGoalFn() - scrollStart) * scrollProgress
+        if (listView && scrollGoalFn) {
+            scrollWritten = scrollStart + (scrollGoalFn() - scrollStart) * scrollProgress
+            listView.contentY = scrollWritten
+        }
     }
     function scrollDone() {
         var lv = stream.listView
+        stream.scrollWritten = NaN
         for (var i = 0; lv && stream.scrollGoalFn && i < 4; i++) {
             var g = stream.scrollGoalFn()
             if (Math.abs(g - lv.contentY) < 0.5)
@@ -311,6 +318,19 @@ Item {
             stream.expandedId = stream.pendingExpanded
             stream.pendingExpanded = -2
         }
+    }
+    // The user took the list (a finger down on it, the crown): a running scroll stops where the list
+    // is, with no snap to its goal, and the card change that waited for it is dropped. So does stock's:
+    // its scrolls run at MutatePriority.Default (erl.java:166, mv.h), which user input cancels, and the
+    // cancel ends kvy's coroutine before it toggles the card (kvy.java:65, 98-99)
+    function stopScroll() {
+        if (isNaN(scrollWritten))
+            return
+        scrollAnim.stop()
+        scrollSpring.stop()
+        scrollWritten = NaN
+        scrollGoalFn = null
+        pendingExpanded = -2
     }
     SequentialAnimation {
         id: scrollAnim
@@ -547,6 +567,7 @@ Item {
         pendingExpanded = -2
         scrollAnim.stop()
         scrollSpring.stop()
+        scrollWritten = NaN
         // the top with its margin (positionViewAtBeginning() goes past it,
         // and the list would then not be at its beginning)
         if (listView && !listView.atYBeginning) {
@@ -657,6 +678,10 @@ Item {
                 // No stretch at the top (stock shows none: the tray takes that
                 // edge, PanelsGrid.handOverMoved); the end stretches as in any list
                 physics.stretchEnabled: !(lv.atYBeginning && !lv.atYEnd)
+                // the crown (or anything but the scroll itself) moved the list: the scroll gives way
+                // (1 px: ScrollPhysics' own test for another writer)
+                onContentYChanged: if (!isNaN(stream.scrollWritten) && Math.abs(lv.contentY - stream.scrollWritten) > 1)
+                                       stream.stopScroll()
 
                 // animateItem (kwf.java:106-114, 632-633): fade in on a spring of
                 // stiffness 200 (~0.45 s: the row's fadeIn), moves on 1.0 / 10000
@@ -800,6 +825,16 @@ Item {
                                                   Theme.color.onSurface.b, Theme.alpha.disabledContainer)
                 visible: !stream.modelEmpty && shownHeight > 0.5
                 onClicked: stream.clearAll()
+            }
+
+            // A finger down anywhere on the list stops a running scroll (stopScroll) before the
+            // list takes the drag. Passive and above the list: the press goes on to what is under it
+            Item {
+                anchors.fill: parent
+                z: 100
+                PointHandler {
+                    onActiveChanged: if (active) stream.stopScroll()
+                }
             }
 
             // Nothing to show (kvn.java:22-75, STRINGS empty_state_text): a
