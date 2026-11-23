@@ -143,7 +143,11 @@ Item {
         target: picker.store
         function onEntriesChanged() { picker.sync() }
     }
-    Component.onCompleted: sync()
+    Component.onCompleted: {
+        rowInstant = true
+        sync()
+        rowInstant = false
+    }
 
     function indexOfFid(id) {
         for (var i = 0; i < faceModel.count; i++)
@@ -181,6 +185,7 @@ Item {
         revealRadius = 1
         rowInstant = true
         positionAt(store.currentId)
+        bottomRow.applyRow()
         rowInstant = false
         // a snapshot of the face the carousel opens over, and of the wallpaper under it: the centre preview,
         // exactly the face as it is on the screen
@@ -448,18 +453,22 @@ Item {
     }
 
     // ---- a button of the bottom row --------------------------------------------------
-    /* Each visibility change of the row runs stock's transition set ibk (ibk.java:13-27, begun by X(),
-     * ManagementView.java:180-191) on the settings area: a Slide of 375 ms whose start waits by ibj
-     * (ibj.java: the chip 75 ms, the arrows 150 ms), a Fade of MODE_IN only (450 ms) and a ChangeBounds
-     * (nothing moves: a hidden button keeps its place). A button that hides stays as it is for the wait,
-     * slides down by the height of the area (Slide's bottom edge, the scene root: 8 + 13 + 32 + 5 = 58 dp)
-     * on Accelerate (t^2) and is gone at the end, not faded; one that shows starts down there, fades in at
-     * once on the ValueAnimator default (AccelerateDecelerate) and slides up after the wait on Decelerate. */
+    /* Each change of the row runs stock's transition set ibk (ibk.java:13-27, begun by X(),
+     * ManagementView.java:180-191) on the settings area: a Slide of 375 ms with the propagation ibj, a Fade of
+     * MODE_IN only (450 ms) and a ChangeBounds (nothing moves: a hidden button keeps its place). The arrows and
+     * the chip of one centred item are set together (kdu.java:221-240, iaf.java:188-199), one transition, and
+     * the Slide starts each button that changes at its ibj delay (the chip 75 ms, the arrows 150 ms) less the
+     * smallest delay among them (Transition.createAnimators; FP.rowWaits): an arrow that shows or hides on its
+     * own slides at once, the chip with an arrow waits 0 ms and the arrow 75 ms (bottomRow.applyRow). A button
+     * that hides stays as it is for its wait, slides down by the height of the area (Slide's bottom edge, the
+     * scene root: 8 + 13 + 32 + 5 = 58 dp) on Accelerate (t^2) and is gone at the end, not faded; one that
+     * shows starts down there, fades in at once on the ValueAnimator default (AccelerateDecelerate) and slides
+     * up after its wait on Decelerate. */
     component RowButton: Rectangle {
         id: rowButton
-        // shown (VISIBLE) or hidden (INVISIBLE)
-        property bool on: true
-        // the wait of the slide, ms
+        // shown (VISIBLE) or hidden (INVISIBLE): set by bottomRow.applyRow (hidden while nothing is centred)
+        property bool on: false
+        // the wait of its slide in the change it is in, ms (bottomRow.applyRow)
         property int waitMs: 0
         // the button's place in the row, and how far down it is slid
         property real rowY: 0
@@ -817,6 +826,31 @@ Item {
             readonly property real chipX: (picker.width - chipW) / 2
             property QtObject store: picker.store
 
+            // what the buttons go to; they follow together, one change (stock's X() calls of a frame are one
+            // beginDelayedTransition), at once while the picker sets itself up (rowInstant)
+            onOnFaceChanged: scheduleRow()
+            onLeftOnChanged: scheduleRow()
+            onRightOnChanged: scheduleRow()
+            function scheduleRow() {
+                if (picker.rowInstant)
+                    applyRow()
+                else
+                    Qt.callLater(applyRow)
+            }
+            function applyRow() {
+                var to = { left: leftOn, chip: onFace, right: rightOn }
+                var w = FP.rowWaits({ left: leftArrow.on, chip: chip.on, right: rightArrow.on }, to)
+                if (w.left >= 0)
+                    leftArrow.waitMs = w.left
+                if (w.chip >= 0)
+                    chip.waitMs = w.chip
+                if (w.right >= 0)
+                    rightArrow.waitMs = w.right
+                leftArrow.on = to.left
+                chip.on = to.chip
+                rightArrow.on = to.right
+            }
+
             RowButton {
                 id: leftArrow
                 objectName: "eosFaceLeft"
@@ -825,8 +859,6 @@ Item {
                 radius: width / 2
                 rowY: picker.arrowY
                 x: bottomRow.chipX - bottomRow.gap - width
-                on: bottomRow.leftOn
-                waitMs: FP.ROW_ARROW_WAIT_MS
                 color: Theme.color.surfaceContainer
                 Accessible.role: Accessible.Button
                 //% "Move watchface position left in the list"
@@ -860,8 +892,6 @@ Item {
                 radius: height / 2
                 rowY: picker.chipY
                 x: bottomRow.chipX
-                on: bottomRow.onFace
-                waitMs: FP.ROW_CHIP_WAIT_MS
                 color: Theme.color.primary
                 Accessible.role: Accessible.Button
                 //% "Edit watch face"
@@ -904,8 +934,6 @@ Item {
                 radius: width / 2
                 rowY: picker.arrowY
                 x: bottomRow.chipX + bottomRow.chipW + bottomRow.gap
-                on: bottomRow.rightOn
-                waitMs: FP.ROW_ARROW_WAIT_MS
                 color: Theme.color.surfaceContainer
                 Accessible.role: Accessible.Button
                 //% "Move watchface position right in the list"

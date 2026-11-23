@@ -9,10 +9,13 @@
 // face is drawn over the wallpaper, so the wallpaper goes under a snapshot. The shipped picture is drawn only
 // while there is no snapshot: never two pictures at once.
 // D60-29: the chip stays in the middle (x 140-244) and the arrows keep their slots (x 68 and 252, 8 px gaps):
-// CP3A hides them INVISIBLE (ibk.java:30-31), the row is not centred again. A button that hides waits (chip
-// 75 ms, arrows 150 ms: ibj.java) and slides down by the row's height (8 + 13 + 32 + 5 = 58 dp) in 375 ms
-// (Slide, Accelerate); one that shows fades in over 450 ms (Fade IN, AccelerateDecelerate) and slides up after
-// the wait in 375 ms (Decelerate) (ibk.java:13-27).
+// CP3A hides them INVISIBLE (ibk.java:30-31), the row is not centred again. The buttons of one centred item
+// change in one transition (kdu.java:221-240, iaf.java:188-199); its Slide starts each button that changes at
+// its ibj delay (chip 75 ms, arrows 150 ms) less the smallest of them (Transition.createAnimators): a lone
+// arrow waits 0 ms, the chip with an arrow 0 ms and the arrow 75 ms. A button that hides waits, then slides
+// down by the row's height (8 + 13 + 32 + 5 = 58 dp) in 375 ms (Slide, Accelerate); one that shows fades in
+// over 450 ms (Fade IN, AccelerateDecelerate) and slides up after its wait in 375 ms (Decelerate)
+// (ibk.java:13-27).
 // D60-30: CP3A's glyphs: quantum_gm_ic_arrow_left/right_vd_theme_24 (management_ui_root_layout.xml:47,62),
 // filled carets in a 24 dp box in primary; pencil_icon.xml (iaf.java:277-283), the outlined pencil 20 x 18 dp
 // inset 2 / 3 dp in a 24 dp box, in onPrimary.
@@ -31,6 +34,7 @@ import QtQuick.Shapes
 import QtTest
 import org.asteroid.controls
 import LauncherQml
+import "LauncherQml/facepicker.js" as FP
 
 Item {
     id: top
@@ -336,10 +340,12 @@ Item {
             near(right.x, 252, 0.5, "right arrow")
             compare(right.opacity, 1, "right arrow shown again")
             near(right.y, aY, 0.5, "right arrow slid back up")
-            // the show it ran (a Transition makes its animations when it first runs)
+            // the show it ran (a Transition makes its animations when it first runs): the right arrow changed
+            // alone, so it waited 150 - 150 = 0 ms
             var show = findAnim(right, "eosRowShow")
             verify(show !== null, "the show transition")
-            compare(findAnim(show, "eosRowShowWait").duration, Motion.duration(150), "arrow show waits 150 ms")
+            compare(right.waitMs, 0, "a lone arrow shows at once")
+            compare(findAnim(show, "eosRowShowWait").duration, Motion.duration(0), "arrow show waits 0 ms")
             var ss = findAnim(show, "eosRowShowSlide")
             compare(ss.duration, Motion.duration(375), "show slide 375 ms")
             compare(ss.easing.type, Easing.OutQuad, "Slide in on DecelerateInterpolator (1 - (1 - t)^2)")
@@ -347,11 +353,14 @@ Item {
             compare(sf.duration, Motion.duration(450), "Fade in 450 ms")
             compare(sf.easing.type, Easing.InOutSine, "Fade on the ValueAnimator default (AccelerateDecelerate)")
 
-            // to the first: the left arrow hides. It stays where it is during the 150 ms wait, then slides down
-            // 116 px; it goes transparent only at the end (Fade is MODE_IN only)
+            // to the first: the left arrow hides on its own, at once (0 ms), slides down 116 px and goes
+            // transparent only at the end (Fade is MODE_IN only)
             picker.positionAt("w1")
+            tryCompare(left, "on", false, 2000)
+            compare(left.waitMs, 0, "a lone arrow hides at once")
+            compare(chip.on, true, "the chip stays")
+            compare(right.on, true, "the right arrow stays")
             compare(left.opacity, 1, "not faded at the start")
-            near(left.y, aY, 0.5, "not moved at the start (the 150 ms wait)")
             near(left.x, 68, 0.5, "never moves sideways")
             near(chip.x, 140, 1, "the chip does not move")
             tryCompare(left, "opacity", 0, 5000)
@@ -363,22 +372,68 @@ Item {
             // the hide it ran (ibk.java, ibj.java)
             var hide = findAnim(left, "eosRowHide")
             verify(hide !== null, "the hide transition")
-            compare(findAnim(hide, "eosRowHideWait").duration, Motion.duration(150), "arrow hide waits 150 ms")
+            compare(findAnim(hide, "eosRowHideWait").duration, Motion.duration(0), "a lone arrow's hide waits 0 ms")
             var hs = findAnim(hide, "eosRowHideSlide")
             compare(hs.duration, Motion.duration(375), "hide slide 375 ms")
             compare(hs.easing.type, Easing.InQuad, "Slide out on AccelerateInterpolator (t^2)")
 
-            // Add new: the chip and the right arrow hide in their places; the chip waits 75 ms
-            find(picker, "eosFaceList").currentIndex = store.entries.length
+            // Add new: the chip and the right arrow hide in their places, in one change: the chip waits
+            // 75 - 75 = 0 ms, the arrow 150 - 75 = 75 ms
+            var faces = find(picker, "eosFaceList")
+            faces.currentIndex = store.entries.length
             compare(chip.opacity, 1, "the chip is not faded at the start")
-            near(chip.y, picker.chipY, 0.5, "nor moved (its 75 ms wait)")
+            tryCompare(chip, "on", false, 2000)
+            compare(right.on, false, "the right arrow in the same change")
+            compare(chip.waitMs, 0, "the chip waits 0 ms")
+            compare(right.waitMs, 75, "the arrow with the chip waits 75 ms")
             tryCompare(chip, "opacity", 0, 5000)
             near(chip.x, 140, 1, "chip slot kept on Add new")
             near(chip.y, picker.chipY + 116, 0.5, "chip slid down")
-            compare(findAnim(findAnim(chip, "eosRowHide"), "eosRowHideWait").duration, Motion.duration(75),
-                    "the chip waits 75 ms")
+            compare(findAnim(findAnim(chip, "eosRowHide"), "eosRowHideWait").duration, Motion.duration(0),
+                    "the chip's hide waits 0 ms")
             tryCompare(right, "opacity", 0, 5000)
             near(right.x, 252, 0.5, "right arrow slot kept on Add new")
+            compare(findAnim(findAnim(right, "eosRowHide"), "eosRowHideWait").duration, Motion.duration(75),
+                    "the arrow's hide waits 75 ms")
+            settleRow()
+
+            // back from Add new to the last favourite: the chip and the left arrow show in one change, the
+            // chip at once, the arrow 75 ms later
+            faces.currentIndex = store.entries.length - 1
+            tryCompare(chip, "on", true, 2000)
+            compare(left.on, true, "the left arrow in the same change")
+            compare(right.on, false, "the right arrow stays hidden on the last")
+            compare(chip.waitMs, 0, "the chip waits 0 ms")
+            compare(left.waitMs, 75, "the arrow with the chip waits 75 ms")
+            tryCompare(chip, "opacity", 1, 5000)
+            tryCompare(left, "opacity", 1, 5000)
+            settleRow()
+            near(chip.y, picker.chipY, 0.5, "the chip back up")
+            near(left.y, aY, 0.5, "the arrow back up")
+            compare(findAnim(findAnim(chip, "eosRowShow"), "eosRowShowWait").duration, Motion.duration(0),
+                    "the chip's show waits 0 ms")
+            compare(findAnim(findAnim(left, "eosRowShow"), "eosRowShowWait").duration, Motion.duration(75),
+                    "the arrow's show waits 75 ms")
+        }
+        // the waits of one change (FP.rowWaits): the ibj delays less the smallest of the buttons that change
+        function test_d60_29_waits() {
+            function w(from, to) {
+                var r = FP.rowWaits({ left: from[0], chip: from[1], right: from[2] },
+                                    { left: to[0], chip: to[1], right: to[2] })
+                return [r.left, r.chip, r.right]
+            }
+            compare(FP.ROW_CHIP_WAIT_MS, 75, "ibj: the chip 75 ms")
+            compare(FP.ROW_ARROW_WAIT_MS, 150, "ibj: the arrows 150 ms")
+            compare(w([true, true, true], [false, true, true]), [0, -1, -1], "middle to first: the left arrow alone, 0 ms")
+            compare(w([false, true, true], [true, true, true]), [0, -1, -1], "first to middle: 0 ms")
+            compare(w([true, true, true], [true, true, false]), [-1, -1, 0], "middle to last: the right arrow alone")
+            compare(w([true, true, false], [false, false, false]), [75, 0, -1], "last to Add new: chip 0, arrow 75")
+            compare(w([false, false, false], [true, true, false]), [75, 0, -1], "Add new to last: chip 0, arrow 75")
+            compare(w([false, true, true], [false, false, false]), [-1, 0, 75], "first to Add new: chip 0, arrow 75")
+            compare(w([false, true, true], [true, true, false]), [0, -1, 0], "two favourites: both arrows 0 ms")
+            compare(w([true, true, true], [false, false, false]), [75, 0, 75], "all three: the arrows 75 ms after the chip")
+            compare(w([false, true, false], [false, false, false]), [-1, 0, -1], "the chip alone: 0 ms")
+            compare(w([true, true, false], [true, true, false]), [-1, -1, -1], "no change")
         }
 
         // ---- D60-30 ----------------------------------------------------------------------------------------

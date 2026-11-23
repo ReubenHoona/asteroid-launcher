@@ -104,9 +104,35 @@ var BUTTONS_FADE_MS = 450
 // on top, 13 dp of margin (managementui_rearrange_circular_settings), the 32 dp buttons, 5 dp of padding below
 var ROW_GAP_DP = 4
 var ROW_HEIGHT_DP = 58
-// the start delay of a button's Slide (ibj.java)
+// the propagation delays of the buttons' Slide (ibj.java); a change starts each button at its delay less the
+// smallest delay of the buttons that change with it (rowWaits)
 var ROW_CHIP_WAIT_MS = 75
 var ROW_ARROW_WAIT_MS = 150
+
+/* The waits of the row's slides for one change from `from` to `to` ({ left, chip, right }: shown or not).
+ * Stock sets the arrows and the chip of one centred item together (kdu.java:221-240, iaf.java:188-199), each
+ * call begins the same delayed transition (ManagementView.java:180-191: one beginDelayedTransition per frame),
+ * and Transition.createAnimators starts every animator of the Slide at its propagation delay less the smallest
+ * delay among them (AOSP android.transition.Transition; the androidx copy in Maps keeps it:
+ * com.google.android.apps.maps/sources/androidx/transition/Transition.java:629, 686, 732). Only the buttons
+ * whose visibility changes get a Slide animator. Returns { left, chip, right }: the wait in ms of each button
+ * that changes, -1 for one that does not. */
+function rowWaits(from, to) {
+    var base = { left: ROW_ARROW_WAIT_MS, chip: ROW_CHIP_WAIT_MS, right: ROW_ARROW_WAIT_MS }
+    var keys = ["left", "chip", "right"]
+    var min = -1
+    for (var i = 0; i < keys.length; i++) {
+        var k = keys[i]
+        if (from[k] !== to[k] && (min < 0 || base[k] < min))
+            min = base[k]
+    }
+    var out = {}
+    for (var j = 0; j < keys.length; j++) {
+        var q = keys[j]
+        out[q] = from[q] !== to[q] ? base[q] - min : -1
+    }
+    return out
+}
 
 // the glyphs of the bottom row, CP3A's vector drawables (sysui res/drawable): the arrows are
 // quantum_gm_ic_arrow_left/right_vd_theme_24 (management_ui_root_layout.xml:47, 62), a 24 x 24 viewport in a
