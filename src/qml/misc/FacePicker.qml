@@ -5,6 +5,7 @@
 
 import QtQuick
 import QtQml.Models
+import QtQuick.Shapes
 import "complications/faceeditor.js" as FE
 import org.asteroid.controls
 import org.asteroid.utils
@@ -699,12 +700,20 @@ Item {
                 Accessible.role: Accessible.Button
                 //% "Move watchface position left in the list"
                 Accessible.name: qsTrId("id-face-move-left") + localeManager.changesObserver
-                Icon {
+                // CP3A's quantum_gm_ic_arrow_left_vd_theme_24: a filled caret in a 24 dp box
+                Shape {
+                    objectName: "eosFaceLeftGlyph"
                     anchors.centerIn: parent
-                    name: "ios-arrow-back"
-                    color: Theme.color.primary
-                    width: parent.width * 0.6
-                    height: width
+                    width: FP.GLYPH_BOX_DP
+                    height: FP.GLYPH_BOX_DP
+                    scale: 2 * picker.u
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                        fillColor: Theme.color.primary
+                        strokeColor: "transparent"
+                        strokeWidth: -1
+                        PathSvg { path: FP.GLYPH_ARROW_LEFT }
+                    }
                 }
                 MouseArea {
                     anchors.fill: parent
@@ -728,12 +737,22 @@ Item {
                 Accessible.role: Accessible.Button
                 //% "Edit watch face"
                 Accessible.name: qsTrId("id-face-edit") + localeManager.changesObserver
-                Icon {
+                // CP3A's pencil_icon.xml: the outlined pencil, 20 x 18 dp, centred in its 24 dp box (inset 2 and
+                // 3 dp), tinted onPrimary
+                Shape {
+                    objectName: "eosFaceChipGlyph"
                     anchors.centerIn: parent
-                    name: "ios-create"
-                    color: Theme.color.onPrimary
-                    width: 48 * picker.u
-                    height: width
+                    width: FP.PENCIL_W_DP
+                    height: FP.PENCIL_H_DP
+                    scale: 2 * picker.u
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                        fillColor: Theme.color.onPrimary
+                        fillRule: ShapePath.OddEvenFill
+                        strokeColor: "transparent"
+                        strokeWidth: -1
+                        PathSvg { path: FP.GLYPH_PENCIL }
+                    }
                 }
                 MouseArea {
                     id: chipArea
@@ -764,12 +783,20 @@ Item {
                 Accessible.role: Accessible.Button
                 //% "Move watchface position right in the list"
                 Accessible.name: qsTrId("id-face-move-right") + localeManager.changesObserver
-                Icon {
+                // CP3A's quantum_gm_ic_arrow_right_vd_theme_24
+                Shape {
+                    objectName: "eosFaceRightGlyph"
                     anchors.centerIn: parent
-                    name: "ios-arrow-forward"
-                    color: Theme.color.primary
-                    width: parent.width * 0.6
-                    height: width
+                    width: FP.GLYPH_BOX_DP
+                    height: FP.GLYPH_BOX_DP
+                    scale: 2 * picker.u
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                        fillColor: Theme.color.primary
+                        strokeColor: "transparent"
+                        strokeWidth: -1
+                        PathSvg { path: FP.GLYPH_ARROW_RIGHT }
+                    }
                 }
                 MouseArea {
                     anchors.fill: parent

@@ -3,6 +3,9 @@
 // The face picker (src/qml/misc/FacePicker.qml) and its Add new list (src/qml/misc/FaceAddList.qml) drawn with
 // the image's controls on the repo mocks. 384 x 384 px = 192 dp, 1 dp = 2 px. WO-11 of the image 60 defect list:
 //
+// D60-30: CP3A's glyphs: quantum_gm_ic_arrow_left/right_vd_theme_24 (management_ui_root_layout.xml:47,62),
+// filled carets in a 24 dp box in primary; pencil_icon.xml (iaf.java:277-283), the outlined pencil 20 x 18 dp
+// inset 2 / 3 dp in a 24 dp box, in onPrimary.
 // D60-31: the curved face name in onSurface #E8E7EE.
 // D60-32: the names hide for 166 ms and fade in over 100 ms on the ValueAnimator default, AccelerateDecelerate
 // (= InOutSine) (ManagementView.java:580-587).
@@ -10,6 +13,7 @@
 // Shots go to /tmp/wo11-shots. Run by motion-wt/wo11/run.sh (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the picker staged as module LauncherQml at its resource paths).
 import QtQuick
+import QtQuick.Shapes
 import QtTest
 import org.asteroid.controls
 import LauncherQml
@@ -165,6 +169,14 @@ Item {
                     return c[i]
             return null
         }
+        // the SVG path of a Shape's first ShapePath
+        function svgPath(shape) {
+            var els = shape.data[0].pathElements
+            for (var i = 0; i < els.length; i++)
+                if (els[i].path !== undefined)
+                    return els[i].path
+            return ""
+        }
         function colourNear(img, x, y, hex, tol, msg) {
             var c = Qt.color(hex)
             var r = img.red(x, y), g = img.green(x, y), b = img.blue(x, y)
@@ -202,6 +214,44 @@ Item {
                 picker = null
                 wait(30)
             }
+        }
+
+        // ---- D60-30 ----------------------------------------------------------------------------------------
+        function test_d60_30_glyphs() {
+            setup([["g1", "018-modular"], ["g2", "021-classic"], ["g3", "022-large"]], "g2")
+            openPicker()
+            settleRow()
+            var left = find(picker, "eosFaceLeft"), right = find(picker, "eosFaceRight"), chip = find(picker, "eosFaceChip")
+            var lg = find(left, "eosFaceLeftGlyph"), rg = find(right, "eosFaceRightGlyph"), pg = find(chip, "eosFaceChipGlyph")
+            verify(lg !== null && rg !== null && pg !== null, "the glyphs")
+            compare(svgPath(lg), "M14,7l-5,5 5,5V7z", "quantum_gm_ic_arrow_left_vd_theme_24")
+            compare(svgPath(rg), "M10,17l5,-5 -5,-5v10z", "quantum_gm_ic_arrow_right_vd_theme_24")
+            compare(svgPath(pg), "M18.4088,1.9375L17.0588,0.5875C16.2788,-0.1925 15.0088,-0.1925 14.2288,0.5875"
+                    + "L0.9988,13.8175V17.9975H5.1788L18.4088,4.7675C19.1988,3.9875 19.1988,2.7175 18.4088,1.9375Z"
+                    + "M4.4088,16.0575L2.9988,15.9975V14.6375L12.8188,4.8175L14.2288,6.2275L4.4088,16.0575Z",
+                    "pencil_icon.xml")
+            compare(lg.data[0].fillColor, Theme.color.primary, "carets in primary")
+            compare(pg.data[0].fillColor, Theme.color.onPrimary, "pencil in onPrimary")
+            compare(pg.data[0].fillRule, ShapePath.OddEvenFill, "pencil evenOdd (an outline)")
+            near(lg.width * lg.scale, 24 * dp, 0.01, "a 24 dp icon box")
+            near(pg.width * pg.scale, 20 * dp, 0.01, "the pencil 20 dp wide")
+            near(pg.height * pg.scale, 18 * dp, 0.01, "and 18 dp high")
+
+            var img = grabImage(left)
+            img.save("/tmp/wo11-shots/d60-30-left.png")
+            colourNear(img, 33, 32, String(Theme.color.primary), 10, "the left caret is filled primary")
+            colourNear(img, 44, 32, String(Theme.color.surfaceContainer), 6, "no shaft right of the caret")
+            colourNear(img, 20, 32, String(Theme.color.surfaceContainer), 6, "nothing left of the tip")
+            img = grabImage(right)
+            img.save("/tmp/wo11-shots/d60-30-right.png")
+            colourNear(img, 31, 32, String(Theme.color.primary), 10, "the right caret is filled primary")
+            colourNear(img, 20, 32, String(Theme.color.surfaceContainer), 6, "no shaft left of the caret")
+            img = grabImage(chip)
+            img.save("/tmp/wo11-shots/d60-30-chip.png")
+            colourNear(img, 63, 20, String(Theme.color.onPrimary), 12, "the pencil's cap in onPrimary")
+            colourNear(img, 48, 30, String(Theme.color.onPrimary), 24, "the pencil's upper wall")
+            colourNear(img, 51, 33, String(Theme.color.primary), 10, "an outline: the body is open (no filled box)")
+            colourNear(img, 20, 32, String(Theme.color.primary), 6, "nothing beside the pencil")
         }
 
         // ---- D60-31 ----------------------------------------------------------------------------------------

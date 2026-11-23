@@ -100,6 +100,19 @@ var SETTLE_MS = 300
 var BUTTONS_CHANGE_MS = 375         // ChangeBounds and Slide of the arrow buttons
 var BUTTONS_FADE_MS = 450
 
+// the glyphs of the bottom row, CP3A's vector drawables (sysui res/drawable): the arrows are
+// quantum_gm_ic_arrow_left/right_vd_theme_24 (management_ui_root_layout.xml:47, 62), a 24 x 24 viewport in a
+// 24 dp box; the chip shows pencil_icon.xml (iaf.java:277-283, WearChipButton.r()), a 20 x 18 viewport drawn
+// even-odd (an outline), inset 2 dp and 3 dp in its 24 dp box
+var GLYPH_BOX_DP = 24
+var GLYPH_ARROW_LEFT = "M14,7l-5,5 5,5V7z"
+var GLYPH_ARROW_RIGHT = "M10,17l5,-5 -5,-5v10z"
+var PENCIL_W_DP = 20
+var PENCIL_H_DP = 18
+var GLYPH_PENCIL = "M18.4088,1.9375L17.0588,0.5875C16.2788,-0.1925 15.0088,-0.1925 14.2288,0.5875L0.9988,13.8175"
+                   + "V17.9975H5.1788L18.4088,4.7675C19.1988,3.9875 19.1988,2.7175 18.4088,1.9375Z"
+                   + "M4.4088,16.0575L2.9988,15.9975V14.6375L12.8188,4.8175L14.2288,6.2275L4.4088,16.0575Z"
+
 // the add list (face-interaction-18)
 var ADD_SCALE_FROM = 0.25           // sysui_common_activity_away_scale
 var ADD_SCALE_MS = 250
