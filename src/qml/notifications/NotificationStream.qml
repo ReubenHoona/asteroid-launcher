@@ -235,7 +235,11 @@ Item {
     // The card to open or close once the scroll is over (stock scrolls first,
     // then changes the card, kvy.java:98-99); -2: none
     property int pendingExpanded: -2
-    function scrollGoal(goalFn, ms, thenExpanded) {
+    // the curve of the scroll tween: null is OutCubic (Clear all's scroll to the top, whose stock
+    // curve was lost), else a BezierSpline (motion E10: the card scrolls are FastOutSlowIn)
+    property var scrollCurve: null
+    // ms: a tween of that length (after delayMs); ms < 0: a spring of that stiffness, -ms
+    function scrollGoal(goalFn, ms, thenExpanded, curve, delayMs) {
         var lv = listView
         if (!lv)
             return
@@ -243,11 +247,20 @@ Item {
         if (lv.physics)
             lv.physics.stop()
         scrollAnim.stop()
+        scrollSpring.stop()
         scrollGoalFn = goalFn
         scrollStart = lv.contentY
         scrollProgress = 0
         pendingExpanded = thenExpanded === undefined ? -2 : thenExpanded
-        scrollAnim.duration = ms
+        if (ms < 0) {
+            scrollSpring.stiffness = -ms
+            scrollSpring.snapTo(0)
+            scrollSpring.animateTo(1)
+            return
+        }
+        scrollCurve = curve === undefined ? null : curve
+        scrollPause.duration = delayMs === undefined ? 0 : delayMs
+        scrollTween.duration = ms
         scrollAnim.restart()
     }
     function scrollToTop(ms) {
@@ -268,26 +281,43 @@ Item {
         if (listView && scrollGoalFn)
             listView.contentY = scrollStart + (scrollGoalFn() - scrollStart) * scrollProgress
     }
-    NumberAnimation {
+    function scrollDone() {
+        var lv = stream.listView
+        for (var i = 0; lv && stream.scrollGoalFn && i < 4; i++) {
+            var g = stream.scrollGoalFn()
+            if (Math.abs(g - lv.contentY) < 0.5)
+                break
+            lv.contentY = g
+        }
+        stream.scrollGoalFn = null
+        if (stream.pendingExpanded !== -2) {
+            stream.expandedId = stream.pendingExpanded
+            stream.pendingExpanded = -2
+        }
+    }
+    SequentialAnimation {
         id: scrollAnim
-        target: stream
-        property: "scrollProgress"
-        from: 0
-        to: 1
-        easing.type: Easing.OutCubic
+        PauseAnimation { id: scrollPause; duration: 0 }
+        NumberAnimation {
+            id: scrollTween
+            target: stream
+            property: "scrollProgress"
+            from: 0
+            to: 1
+            easing.type: stream.scrollCurve ? Easing.BezierSpline : Easing.OutCubic
+            easing.bezierCurve: stream.scrollCurve ? stream.scrollCurve : []
+        }
+        onFinished: stream.scrollDone()
+    }
+    // the scroll after a card that is not a conversation opens: spring 1.0/800 (kwa.java, kwf.java:632)
+    WearSpring {
+        id: scrollSpring
+        dampingRatio: 1.0
+        visibilityThreshold: 0.001
+        onValueChanged: if (running) stream.scrollProgress = value
         onFinished: {
-            var lv = stream.listView
-            for (var i = 0; lv && stream.scrollGoalFn && i < 4; i++) {
-                var g = stream.scrollGoalFn()
-                if (Math.abs(g - lv.contentY) < 0.5)
-                    break
-                lv.contentY = g
-            }
-            stream.scrollGoalFn = null
-            if (stream.pendingExpanded !== -2) {
-                stream.expandedId = stream.pendingExpanded
-                stream.pendingExpanded = -2
-            }
+            stream.scrollProgress = 1
+            stream.scrollDone()
         }
     }
 
@@ -309,8 +339,9 @@ Item {
      *    closing card above gives its height up);
      *  - closing a card whose top is more than two screen widths above the
      *    list: scroll back to it (200 ms).
-     * The card changes after the scroll (200 ms). Returns where the card's top
-     * is to be in the list (px from its top), or NaN for no scroll.
+     * The card changes after the scroll (200 ms on FastOutSlowIn, kvy.java:94,
+     * motion E10). Returns where the card's top is to be in the list (px from
+     * its top), or NaN for no scroll.
      */
     function preScrollTop(nid, opening) {
         var lv = listView
@@ -341,10 +372,37 @@ Item {
     function toggleCard(nid) {
         var opening = expandedId !== nid
         var y = preScrollTop(nid, opening)
-        if (isNaN(y))
+        if (isNaN(y)) {
             expandedId = opening ? nid : -1
+            if (opening)
+                scrollAfterOpen(nid)
+        } else {
+            scrollGoal(function () { return cardTopGoal(nid, y) }, Motion.duration(200), opening ? nid : -1,
+                       Motion.easing.legacy)
+        }
+    }
+
+    /* A card opened with no scroll before it (it opens downwards): the list then scrolls its top to
+     * where the list starts (kwa.java:105-144, "Expanding downward measured item"; motion E10).
+     * A conversation scrolls on a 300 ms FastOutSlowIn tween after 20 ms (autoscroll_duration,
+     * autoscroll_delay, kwm.java:7-8), any other card on the inline spring 1.0/800 (kwf.java:632).
+     * Stock's target is an offset of 0.16 of the screen height in one layout and 0 in the other
+     * (kwf.java:697) plus a conversation's own; the list's top margin stands for it here. */
+    function isConversation(n) {
+        return !!n && !!n.hints && (n.hints["x-asteroid-messages"] !== undefined || conversationKey(n) !== "")
+    }
+    function scrollAfterOpen(nid) {
+        var lv = listView
+        var row = rowItems[nid]
+        if (!lv || !row)
+            return
+        var goal = function () { return cardTopGoal(nid, lv.topMargin) }
+        if (Math.abs(goal() - lv.contentY) < 0.5)
+            return
+        if (isConversation(row.notification))
+            scrollGoal(goal, Motion.duration(300), undefined, Motion.easing.legacy, Motion.duration(20))
         else
-            scrollGoal(function () { return cardTopGoal(nid, y) }, Motion.duration(200), opening ? nid : -1)
+            scrollGoal(goal, -800)
     }
 
     // The heads-up card was tapped (MainScreen.openNotification): that
@@ -462,6 +520,7 @@ Item {
         expandedId = -1
         pendingExpanded = -2
         scrollAnim.stop()
+        scrollSpring.stop()
         // the top with its margin (positionViewAtBeginning() goes past it,
         // and the list would then not be at its beginning)
         if (listView && !listView.atYBeginning) {
