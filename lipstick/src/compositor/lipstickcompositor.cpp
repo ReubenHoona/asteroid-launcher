@@ -76,6 +76,18 @@ LipstickCompositor::LipstickCompositor()
 
     m_xdgShell = new QWaylandXdgShell(this);
     connect(m_xdgShell, &QWaylandXdgShell::toplevelCreated, this, &LipstickCompositor::onToplevelCreated);
+    // eos: xdg-decoration with server-side decorations for every window. A Qt
+    // client that finds zxdg_decoration_manager_v1 asks for server_side and
+    // draws no frame of its own (QWaylandXdgSurface::Toplevel::wantsDecorations),
+    // however it was started (the launcher, D-Bus activation, invoker, ssh);
+    // lipstick draws none either. Stock windows have no title bar, content
+    // from y 0 (D60-36). Without it Qt drew its "bradient" frame (30 px cap,
+    // 3 px sides) on a window started outside the launcher.
+    m_xdgDecoration = new QWaylandXdgDecorationManagerV1();
+    m_xdgDecoration->setParent(this);
+    m_xdgDecoration->setExtensionContainer(this);
+    m_xdgDecoration->setPreferredMode(QWaylandXdgToplevel::ServerSideDecoration);
+    m_xdgDecoration->initialize();
     // eos: the pong of the ping sent after a touch (EosAnr)
     connect(m_xdgShell, &QWaylandXdgShell::pong, this, &LipstickCompositor::onAnrPong);
     m_anrTimer = new QTimer(this);

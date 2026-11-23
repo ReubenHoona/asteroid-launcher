@@ -21,6 +21,7 @@
 #include <QWaylandQuickCompositor>
 #include <QWaylandQuickOutput>
 #include <QWaylandXdgShell>
+#include <QWaylandXdgDecorationManagerV1>
 #include <QWaylandQtWindowManager>
 #include <QQmlComponent>
 #include <QWaylandClient>
@@ -286,6 +287,7 @@ private:
     QQuickWindow *m_window;
     QWaylandOutput *m_output;
     QWaylandXdgShell *m_xdgShell;
+    QWaylandXdgDecorationManagerV1 *m_xdgDecoration;
     QWaylandQtWindowManager *m_wm;
     AsteroidGesturesManager *m_gesturesManager;
 
