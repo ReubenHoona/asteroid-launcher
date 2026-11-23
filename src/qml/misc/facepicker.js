@@ -75,6 +75,20 @@ function zoomScale(w, zoom) {
 // timing, ms (ManagementView.java:563-599, 740-787)
 var OPEN_MS = 266
 var CLOSE_MS = 300
+// closed without a change (motion K4; ManagementView.java:646-675 V(), animator/
+// sysui_common_activity_exit.xml, hzs.java): the picker shrinks to 0.25 (sysui_common_activity_away_scale)
+// in 350 ms on scale_interpolator (0.2, 0, 0.2, 1), fades out in 300 ms on fast_out_linear_in, and a
+// circular reveal takes its radius from 100 % to 25 % over 700 ms (twice the set) on FastOutLinearIn (hzs.b).
+// Its dim (sysui_common_activity_exit_dim, 350 ms) animates the alpha of managementui_black_dim
+// #00ff0000, a transparent colour: it draws nothing, so there is none here
+var AWAY_SCALE = 0.25
+var AWAY_SCALE_MS = 350
+var AWAY_SCALE_CURVE = [0.2, 0, 0.2, 1, 1, 1]
+var AWAY_ALPHA_MS = 300
+var AWAY_ALPHA_CURVE = [0.4, 0, 1, 1, 1, 1]
+var AWAY_REVEAL_TO = 0.25
+var AWAY_REVEAL_MS = 700
+var AWAY_REVEAL_CURVE = [0.4, 0, 1, 1, 1, 1]
 var NAMES_HIDDEN_MS = 166           // names and delete buttons hidden, then fade in
 var NAMES_FADE_MS = 100
 var TAP_WAIT_MS = 200               // a tap on a side face: scroll to it, wait, apply

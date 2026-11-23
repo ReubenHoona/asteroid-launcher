@@ -10,6 +10,7 @@ import org.asteroid.controls
 import org.asteroid.utils
 import Nemo.Configuration
 import "facepicker.js" as FP
+import "compositor"
 
 /*
  * The watchface picker, as stock Wear OS (CP3A, SysUI managementui), opened
@@ -160,8 +161,11 @@ Item {
         hideTimer.stop()
         addList.closeNow()
         exitAnim.stop()
+        awayAnim.stop()
         closing = false
         picker.opacity = 1
+        awayScale = 1
+        revealRadius = 1
         positionAt(store.currentId)
         // a snapshot of the face the carousel opens over: the centre preview, exactly the face
         liveUrl = ""
@@ -220,15 +224,50 @@ Item {
     }
 
     // the exit: the carousel grows to 1.613 in 300 ms, the centre preview becomes the face, then the
-    // picker goes. `fade` when the centred preview is not the face on the watch (nothing to grow into).
+    // picker goes. `fade` when the centred preview is not the face on the watch (nothing to grow into):
+    // the picker goes away as stock's V() does (motion K4, awayAnim)
     function exit(fade) {
         openAnim.stop()
         opening = false
         closing = true
         fadeOut = fade
-        exitAnim.restart()
+        if (fade)
+            awayAnim.restart()
+        else
+            exitAnim.restart()
     }
     property bool fadeOut: false
+
+    // the away exit (K4): scale and alpha of the whole picker, and its circular reveal (a fraction of the
+    // half width), masked only while it runs
+    property real awayScale: 1
+    property real revealRadius: 1
+    scale: awayScale
+    layer.enabled: awayAnim.running
+    layer.effect: CircleMaskShader {
+        end: 0.25 * picker.revealRadius * picker.revealRadius
+        beginning: end - smoothness
+    }
+    ParallelAnimation {
+        id: awayAnim
+        objectName: "eosFaceAwayAnim"
+        NumberAnimation {
+            target: picker; property: "awayScale"; to: FP.AWAY_SCALE
+            duration: Motion.duration(FP.AWAY_SCALE_MS)
+            easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_SCALE_CURVE
+        }
+        NumberAnimation {
+            target: picker; property: "opacity"; to: 0
+            duration: Motion.duration(FP.AWAY_ALPHA_MS)
+            easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_ALPHA_CURVE
+        }
+        NumberAnimation {
+            target: picker; property: "revealRadius"; to: FP.AWAY_REVEAL_TO
+            duration: Motion.duration(FP.AWAY_REVEAL_MS)
+            easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_REVEAL_CURVE
+        }
+        onFinished: picker.finish()
+    }
     ParallelAnimation {
         id: exitAnim
         objectName: "eosFaceExitAnim"
@@ -249,6 +288,8 @@ Item {
         opening = false
         zoom = 0
         picker.opacity = 1
+        awayScale = 1
+        revealRadius = 1
         liveResult = null
         liveUrl = ""
         addList.closeNow()
@@ -266,6 +307,7 @@ Item {
     function closeNow() {
         openAnim.stop()
         exitAnim.stop()
+        awayAnim.stop()
         tapTimer.stop()
         flyAnim.stop()
         opening = false
