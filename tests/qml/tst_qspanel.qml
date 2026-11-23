@@ -683,15 +683,31 @@ Item {
             var b = tile("battery")
             show(b)
             compare(b.iconSize, 64)
-            // the glyph filled to the step (90), the percent under it: 30 px digits, 20 px sign
+            // D60-18: CP3A's battery_status glyph: the 64 x 28 px drawable 18 px down in the button, a
+            // body 44.3 x 24 px (corners 7.4) at (8.5, 2) and a nub 2.8 x 11.1 px at (54.7, 8.5), both
+            // at 55 %, the level (step 90: index 7, right edge 22.731 dp) solid
             var fill = find(b, "batteryFill")
             var glyph = find(b, "batteryGlyph")
+            var body = find(b, "batteryBody"), nub = find(b, "batteryNub")
             compare(glyph.width, 64); compare(glyph.height, 28)
-            near(fill.width, (glyph.bodyWidth - 14) * 0.9, 0.5, "fill")
+            compare(glyph.y, 18)
+            near(glyph.x, (104 - 64) / 2, 1e-6)
+            near(body.x, 8.538, 0.01); near(body.y, 2, 0.01)
+            near(body.width, 44.308, 0.01); near(body.height, 24, 0.01); near(body.radius, 7.384, 0.01)
+            near(body.opacity, 0.55, 1e-6)
+            near(nub.x, 54.692, 0.01); near(nub.y, 8.46, 0.01); near(nub.width, 2.77, 0.01); near(nub.height, 11.078, 0.01)
+            near(nub.opacity, 0.55, 1e-6)
+            // body to the nub's end 48.9 px (the emulator's older glyph is 43-44)
+            near(nub.x + nub.width - body.x, 48.9, 0.1)
+            near(fill.width, 2 * (22.731 - 4.269), 0.01, "fill")
+            compare(fill.x, body.x); compare(fill.height, body.height)
+            verify(fill.visible)
             compare(find(b, "batteryDigits").font.pixelSize, 30)
+            compare(find(b, "batteryDigits").font.weight, Font.DemiBold)
             compare(find(b, "batteryDigits").text, "85")
             var pct = find(b, "batteryPercent")
             compare(pct.children[1].font.pixelSize, 20)
+            compare(pct.children[1].font.weight, Font.DemiBold)
             // under the glyph
             verify(pct.y >= glyph.y + glyph.height)
             // Settings > Battery > Show percentage off hides the digits
@@ -705,15 +721,24 @@ Item {
             compare(b.label, "Battery 85%. Battery saver off.")
             colourIs(b.contentColor, Theme.color.onSurface, "normal glyph")
             shot("qs-05-battery-85")
-            // the level steps
+            // the level steps: the right edge of CP3A's drawable per step
+            var rights = [[15, 7.041], [20, 8.885], [30, 9.808], [40, 12.555], [50, 15.346], [60, 18.124], [70, 20.885], [90, 22.731], [99, 23.5]]
+            for (var i = 0; i < rights.length; i++)
+                near(QS.batteryLevelWidth(rights[i][0]), rights[i][1] - 4.269, 1e-9, "step " + rights[i][0])
             Backend.batteryPercent = 16
             wait(60)
-            near(find(b, "batteryFill").width, (glyph.bodyWidth - 14) * 0.2, 0.5, "step 20")
+            near(find(b, "batteryFill").width, 2 * (8.885 - 4.269), 0.01, "step 20")
+            // 100 %: body and nub solid, no separate level
+            Backend.batteryPercent = 100
+            wait(60)
+            compare(body.opacity, 1); compare(nub.opacity, 1)
+            verify(!find(b, "batteryFill").visible)
             // at 15 or less: errorDim
             Backend.batteryPercent = 15
             wait(60)
             colourIs(b.contentColor, Theme.color.errorDim, "low battery")
-            near(find(b, "batteryFill").width, (glyph.bodyWidth - 14) * 0.15, 0.5, "step 15")
+            near(find(b, "batteryFill").width, 2 * (7.041 - 4.269), 0.01, "step 15")
+            near(body.opacity, 0.55, 1e-6)
             Backend.batteryPercent = 16
             wait(60)
             colourIs(b.contentColor, Theme.color.onSurface, "just above the trigger")

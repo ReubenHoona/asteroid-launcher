@@ -216,6 +216,23 @@ function batteryStep(percent) {
 }
 function batteryLow(percent) { return percent <= LOW_BATTERY }
 
+/* The battery glyph, dp: CP3A's battery_status_0..9 (32 x 14 dp, drawn 1:1 in
+ * the 32 dp icon, vertically centred: kze.java:15-35, kzc.c 32): a body
+ * 22.154 x 12 at (4.269, 1) with 3.692 corners and a nub 1.385 x 5.539 at
+ * (27.346, 4.23), both at 55 % of the content colour, and the level part of
+ * the body solid from its left edge to levelRight[step index] (the body's own
+ * shape cuts the last two); at 100 % body and nub are solid. */
+var BATTERY_GLYPH = { width: 32, height: 14, top: 9,
+                      bodyX: 4.269, bodyY: 1, bodyWidth: 22.154, bodyHeight: 12, bodyRadius: 3.692,
+                      nubX: 27.346, nubY: 4.23, nubWidth: 1.385, nubHeight: 5.539, nubRadius: 1.077,
+                      emptyAlpha: 0.55,
+                      levelRight: [7.041, 8.885, 9.808, 12.555, 15.346, 18.124, 20.885, 22.731, 23.5, 26.423] }
+/* the width of the solid part of the body, dp, for a percent */
+function batteryLevelWidth(percent) {
+    var i = BATTERY_STEPS.indexOf(batteryStep(percent))
+    return BATTERY_GLYPH.levelRight[i] - BATTERY_GLYPH.bodyX
+}
+
 function batteryDescription(percent, saverOn, charging, tr) {
     var s = tr.battery.replace("%1", Math.round(percent))
     return s + " " + (charging ? tr.charging : saverOn ? tr.saverOn : tr.saverOff)

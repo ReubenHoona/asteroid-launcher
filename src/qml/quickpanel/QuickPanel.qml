@@ -596,41 +596,61 @@ Item {
                 saverOff: qsTrId("id-qs-a11y-saver-off")
             })
 
-            // the glyph, 32 x 14 dp, filled to the level; own design
+            // the glyph as CP3A's battery_status_0..9 (QS.BATTERY_GLYPH; own drawing of those
+            // shapes): a filled body and nub at 55 %, the level part solid, in the 32 dp icon box
+            // at the top of the button, 9 dp down to the 14 dp drawable
             Item {
                 id: glyph
                 objectName: "batteryGlyph"
-                width: Theme.dp(32)
-                height: Theme.dp(14)
+                readonly property var g: QS.BATTERY_GLYPH
+                readonly property bool full: bt.step === 100 && !rootitem.charging
+                width: Theme.dp(g.width)
+                height: Theme.dp(g.height)
                 x: (parent.width - width) / 2
-                y: parent.height / 2 - Theme.dp(15)
-                readonly property real bodyWidth: width - Theme.dp(3)
+                y: Theme.dp(g.top)
                 Rectangle {
                     id: body
-                    width: glyph.bodyWidth
-                    height: glyph.height
-                    radius: Theme.dp(3.5)
-                    color: "transparent"
-                    border.width: Theme.dp(1.5)
-                    border.color: bt.contentColor
-                }
-                Rectangle {
-                    x: glyph.bodyWidth
-                    y: (glyph.height - height) / 2
-                    width: Theme.dp(2.5)
-                    height: Theme.dp(6)
-                    radius: Theme.dp(1)
+                    objectName: "batteryBody"
+                    x: Theme.dp(glyph.g.bodyX)
+                    y: Theme.dp(glyph.g.bodyY)
+                    width: Theme.dp(glyph.g.bodyWidth)
+                    height: Theme.dp(glyph.g.bodyHeight)
+                    radius: Theme.dp(glyph.g.bodyRadius)
                     color: bt.contentColor
+                    opacity: glyph.full ? 1 : glyph.g.emptyAlpha
                 }
-                Rectangle {
+                // the nub: square on the body's side, round on the outside
+                Item {
+                    objectName: "batteryNub"
+                    x: Theme.dp(glyph.g.nubX)
+                    y: Theme.dp(glyph.g.nubY)
+                    width: Theme.dp(glyph.g.nubWidth)
+                    height: Theme.dp(glyph.g.nubHeight)
+                    clip: true
+                    opacity: glyph.full ? 1 : glyph.g.emptyAlpha
+                    Rectangle {
+                        x: -radius
+                        width: parent.width + radius
+                        height: parent.height
+                        radius: Theme.dp(glyph.g.nubRadius)
+                        color: bt.contentColor
+                    }
+                }
+                // the level: the body's shape, cut at the step's right edge
+                Item {
                     objectName: "batteryFill"
-                    x: Theme.dp(3.5)
-                    y: Theme.dp(3.5)
-                    width: Math.max(Theme.dp(2), (glyph.bodyWidth - Theme.dp(7)) * bt.step / 100)
-                    height: glyph.height - Theme.dp(7)
-                    radius: Theme.dp(1.5)
-                    color: bt.contentColor
-                    visible: !rootitem.charging
+                    x: body.x
+                    y: body.y
+                    width: Theme.dp(QS.batteryLevelWidth(bt.percent))
+                    height: body.height
+                    clip: true
+                    visible: !rootitem.charging && !glyph.full
+                    Rectangle {
+                        width: body.width
+                        height: body.height
+                        radius: body.radius
+                        color: bt.contentColor
+                    }
                 }
                 Icon {
                     objectName: "batteryBolt"
@@ -657,11 +677,13 @@ Item {
                     font.weight: Font.DemiBold
                     color: bt.contentColor
                 }
+                // both spans weight 600 (kxb's bae.java:381-388, cum.c)
                 Label {
                     anchors.bottom: parent.bottom
                     anchors.bottomMargin: Theme.dp(1)
                     text: "%"
                     font.pixelSize: Theme.dp(10)
+                    font.weight: Font.DemiBold
                     color: bt.contentColor
                 }
             }
