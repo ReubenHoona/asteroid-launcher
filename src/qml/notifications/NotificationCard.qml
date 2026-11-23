@@ -15,7 +15,12 @@ import org.asteroid.controls
  * ratio 0.8, kwm.java inline_stiffness / inline_damping) from the top
  * while the collapsed text fades out and the full text fades in. A
  * collapsed card shows the default template: header, title, body (two
- * lines each at most) and a 60 dp picture strip.
+ * lines each at most) and a 60 dp picture strip. The fades follow the
+ * open state's own progress (openP, on the same spring), not the height:
+ * an open card always shows its full layout alone, also when that is no
+ * taller than the collapsed one, and is as tall as the full layout (at
+ * least 64 dp). A card made open (the heads-up's full view) is open from
+ * its first frame and takes a new height at once until the user toggles it.
  *
  * The card does not take touches itself: the stream's row puts the tap
  * handler over the swipe-to-reveal (a handler there sees the press while
@@ -75,20 +80,23 @@ Item {
 
     // the height shown now: the spring's (the card is as tall as this)
     property real shownHeight: 0
-    // 0 collapsed .. 1 open, from the height: what fades and mixes
+    // 0 collapsed .. 1 open, from the height: what the surface colour mixes on
     readonly property real expandProgress: {
         var span = Math.max(1, Math.max(collapsedHeight, fullHeight) - collapsedHeight)
         return Math.max(0, Math.min(1, (shownHeight - collapsedHeight) / span))
     }
-    readonly property bool animating: heightSpring.running
-    // The surface's height: the whole while nothing hangs below it, else its share
-    // of the spring's travel (collapsed .. surface), so the actions slide down with it
+    // 0 collapsed .. 1 open: the open state's own progress, on its own spring with the
+    // height's numbers (800 / 0.8), started with it. What fades: the collapsed layer out,
+    // the full text and what hangs below in (openOpacity, held to 0 .. 1)
+    property real openP: 0
+    readonly property real openOpacity: Math.max(0, Math.min(1, openP))
+    readonly property bool animating: heightSpring.running || openSpring.running
+    // The surface's height: the whole while nothing hangs below it, else from the collapsed
+    // height to its own on the open progress, so the actions slide down with it
     readonly property real surfaceHeight: {
         if (actionsFullHeight <= 0)
             return shownHeight
-        var span = Math.max(1, fullHeight - collapsedHeight)
-        var surface = Math.max(collapsedHeight, surfaceFullHeight)
-        return collapsedHeight + (shownHeight - collapsedHeight) / span * (surface - collapsedHeight)
+        return collapsedHeight + openP * (surfaceFullHeight - collapsedHeight)
     }
 
     // A point of the card (its own coordinates) over what hangs below the surface: the
@@ -113,17 +121,22 @@ Item {
     }
 
     property bool _ready: false
+    // the user has opened or closed this card (a card made open has not, until then)
+    property bool _toggled: false
     function fullH() { return surfaceFullHeight + actionsFullHeight }
-    function currentTarget() { return expanded ? Math.max(collapsedHeight, fullH()) : collapsedHeight }
-    // A height that changed by itself: an open card (or one still moving)
-    // follows on the spring, a closed one just takes it (a text that grew)
+    // open: as tall as the full layout, at least the card's 64 dp (not held to the
+    // collapsed height: a short notification's full layout can be the shorter)
+    function currentTarget() { return expanded ? Math.max(minHeight, fullH()) : collapsedHeight }
+    // A height that changed by itself: a card the user opened (or one still moving)
+    // follows on the spring; a closed one, and one made open, just take it (a text
+    // that grew, the open card's parts laid out after it was made)
     function retarget() {
         if (!_ready)
             return
         var t = currentTarget()
         if (Math.abs(t - shownHeight) < 0.5 && !heightSpring.running)
             return
-        if (heightSpring.running || expanded)
+        if (heightSpring.running || (expanded && _toggled))
             heightSpring.animateTo(t)
         else
             heightSpring.snapTo(t)
@@ -133,32 +146,48 @@ Item {
     onExpandedChanged: {
         if (!_ready)
             return
+        _toggled = true
         if (expanded) {
             fullLoader.active = true
             actionsLoader.active = true
         }
+        openSpring.animateTo(expanded ? 1 : 0)
         heightSpring.animateTo(currentTarget())
     }
     Component.onCompleted: {
-        // created open (a heads-up tap opened it first): no animation
+        // created open (a heads-up tap opened it first): open now, no animation
         fullLoader.active = expanded
         actionsLoader.active = expanded
+        openSpring.snapTo(expanded ? 1 : 0)
         heightSpring.snapTo(currentTarget())
         _ready = true
     }
+    // closed and both springs at rest: the open parts go
+    function _settle() {
+        if (!expanded && !heightSpring.running && !openSpring.running) {
+            fullLoader.active = false
+            actionsLoader.active = false
+        }
+    }
 
-    // its settings and state, for the tests and the diagnostics
+    // their settings and state, for the tests and the diagnostics
     readonly property QtObject heightAnimation: heightSpring
+    readonly property WearSpring openAnimation: openSpring
     WearSpring {
         id: heightSpring
         target: card
         property: "shownHeight"
         stiffness: card.springStiffness
         dampingRatio: card.springDamping
-        onFinished: if (!card.expanded) {
-            fullLoader.active = false
-            actionsLoader.active = false
-        }
+        onFinished: card._settle()
+    }
+    WearSpring {
+        id: openSpring
+        target: card
+        property: "openP"
+        stiffness: card.springStiffness
+        dampingRatio: card.springDamping
+        onFinished: card._settle()
     }
 
     Rectangle {
@@ -181,9 +210,10 @@ Item {
         // collapsed: header, title, body, picture strip
         Item {
             id: collapsedLayer
+            objectName: "collapsedLayer"
             width: parent.width
             height: parent.height
-            opacity: 1 - card.expandProgress
+            opacity: 1 - card.openOpacity
             visible: opacity > 0
 
             NotificationText {
@@ -212,9 +242,10 @@ Item {
         // open: everything of the notification, only while open or moving
         Loader {
             id: fullLoader
+            objectName: "fullLoader"
             width: parent.width
             active: false
-            opacity: card.expandProgress
+            opacity: card.openOpacity
             visible: active && opacity > 0
             sourceComponent: Item {
                 width: fullLoader.width
@@ -271,7 +302,7 @@ Item {
         y: bg.height
         width: parent.width
         active: false
-        opacity: card.expandProgress
+        opacity: card.openOpacity
         visible: active && opacity > 0
         sourceComponent: NotificationActions {
             width: actionsLoader.width
