@@ -380,6 +380,148 @@ Item {
             colourNear(img, 192 + 121, cy, "#202124", 4, "009's ring")
         }
 
+        // the preview that flies in from Add new (picker.addFace, as FaceAddList's picked) is drawn as the
+        // item it lands in: black inside the 4 px #202124 ring, the shipped picture on the wallpaper of the open
+        // (not the old #202124 disc without the wallpaper), and it is round as stock's flyer (a bitmap of the
+        // list item's preview frame, ManagementView.java:289-380): it leaves what lies outside its ring, such as
+        // the delete button of the item, as it is. 009's picture (no background) shows through its dial.
+        function test_d60_28_flyer() {
+            var folder = Qt.resolvedUrl("previews182/").toString()
+            if (!fileExists(folder + "009-analog-scientific-v2.png"))
+                skip("the repo's previews are not staged as previews182/ next to the test")
+            setup([["f1", "021-classic"], ["f2", "018-modular"], ["f3", "022-large"]], "f1")
+            picker.previewFolder = folder
+            openPicker()
+            var flyer = find(picker, "eosFaceFlyer"), anim = find(picker, "eosFaceFlyAnim")
+            verify(flyer !== null && anim !== null, "flyer and its animation")
+            // picked in the list: a 160 px preview centred at (100, 260)
+            picker.addFace(top.face("009-analog-scientific-v2"), 100, 260, 160)
+            anim.pause()
+            verify(flyer.visible, "the flyer is out")
+            near(flyer.width, 160 + 2 * 2 * dp, 0.01, "the list's 160 px preview and the 4 px ring")
+            var ring = find(flyer, "eosFlyerRing")
+            compare(String(ring.color), "#000000", "black inside the ring, not the #202124 disc")
+            near(ring.border.width, 2 * dp, 0.01, "the 4 px ring")
+            compare(String(ring.border.color), "#202124", "managementui_border_color")
+            // (the item's picture of the same face may still be loading: the flyer shares that load)
+            tryVerify(function () { return flyer.backed }, 5000, "the flyer draws the wallpaper of the open")
+            compare(find(flyer, "eosFlyerShipped").opacity, 0, "the picture is drawn in the cut, on the wallpaper")
+            // the cut: centred rectangles that cover the picture's disc and stay inside the ring (3 px past
+            // the 238 px picture at the slot, so at most 160 / 238 * 3 here)
+            var pic = find(flyer, "eosFlyerPicture"), cut = []
+            for (var i = 0; i < pic.children.length; i++)
+                if (pic.children[i].objectName === "eosFlyerCut")
+                    cut.push(pic.children[i])
+            compare(cut.length, picker.flyerCut.length, "one clip per rectangle of the cut")
+            verify(cut.length >= 10 && cut.length <= 30, "a cut of " + cut.length + " clips")
+            var r = pic.width / 2
+            for (i = 0; i < cut.length; i++) {
+                near(cut[i].x + cut[i].width / 2, r, 0.01, "clip " + i + " centred")
+                near(cut[i].y + cut[i].height / 2, r, 0.01, "clip " + i + " centred")
+                verify(Math.sqrt(cut[i].width * cut[i].width + cut[i].height * cut[i].height) / 2 <= r + 3 * 160 / 238 + 0.01,
+                       "clip " + i + " stays inside the ring")
+                verify(cut[i].clip, "clip " + i + " clips")
+            }
+            for (var a = 0; a < 360; a += 3) {
+                var px = r + (r - 0.01) * Math.cos(a * Math.PI / 180), py = r + (r - 0.01) * Math.sin(a * Math.PI / 180)
+                var hit = false
+                for (i = 0; i < cut.length && !hit; i++)
+                    hit = px >= cut[i].x && px <= cut[i].x + cut[i].width && py >= cut[i].y && py <= cut[i].y + cut[i].height
+                verify(hit, "the cut covers the disc's edge at " + a + " degrees")
+            }
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-flyer-start.png")
+            var k = flyer.side / 182, fx = flyer.x + 2 * dp, fy = flyer.y + 2 * dp
+            colourNear(img, Math.round(fx + 138 * k), Math.round(fy + 138 * k), "#2050a0", 10,
+                       "the wallpaper through the flyer's 009 dial")
+            colourNear(img, Math.round(fx + 58 * k), Math.round(fy + 131 * k), "#2050a0", 10,
+                       "the wallpaper through the flyer's 009 dial (left)")
+            colourNear(img, Math.round(flyer.x + flyer.width - dp), Math.round(flyer.y + flyer.width / 2), "#202124", 4,
+                       "the flyer's ring")
+
+            // at the slot, still flying (the animation's own end values), then landed: the same picture
+            for (i = 0; i < 4; i++)
+                flyer[anim.animations[i].property] = anim.animations[i].to
+            near(flyer.width, 238 + 8, 0.5, "at the slot: the item's 246 px")
+            // the cut at the slot: out to 3 px past the 238 px picture at most, inside the 4 px ring
+            var reach = 0
+            for (i = 0; i < cut.length; i++)
+                reach = Math.max(reach, Math.sqrt(cut[i].width * cut[i].width + cut[i].height * cut[i].height) / 2)
+            verify(reach <= 119 + 3 + 0.01 && reach >= 119 + 2.9, "the cut reaches " + reach + " px from the centre")
+            compare(FP.roundCut(0).length, 1, "no margin: one rectangle")
+            compare(FP.roundCut(0)[0].width, 1, "the whole square")
+            var flying = grabImage(picker)
+            flying.save("/tmp/wo11-shots/d60-28-flyer-slot.png")
+            anim.resume()
+            tryCompare(anim, "running", false, 5000)
+            verify(!flyer.visible, "the flyer is gone")
+            var c = cellOf("added3")
+            verify(c !== null, "the added face's item")
+            compare(find(c, "eosFaceShipped").opacity, 1, "it shows its shipped picture")
+            verify(find(c, "eosFaceBackground").visible, "on the wallpaper")
+            wait(100)
+            var landed = grabImage(picker)
+            landed.save("/tmp/wo11-shots/d60-28-flyer-landed.png")
+            // the picture inside the ring, in its upper left (away from the delete button and the arrows, which
+            // the flyer passes under the carousel's row): flying and landed alike
+            var cy = Math.round(picker.previewCy), n = 0
+            for (var gx = 30; gx <= 110; gx += 20)
+                for (var gy = 30; gy <= 80; gy += 10) {
+                    if (Math.sqrt((gx - 91) * (gx - 91) + (gy - 91) * (gy - 91)) > 80)
+                        continue
+                    var sx = Math.round(73 + gx * 238 / 182), sy = Math.round(cy - 119 + gy * 238 / 182)
+                    var d = Math.abs(flying.red(sx, sy) - landed.red(sx, sy)) + Math.abs(flying.green(sx, sy) - landed.green(sx, sy))
+                            + Math.abs(flying.blue(sx, sy) - landed.blue(sx, sy))
+                    verify(d <= 24, "flying and landed alike at " + sx + "," + sy + ": " + d)
+                    n++
+                }
+            verify(n >= 12, n + " points compared")
+            colourNear(landed, Math.round(73 + 138 * 238 / 182), Math.round(cy - 119 + 138 * 238 / 182), "#2050a0", 10,
+                       "landed: the wallpaper through 009's dial")
+            colourNear(flying, Math.round(73 + 138 * 238 / 182), Math.round(cy - 119 + 138 * 238 / 182), "#2050a0", 10,
+                       "flying: the wallpaper through 009's dial")
+            colourNear(flying, 192 + 121, cy, "#202124", 4, "flying: the ring")
+            // the delete button outside the ring: not covered by the flyer
+            var del = find(c, "eosFaceDelete")
+            verify(del.visible && del.opacity === 1, "the item's delete button")
+            var dc = del.mapToItem(picker, del.width / 2, del.height / 2)
+            var vx = dc.x - 192, vy = dc.y - picker.previewCy, vl = Math.sqrt(vx * vx + vy * vy)
+            var ox = Math.round(dc.x + vx / vl * (del.width / 2 - 6)), oy = Math.round(dc.y + vy / vl * (del.width / 2 - 6))
+            var outR = Math.sqrt((ox - 192) * (ox - 192) + (oy - picker.previewCy) * (oy - picker.previewCy))
+            verify(outR > 119 + 4 + 2, "the point " + ox + "," + oy + " lies outside the ring (" + outR + ")")
+            verify(Math.abs(ox - 192) < 119 && Math.abs(oy - picker.previewCy) < 119, "and inside the picture's square")
+            var dd = Math.abs(flying.red(ox, oy) - landed.red(ox, oy)) + Math.abs(flying.green(ox, oy) - landed.green(ox, oy))
+                     + Math.abs(flying.blue(ox, oy) - landed.blue(ox, oy))
+            verify(landed.red(ox, oy) + landed.green(ox, oy) + landed.blue(ox, oy) > 60, "the delete button is drawn there")
+            verify(dd <= 12, "the flyer leaves the delete button outside its ring as it is: " + dd)
+        }
+        // without the wallpaper (no background item): the flyer's picture on black, as the item draws it
+        function test_d60_28_flyer_no_wallpaper() {
+            var folder = Qt.resolvedUrl("previews182/").toString()
+            if (!fileExists(folder + "009-analog-scientific-v2.png"))
+                skip("the repo's previews are not staged as previews182/ next to the test")
+            setup([["g1", "021-classic"], ["g2", "018-modular"]], "g1")
+            picker.background = null
+            picker.previewFolder = folder
+            openPicker()
+            compare(picker.backgroundUrl, "", "no wallpaper snapshot")
+            var flyer = find(picker, "eosFaceFlyer"), anim = find(picker, "eosFaceFlyAnim")
+            picker.addFace(top.face("009-analog-scientific-v2"), 192, 200, 160)
+            anim.pause()
+            tryVerify(function () { return find(flyer, "eosFlyerShipped").ready }, 5000, "the flyer's picture")
+            verify(!flyer.backed, "nothing to cut")
+            compare(find(flyer, "eosFlyerShipped").opacity, 1, "the picture as it is")
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-flyer-black.png")
+            var k = flyer.side / 182, fx = flyer.x + 2 * dp, fy = flyer.y + 2 * dp
+            colourNear(img, Math.round(fx + 138 * k), Math.round(fy + 138 * k), "#000000", 4,
+                       "black through the dial, not #202124")
+            colourNear(img, Math.round(flyer.x + flyer.width - dp), Math.round(flyer.y + flyer.width / 2), "#202124", 4,
+                       "the ring")
+            anim.resume()
+            tryCompare(anim, "running", false, 5000)
+        }
+
         // ---- D60-29 ----------------------------------------------------------------------------------------
         function test_d60_29_row() {
             setup([["w1", "018-modular"], ["w2", "021-classic"], ["w3", "022-large"]], "w3")

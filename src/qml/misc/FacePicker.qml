@@ -1022,6 +1022,9 @@ Item {
     // flies into the slot (300 ms), the list fades out (300 ms), the bottom row slides up from 15 % of
     // the height (150 ms later, 300 ms)
     property string flyId: ""
+    // the flyer's round cut (facepicker.js roundCut): out to 3 px past the picture at the slot, inside the
+    // 4 px ring (its outer pixel antialiased)
+    readonly property var flyerCut: FP.roundCut((ringWidth - u) / itemSize)
     function addFace(file, cx, cy, size) {
         if (!store)
             return
@@ -1043,22 +1046,98 @@ Item {
         addList.fadeOut(Motion.duration(FP.ADD_LIST_FADE_MS))
         flyAnim.restart()
     }
+    /* The preview in flight is drawn as the carousel item it lands in (a face without a snapshot): black
+     * inside the 4 px #202124 ring, the shipped picture on the wallpaper of the open, so it lands without a
+     * change. It is round, as stock's flyer: the wallpaper and the picture are cut round by flyerCut (no
+     * black corners over the delete button and the arrows). Without the wallpaper the picture is drawn as
+     * the item draws it, on black. */
     Item {
         id: flyer
         objectName: "eosFaceFlyer"
         visible: false
         z: 2
         property string file: ""
-        Rectangle { anchors.fill: parent; radius: width / 2; color: FP.RING_COLOR }
-        Image {
+        readonly property url picture: file === "" ? "" : picker.previewFolder + FP.stemOf(file) + ".png"
+        readonly property real side: width - 2 * picker.ringWidth
+        // the shipped picture is there and so is the wallpaper's snapshot (the item's eosFaceBackground)
+        readonly property bool backed: flyerShipped.ready && picker.backgroundUrl !== ""
+        Rectangle {
+            objectName: "eosFlyerRing"
+            anchors.fill: parent
+            radius: width / 2
+            color: "#000000"
+            border.width: picker.ringWidth
+            border.color: FP.RING_COLOR
+        }
+        // while the picture loads: the item's #32000000 disc
+        Rectangle {
+            objectName: "eosFlyerPlaceholder"
             anchors.centerIn: parent
-            width: parent.width - 2 * picker.ringWidth
+            width: flyer.side
+            height: width
+            radius: width / 2
+            color: FP.PLACEHOLDER
+            visible: !flyerShipped.ready
+        }
+        Image {
+            id: flyerShipped
+            objectName: "eosFlyerShipped"
+            readonly property bool ready: status === Image.Ready
+            anchors.centerIn: parent
+            width: flyer.side
             height: width
             sourceSize.width: 182
             sourceSize.height: 182
-            source: flyer.file === "" ? "" : picker.previewFolder + FP.stemOf(flyer.file) + ".png"
+            source: flyer.picture
             fillMode: Image.PreserveAspectFit
             smooth: true
+            opacity: flyer.backed ? 0 : 1
+        }
+        Item {
+            id: flyerPicture
+            objectName: "eosFlyerPicture"
+            anchors.centerIn: parent
+            width: flyer.side
+            height: width
+            Repeater {
+                model: flyer.visible && flyer.backed ? picker.flyerCut : []
+                Item {
+                    objectName: "eosFlyerCut"
+                    clip: true
+                    width: modelData.width * flyerPicture.width
+                    height: modelData.height * flyerPicture.height
+                    x: (flyerPicture.width - width) / 2
+                    y: (flyerPicture.height - height) / 2
+                    // the wallpaper where it lies against the face (as the item's eosFaceBackground)
+                    Image {
+                        x: picker.backgroundRect.x * flyerPicture.width - parent.x
+                        y: picker.backgroundRect.y * flyerPicture.height - parent.y
+                        width: picker.backgroundRect.width * flyerPicture.width
+                        height: picker.backgroundRect.height * flyerPicture.height
+                        source: picker.backgroundUrl
+                        smooth: true
+                    }
+                    Image {
+                        x: -parent.x
+                        y: -parent.y
+                        width: flyerPicture.width
+                        height: width
+                        sourceSize.width: 182
+                        sourceSize.height: 182
+                        source: flyer.picture
+                        fillMode: Image.PreserveAspectFit
+                        smooth: true
+                    }
+                }
+            }
+        }
+        // the ring over the cut's edge
+        Rectangle {
+            anchors.fill: parent
+            radius: width / 2
+            color: "transparent"
+            border.width: picker.ringWidth
+            border.color: FP.RING_COLOR
         }
     }
     ParallelAnimation {

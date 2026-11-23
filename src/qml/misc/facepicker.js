@@ -160,6 +160,31 @@ var ADD_ROW_DELAY_MS = 150
 var ADD_ROW_MS = 300
 var ADD_ROW_FROM = 0.15             // the bottom row slides up from 15 % of the height
 
+/* The preview that flies in from the add list is round, as stock's: stock flies a bitmap of the list item's
+ * preview frame (a disc, its corners transparent) into the carousel item's border (ManagementView.java:289-380).
+ * The flyer's pictures are square (the wallpaper snapshot, a shipped picture such as 026's photo), and a mask
+ * of black corners (RoundMask) would hide the delete button and the arrows it flies over, so the flyer cuts
+ * them round with plain clips: centred rectangles, k from the middle out, each as wide as the circle at y_k and
+ * as tall as 2 y_(k+1). Together they cover the disc of radius r; the corner of one lies at
+ * sqrt(r^2 - y_k^2 + y_(k+1)^2) from the centre, r + margin when y_(k+1)^2 = y_k^2 + 2 r margin + margin^2,
+ * so nothing is drawn further out than the ring covers. Sizes are fractions of the picture's side
+ * (r = 0.5); each rectangle { width, height }.
+ */
+function roundCut(margin) {
+    if (!(margin > 0))
+        return [{ width: 1, height: 1 }]     // no room past the circle (or no size yet): the square, uncut
+    var r = 0.5
+    var c = 2 * r * margin + margin * margin
+    var out = []
+    var y = 0
+    while (y < r) {
+        var next = Math.min(r, Math.sqrt(y * y + c))
+        out.push({ width: 2 * Math.sqrt(r * r - y * y), height: 2 * next })
+        y = next
+    }
+    return out
+}
+
 /* The add list's swipe to dismiss. Stock wraps the list in a SwipeDismissFrameLayout
  * (management_ui_root_layout.xml:66-71, ManagementView.java:954-958; androidx's, as decompiled in sysui
  * gar.java / gax.java). While the finger moves right by p of the width the list is scaled 1 - 0.3 p about its
