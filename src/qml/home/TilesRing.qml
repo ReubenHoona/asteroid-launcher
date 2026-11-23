@@ -230,5 +230,17 @@ Item {
         iconFor: tilesRing.pageIcon
         emptyPage: tilesRing.builtTiles.length === 0
         visible: grid.ringActive && grid.currentVerticalPos === 0 && !displayAmbient
+        // scrolling: the finger or the spring between two pages (motion C8)
+        moving: grid.ringAnimation.running || Math.abs(grid.ringPosition - Math.round(grid.ringPosition)) > 0.001
+        permanent: tilesRing.pagePermanent(grid.currentHorizontalPos)
+    }
+    /* The page's icon stays on (stock "permanent icon", jme.java:36-49): the empty page, and a tile
+     * whose layout is an M3 primary layout (TileBase.m3Layout; stock reads the M3_PL metadata tag) */
+    function pagePermanent(page) {
+        if (builtTiles.length === 0)
+            return true
+        var rec = grid.cellAt(page, 0)
+        var tile = rec && rec.item ? rec.item.item : null
+        return !tile || tile.m3Layout !== false
     }
 }

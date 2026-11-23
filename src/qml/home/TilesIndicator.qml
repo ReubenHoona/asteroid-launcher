@@ -21,6 +21,12 @@ import "../pager.js" as Pager
  *
  * Nothing runs here: the poses are bindings of the position, which only
  * changes while a finger or the spring moves the pages.
+ *
+ * Visibility (motion C8; hjw.java:247-440, ifp.java:59-72, jme.java:36-49):
+ * when the pager starts to move the icon comes in (alpha to 1, a 100 ms linear
+ * tween after 50 ms); when it stops the alpha is set to 1 and goes to 0 in a
+ * 150 ms linear tween after 500 ms. A permanent icon (the tile's layout is an
+ * M3 primary layout, the M3_PL tag, and the empty page) stays at 1, as stock.
  */
 Item {
     id: indicator
@@ -31,6 +37,36 @@ Item {
     property var iconFor: function (page) { return "" }
     // the page of the empty tile: the plus on white (empty_tile_icon_background)
     property bool emptyPage: false
+    // the pager moves (a finger or its spring); the page's icon is permanent
+    property bool moving: false
+    property bool permanent: true
+
+    property real shownAlpha: 1
+    opacity: shownAlpha
+    function _visibility() {
+        hideIcon.stop()
+        if (moving) {
+            if (shownAlpha < 1 && !showIcon.running)
+                showIcon.start()
+            return
+        }
+        showIcon.stop()
+        shownAlpha = 1
+        if (!permanent)
+            hideIcon.start()
+    }
+    onMovingChanged: _visibility()
+    onPermanentChanged: _visibility()
+    SequentialAnimation {
+        id: showIcon
+        PauseAnimation { duration: Motion.duration(50) }
+        NumberAnimation { target: indicator; property: "shownAlpha"; to: 1; duration: Motion.duration(100) }
+    }
+    SequentialAnimation {
+        id: hideIcon
+        PauseAnimation { duration: Motion.duration(500) }
+        NumberAnimation { target: indicator; property: "shownAlpha"; to: 0; duration: Motion.duration(150) }
+    }
 
     readonly property real iconSize: Theme.size.tileAppIcon
     readonly property real gap: Theme.dp(18)

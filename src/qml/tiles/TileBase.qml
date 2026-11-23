@@ -83,6 +83,9 @@ Item {
     readonly property bool pressed: bodyArea.pressed
     // MainScreen.launchApp gives a launch from a tile no origin of its own
     readonly property bool tileFrame: true
+    // the layout is an M3 primary layout (stock: the M3_PL metadata tag): the app icon at the top
+    // stays on (TilesIndicator.permanent, motion C8)
+    readonly property bool m3Layout: true
 
     signal chipClicked()
     signal clicked()
