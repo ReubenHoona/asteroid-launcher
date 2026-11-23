@@ -180,10 +180,9 @@ Item {
         chosenSlot = null
         pager.currentIndex = FE.openPage(lastPage, pageCount)
         pager.positionViewAtIndex(pager.currentIndex, ListView.Beginning)
-        enterAnim.stop()
-        opacity = 0
+        // at once: the editor's theme has no window animation (motion K8)
+        opacity = 1
         shown = true
-        enterAnim.restart()
         idleTimer.restart()
         opened()
     }
@@ -195,7 +194,6 @@ Item {
         closed()
     }
     function closeNow() {
-        enterAnim.stop()
         idleTimer.stop()
         chooser.closeNow()
         optionsList.closeNow()
@@ -251,15 +249,6 @@ Item {
         sourceComponent: Component { DisplayBlanking { preventBlanking: editor.shown && editor.awake } }
     }
     readonly property bool holdingDisplay: keepOn.active && editor.awake
-
-    NumberAnimation {
-        id: enterAnim
-        target: editor
-        property: "opacity"
-        from: 0
-        to: 1
-        duration: Motion.duration(FE.ENTER_MS)
-    }
 
     // ---- the layers -----------------------------------------------------------------------
     Rectangle { anchors.fill: parent; color: "#000000" }

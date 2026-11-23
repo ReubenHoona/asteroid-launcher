@@ -29,8 +29,8 @@ var FADER = [
 var IDLE_MS = 15000
 // the picker under the editor hides itself 500 ms after the editor opened (kdn.java:28-32)
 var PICKER_HIDE_MS = 500
-// the editor fades in over the picker (activity window alpha 0 -> 1; the fade length is ours)
-var ENTER_MS = 300
+// the editor shows at once over the picker: its theme's windowAnimationStyle is @null
+// (SU/res/values/styles.xml:1462-1466; motion K8), no fade
 
 // ---- list setting page (fragment_list_type.xml, VALUES wf_editor_mini_chip_*) ------
 
