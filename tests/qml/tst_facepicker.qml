@@ -6,8 +6,8 @@
 // D60-28: a preview is the face on its own background inside a 4 px #202124 ring, black inside
 // (managementui_border_color, managementui_items_border_width 2 dp). The face on the watch is the snapshot taken
 // at the open, a face with a cached snapshot is that snapshot (CP3A kdu.java:305-345, kch.java:134-150); an eos
-// face is drawn over the wallpaper, so the wallpaper goes under a snapshot. The shipped picture is drawn only
-// while there is no snapshot: never two pictures at once.
+// face is drawn over the wallpaper, so the wallpaper goes under a snapshot, and under the shipped picture, which
+// is drawn only while there is no snapshot: never two pictures at once.
 // D60-29: the chip stays in the middle (x 140-244) and the arrows keep their slots (x 68 and 252, 8 px gaps):
 // CP3A hides them INVISIBLE (ibk.java:30-31), the row is not centred again. The buttons of one centred item
 // change in one transition (kdu.java:221-240, iaf.java:188-199); its Slide starts each button that changes at
@@ -277,18 +277,24 @@ Item {
             colourNear(img, 192 + 121, cy, "#202124", 4, "the 4 px ring")
             colourNear(img, 192 + 127, cy, "#000000", 4, "outside the ring")
 
-            // a face with no snapshot yet: the shipped picture on black, no wallpaper
+            // a face with no snapshot yet: the shipped picture (the face on nothing, as a snapshot) on the same
+            // wallpaper, its square corners masked round; one picture
             var c3 = cellOf("r3")
             verify(c3 !== null, "r3 is made (cache buffer)")
             compare(find(c3, "eosFaceShot").ready, false, "no snapshot of r3")
             compare(find(c3, "eosFaceShipped").opacity, 1, "the shipped picture of r3")
-            compare(find(c3, "eosFaceBackground").visible, false, "no wallpaper under a shipped picture")
+            var bg3 = find(c3, "eosFaceBackground")
+            verify(bg3.visible, "the wallpaper under a shipped picture")
+            compare(String(bg3.source), picker.backgroundUrl, "the wallpaper of the open")
+            near(bg3.width, 238 * 1.1, 0.6, "at the preview's scale")
+            verify(find(c3, "eosFaceMask").visible, "the corners masked round")
             picker.positionAt("r3")
             wait(100)
             img = grabImage(picker)
             img.save("/tmp/wo11-shots/d60-28-shipped.png")
-            colourNear(img, 192 - 112, cy, "#000000", 4, "black inside the ring of a shipped picture")
+            colourNear(img, 192 - 112, cy + 20, "#2050a0", 8, "the wallpaper inside the ring of a shipped picture")
             colourNear(img, 192 - 121, cy, "#202124", 4, "its ring")
+            colourNear(img, 192 - 112, cy - 112, "#000000", 4, "black at the picture's corner, outside the round")
 
             // a face with a cached snapshot (transparent, as on the watch): that snapshot on the wallpaper, once
             picker.positionAt("r1")
@@ -310,6 +316,50 @@ Item {
             // the wallpaper's snapshot goes with the picker
             picker.closeNow()
             compare(picker.backgroundUrl, "", "let go at the close")
+        }
+
+        // the repo's fallback pictures (src/watchfaces-preview/182), when the runner stages them next to this
+        // file as previews182/ (wo11/run.sh): 016 (redrawn on GL, 10:09, English) is a 75 % black disc with the
+        // time cut out of it, a face drawn over the wallpaper (016-masked-spartan.qml): on the picker it shows
+        // the wallpaper through its digits, not black on black
+        function fileExists(u) {
+            var x = new XMLHttpRequest()
+            try {
+                x.open("GET", u, false)
+                x.send()
+            } catch (e) {
+                return false
+            }
+            return x.responseText.length > 0
+        }
+        function test_d60_28_fallbacks() {
+            var folder = Qt.resolvedUrl("previews182/").toString()
+            if (!fileExists(folder + "016-masked-spartan.png"))
+                skip("the repo's previews are not staged as previews182/ next to the test")
+            setup([["m1", "021-classic"], ["m2", "016-masked-spartan"], ["m3", "008-numerals-duo-synth-neon-green"]], "m1")
+            picker.previewFolder = folder
+            openPicker()
+            picker.positionAt("m2")
+            var c = cellOf("m2")
+            tryVerify(function () { return find(c, "eosFaceShipped").ready }, 5000, "016's picture")
+            compare(find(c, "eosFaceShot").ready, false, "no snapshot of m2")
+            verify(find(c, "eosFaceBackground").visible, "016 on the wallpaper")
+            wait(150)
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-016.png")
+            // the 182 px picture is drawn 238 px wide from x 73; two points of it: (111, 129) inside a digit,
+            // (86, 46) on the disc
+            var cy = Math.round(picker.previewCy), k = 238 / 182
+            colourNear(img, Math.round(73 + 111 * k), Math.round(cy - 119 + 129 * k), "#2050a0", 10,
+                       "the wallpaper through a digit of 016")
+            colourNear(img, Math.round(73 + 86 * k), Math.round(cy - 119 + 46 * k), "#081428", 6,
+                       "016's disc: the wallpaper under 75 % black")
+            // 008 (redrawn on GL: THURSDAY, 10 09, 2018-05-24) for a look
+            picker.positionAt("m3")
+            c = cellOf("m3")
+            tryVerify(function () { return find(c, "eosFaceShipped").ready }, 5000, "008's picture")
+            wait(150)
+            grabImage(picker).save("/tmp/wo11-shots/d60-28-008.png")
         }
 
         // ---- D60-29 ----------------------------------------------------------------------------------------

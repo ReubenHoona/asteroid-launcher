@@ -42,7 +42,7 @@ Item {
     property bool awake: true
 
     readonly property real u: width / 384
-    readonly property string previewFolder: "file:///usr/share/asteroid-launcher/watchfaces-preview/182/"
+    property string previewFolder: "file:///usr/share/asteroid-launcher/watchfaces-preview/182/"
     // the cached previews (facePreviews, launcher C++), or none
     readonly property var cache: typeof facePreviews !== "undefined" ? facePreviews : null
 
@@ -618,8 +618,9 @@ Item {
                  * one picture of the face with its background: the snapshot of the face on the watch, taken at
                  * the open, and the cached snapshots of the others (kdu.java:305-345, kch.java:134-150). An eos
                  * face is drawn over the wallpaper, so a snapshot (live or cached) has the wallpaper of the open
-                 * under it, where it lies on the screen; the shipped picture is drawn, on black, only while a
-                 * face has no snapshot. */
+                 * under it, where it lies on the screen. The shipped picture (the face drawn on nothing, as a
+                 * snapshot is) is drawn only while a face has no snapshot, on the same wallpaper: a face that
+                 * is a cut-out over the wallpaper (016) would be black on black otherwise. */
                 Item {
                     id: preview
                     objectName: "eosFacePreview"
@@ -654,10 +655,12 @@ Item {
                         width: picker.itemSize
                         height: width
                         clip: true
-                        // the wallpaper under a snapshot
+                        // the wallpaper under a snapshot or the shipped picture
                         Image {
+                            id: faceBg
                             objectName: "eosFaceBackground"
-                            readonly property bool wanted: shot.ready && !cell.flying && picker.backgroundUrl !== ""
+                            readonly property bool wanted: (shot.ready || shipped.ready) && !cell.flying
+                                                           && picker.backgroundUrl !== ""
                             x: picker.backgroundRect.x * picker.itemSize
                             y: picker.backgroundRect.y * picker.itemSize
                             width: picker.backgroundRect.width * picker.itemSize
@@ -707,14 +710,14 @@ Item {
                         smooth: true
                         opacity: cell.flying ? 0 : 1
                     }
-                    // the corners of the square snapshot, outside the round preview
+                    // the corners of the square snapshot or wallpaper, outside the round preview
                     RoundMask {
                         objectName: "eosFaceMask"
                         anchors.centerIn: parent
                         width: picker.itemSize
                         height: width
                         color: "#000000"
-                        visible: shot.ready && !cell.flying
+                        visible: (shot.ready || faceBg.wanted) && !cell.flying
                     }
                     // a ring over the mask's edge (stock's border is outside the picture)
                     Rectangle {
