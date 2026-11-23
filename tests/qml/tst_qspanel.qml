@@ -276,14 +276,36 @@ Item {
             // nothing in the middle
             var mid = QS.morph(140, 104, 384)
             compare(mid.scale, 1); compare(mid.container, 1); compare(mid.content, 1)
-            // out of the screen at the top: scale 0.15, container and content alpha 0
+            compare(mid.height, 1)
+            // out of the screen at the top: scale 0.15, container and content alpha 0, height 0.5
             var out = QS.morph(-104, 104, 384)
-            compare(out.scale, 0.15); compare(out.container, 0); compare(out.content, 0)
+            compare(out.scale, 0.15); compare(out.container, 0); compare(out.content, 0); compare(out.height, 0.5)
             verify(out.atTop)
-            // out at the bottom: scale 0.5, alpha 0.3
+            // out at the bottom: scale 0.5, alpha 0.3, height 0.7
             var low = QS.morph(384, 104, 384)
-            compare(low.scale, 0.5); near(low.container, 0.3, 1e-9); near(low.content, 0.3, 1e-9)
+            compare(low.scale, 0.5); near(low.container, 0.3, 1e-9); near(low.content, 0.3, 1e-9); near(low.height, 0.7, 1e-9)
             verify(!low.atTop)
+            // D60-14: the 192 dp spec's transition area is half the screen whatever the height (hqd.java:68-70)
+            compare(QS.MIN_AREA, 0.5); compare(QS.MAX_AREA, 0.5)
+            compare(JSON.stringify(QS.MORPH_HEIGHT), JSON.stringify({ top: 0.5, bottom: 0.7, enter: 0, exit: 1 }))
+            compare(QS.MORPH_CONTENT_MIN, 0.05)
+            // the top-edge row of the open panel (top -36, bottom 68: x = 68 / 192 = 0.354): a pill
+            // 60 x 46 px (stock S11: 60 x 46 at y 23-68)
+            var tr = QS.morph(-36, 104, 384)
+            verify(tr.atTop)
+            near(tr.scale, 0.578, 0.003, "top row scale")
+            near(tr.height, 0.751, 0.003, "top row height")
+            near(104 * tr.scale, 60, 1, "top pill width")
+            near(104 * tr.scale * tr.height, 45.5, 1.5, "top pill height")
+            // CP3A's alpha there (hqf.java with las.java's container spec), not the emulator's
+            near(tr.container, 0.844, 0.01, "top row container alpha")
+            near(tr.content, 0.575, 0.01, "top row content alpha")
+            // a bottom-edge row with its top at 288 (x = 96 / 192 = 0.5): 87 x 79 px (stock S12: 86-88 x 77-79)
+            var br = QS.morph(288, 104, 384)
+            verify(!br.atTop)
+            near(104 * br.scale, 87, 1.5, "bottom pill width")
+            near(104 * br.scale * br.height, 78.5, 1.5, "bottom pill height")
+            compare(br.container, 1)
             // half way in, between the edge value and 1; the alpha rises later than the scale
             var m = QS.morph(0, 104, 384)
             verify(m.scale > 0.15 && m.scale < 1, "scale " + m.scale)
@@ -291,9 +313,9 @@ Item {
             verify(m.content >= 0 && m.content <= 1)
             // the alpha reaches 1 (zone 0.05 to 0.5 of the area) before the scale (zone 0 to 1)
             verify(m.container >= (m.scale - 0.15) / 0.85 - 1e-9)
-            // the area: element 104 / 384 = 0.2708 high: 0.35 + 0.2 (0.2708 - 0.2) / 0.4 = 0.3854 of the screen
-            // the transform ends where the element's inner edge is that far in: top 0 -> x = 0.2708 / 0.3854
-            near(QS.bezier(QS.MORPH_EASING, 0.2708 / 0.3854), (m.scale - 0.15) / 0.85, 0.01, "scale at the top row")
+            // the area is 0.5 of the screen: the transform ends where the element's inner edge is that
+            // far in: top 0 -> x = 0.2708 / 0.5
+            near(QS.bezier(QS.MORPH_EASING, 0.2708 / 0.5), (m.scale - 0.15) / 0.85, 0.01, "scale at the top row")
             // scale falls as the element goes out
             var prev = 2
             for (var t = 0; t >= -104; t -= 13) {
@@ -367,9 +389,10 @@ Item {
             compare(slot("battery").x, 28)
             compare(slot("settingsButton").x, 28 + 112)
             compare(slot("soundToggle").x, 28 + 224)
-            compare(slot("bedtimeToggle").x, 28)
+            // the row above starts its edge morph (bottom 180 of a 192 px area: scale 0.995)
+            near(slot("bedtimeToggle").x, 28, 1)
             compare(slot("dndToggle").x, 28 + 112)
-            compare(slot("cinemaToggle").x, 28 + 224)
+            near(slot("cinemaToggle").x, 28 + 224, 1)
             verify(slot("battery").mapToItem(root, 0, 0).y > slot("bedtimeToggle").mapToItem(root, 0, 0).y, "Battery under Bedtime")
             list().contentY = 0
             wait(80)
@@ -476,6 +499,66 @@ Item {
             near(b.x - base, QS.slide(2, 3, 104, m.scale), 1e-6, "outer button slid")
             compare(slot("settingsButton").x, QS.sidePadding(3, 384, 104, 8) + 112)
             shot("qs-03-morph")
+        }
+
+        // the container's box on the screen
+        function shapeRect(id) {
+            var s = find(tile(id), "qsShape")
+            var a = s.mapToItem(root, 0, 0), b = s.mapToItem(root, s.width, s.height)
+            return { x0: a.x, y0: a.y, x1: b.x, y1: b.y, w: b.x - a.x, h: b.y - a.y, shape: s }
+        }
+
+        function test_14b_edge_rows_squeezed_into_pills() {
+            // D60-14: open (the end of the list), the top-edge row (Airplane, Flashlight, Brightness, top -36,
+            // bottom 68) is three pills 60 x 46 px at y 23-68, 8 px above the next row (stock S11: x 93-152,
+            // 162-221, 231-290, y 23-68)
+            var l = list()
+            compare(l.contentY, l.contentHeight - l.height)
+            var row = find(panel(), "qsRow1")
+            compare(row.y - l.contentY, -36)
+            var a = shapeRect("airplaneToggle"), f = shapeRect("flashlightButton"), br = shapeRect("brightnessButton")
+            near(a.w, 60, 2, "pill width"); near(a.h, 46, 2, "pill height")
+            near(a.y1, 68, 1, "pill bottom on the row's bottom")
+            near(a.y0, 23, 2, "pill top")
+            near(a.x0, 93, 2, "left pill"); near(a.x1, 152, 2, "left pill right")
+            near(f.x0, 162, 2, "middle pill"); near(br.x0, 231, 2, "right pill"); near(br.x1, 290, 2, "right pill right")
+            near((a.x0 + a.x1) / 2, 123, 1, "left centre"); near((br.x0 + br.x1) / 2, 261, 1, "right centre")
+            var next = find(panel(), "qsRow2")
+            near(next.y - l.contentY - a.y1, 8, 1, "8 px above the next row")
+            // a stadium: the radius is half its height
+            near(a.shape.radius, a.shape.height / 2, 1e-6, "stadium")
+            near(a.shape.height, 104 * tile("airplaneToggle").morphHeight, 1e-6)
+            verify(tile("airplaneToggle").morphAtTop)
+            // the icon is on the pill, scaled with it
+            var ic = findBy(tile("airplaneToggle"), function (o) { return o.objectName === "" && o.hasOwnProperty("name") && o.name === "ms-airplanemode_active" })
+            verify(ic !== null, "airplane icon")
+            var c = ic.mapToItem(root, ic.width / 2, ic.height / 2)
+            near(c.y, (a.y0 + a.y1) / 2, 1, "icon on the pill")
+            // the icon's alpha: container x content (CP3A's layers)
+            var tl = tile("airplaneToggle")
+            near(find(tl, "qsContent").opacity, tl.containerAlpha * tl.contentAlpha, 1e-6)
+            verify(find(tl, "qsContent").visible)
+            // the full rows are untouched
+            var s = shapeRect("battery")
+            compare(s.w, 104); compare(s.h, 104)
+            compare(tile("battery").morphHeight, 1)
+            shot("qs-04-top-pills")
+
+            // scrolled to the top: the bottom-edge row keeps its top on its place, 8 px under the row above
+            l.contentY = 0
+            wait(80)
+            var r2 = find(panel(), "qsRow2")
+            var top = r2.y - l.contentY
+            var m = QS.morph(top, 104, 384)
+            verify(!m.atTop && m.scale < 1)
+            var b = shapeRect("bedtimeToggle")
+            near(b.y0, top, 1, "pill top on the row's top")
+            near(b.w, 104 * m.scale, 1, "bottom pill width")
+            near(b.h, 104 * m.scale * m.height, 1, "bottom pill height")
+            verify(!tile("bedtimeToggle").morphAtTop)
+            var r1 = find(panel(), "qsRow1")
+            near(b.y0 - (r1.y - l.contentY + 104), 8, 1, "8 px under the row above")
+            shot("qs-05-bottom-pills")
         }
 
         // ---- the button -------------------------------------------------------------

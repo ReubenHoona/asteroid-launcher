@@ -41,7 +41,8 @@ import "qs.js" as QS
  *  - disabled: onSurface 12 % container, 38 % icon;
  *  - a second tap within 300 ms is ignored (lah.java:22-31), a long press (400 ms)
  *    is its own signal and no tap;
- *  - the panel's edge morph sets containerAlpha / contentAlpha.
+ *  - the panel's edge morph sets containerAlpha / contentAlpha and morphHeight /
+ *    morphAtTop (the squeeze into a stadium, lag.java:80-125).
  * The panel's size is the item's width (52 dp); the icon 26 dp (battery and phone
  * 32 dp, flashlight 27 dp).
  *
@@ -70,9 +71,20 @@ MouseArea {
     property bool tinted: false
     property color tintColor: Theme.color.errorDim
 
-    /* the edge morph of the panel */
+    /* The edge morph of the panel (CP3A lag.java:80-125). containerAlpha is the alpha
+     * of the whole button (its graphics layer, lag.java:119), contentAlpha that of the
+     * content inside it (krk.java:122): the icon shows at their product, and not at
+     * all below 0.05 (lag.java:126). morphHeight squeezes the container into a stadium
+     * that fraction of its width tall (buttonMorphHeight); it keeps its inner edge:
+     * the bottom in a row at the top of the screen (morphAtTop), else the top. The
+     * content is centred on it and clipped to it (the layer clips to its shape). The
+     * panel scales the button about the same edge. */
     property real containerAlpha: 1
     property real contentAlpha: 1
+    property real morphHeight: 1
+    property bool morphAtTop: true
+    /*! The container's height, px (before the panel's scale). */
+    readonly property real shapeHeight: height * morphHeight
 
     property int debounce: QS.TAP_DEBOUNCE_MS
     /*! ms; tests replace it. */
@@ -99,7 +111,8 @@ MouseArea {
                                           : lit ? checkedContent : tinted ? tintColor : uncheckedContent
     /*! The corner radius the spring is heading for. */
     readonly property real targetRadius: (lit ? Theme.shape.medium : width / 2) * (pressed ? 0.66 : 1)
-    readonly property real radius: _morph.value
+    /*! The container's corner radius: the spring's, at most half the squeezed height (a stadium). */
+    readonly property real radius: Math.min(_morph.value, shapeHeight / 2)
     readonly property alias shape: _shape
 
     Accessible.role: Accessible.Button
@@ -131,7 +144,10 @@ MouseArea {
 
     Rectangle {
         id: _shape
-        anchors.fill: parent
+        objectName: "qsShape"
+        width: ma.width
+        height: ma.shapeHeight
+        y: ma.morphAtTop ? ma.height - height : 0
         radius: ma.radius
         color: ma.containerColor
         opacity: ma.containerAlpha
@@ -155,28 +171,41 @@ MouseArea {
             color: ma.contentColor
             pressed: ma.pressed
             pressX: ma.mouseX
-            pressY: ma.mouseY
+            pressY: ma.mouseY - _shape.y
         }
     }
 
+    // the content: on the container, clipped to it while it is squeezed
     Item {
-        id: _content
-        anchors.fill: parent
-        opacity: ma.contentAlpha
-    }
+        id: _clip
+        objectName: "qsContent"
+        x: _shape.x
+        y: _shape.y
+        width: _shape.width
+        height: _shape.height
+        clip: ma.morphHeight < 1
+        opacity: ma.containerAlpha * ma.contentAlpha
+        visible: ma.contentAlpha > QS.MORPH_CONTENT_MIN
 
-    Icon {
-        id: ic
-        width: ma.iconSize
-        height: width
-        anchors.centerIn: parent
-        color: ma.contentColor
-        opacity: ma.contentAlpha
-        Behavior on color {
-            ColorAnimation {
-                duration: Motion.duration(250)
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.easing.standardDecelerate
+        Item {
+            id: _content
+            width: ma.width
+            height: ma.height
+            anchors.centerIn: parent
+        }
+
+        Icon {
+            id: ic
+            width: ma.iconSize
+            height: width
+            anchors.centerIn: parent
+            color: ma.contentColor
+            Behavior on color {
+                ColorAnimation {
+                    duration: Motion.duration(250)
+                    easing.type: Easing.BezierSpline
+                    easing.bezierCurve: Motion.easing.standardDecelerate
+                }
             }
         }
     }

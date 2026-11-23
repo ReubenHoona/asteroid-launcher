@@ -330,10 +330,17 @@ Item {
                             x: QS.sidePadding(rowItem.ids.length, rowItem.width, rootitem.tileSize, rootitem.tileGap)
                                + index * (rootitem.tileSize + rootitem.tileGap)
                                + QS.slide(index, rowItem.ids.length, rootitem.tileSize, rowItem.m.scale)
+                            // CP3A squeezes an edge row towards its neighbour (lag.java:80-125): the
+                            // button scales about its inner edge and its container is a stadium
+                            // morphHeight of its width tall on that edge, so a row at the top keeps
+                            // 8 px above the next row and one at the bottom 8 px under the last
                             scale: rowItem.m.scale
+                            transformOrigin: rowItem.m.atTop ? Item.Bottom : Item.Top
                             sourceComponent: rootitem.componentOf(modelData)
                             Binding { target: tileLoader.item; property: "containerAlpha"; value: rowItem.m.container; when: tileLoader.item !== null }
                             Binding { target: tileLoader.item; property: "contentAlpha"; value: rowItem.m.content; when: tileLoader.item !== null }
+                            Binding { target: tileLoader.item; property: "morphHeight"; value: rowItem.m.height; when: tileLoader.item !== null }
+                            Binding { target: tileLoader.item; property: "morphAtTop"; value: rowItem.m.atTop; when: tileLoader.item !== null }
                             Binding { target: tileLoader.item; property: "debounce"; value: rootitem.tapDebounce; when: tileLoader.item !== null }
                         }
                     }

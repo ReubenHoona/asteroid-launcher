@@ -65,13 +65,24 @@ var MORPH_EASING = [0, 0, 0.6, 1]
 /* TransformVariableSpec(topValue, bottomValue, zone enter, zone exit): the
  * value at the top / bottom screen edge, and where in the transition area the
  * value reaches 1 (the middle). Alpha: container (0, 0.3, 0.05, 0.5), content
- * (0, 0.3, 0.25, 0.5); scale (0.15 top, 0.5 bottom, zone 0..1). The jadx
- * decode of the defaulting constructor is partly inferred (audit 05). */
+ * (0, 0.3, 0.25, 0.5); scale (0.15 top, 0.5 bottom, zone 0..1); the button's
+ * height, as a fraction of its width (buttonMorphHeight, las.java:17): 0.5 top,
+ * 0.7 bottom, zone 0..1. The target (middle) value of each is 1: las.java passes
+ * every spec through hdu.w / hdu.v (hdu.java:2263-2272, :2274-2316), which
+ * rebuilds it with the defaulting constructor, mask 2 = target 1.0, so the
+ * scale spec's own 0.7 (las.java:14) is not used; the values are hqf.java's
+ * lerp(edge, target, easing(zone)). */
 var MORPH_SCALE = { top: 0.15, bottom: 0.5, enter: 0, exit: 1 }
 var MORPH_CONTAINER = { top: 0, bottom: 0.3, enter: 0.05, exit: 0.5 }
 var MORPH_CONTENT = { top: 0, bottom: 0.3, enter: 0.25, exit: 0.5 }
-/* ResponsiveTransformationSpec element height 0.2..0.6, transition area 0.35..0.55 */
-var MIN_ELEMENT = 0.2, MAX_ELEMENT = 0.6, MIN_AREA = 0.35, MAX_AREA = 0.55
+var MORPH_HEIGHT = { top: 0.5, bottom: 0.7, enter: 0, exit: 1 }
+/* the content is not drawn below this content alpha (lag.java:126) */
+var MORPH_CONTENT_MIN = 0.05
+/* TransformationSpec element height 0.2..0.6, transition area 0.5..0.5 of the
+ * screen: the 192 dp spec of las.java:14 is hqd's defaulting constructor
+ * (hqd.java:68-70: 0.2, 0.6, 0.5, 0.5), so the area is half the screen
+ * whatever the element's height (hca.java:2621-2658) */
+var MIN_ELEMENT = 0.2, MAX_ELEMENT = 0.6, MIN_AREA = 0.5, MAX_AREA = 0.5
 
 /* the cubic Bezier y at x (Newton / bisection on t) */
 function bezier(p, x) {
@@ -97,11 +108,14 @@ function variable(spec, edgeIsTop, x) {
 }
 
 /* The transform of an element whose top is at `top` px of a viewport `viewH`
- * px high and which is `h` px high (ResponsiveTransformationSpecKt
- * TransitionAreaProgress, as qml-asteroid's EdgeEffect): scale, the alpha of
- * the container and of the content. 1, 1, 1 in the middle. */
+ * px high and which is `h` px high (hca.java:2621-2658, as qml-asteroid's
+ * EdgeEffect): scale, the alpha of the container and of the content, and the
+ * height of the button as a fraction of its width (the stadium it is squeezed
+ * into, kept on its inner edge: lag.java:80-125). 1, 1, 1, 1 in the middle.
+ * The progress is taken from the element's inner edge (its bottom at the top
+ * of the screen, its top at the bottom), which the squeeze keeps where it is. */
 function morph(top, h, viewH) {
-    var res = { scale: 1, container: 1, content: 1, atTop: top + h / 2 < viewH / 2 }
+    var res = { scale: 1, container: 1, content: 1, height: 1, atTop: top + h / 2 < viewH / 2 }
     if (viewH <= 0 || h <= 0)
         return res
     var f = top / viewH
@@ -119,6 +133,7 @@ function morph(top, h, viewH) {
     res.scale = variable(MORPH_SCALE, topEdge, x)
     res.container = variable(MORPH_CONTAINER, topEdge, x)
     res.content = variable(MORPH_CONTENT, topEdge, x)
+    res.height = variable(MORPH_HEIGHT, topEdge, x)
     return res
 }
 
