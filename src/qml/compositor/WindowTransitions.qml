@@ -98,9 +98,22 @@ Item {
      * recentsMoving: while that moves (the circle mask and the black under the
      * layers are on); at rest the application is under the opaque disc. The
      * application grows on after the disc has gone (the face spring is the
-     * slower one). */
+     * slower one). Only the window Recents opened over (recentsOver, noted at
+     * Recents.show()) is that closing task: a window brought to the front
+     * while Recents is open or closes (the side button's double press:
+     * KeyRouter "previous" closes Recents and brings the previous app back)
+     * opens with its own launch, the layer at scale 1 and not dimmed. */
+    property Item recentsOver: null
+    Connections {
+        target: transitions.recents
+        ignoreUnknownSignals: true
+        function onShowing() {
+            transitions.recentsOver = !transitions.recents.movesFace && comp ? comp.topmostWindow : null
+        }
+    }
     readonly property bool recentsOverApp: !!recents && (recents.isOpen || recents.behindMoving)
                                            && !recents.movesFace && !!comp && comp.appActive
+                                           && comp.topmostWindow === recentsOver
     readonly property bool recentsMoving: recentsOverApp && recents.behindMoving
     readonly property bool homeMoving: layerMode !== ""
 

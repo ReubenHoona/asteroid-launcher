@@ -7,7 +7,9 @@
 //    (WearAppLaunchMixinTransition$$ExternalSyntheticLambda0.java:29-35, WearAppLaunchMixinTransition
 //    .java:63 BaselineAnimator 1.0/260). While it is open over the application the face is not drawn
 //    (Recents.hidesFace, MainScreen's faceStack.visible); when the application leaves with Recents open
-//    (the crown: keymap leaveApp) the face is drawn again, at rest, under the closing disc.
+//    (the crown: keymap leaveApp) the face is drawn again, at rest, under the closing disc. Only the
+//    window Recents opened over is moved: one brought to the front while Recents closes (the side
+//    button's double press, KeyRouter "previous") opens at layer scale 1, not dimmed.
 //  - D60-25: Recents over the face moves the face as the app list does (the values MainScreen's faceStack
 //    multiplies in): open 1 -> 0.70 and a dim 0.5 p on the same spring; close (WearOpenWatchface) scale and
 //    alpha 0.5 + 0.5 q on 1.0/260 (WearOpenWatchfaceMixinTransition.java:105, $$ExternalSyntheticLambda2
@@ -81,6 +83,10 @@ Item {
         function recents() { return [] }
     }
     Item { id: appLayer; property bool ready: true }
+    // the application windows (AppLifecycle's topmostWindow, the window wrapper; its window, the
+    // surface item, is what WindowTransitions._topWindowItem reads)
+    Item { id: winA; property Item window: null }
+    Item { id: winB; property Item window: null }
 
     Loader { id: rl; width: 384; height: 384; active: false; source: Qt.resolvedUrl("st/qml/Recents.qml") }
     Loader { id: tl; width: 384; height: 384; active: false; source: Qt.resolvedUrl("st/qml/compositor/WindowTransitions.qml") }
@@ -118,6 +124,7 @@ Item {
                 recents.closeNow()
             lipstickComp.homeActive = true
             comp.appActive = false
+            comp.topmostWindow = null
         }
 
         function entries(n) {
@@ -172,8 +179,10 @@ Item {
         function test_01_over_app_open_shrinks_and_dims_the_app() {
             lipstickComp.homeActive = false
             comp.appActive = true
+            comp.topmostWindow = winA
             var s = sample(function () { recents.show(); recents.entries = entries(2) }, "open")
             compare(recents.movesFace, false, "over an application: the face does not move")
+            compare(wt.recentsOver, winA, "Recents opened over A")
             verify(s.length >= 3, "frames of the opening: " + s.length)
             var mid = false
             for (var i = 0; i < s.length; i++) {
@@ -204,6 +213,7 @@ Item {
         function test_02_over_app_close_brings_the_app_back() {
             lipstickComp.homeActive = false
             comp.appActive = true
+            comp.topmostWindow = winA
             recents.show()
             recents.entries = entries(2)
             tryCompare(recents, "_mode", "", 3000)
@@ -227,6 +237,7 @@ Item {
         function test_03_over_the_face_the_app_layer_is_not_touched() {
             var s = sample(function () { recents.show(); recents.entries = entries(2) }, "open")
             compare(recents.movesFace, true, "over the face: the face moves")
+            compare(wt.recentsOver, null, "over the face: no window")
             for (var i = 0; i < s.length; i++) {
                 compare(s[i].over, false)
                 compare(s[i].appScale, 1)
@@ -332,6 +343,7 @@ Item {
         function test_08_over_app_the_app_leaves_the_face_is_drawn_again() {
             lipstickComp.homeActive = false
             comp.appActive = true
+            comp.topmostWindow = winA
             recents.show()
             recents.entries = entries(2)
             tryCompare(recents, "_mode", "", 3000)
@@ -339,6 +351,7 @@ Item {
             compare(wt.recentsOverApp, true)
             // the application leaves; Recents stays open
             comp.appActive = false
+            comp.topmostWindow = null
             lipstickComp.homeActive = true
             compare(recents.isOpen, true)
             compare(recents.movesFace, false, "decided when Recents opened")
@@ -358,6 +371,79 @@ Item {
             }
             compare(recents.isOpen, false)
             compare(recents.hidesFace, false)
+        }
+
+        // ---- D60-24: another window comes to the front while Recents closes ----
+
+        // the side button's double press with Recent apps: the first press opened Recents over A, the
+        // second closes it and brings the previous app B to the front at once (KeyRouter "previous":
+        // toggleRecents, then previousApp). B is not the window Recents opened over: it opens with its own
+        // launch, the application layer at scale 1 and dim 0 through the whole close, and Recents puts
+        // no circle mask or black under the layers (CP3A: only the closing task shrinks and dims,
+        // WearAppLaunchMixinTransition$$ExternalSyntheticLambda0.java:29-35)
+        function test_09_double_press_the_previous_app_is_not_moved() {
+            lipstickComp.homeActive = false
+            comp.appActive = true
+            comp.topmostWindow = winA
+            recents.show()
+            recents.entries = entries(2)
+            tryCompare(recents, "_mode", "", 3000)
+            compare(wt.recentsOver, winA)
+            fuzzyCompare(wt.appScale, 0.70, 1e-9)
+            fuzzyCompare(wt.appDim, 0.5, 1e-9)
+            recents.close()
+            compare(recents._mode, "close")
+            compare(wt.recentsOverApp, true, "the close starts with A behind Recents")
+            // previousApp: B in front
+            comp.topmostWindow = winB
+            compare(wt.recentsOverApp, false, "B is not the window Recents opened over")
+            compare(wt.recentsMoving, false)
+            var frames = 0
+            var moved = false
+            for (var i = 0; i < 300 && recents._mode === "close"; i++) {
+                if (recents.behindScale < 0.99)
+                    moved = true
+                compare(wt.appScale, 1, "B's layer at scale 1 (behind values " + recents.behindScale.toFixed(3) + ")")
+                compare(wt.appDim, 0, "B's layer not dimmed")
+                compare(wt.recentsOverApp, false)
+                compare(wt.recentsMoving, false, "no circle mask, no black under the layers for Recents")
+                frames++
+                wait(16)
+            }
+            compare(recents._mode, "", "the close ended")
+            verify(frames >= 3, "frames of the closing: " + frames)
+            verify(moved, "Recents' behind values moved during the close (A's, not applied to B)")
+            compare(recents.isOpen, false)
+            compare(wt.appScale, 1)
+            compare(wt.appDim, 0)
+        }
+
+        // a third press while that close runs (below half open: toggle() shows it again) opens Recents
+        // over B, the window in front now: B is the closing task, it shrinks and dims behind the disc
+        function test_10_shown_again_over_the_new_window_moves_it() {
+            lipstickComp.homeActive = false
+            comp.appActive = true
+            comp.topmostWindow = winA
+            recents.show()
+            recents.entries = entries(2)
+            tryCompare(recents, "_mode", "", 3000)
+            recents.close()
+            comp.topmostWindow = winB
+            tryVerify(function () { return recents.progress < 0.5 }, 3000, "the close is past half")
+            compare(recents._mode, "close")
+            compare(wt.appScale, 1)
+            recents.show()
+            compare(wt.recentsOver, winB, "shown again over B")
+            compare(recents._mode, "open")
+            for (var i = 0; i < 300 && recents._mode === "open"; i++) {
+                compare(wt.recentsOverApp, true)
+                compare(wt.appScale, recents.behindScale, "B's layer takes the behind scale")
+                compare(wt.appDim, recents.behindDim, "and the dim")
+                wait(16)
+            }
+            compare(recents._mode, "", "the opening ended")
+            fuzzyCompare(wt.appScale, 0.70, 1e-9)
+            fuzzyCompare(wt.appDim, 0.5, 1e-9)
         }
     }
 }

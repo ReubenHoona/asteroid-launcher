@@ -63,6 +63,9 @@ AppDrawer {
 
     signal allAppsRequested()
     signal appInfoRequested(var item)
+    // show() was called, movesFace is decided: WindowTransitions notes the window
+    // in front, the one Recents opens over (only it shrinks and dims behind it)
+    signal showing()
 
     ConfigurationValue {
         id: store
@@ -142,6 +145,7 @@ AppDrawer {
         if (String(source) === "")
             source = listSource
         movesFace = Lipstick.compositor.homeActive
+        showing()
         open()
     }
 
