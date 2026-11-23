@@ -50,6 +50,20 @@ var HOME = {
     faceStart: 0.5
 }
 
+/* ---- a screen that finishes by itself: the framework task close (motion A6) ----
+ * WearMixedTransitionHandler.java:110-131 takes only the openings and the
+ * ALL_APPS close; any other close falls back to the framework's
+ * taskCloseExitAnimation, anim-watch/rounded_window_exit.xml (values-watch/
+ * styles.xml:325-347): scale 1 -> 0.75 about the centre and alpha 1 -> 0, both
+ * 250 ms on rounded_window_interpolator (0.4, 0, 0.2, 1). Close-enter is @null:
+ * the face below is simply shown. That the default handler plays it is
+ * inferred (framework.jar is not decompiled). */
+var EXIT = {
+    toScale: 0.75,
+    durationMs: 250,
+    bezier: [0.4, 0, 0.2, 1, 1, 1]
+}
+
 /* ---- the back swipe at the root of an app (motion-transitions-11) ---- */
 var BACK = {
     // e = CubicBezier(0, 0.20, 0.80, 1.00)(p)

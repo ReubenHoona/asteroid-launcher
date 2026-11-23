@@ -10,6 +10,7 @@ import org.asteroid.controls
 import org.asteroid.utils
 import "../complications"
 import "charging.js" as Charging
+import "../compositor/windowmotion.js" as WM
 
 /* The charging screen (W2-launcher-charging; audit charging-battery-01, -06, -07, -08):
  * full screen on the charger, as stock's ChargingComposeActivity (ini.java).
@@ -198,15 +199,26 @@ Item {
         }
     }
 
-    // up at once, away at once (the crown) or faded (the unplug, the slow effects spring)
+    /* Up at once. Away at once (the crown), or (the unplug: the activity finishes
+     * 1000 ms later) with the framework task close, motion A6: scale to 0.75 and
+     * fade out, 250 ms on (0.4, 0, 0.2, 1) (windowmotion.js EXIT) */
     opacity: shown ? 1 : 0
     visible: opacity > 0
+    scale: shown || !fade ? 1 : WM.EXIT.toScale
     Behavior on opacity {
         enabled: screen.fade
         NumberAnimation {
-            duration: Motion.springDuration(Charging.FADE_STIFFNESS)
+            duration: Motion.duration(WM.EXIT.durationMs)
             easing.type: Easing.BezierSpline
-            easing.bezierCurve: Motion.springEasing
+            easing.bezierCurve: WM.EXIT.bezier
+        }
+    }
+    Behavior on scale {
+        enabled: screen.fade
+        NumberAnimation {
+            duration: Motion.duration(WM.EXIT.durationMs)
+            easing.type: Easing.BezierSpline
+            easing.bezierCurve: WM.EXIT.bezier
         }
     }
 
