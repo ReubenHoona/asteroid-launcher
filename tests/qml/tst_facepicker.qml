@@ -321,7 +321,9 @@ Item {
         // the repo's fallback pictures (src/watchfaces-preview/182), when the runner stages them next to this
         // file as previews182/ (wo11/run.sh): 016 (redrawn on GL, 10:09, English) is a 75 % black disc with the
         // time cut out of it, a face drawn over the wallpaper (016-masked-spartan.qml): on the picker it shows
-        // the wallpaper through its digits, not black on black
+        // the wallpaper through its digits, not black on black. 009 (redrawn on GL) has no background either
+        // (its dial is drawn on nothing, 009-analog-scientific-v2.qml): the wallpaper shows between its marks,
+        // not black (the software renderer had drawn its layer.enabled dial as an opaque black square)
         function fileExists(u) {
             var x = new XMLHttpRequest()
             try {
@@ -336,7 +338,8 @@ Item {
             var folder = Qt.resolvedUrl("previews182/").toString()
             if (!fileExists(folder + "016-masked-spartan.png"))
                 skip("the repo's previews are not staged as previews182/ next to the test")
-            setup([["m1", "021-classic"], ["m2", "016-masked-spartan"], ["m3", "008-numerals-duo-synth-neon-green"]], "m1")
+            setup([["m1", "021-classic"], ["m2", "016-masked-spartan"], ["m3", "008-numerals-duo-synth-neon-green"],
+                   ["m4", "009-analog-scientific-v2"]], "m1")
             picker.previewFolder = folder
             openPicker()
             picker.positionAt("m2")
@@ -360,6 +363,21 @@ Item {
             tryVerify(function () { return find(c, "eosFaceShipped").ready }, 5000, "008's picture")
             wait(150)
             grabImage(picker).save("/tmp/wo11-shots/d60-28-008.png")
+            // 009: the wallpaper through its dial, at two points of the 182 px picture where it draws nothing
+            // ((138, 138) between 4 and 5, (58, 131) between 7 and 8)
+            picker.positionAt("m4")
+            c = cellOf("m4")
+            tryVerify(function () { return find(c, "eosFaceShipped").ready }, 5000, "009's picture")
+            compare(find(c, "eosFaceShot").ready, false, "no snapshot of m4")
+            verify(find(c, "eosFaceBackground").visible, "009 on the wallpaper")
+            wait(150)
+            img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-009.png")
+            colourNear(img, Math.round(73 + 138 * k), Math.round(cy - 119 + 138 * k), "#2050a0", 10,
+                       "the wallpaper through 009's dial (lower right)")
+            colourNear(img, Math.round(73 + 58 * k), Math.round(cy - 119 + 131 * k), "#2050a0", 10,
+                       "the wallpaper through 009's dial (lower left)")
+            colourNear(img, 192 + 121, cy, "#202124", 4, "009's ring")
         }
 
         // ---- D60-29 ----------------------------------------------------------------------------------------
