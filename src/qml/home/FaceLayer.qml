@@ -91,9 +91,10 @@ Item {
     ConfigurationValue {
         id: watchFaceSource
         key: "/desktop/asteroid/watchface"
-        // a fresh watch starts on Modular (stock's Utility layout, watchface-catalogue-01); a watch that
-        // chose a face keeps it
-        defaultValue: "file:///usr/share/asteroid-launcher/watchfaces/018-modular.qml"
+        // a fresh watch (and one after a factory reset, which empties the user's dconf) starts on
+        // Concentric, stock Wear OS 6's default face (emulator BP2A, X-face-after-reset; D60-48); a
+        // watch that chose a face keeps it
+        defaultValue: "file:///usr/share/asteroid-launcher/watchfaces/027-concentric.qml"
         onValueChanged: burnInProtectionManager.resetOffsets()
     }
 
