@@ -114,15 +114,19 @@ function alarmText(d, use12h, am, pm) {
         return pad2(h) + ":" + pad2(d.getMinutes())
     return (h % 12 === 0 ? 12 : h % 12) + ":" + pad2(d.getMinutes()) + " " + (h < 12 ? am : pm)
 }
-// the date 'EEE d': the short weekday (the locale's, index 0 = Sunday) and the day
-function dateText(d, shortDays) {
-    return shortDays[d.getDay()] + " " + d.getDate()
+/* The date: ICU's best pattern for the skeleton "EEE d" in the locale, as stock
+ * (ini.java:2651, android.icu DateFormat.getInstanceForSkeleton("EEE d", locale)):
+ * "23 Mon" in en and en_US, "Mon 23" in en_GB, "Mo., 23." in de. format(date,
+ * skeleton) formats with that pattern (org.asteroid.utils DateFormat.format, ICU). */
+var DATE_SKELETON = "EEE d"
+function dateText(d, format) {
+    return format(d, DATE_SKELETON)
 }
-/* What the chip says: { kind: "alarm" | "date", text } */
-function chip(now, alarmMs, use12h, am, pm, shortDays) {
+/* What the chip says: { kind: "alarm" | "date", text }. format: as dateText */
+function chip(now, alarmMs, use12h, am, pm, format) {
     if (alarmShown(now.getTime(), alarmMs))
         return { kind: "alarm", text: alarmText(new Date(alarmMs), use12h, am, pm) }
-    return { kind: "date", text: dateText(now, shortDays) }
+    return { kind: "date", text: dateText(now, format) }
 }
 
 /* ---- motion: curves and springs ------------------------------------------- */

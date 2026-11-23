@@ -19,8 +19,9 @@ import "../compositor/windowmotion.js" as WM
  * centre 14 dp from the top (arcSmall); the bolt 24 dp, 6 dp above the clock;
  * the clock in two pills 78 x 70 dp 4 dp apart (hours corner 40 dp, minutes
  * 18 dp; digits numeralLarge, 'hh' zero-padded in 12 h, 'HH' in 24 h, no
- * AM/PM); under it a pill chip with the date 'EEE d' or, when the next alarm
- * rings within 24 h, the alarm icon and its time; the unread dot 12 dp above
+ * AM/PM); under it a pill chip with the date (ICU's 'EEE d' in the locale:
+ * '23 Mon' in en_US, 'Mon 23' in en_GB) or, when the next alarm rings within
+ * 24 h, the alarm icon and its time; the unread dot 12 dp above
  * the bottom. At 15 % and below the whole screen turns red (300 ms).
  *
  * The plug-in plays the intro (Charging.introAt: our own bolt traced, filled
@@ -77,15 +78,18 @@ Item {
     readonly property real pillH: Theme.dp(Charging.pillHeightDp(hDp))
     readonly property real pillTop: (height - pillH) / 2
     readonly property var parts: Charging.clockParts(now, use12h)
-    readonly property var chipInfo: Charging.chip(now, nextAlarmMs, use12h, Qt.locale().amText, Qt.locale().pmText, shortDays())
+    readonly property string localeName: currentLocale()
+    readonly property var chipInfo: Charging.chip(now, nextAlarmMs, use12h, Qt.locale(localeName).amText,
+                                                  Qt.locale(localeName).pmText, formatDate)
 
-    function shortDays() {
-        // the language changed: the day names are read again (locale-formats-02)
+    function currentLocale() {
+        // the language changed: the locale's words and the date pattern are read again (locale-formats-02)
         void localeManager.localeRevision
-        var l = Qt.locale(), out = []
-        for (var i = 0; i < 7; i++)
-            out.push(l.dayName(i, Locale.ShortFormat))
-        return out
+        return Qt.locale().name
+    }
+    // a date in ICU's best pattern for a skeleton, in the screen's locale (the chip: "EEE d")
+    function formatDate(d, skeleton) {
+        return DateFormat.format(d, skeleton, localeName)
     }
     function roleColor(r) {
         var c = Theme.color[r[0]]

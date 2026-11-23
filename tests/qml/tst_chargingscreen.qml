@@ -4,8 +4,10 @@
 // ChargingScreen.qml, Bolt.qml, ChargerProblem.qml) with the image's controls on the
 // repo mocks (MceBatteryLevel on Backend.batteryPercent, the ClockSource double of
 // tests/qml/stage). 384 x 384 px = 192 dp, 1 dp = 2 px. The bolt is drawn where
-// stock draws it (D60-10). Staged as tst_charging.qml is (module LauncherQml); the
-// real org.asteroid.utils, not the mock. Shots go to /tmp/wo04-shots.
+// stock draws it (D60-10) and the date chip reads ICU's "EEE d" in the locale
+// (D60-11). Staged as tst_charging.qml is (module
+// LauncherQml); the real org.asteroid.utils (DateFormat, ICU), not the mock.
+// Shots go to /tmp/wo04-shots.
 // Run by motion-wt/wo04/run.sh (qmltestrunner under qemu-aarch64 on the image rootfs).
 import QtQuick
 import QtTest
@@ -130,6 +132,30 @@ Item {
                     if (img.red(x, y) + img.green(x, y) + img.blue(x, y) > 120) n++
             verify(n > 150, "lit intro pixels " + n)
             s.finishIntro()
+        }
+
+        // ---- D60-11: the chip's text
+        function test_chip_text() {
+            up()
+            var txt = find(s, "eosChargingChipText"), icon = find(s, "eosChargingChipIcon")
+            // ICU "EEE d" in the C locale (ICU's en_US): the day before the weekday
+            compare(Qt.locale().name, "C")
+            compare(txt.text, "23 Mon")
+            verify(!icon.visible)
+            s.now = new Date(2026, 10, 14, 13, 7)
+            compare(txt.text, "14 Sat")
+            // an alarm within 24 h: icon 16 dp, 8 dp gap, the time
+            s.nextAlarmMs = s.now.getTime() + 8 * 3600 * 1000
+            compare(txt.text, "21:07")
+            verify(icon.visible)
+            compare(icon.width, 32)
+            compare(icon.height, 32)
+            s.use12h = true
+            compare(txt.text, "9:07 PM")
+            // beyond 24 h: the date again
+            s.nextAlarmMs = s.now.getTime() + 25 * 3600 * 1000
+            compare(txt.text, "14 Sat")
+            verify(!icon.visible)
         }
     }
 

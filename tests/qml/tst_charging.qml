@@ -2,15 +2,17 @@
 //
 // The rules and numbers of the charging screen (src/qml/charging/charging.js), as
 // stock CP3A's ChargingComposeActivity: layout (charging-battery-01), level and
-// colours (-08), clock and chip, intro (-06), pulse (-07), plug and unplug (-02,
-// -03), the quality screen rule (app-inventory-03) and the bolt glyph, whose
+// colours (-08), clock and chip (ICU "EEE d" through
+// org.asteroid.utils DateFormat), intro (-06), pulse (-07), plug and unplug
+// (-02, -03), the quality screen rule (app-inventory-03) and the bolt glyph, whose
 // vertices must be Qt.point values for PathPolyline (D60-10). Staged as module
 // LauncherQml: charging/ (the four files of src/qml/charging),
 // complications/ClockSource.qml (the tests/qml/stage double) and
-// compositor/windowmotion.js; the real org.asteroid.utils, not the mock.
+// compositor/windowmotion.js; the real org.asteroid.utils (ICU), not the mock.
 // Run by motion-wt/wo04/run.sh (qmltestrunner under qemu-aarch64 on the image rootfs).
 import QtQuick
 import QtTest
+import org.asteroid.utils
 import "LauncherQml/charging/charging.js" as Charging
 
 TestCase {
@@ -105,20 +107,39 @@ TestCase {
         compare(Charging.clockParts(d, true).hours, "11")
         compare(Charging.clockParts(d, false).hours, "23")
     }
+    // D60-11: the date is ICU's best pattern for the skeleton "EEE d" in the locale (ini.java:2651)
+    function test_date_skeleton() {
+        compare(Charging.DATE_SKELETON, "EEE d")
+        var d = new Date(2026, 10, 23, 13, 7)                   // a Monday
+        function inLocale(loc) { return function (dt, sk) { return DateFormat.format(dt, sk, loc) } }
+        compare(Charging.dateText(d, inLocale("en_US")), "23 Mon")
+        compare(Charging.dateText(d, inLocale("en")), "23 Mon")
+        compare(Charging.dateText(d, inLocale("C")), "23 Mon")      // Qt's C = ICU's en_US
+        compare(Charging.dateText(d, inLocale("en_GB")), "Mon 23")
+        compare(Charging.dateText(d, inLocale("en_NZ")), "Mon 23")
+        compare(Charging.dateText(d, inLocale("de_DE")), "Mo., 23.")
+        compare(Charging.dateText(d, inLocale("fr_FR")), "lun. 23")
+        compare(Charging.dateText(d, inLocale("ja_JP")), "23日(月)")
+        // the skeleton is ICU's, with or without the space
+        compare(DateFormat.icuPattern(Charging.DATE_SKELETON, "en_US"), "d EEE")
+        compare(DateFormat.icuPattern("EEEd", "en_US"), "d EEE")
+        compare(DateFormat.icuPattern(Charging.DATE_SKELETON, "en_GB"), "EEE d")
+    }
     function test_chip_date_or_alarm() {
-        var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        var fmt = function (dt, sk) { return DateFormat.format(dt, sk, "en_US") }
         var now = new Date(2026, 10, 13, 22, 0)                 // a Friday
         var h = 3600 * 1000
         // no alarm: the date 'EEE d'
-        var c = Charging.chip(now, 0, false, "AM", "PM", days)
+        var c = Charging.chip(now, 0, false, "AM", "PM", fmt)
         compare(c.kind, "date")
-        compare(c.text, "Fri 13")
+        compare(c.text, "13 Fri")
+        compare(Charging.chip(now, 0, false, "AM", "PM", function (dt, sk) { return DateFormat.format(dt, sk, "en_GB") }).text, "Fri 13")
         // an alarm in 9 h: its time, 'HHmm' in 24 h and 'hmm' in 12 h
         var at = new Date(now.getTime() + 9 * h)                // 07:00 Saturday
-        c = Charging.chip(now, at.getTime(), false, "AM", "PM", days)
+        c = Charging.chip(now, at.getTime(), false, "AM", "PM", fmt)
         compare(c.kind, "alarm")
         compare(c.text, "07:00")
-        c = Charging.chip(now, at.getTime(), true, "AM", "PM", days)
+        c = Charging.chip(now, at.getTime(), true, "AM", "PM", fmt)
         compare(c.text, "7:00 AM")
         at = new Date(2026, 10, 14, 19, 5)
         compare(Charging.alarmText(at, true, "AM", "PM"), "7:05 PM")
@@ -128,7 +149,7 @@ TestCase {
         verify(!Charging.alarmShown(now.getTime(), now.getTime() + 24 * h + 60000))
         verify(!Charging.alarmShown(now.getTime(), now.getTime() - 1))
         verify(!Charging.alarmShown(now.getTime(), 0))
-        compare(Charging.chip(now, now.getTime() + 25 * h, false, "AM", "PM", days).kind, "date")
+        compare(Charging.chip(now, now.getTime() + 25 * h, false, "AM", "PM", fmt).kind, "date")
     }
 
     // ---- curves and springs
