@@ -14,8 +14,11 @@ import "compositor/windowmotion.js" as WM
  * transition: 0.45 -> 1 on a spring, fading in, the face behind it shrinking
  * to 0.70 under a 50 % dim) and goes as the crown in an app does (0.60, the
  * face growing from 0.5; W2-launcher-window-motion). A swipe right from
- * anywhere follows the finger, squeezes it and closes it past half the
- * screen or on a flick; the crown button closes it too. A swipe right on
+ * anywhere is the swipe back from an app's root (the list is an activity in
+ * stock; motion B4): it shrinks to 0.70 with its right edge on the screen's,
+ * the face grows 0.85 -> 0.93 under the dims, and past the back rule its left
+ * edge springs off (1.0/600) while the face comes to 1; else it springs back
+ * (1.0/1500). The crown button closes it too. A swipe right on
  * the watchface pulls it in under the finger (dragBy/release from the
  * panels grid), for watches whose crown press is not set up.
  *
@@ -30,7 +33,19 @@ Item {
     // 0 closed .. 1 open
     property real progress: 0
     readonly property bool isOpen: progress > 0
-    readonly property real _dismiss: dismissArea.state === "swipe" ? dismissArea.progress : 0
+
+    /* The swipe back (motion B4; CrossTaskBackAnimation.java:25-34,84-87,108-160,
+     * windowmotion.js back() and commit(), as WindowTransitions does for an app):
+     * "" none, "swipe" the finger (the smoothed progress), "cancel" the progress
+     * springing back, "commit" the left edge springing to the width */
+    property string _back: ""
+    property real _commitLeft0: 0
+    property real _commitHomeDim0: 0
+    property real _commitAppDim0: 0
+    readonly property var _backPose: _back === "commit"
+        ? WM.commit(commitSpring.value, _commitLeft0, _commitHomeDim0, _commitAppDim0, width)
+        : (_back === "swipe" ? WM.back(dismissArea.smoothedProgress, width)
+           : (_back === "cancel" ? WM.back(cancelSpring.value, width) : null))
 
     /* The motion (motion-transitions-05, -06): "open" runs the app launch
      * springs (AppOpen), "close" the way back to the face (WatchfaceReveal);
@@ -47,11 +62,13 @@ Item {
                                    : (_mode === "open" ? opening.scale : WM.LAUNCH.startScale + (1 - WM.LAUNCH.startScale) * progress)
     readonly property real _alpha: _mode === "close" ? closing.topAlpha
                                    : (_mode === "open" ? opening.alpha : progress)
-    readonly property real faceScale: movesFace ? (_mode === "open" ? opening.behindScale
-                                                  : (_mode === "close" ? closing.faceScale : 1)) : 1
-    readonly property real faceAlpha: movesFace && _mode === "close" ? closing.faceAlpha : 1
-    readonly property real faceDim: movesFace && _mode === "open" ? opening.behindDim : 0
-    readonly property bool faceMoving: movesFace && _mode !== ""
+    readonly property real faceScale: movesFace ? (_backPose ? _backPose.homeScale
+                                                  : (_mode === "open" ? opening.behindScale
+                                                     : (_mode === "close" ? closing.faceScale : 1))) : 1
+    readonly property real faceAlpha: movesFace && !_backPose && _mode === "close" ? closing.faceAlpha : 1
+    readonly property real faceDim: movesFace ? (_backPose ? _backPose.homeDim
+                                                 : (_mode === "open" ? opening.behindDim : 0)) : 0
+    readonly property bool faceMoving: movesFace && (_mode !== "" || _back !== "")
 
     visible: progress > 0 || _warming
     anchors.fill: parent
@@ -105,6 +122,9 @@ Item {
 
     function open() {
         closing.stop()
+        commitSpring.stop()
+        cancelSpring.stop()
+        _back = ""
         dismissArea.reset()
         dismissArea.state = ""
         if (progress >= 1 && _mode === "")
@@ -122,6 +142,19 @@ Item {
         opening.stop()
         if (progress <= 0)
             return
+        // a swipe back already taking the list off ends at once; one on its way
+        // back or under the finger gives way to the close
+        if (_back === "commit") {
+            closeNow()
+            return
+        }
+        if (_back !== "") {
+            commitSpring.stop()
+            cancelSpring.stop()
+            _back = ""
+            dismissArea.reset()
+            dismissArea.state = ""
+        }
         // a list closing in the middle of its opening goes on from the size it has
         var a0 = Math.max(0, Math.min(1, (1 - _scale) / WM.HOME.topDrop))
         _mode = "close"
@@ -132,6 +165,9 @@ Item {
     function openNow() {
         opening.stop()
         closing.stop()
+        commitSpring.stop()
+        cancelSpring.stop()
+        _back = ""
         _mode = ""
         dismissArea.reset()
         dismissArea.state = ""
@@ -147,6 +183,9 @@ Item {
     }
 
     function reset() {
+        commitSpring.stop()
+        cancelSpring.stop()
+        _back = ""
         dismissArea.reset()
         dismissArea.state = ""
         if (launcher.item && launcher.item.resetPosition)
@@ -181,15 +220,27 @@ Item {
         enabled: drawer.progress > 0
 
         onStarted: {
-            dismissAnim.stop()
-            settleAnim.stop()
+            commitSpring.stop()
+            cancelSpring.stop()
             state = "swipe"
+            drawer._back = "swipe"
         }
         onFinished: {
+            var p = smoothedProgress
             if (committed) {
-                dismissAnim.restart()
+                // the left edge springs off from where the swipe left it, the dims
+                // go on from theirs (CrossTaskDismissalAnimation)
+                var b = WM.back(p, drawer.width)
+                drawer._commitLeft0 = b.appLeft
+                drawer._commitHomeDim0 = b.homeDim
+                drawer._commitAppDim0 = b.appDim
+                commitSpring.snapTo(b.appLeft)
+                drawer._back = "commit"
+                commitSpring.animateTo(drawer.width)
             } else {
-                settleAnim.restart()
+                cancelSpring.snapTo(p)
+                drawer._back = "cancel"
+                cancelSpring.animateTo(0, smoothedVelocity)
             }
         }
         states: State { name: "swipe" }
@@ -198,23 +249,33 @@ Item {
             id: content
             anchors.fill: parent
             // opening: 0.45 -> 1 and fading in (the launch springs); closing:
-            // 1 -> 0.60 and fading out; swiped away: follows the finger,
-            // squeezes to 0.8 and fades in the last part
-            opacity: drawer._warming ? 1 : drawer._alpha * (drawer._dismiss < 0.6 ? 1 : 1 - (drawer._dismiss - 0.6) / 0.4)
+            // 1 -> 0.60 and fading out; swiped back: pinned to the right edge,
+            // shrinking to 0.70 under its dim, no fade (B4)
+            opacity: drawer._warming ? 1 : drawer._alpha
             transform: [
                 Scale {
                     origin.x: content.width / 2
                     origin.y: content.height / 2
-                    xScale: drawer._scale * (1 - 0.2 * drawer._dismiss)
+                    xScale: drawer._scale * (drawer._backPose ? drawer._backPose.appScale : 1)
                     yScale: xScale
                 },
-                Translate { x: dismissArea.state === "swipe" ? dismissArea.value - 0.1 * drawer._dismiss * content.width : 0 }
+                // the left edge at appLeft: the scaled list's own left edge is w (1 - s) / 2
+                Translate { x: drawer._backPose ? drawer._backPose.appLeft - content.width * (1 - drawer._backPose.appScale) / 2 : 0 }
             ]
 
             Rectangle {
                 anchors.fill: parent
                 radius: width / 2
                 color: "#000000"
+            }
+            // the black dim over the list while it is swiped back
+            Rectangle {
+                z: 1000
+                anchors.fill: parent
+                radius: width / 2
+                color: "black"
+                opacity: drawer._backPose ? drawer._backPose.appDim : 0
+                visible: opacity > 0
             }
 
             Loader {
@@ -251,27 +312,26 @@ Item {
         duration: 100
     }
 
-    NumberAnimation {
-        id: settleAnim
-        target: dismissArea
-        property: "value"
-        to: 0
-        duration: 200
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: [0, 0, 0.2, 1, 1, 1]
-        onFinished: { dismissArea.state = ""; dismissArea.reset() }
+    // the swipe let go short of the back rule: the progress springs back (B4, WM.BACK.cancel)
+    WearSpring {
+        id: cancelSpring
+        stiffness: WM.BACK.cancel.stiffness
+        dampingRatio: WM.BACK.cancel.dampingRatio
+        visibilityThreshold: 0.0005
+        onFinished: if (drawer._back === "cancel") {
+            drawer._back = ""
+            dismissArea.state = ""
+            dismissArea.reset()
+        }
     }
 
-    SequentialAnimation {
-        id: dismissAnim
-        NumberAnimation {
-            target: dismissArea
-            property: "value"
-            to: drawer.width
-            duration: 200
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: [0, 0, 0.2, 1, 1, 1]
-        }
-        ScriptAction { script: drawer.closeNow() }
+    // past it: the list's left edge springs to the width, the face comes to 1 (B4, WM.BACK.commit)
+    WearSpring {
+        id: commitSpring
+        stiffness: WM.BACK.commit.stiffness
+        dampingRatio: WM.BACK.commit.dampingRatio
+        stopAtFraction: WM.BACK.commit.stopAtFraction
+        visibilityThreshold: WM.BACK.commit.visibleChange
+        onFinished: if (drawer._back === "commit") drawer.closeNow()
     }
 }
