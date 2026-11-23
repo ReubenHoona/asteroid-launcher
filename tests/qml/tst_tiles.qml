@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
-// The tile frame (src/qml/tiles/TileBase.qml) drawn with the image's controls on the repo mocks.
-// 384 x 384 px = 192 dp, 1 dp = 2 px.
+// The tile frame (src/qml/tiles/TileBase.qml) and the carousel's app icon (src/qml/home/TilesIndicator.qml)
+// drawn with the image's controls on the repo mocks. 384 x 384 px = 192 dp, 1 dp = 2 px.
 //
 // D60-21: the bottom text is CP3A's two lines (Fitbit tile_primarygoal/heartrate/sleep_preview.xml, Weather
 // sun/uv_tile_preview.webp): the label, then the value (with its icon) under it, each line centred and fitted to
 // the slot between the 26 % side margins (x 99.84-284.16; 6 dp, 5.2 % and 26 %: deskclock cno.java:443-447).
 // The value stays whole, a label too long for the slot ends in an ellipsis; nothing is drawn outside the slot.
 // Label 14 sp (titleSmall), value 16 sp (titleMedium), 5.2 % from the bottom, 6 dp under the content.
+//
+// D60-22: the app icon at the top stays on over a tile whose layout is an M3 primary layout (TileBase: CP3A's
+// M3_PL root tag, renderer arp.java:19-26 -> auw.java:466-481 -> sysui hxq.java:25-34 -> jme.java:36-49) and
+// fades over one that is not (Quick Add: CP3A's AddTileTileService builds its own layout, no tag): alpha 1 when
+// the pager stops, 0 after a 500 ms pause and a 150 ms linear tween; back to 1 50 ms after the pager moves
+// (100 ms tween).
 //
 // Shots go to /tmp/wo06-shots. Run by motion-wt/wo06/run.sh (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the tiles staged as module LauncherQml at their resource paths).
@@ -27,7 +33,9 @@ Item {
     Rectangle { anchors.fill: parent; color: "black" }
 
     Component { id: baseComp; TileBase { width: 384; height: 384 } }
+    Component { id: indicatorComp; TilesIndicator { count: 1; position: 1 } }
     Loader { id: stepsLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/StepsTile.qml") }
+    Loader { id: quickAddLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/QuickAddTile.qml") }
 
     TestCase {
         name: "Tiles"
@@ -38,6 +46,7 @@ Item {
         readonly property real slotRight: 384 - 384 * 0.26
         // the loaded tiles (untyped: the members are the tiles' own)
         readonly property var stepsTile: stepsLoader.item
+        readonly property var quickAddTile: quickAddLoader.item
 
         function shot(item, name) {
             item.grabToImage(function (r) { r.saveToFile("/tmp/wo06-shots/" + name + ".png") })
@@ -66,6 +75,7 @@ Item {
 
         function cleanup() {
             stepsLoader.active = false
+            quickAddLoader.active = false
         }
 
         // ---- D60-21: the bottom text
@@ -181,6 +191,83 @@ Item {
             verify(t.bottomText.visible)
             t.chipText = "Open"
             verify(!t.bottomText.visible)
+        }
+
+        // ---- D60-22: the app icon at the top
+
+        function test_d60_22_m3_layout() {
+            var t = createTemporaryObject(baseComp, top, {})
+            verify(t)
+            // the frame is an M3 primary layout: CP3A's tiles carry the M3_PL tag (deskclock cno.java:374,
+            // contacts aha.java:1376), so their icon is permanent
+            compare(t.m3Layout, true)
+            // writable: a tile that is not one says so
+            t.m3Layout = false
+            compare(t.m3Layout, false)
+            quickAddLoader.active = true
+            var q = quickAddTile
+            verify(q)
+            waitForRendering(q)
+            shot(q, "quick-add")
+            // CP3A's Add tile (AddTileTileService.java:108-614) has no M3_PL tag
+            compare(q.m3Layout, false)
+        }
+
+        function test_d60_22_timing() {
+            var ind = createTemporaryObject(indicatorComp, top, {})
+            verify(ind)
+            var show = null, hide = null
+            for (var i = 0; i < ind.resources.length; i++) {
+                var a = ind.resources[i]
+                if (!a || a.animations === undefined || a.animations.length !== 2)
+                    continue
+                if (a.animations[1].to === 1)
+                    show = a
+                else if (a.animations[1].to === 0)
+                    hide = a
+            }
+            verify(show && hide, "the two tweens")
+            // in: 100 ms linear after 50 ms; out: 150 ms linear after 500 ms (ifp.java:59-72, hjw.java:247-440)
+            compare(show.animations[0].duration, 50)
+            compare(show.animations[1].duration, 100)
+            compare(show.animations[1].easing.type, Easing.Linear)
+            compare(hide.animations[0].duration, 500)
+            compare(hide.animations[1].duration, 150)
+            compare(hide.animations[1].easing.type, Easing.Linear)
+        }
+
+        function test_d60_22_fades_when_not_permanent() {
+            var ind = createTemporaryObject(indicatorComp, top, { permanent: false })
+            verify(ind)
+            compare(ind.shownAlpha, 1)
+            ind.moving = true
+            ind.moving = false
+            // the pager stopped: 1, still 1 inside the 500 ms pause, then 0
+            compare(ind.shownAlpha, 1)
+            wait(150)
+            compare(ind.shownAlpha, 1)
+            tryCompare(ind, "shownAlpha", 0, 3000)
+            // the pager moves again: back to 1
+            ind.moving = true
+            tryCompare(ind, "shownAlpha", 1, 3000)
+            ind.moving = false
+            tryCompare(ind, "shownAlpha", 0, 3000)
+        }
+
+        function test_d60_22_permanent_stays() {
+            var ind = createTemporaryObject(indicatorComp, top, { permanent: true })
+            verify(ind)
+            ind.moving = true
+            ind.moving = false
+            wait(1000)
+            compare(ind.shownAlpha, 1)
+            // the page under the icon becomes one that is not permanent at rest: it fades (jme.java:46-48)
+            ind.permanent = false
+            compare(ind.shownAlpha, 1)
+            tryCompare(ind, "shownAlpha", 0, 3000)
+            // and a permanent one sets it to 1 (jme.java:40-45)
+            ind.permanent = true
+            compare(ind.shownAlpha, 1)
         }
     }
 }

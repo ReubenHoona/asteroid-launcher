@@ -10,9 +10,9 @@ import "../pager.js" as Pager
 /*
  * The carousel's page indicator, which is the tile's app icon (stock
  * TilesIndicator, hjw.java:247-440; no page dots): a 24 dp circle, 3 dp
- * from the top, always there on a tile page (tiles are M3_PL) and on the
- * empty page. In a swipe the icons of the two pages slide with them, 18 dp
- * apart; the face has no icon, so between the face and a tile the tile's
+ * from the top, always there on a tile page (M3_PL, all but Quick Add) and
+ * on the empty page. In a swipe the icons of the two pages slide with them,
+ * 18 dp apart; the face has no icon, so between the face and a tile the tile's
  * icon is 78.125 % of the width from the middle and 20 % of the height
  * lower, easing up as the page settles (rules in pager.js, pose()).
  * "position" is the pager's place in the grid's virtual columns

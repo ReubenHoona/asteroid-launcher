@@ -85,9 +85,13 @@ Item {
     readonly property bool pressed: bodyArea.pressed
     // MainScreen.launchApp gives a launch from a tile no origin of its own
     readonly property bool tileFrame: true
-    // the layout is an M3 primary layout (stock: the M3_PL metadata tag): the app icon at the top
-    // stays on (TilesIndicator.permanent, motion C8)
-    readonly property bool m3Layout: true
+    // the layout is an M3 primary layout: the app icon at the top stays on (TilesIndicator.permanent,
+    // motion C8). CP3A: the M3_PL tag on the layout's root, which the renderer reports as "icon reserved"
+    // (protolayout.renderer arp.java:19-26, auw.java:466-481), keeps sysui's icon at 1 (hxq.java:25-34,
+    // jme.java:36-49). CP3A's own tiles all carry it (deskclock Timer and Alarm, cno.java:367-374;
+    // contacts Favorites, aha.java:1366-1376; Fitbit, Calendar, Weather, Maps, Assistant), so true here;
+    // a tile with a layout of its own sets false and its icon fades when the pager stops (Quick Add)
+    property bool m3Layout: true
 
     signal chipClicked()
     signal clicked()

@@ -19,6 +19,10 @@ TileBase {
     objectName: "quickAddTile"
     title: ""
     backgroundTap: false
+    // CP3A's Add tile builds a layout of its own (AddTileTileService.java:108-614; sysui has no M3_PL
+    // tag anywhere), so the renderer reports no reserved icon and the app icon fades 500 ms after the
+    // pager stops (D60-22)
+    m3Layout: false
     // the tile has no body of its own: the shape fills the page
     readonly property real diameter: Theme.dp(100)
 

@@ -235,7 +235,8 @@ Item {
         permanent: tilesRing.pagePermanent(grid.currentHorizontalPos)
     }
     /* The page's icon stays on (stock "permanent icon", jme.java:36-49): the empty page, and a tile
-     * whose layout is an M3 primary layout (TileBase.m3Layout; stock reads the M3_PL metadata tag) */
+     * whose layout is an M3 primary layout (TileBase.m3Layout, all but Quick Add; stock reads the M3_PL
+     * metadata tag). Over Quick Add it fades when the pager stops (D60-22) */
     function pagePermanent(page) {
         if (builtTiles.length === 0)
             return true
