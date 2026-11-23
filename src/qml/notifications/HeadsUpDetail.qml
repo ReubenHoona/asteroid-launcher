@@ -25,11 +25,13 @@ import "headsup.js" as HU
  * runs in it but what the card does (one minute timer: none; the time is read
  * when the card is made).
  *
- * When it has come in (the morph is over, or the bubble has grown into it: the
- * preview calls entered(), CP3A's onFullViewShown, klg.c()) the header arrow
- * shows at the top and fades 150 ms later over 300 ms, and the scroll indicator
- * shows on its list for 2 s (RotaryInput.flashIndicator: the full view's
- * ScreenScaffold, a screen that opens).
+ * When it has come in, the scroll indicator shows on its list for 2 s
+ * (RotaryInput.flashIndicator: the full view's ScreenScaffold, a screen that
+ * opens). After the glanceable's morph (the preview calls entered(), CP3A's
+ * onFullViewShown, klg.c()) the header arrow also shows at the top and fades
+ * 150 ms later over 300 ms. Grown from the bubble (the preview calls
+ * showIndicator()) there is no such arrow: CP3A's heads-up builds its own
+ * expanded view (ktk.java:139-158) that no klg runs.
  */
 Item {
     id: detail
@@ -48,19 +50,28 @@ Item {
     readonly property Item card: stack.firstPageItem ? stack.firstPageItem.card : null
     // the list of the open card (what the indicator shows)
     readonly property Item scroller: stack.firstPageItem ? stack.firstPageItem.list : null
-    // the view has come in (entered())
+    // the view has come in (entered() or showIndicator())
     property bool shown: false
     // the header arrow's alpha: 1 when the view has come in, then faded (arrowAnimation)
     property real arrowOpacity: 0
     readonly property SequentialAnimation arrowAnimation: arrowFade
 
-    // The view has come in (CP3A klg.c(), when the morph ends): the header arrow at 1, faded
-    // 150 ms later over 300 ms (kln.f(150), klp.b()); the scroll indicator on the list for 2 s.
-    // Returns whether the indicator took the list (it does when the list scrolls)
+    // The view has come in after the glanceable's morph (CP3A klg.c(), run only when the morph
+    // ends: jpb.java:370-371, made only at juh.java:361): the header arrow at 1, faded 150 ms
+    // later over 300 ms (kln.f(150), klp.b()); and the scroll indicator (showIndicator()).
+    // Returns whether the indicator took the list
     function entered() {
-        shown = true
         arrowOpacity = 1
         arrowFade.restart()
+        return showIndicator()
+    }
+    // The view has come in, either way (the morph, or the bubble grown into it): the scroll
+    // indicator on the list for 2 s, the header arrow left as it is. CP3A's heads-up view
+    // (ktk.java:139-158, hun_window_view.xml) has no klg, kln or klp: its arrow is never shown
+    // at progress 0.75 nor faded. Returns whether the indicator took the list (it does when the
+    // list scrolls)
+    function showIndicator() {
+        shown = true
         var ok = _flashList()
         _flashPending = !ok
         if (_flashPending)
@@ -85,7 +96,7 @@ Item {
         interval: 500
         onTriggered: detail._flashPending = false
     }
-    // a single run, only after entered()
+    // a single run, only after entered() (the morph)
     SequentialAnimation {
         id: arrowFade
         PauseAnimation { duration: Motion.duration(HU.ARROW.holdMs) }

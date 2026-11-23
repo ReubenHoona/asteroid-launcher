@@ -13,7 +13,8 @@
 //  - D60-07: when the morph ends (CP3A's onFullViewShown) the full view shows CP3A's header arrow
 //    (shy_view_header_arrow: the Lottie held at progress 0.75, turned 180 degrees in a 24 dp view
 //    8 dp below the top) and fades it 150 ms later over 300 ms, and (D60-09) the scroll indicator
-//    shows on its list for 2 s (RotaryInput.flashIndicator);
+//    shows on its list for 2 s (RotaryInput.flashIndicator); grown from the bubble, the indicator
+//    only (CP3A's heads-up view, ktk.java:139-158, runs no klg);
 //  - D60-08: the empty stream's filled trophy (trophy_40px at 28 dp) and its 140 dp text box with
 //    7.3 % side padding (kvn.java);
 //  - D60-09: the stream's scroll indicator shows for 2 s once the tray is fully open and at rest.
@@ -501,16 +502,21 @@ Item {
             verify(!d.shown, "not before the morph ends")
             var at = null
             d.shownChanged.connect(function () { at = { scale: p.detailScale, opacity: p.detailOpacity, glance: p.glanceOpacity } })
+            var most = 0
+            d.arrowOpacityChanged.connect(function () { most = Math.max(most, d.arrowOpacity) })
             tryVerify(function () { return d.shown }, 4000, "in when the morph ends")
             verify(at !== null)
             compare(at.scale, 1, "the morph was over: scale 1")
             compare(at.opacity, 1, "opacity 1")
             compare(at.glance, 0, "the glanceable gone")
+            compare(most, 1, "the header arrow shows after the morph (klg.c())")
             tryVerify(function () { var ind = indicator(); return ind && ind.shown && ind.flickable === d.scroller }, 2000,
                       "the indicator on the full view's list")
         }
 
-        // The bubble grown into the full view over an app: the same, once it has grown
+        // The bubble grown into the full view over an app: the scroll indicator once it has grown,
+        // and no header arrow show and fade: CP3A's heads-up builds its own expanded view
+        // (ktk.java:139-158) that no klg runs (klg.c() only at the morph's end, jpb.java:370-371)
         function test_d60_07_09_bubble() {
             var p = preview()
             var n = notif({ replacesId: 74, summary: "Trains", body: longBody() })
@@ -521,10 +527,21 @@ Item {
             tryVerify(function () { return p.detailItem !== null }, 3000)
             var d = p.detailItem
             verify(!d.shown, "not while it grows")
+            var a = byName(d, "headerArrow")
+            verify(a !== null, "the arrow item")
+            var most = 0
+            d.arrowOpacityChanged.connect(function () { most = Math.max(most, d.arrowOpacity) })
             tryCompare(p.bubbleItem, "phase", "expanded", 4000)
             verify(d.shown, "in once grown")
+            compare(d.arrowOpacity, 0, "no arrow")
+            verify(!a.visible, "the arrow not drawn")
+            verify(!d.arrowAnimation.running, "no arrow fade")
             tryVerify(function () { var ind = indicator(); return ind && ind.shown && ind.flickable === d.scroller }, 2000,
                       "the indicator on the full view's list")
+            // past the morph's 150 ms hold and 300 ms fade: the arrow never showed
+            wait(600)
+            compare(most, 0, "the arrow never showed")
+            verify(!a.visible)
         }
 
         /* ---- D60-08: the empty stream ------------------------------------ */

@@ -84,9 +84,11 @@ var STAGE = { hold: 1000, holdImmediate: 1500 }
 // Lottie's one white open stroke is most of the way from its flat line to its chevron; turned, it
 // points down. In px at 384 (1 dp = 2 px), from the view's centre (y 40): the ends 15.04 px to each
 // side and 5.90 px above, the point 0.17 px right and 5.57 px below; a 4 px (2 dp) stroke with flat
-// ends and a mitred point. It shows when the view has come in (klg.c(), run when the morph ends:
-// kmp.java onAnimationEnd -> jpb.java:370-371) and fades 150 ms later over 300 ms on
-// PathInterpolator(0.3, 0, 1, 1) (kln.f(150) -> klp.b())
+// ends and a mitred point. It shows when the view has come in after the glanceable's morph
+// (klg.c(), run when the morph ends: kmp.java onAnimationEnd -> jpb.java:370-371, made only at
+// juh.java:361) and fades 150 ms later over 300 ms on PathInterpolator(0.3, 0, 1, 1)
+// (kln.f(150) -> klp.b()). The bubble's expanded view (ktk.java:139-158) runs no klg: no show
+// and fade there
 var ARROW = {
     centreY: 40,
     endX: 15.038,
