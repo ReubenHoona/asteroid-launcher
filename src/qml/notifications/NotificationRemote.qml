@@ -172,8 +172,10 @@ Item {
         if (kind === "open" && Desktop.phoneAway) {
             Desktop.phoneAway.show()
         } else {
-            //% "To send, reconnect to your phone"
-            showDialog(qsTrId("id-action-failed-title"), qsTrId("id-send-reconnect"))
+            //% "Can’t finish action"
+            showDialog(qsTrId("id-action-failed-title"),
+                       //% "To send, reconnect to your phone"
+                       qsTrId("id-send-reconnect"))
         }
         note("away", id)
     }

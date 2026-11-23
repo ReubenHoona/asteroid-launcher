@@ -406,7 +406,9 @@ Item {
             var sp = C.timeParts(at, sources.use12h)
             var rem = s.at - sources.now.getTime()
             //% "Sunrise"
-            var label = s.rise ? qsTrId("id-comp-sunrise") : qsTrId("id-comp-sunset")
+            var label = s.rise ? qsTrId("id-comp-sunrise")
+                                 //% "Sunset"
+                               : qsTrId("id-comp-sunset")
             // within the hour the countdown ('45m', 'Now') replaces the time, as the weather complication
             return base({ text: label + ": " + C.fmtTime(at, sources.use12h), short: rem <= 3600000 ? C.leftShort(rem) : sp.time,
                           caption: rem <= 3600000 ? "" : sp.marker, title: label, long: C.fmtTime(at, sources.use12h),

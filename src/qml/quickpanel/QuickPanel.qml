@@ -1041,6 +1041,7 @@ Item {
         color: Theme.color.error
         font.pixelSize: Theme.type.bodySmall.pixelSize
         // The voice reply page's string
+        //% "Phone not connected"
         text: qsTrId("id-voice-no-phone")
         Timer {
             id: findPhoneNoPhoneTimer

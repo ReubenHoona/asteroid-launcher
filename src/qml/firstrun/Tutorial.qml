@@ -294,8 +294,8 @@ Item {
             preferredHeight: Theme.dp(Tut.welcome.buttonDp)
             iconName: "ios-arrow-forward"
             visible: tuto.buttonShown
-            //% "Start"
             text: ""
+            //% "Start"
             Accessible.name: qsTrId("id-tutorial-start") + localeManager.changesObserver
             onClicked: tuto.enter("splash")
         }

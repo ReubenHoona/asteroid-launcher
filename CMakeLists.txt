@@ -60,5 +60,9 @@ if(LAUNCHER_TESTS)
 endif()
 
 build_translations(i18n)
+# every text id of the code has its English text in the fallback catalog (i18n/check-en-catalog.cmake)
+add_custom_target(check-en-catalog ALL
+	COMMAND ${CMAKE_COMMAND} -DROOT=${CMAKE_CURRENT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/i18n/check-en-catalog.cmake
+	VERBATIM)
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)

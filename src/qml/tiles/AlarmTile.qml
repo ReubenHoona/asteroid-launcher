@@ -92,7 +92,9 @@ TileBase {
         // the language changed: the day names are read again (locale-formats-02)
         ? (localeManager.localeRevision, Clock.repeatText(pick.alarm.daysOfWeek, Qt.locale(),
                                                           //% "One time"
-                                                          qsTrId("id-tile-alarm-one-time"), qsTrId("id-tile-alarm-every-day")))
+                                                          qsTrId("id-tile-alarm-one-time"),
+                                                          //% "Every day"
+                                                          qsTrId("id-tile-alarm-every-day")))
           + localeManager.changesObserver
         : ""
 
