@@ -16,6 +16,7 @@
 //    shows on its list for 2 s (RotaryInput.flashIndicator);
 //  - D60-08: the empty stream's filled trophy (trophy_40px at 28 dp) and its 140 dp text box with
 //    7.3 % side padding (kvn.java);
+//  - D60-09: the stream's scroll indicator shows for 2 s once the tray is fully open and at rest.
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -505,8 +506,8 @@ Item {
             compare(at.scale, 1, "the morph was over: scale 1")
             compare(at.opacity, 1, "opacity 1")
             compare(at.glance, 0, "the glanceable gone")
-            var ind = indicator()
-            verify(ind && ind.shown && ind.flickable === d.scroller, "the indicator on the full view's list")
+            tryVerify(function () { var ind = indicator(); return ind && ind.shown && ind.flickable === d.scroller }, 2000,
+                      "the indicator on the full view's list")
         }
 
         // The bubble grown into the full view over an app: the same, once it has grown
@@ -522,8 +523,8 @@ Item {
             verify(!d.shown, "not while it grows")
             tryCompare(p.bubbleItem, "phase", "expanded", 4000)
             verify(d.shown, "in once grown")
-            var ind = indicator()
-            verify(ind && ind.shown && ind.flickable === d.scroller, "the indicator on the full view's list")
+            tryVerify(function () { var ind = indicator(); return ind && ind.shown && ind.flickable === d.scroller }, 2000,
+                      "the indicator on the full view's list")
         }
 
         /* ---- D60-08: the empty stream ------------------------------------ */
@@ -571,6 +572,78 @@ Item {
             var mid = px(img, 192, Math.round(tp.y + 56 * 300 / 960))
             var on = Theme.color.onSurface
             compare(mid, [Math.round(on.r * 255), Math.round(on.g * 255), Math.round(on.b * 255)], "the cup is filled")
+        }
+
+        /* ---- D60-09: the stream's indicator; the full view's late list ---- */
+
+        // A full view that comes in before its card's column is laid out (the next frame): the
+        // indicator is asked again when the list's content height changes, and takes the list
+        function test_d60_09_full_view_late_layout() {
+            var n = notif({ replacesId: 91, summary: "Trains", body: longBody() })
+            var d = make("notifications/HeadsUpDetail.qml", { width: 384, height: 384, notification: n })
+            var ind0 = indicator()
+            if (ind0)
+                ind0.shown = false
+            var first = d.entered()
+            console.log("D60-09 entered at creation: list " + (d.scroller ? d.scroller.contentHeight : "none") + " flashed " + first)
+            tryVerify(function () { var ind = indicator(); return ind && ind.shown && ind.flickable === d.scroller }, 2000,
+                      "the indicator on the list once it is laid out")
+            verify(d.scroller.contentHeight > d.scroller.height)
+        }
+
+        function fill(s, k) {
+            var model = Lipstick.notificationModel
+            for (var i = 0; i < k; i++)
+                model.add(notif({ replacesId: 900 + i, summary: "Sender " + i, body: longBody() }))
+            tryVerify(function () { return !s.modelEmpty && s.listView && s.listView.count === k }, 4000)
+            wait(200)
+        }
+
+        // The stream fully open and at rest: the list's indicator shows for 2 s; not while the
+        // tray still moves or a finger holds it, nor for an empty list
+        function test_d60_09_stream() {
+            var s = stream()
+            fill(s, 4)
+            var lv = s.listView
+            verify(lv.contentHeight + lv.topMargin + lv.bottomMargin > lv.height, "a list that scrolls")
+            var ind = indicator()
+            if (ind)
+                ind.shown = false
+            // the tray on its way out
+            gridMock.trayAnimation.running = true
+            gridMock.currentVerticalPos = 1
+            gridMock.normalizedVerOffset = 0.6
+            wait(50)
+            verify(!s.openAtRest)
+            ind = indicator()
+            verify(!ind || !ind.shown, "not while the tray moves")
+            gridMock.normalizedVerOffset = 1
+            wait(50)
+            verify(!s.openAtRest, "still on the spring")
+            gridMock.trayAnimation.running = false
+            verify(s.openAtRest, "open and at rest")
+            ind = indicator()
+            verify(ind !== null && ind.shown, "the indicator shows")
+            compare(ind.flickable, lv)
+            tryVerify(function () { return !ind.shown }, 4000, "and hides 2 s later")
+            // a finger on the tray: not at rest
+            gridMock.trayDragging = true
+            verify(!s.openAtRest)
+            gridMock.trayDragging = false
+            verify(ind.shown, "at rest again")
+        }
+
+        function test_d60_09_stream_empty() {
+            var s = stream()
+            tryVerify(function () { return s.modelEmpty }, 3000)
+            var ind = indicator()
+            if (ind)
+                ind.shown = false
+            gridMock.currentVerticalPos = 1
+            gridMock.normalizedVerOffset = 1
+            verify(s.openAtRest)
+            ind = indicator()
+            verify(!ind || !ind.shown, "an empty stream shows no indicator")
         }
     }
 }

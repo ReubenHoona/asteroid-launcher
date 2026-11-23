@@ -61,7 +61,29 @@ Item {
         shown = true
         arrowOpacity = 1
         arrowFade.restart()
+        var ok = _flashList()
+        _flashPending = !ok
+        if (_flashPending)
+            flashWait.restart()
+        return ok
+    }
+    function _flashList() {
         return scroller !== null && RotaryInput.flashIndicator(scroller)
+    }
+    // The card's column is laid out at the next frame: a view that came in before that (a quick
+    // morph or rise on a busy frame) has a list that does not scroll yet. The indicator is asked
+    // again when the list's content height changes, for half a second (single shot)
+    property bool _flashPending: false
+    function _retryFlash() {
+        if (_flashPending && _flashList()) {
+            _flashPending = false
+            flashWait.stop()
+        }
+    }
+    Timer {
+        id: flashWait
+        interval: 500
+        onTriggered: detail._flashPending = false
     }
     // a single run, only after entered()
     SequentialAnimation {
@@ -154,6 +176,12 @@ Item {
                     remote: transport
                     layerHost: stack
                 }
+            }
+
+            Connections {
+                target: scroller
+                enabled: detail._flashPending
+                function onContentHeightChanged() { detail._retryFlash() }
             }
 
             // CP3A's header arrow over the list, at the top (full_view_container.xml; HU.ARROW)

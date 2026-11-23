@@ -636,6 +636,23 @@ Item {
         }
     }
 
+    // CP3A gives the stream a scroll indicator only while the tray is fully open and the list
+    // is not empty (kwf.java:664-680: the indicator slot is null unless the open fraction is 1),
+    // and its ScreenScaffold shows it as a screen that opens. Here: once the tray is open and at
+    // rest (row 1 of the grid, all the way out, no spring, no finger on it) the list's
+    // indicator shows for 2 s (RotaryInput.flashIndicator); not under a page over the list
+    readonly property var _grid: panelsGrid
+    readonly property bool openAtRest: !!_grid && _grid.currentVerticalPos === 1 && _grid.currentHorizontalPos === 0
+                                       && _grid.normalizedVerOffset >= 0.999 && _grid.trayDragging !== true
+                                       && !(_grid.trayAnimation && _grid.trayAnimation.running)
+    onOpenAtRestChanged: if (openAtRest) flashIndicator()
+    // whether the indicator took the list (it does when the list scrolls)
+    function flashIndicator() {
+        if (modelEmpty || stack.layers.length > 0 || listView === null)
+            return false
+        return RotaryInput.flashIndicator(listView)
+    }
+
     ListModel { id: rows }
 
     NotificationListModel {
