@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // The rules and numbers of the charging screen (src/qml/charging/charging.js), as
-// stock CP3A's ChargingComposeActivity: layout (charging-battery-01), level and
-// colours (-08), clock and chip (ICU "EEE d" through
+// stock CP3A's ChargingComposeActivity: layout (charging-battery-01, the measure
+// policy imm.java), level and colours (-08), clock and chip (ICU "EEE d" through
 // org.asteroid.utils DateFormat), intro (-06), pulse (-07), plug and unplug
 // (-02, -03), the quality screen rule (app-inventory-03) and the bolt glyph, whose
 // vertices must be Qt.point values for PathPolyline (D60-10). Staged as module
@@ -30,7 +30,7 @@ TestCase {
         PathPolyline { id: halfLine; path: Charging.partial(Charging.boltHalves().a, 0.5) }
     }
 
-    // ---- layout: charging-battery-01
+    // ---- layout: charging-battery-01, imm.java
     function test_layout_numbers() {
         var L = Charging.LAYOUT
         compare(L.ringStrokeDp, 8)
@@ -47,13 +47,32 @@ TestCase {
         compare(L.chipPadYDp, 6)
         compare(L.chipIconDp, 16)
         compare(L.chipIconGapDp, 8)
-        compare(L.chipGapDp, 6)
-        compare(L.unreadBottomDp, 12)
-        compare(L.unreadDp, 8)
+        // the layout sits in the screen's 2 dp padding (mnw.java); the bottom slot 12 dp above
+        // its bottom under 225 dp, 14 dp from 225 dp (imm.java)
+        compare(L.padDp, 2)
+        compare(L.slotBottomDp, 12)
+        compare(L.slotBottomLargeDp, 14)
+        compare(L.largeScreenDp, 225)
+        verify(L.chipGapDp === undefined)
+        verify(L.unreadDp === undefined)
+        verify(L.unreadBottomDp === undefined)
         // pills: (192 - 192 * 0.1666 - 4) / 2 = 78 dp, 0.3646 of 192 = 70 dp
         near(Charging.pillWidthDp(192), 78, 0.01)
         near(Charging.pillHeightDp(192), 70, 0.01)
     }
+    function test_bottom_slot_and_chip_place() {
+        // PW2 (192 dp): 2 + 12 = 14 dp from the edge; a 225 dp screen: 2 + 14 = 16 dp
+        compare(Charging.slotBottomDp(192), 14)
+        compare(Charging.slotBottomDp(224), 14)
+        compare(Charging.slotBottomDp(225), 16)
+        // the chip is centred between the clock's bottom and the slot's top (imm.java):
+        // 384 px: clock 122..262 px, slot top 384 - 28 = 356 px, a 56 px chip -> 281 px
+        compare(Charging.chipTop(262, 356, 56), 281)
+        compare(Charging.chipTop(262, 356, 32), 293)
+        // the slot is empty (CP3A composes nothing in it), so its top is its bottom
+        compare(Charging.chipTop(262, 384 - 2 * Charging.slotBottomDp(192), 56), 281)
+    }
+
     // ---- level and colours: charging-battery-08
     function test_level_and_low() {
         compare(Charging.LOW_LEVEL, 15)
@@ -252,7 +271,7 @@ TestCase {
         near(r.ringScale, 0.9 + 0.1 * Charging.springAt(300, 1400), 1e-9)
         near(r.percent, Charging.springAt(300, 260), 1e-12)
         near(r.boltMove, Charging.springAt(300, 500), 1e-12)
-        // the clock starts 50 ms after the ring, the chip 100 ms, the dot 150 ms
+        // the clock starts 50 ms after the ring, the chip 100 ms, the bottom slot 150 ms
         near(r.clockRise, Charging.springAt(250, 500), 1e-12)
         near(r.clockFade, Charging.springAt(250, 260), 1e-12)
         near(r.chipRise, Charging.springAt(200, 500), 1e-12)

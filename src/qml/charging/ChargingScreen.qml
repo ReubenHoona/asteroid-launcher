@@ -21,8 +21,9 @@ import "../compositor/windowmotion.js" as WM
  * 18 dp; digits numeralLarge, 'hh' zero-padded in 12 h, 'HH' in 24 h, no
  * AM/PM); under it a pill chip with the date (ICU's 'EEE d' in the locale:
  * '23 Mon' in en_US, 'Mon 23' in en_GB) or, when the next alarm rings within
- * 24 h, the alarm icon and its time; the unread dot 12 dp above
- * the bottom. At 15 % and below the whole screen turns red (300 ms).
+ * 24 h, the alarm icon and its time, centred between the clock and the bottom
+ * slot 14 dp above the edge, which stays empty (CP3A's unread dot draws
+ * nothing). At 15 % and below the whole screen turns red (300 ms).
  *
  * The plug-in plays the intro (Charging.introAt: our own bolt traced, filled
  * and scaled 2.83 -> 1.06 in 1 s, then the ring, the bolt move and the rise of
@@ -54,11 +55,10 @@ Item {
     // a hide fades out (the unplug) instead of going at once
     property bool fade: false
 
-    // the battery level in per cent; the time; 12 or 24 h; unread notifications; the next alarm
+    // the battery level in per cent; the time; 12 or 24 h; the next alarm
     property int level: Charging.clampLevel(battery.percent)
     property date now: new Date()
     property bool use12h: !TimeFormat.use24h
-    property bool unread: false
     property real nextAlarmMs: alarms ? alarms.nextAlarmMs : 0
 
     // the intro: time in ms; at rest it stands at its end
@@ -77,6 +77,8 @@ Item {
     readonly property real pillW: Theme.dp(Charging.pillWidthDp(wDp))
     readonly property real pillH: Theme.dp(Charging.pillHeightDp(hDp))
     readonly property real pillTop: (height - pillH) / 2
+    // the top of the empty bottom slot (its bottom: it is 0 px tall)
+    readonly property real slotTop: height - Theme.dp(Charging.slotBottomDp(Math.min(wDp, hDp)))
     readonly property var parts: Charging.clockParts(now, use12h)
     readonly property string localeName: currentLocale()
     readonly property var chipInfo: Charging.chip(now, nextAlarmMs, use12h, Qt.locale(localeName).amText,
@@ -374,7 +376,8 @@ Item {
         radius: height / 2
         color: screen.chipColor
         x: (screen.width - width) / 2
-        y: screen.pillTop + screen.pillH + Theme.dp(Charging.LAYOUT.chipGapDp)
+        // centred between the clock's bottom and the bottom slot (imm.java:64)
+        y: Charging.chipTop(screen.pillTop + screen.pillH, screen.slotTop, height)
            + Theme.dp(Charging.INTRO.riseDp) * (1 - screen.st.chipRise)
         opacity: screen.st.chipFade
         Row {
@@ -419,16 +422,6 @@ Item {
         opacity: screen.pulse
     }
 
-    // unread notifications
-    Rectangle {
-        objectName: "eosChargingDot"
-        visible: screen.unread
-        width: Theme.dp(Charging.LAYOUT.unreadDp)
-        height: width
-        radius: width / 2
-        color: Theme.color.onSurface
-        x: (screen.width - width) / 2
-        y: screen.height - Theme.dp(Charging.LAYOUT.unreadBottomDp) - height
-        opacity: screen.st.dot
-    }
+    // no unread dot: CP3A's charging screen keeps the slot under the chip (bae.java:172-215,
+    // imm.java:63) but its dot composable draws nothing (ini.java:2498-2508)
 }

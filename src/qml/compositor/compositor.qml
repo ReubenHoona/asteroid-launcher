@@ -305,7 +305,6 @@ Item {
         plugIntro: charging.intro
         fade: charging.fade
         awake: comp ? !comp.displayIsOff : true
-        unread: homeLoader.item && homeLoader.item.unreadCount !== undefined ? homeLoader.item.unreadCount > 0 : false
         onIntroFinished: charging.intro = false
     }
     ChargerProblem {

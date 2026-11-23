@@ -4,8 +4,10 @@
 // ChargingScreen.qml, Bolt.qml, ChargerProblem.qml) with the image's controls on the
 // repo mocks (MceBatteryLevel on Backend.batteryPercent, the ClockSource double of
 // tests/qml/stage). 384 x 384 px = 192 dp, 1 dp = 2 px. The bolt is drawn where
-// stock draws it (D60-10) and the date chip reads ICU's "EEE d" in the locale
-// (D60-11). Staged as tst_charging.qml is (module
+// stock draws it (D60-10), the date chip reads ICU's "EEE d" and sits centred
+// between the clock and the bottom slot as CP3A's measure policy places it
+// (D60-11, imm.java), and nothing is drawn in the bottom slot (D60-12: CP3A's
+// unread dot composable is empty). Staged as tst_charging.qml is (module
 // LauncherQml); the real org.asteroid.utils (DateFormat, ICU), not the mock.
 // Shots go to /tmp/wo04-shots.
 // Run by motion-wt/wo04/run.sh (qmltestrunner under qemu-aarch64 on the image rootfs).
@@ -134,7 +136,7 @@ Item {
             s.finishIntro()
         }
 
-        // ---- D60-11: the chip's text
+        // ---- D60-11: the chip
         function test_chip_text() {
             up()
             var txt = find(s, "eosChargingChipText"), icon = find(s, "eosChargingChipIcon")
@@ -156,6 +158,45 @@ Item {
             s.nextAlarmMs = s.now.getTime() + 25 * 3600 * 1000
             compare(txt.text, "14 Sat")
             verify(!icon.visible)
+        }
+        function test_chip_place() {
+            up()
+            var chip = find(s, "eosChargingChip"), txt = find(s, "eosChargingChipText"), h = find(s, "eosChargingHours")
+            compare(rgb(chip.color).join(), "47,48,54,1")           // surfaceContainer
+            compare(rgb(txt.color).join(), "219,226,249,1")         // primary
+            compare(txt.font.pixelSize, 26)                         // labelSmall 13 sp
+            // padding 8 / 6 dp (ini.java:2697)
+            near(chip.width, txt.width + 32, 0.5)
+            near(chip.height, txt.height + 24, 0.5)
+            near(chip.radius, chip.height / 2, 0.01)
+            // centred between the clock's bottom (262) and the empty bottom slot's top (384 - 28)
+            var clockBottom = h.parent.y + h.height
+            near(clockBottom, 262, 0.01)
+            near(chip.y, (clockBottom + 356 - chip.height) / 2, 0.01)
+            near(chip.y + chip.height / 2, 309, 0.01)
+            near(chip.x + chip.width / 2, 192, 0.5)
+            // (CP3A's labelSmall line is 16 sp: a 56 px pill, top 281; the label box here is
+            // taller, and the centring keeps the pill's middle at 309 whatever its height)
+            verify(chip.height >= 56 && chip.height <= 60, "chip height " + chip.height)
+            // drawn there: the pill's fill just inside its top and bottom edges, black above and below
+            var img = shot("charging-chip")
+            var cx = 192
+            near(img.red(cx, 284), 47, 3); near(img.green(cx, 284), 48, 3); near(img.blue(cx, 284), 54, 3)
+            near(img.red(cx, 334), 47, 3); near(img.green(cx, 334), 48, 3); near(img.blue(cx, 334), 54, 3)
+            compare(img.red(cx, 271) + img.green(cx, 271) + img.blue(cx, 271), 0)
+            compare(img.red(cx, 341) + img.green(cx, 341) + img.blue(cx, 341), 0)
+        }
+
+        // ---- D60-12: nothing in the bottom slot
+        function test_no_unread_dot() {
+            up()
+            compare(find(s, "eosChargingDot"), null)
+            verify(s.unread === undefined)
+            var img = shot("charging-bottom")
+            // under the chip down to the ring: black (stock emulator's dot was at x 187-196, y 346-355)
+            for (var y = 340; y <= 362; y++)
+                for (var x = 176; x <= 208; x++)
+                    compare(img.red(x, y) + img.green(x, y) + img.blue(x, y), 0, "pixel " + x + "," + y)
         }
     }
 

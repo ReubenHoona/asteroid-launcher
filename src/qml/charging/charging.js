@@ -33,9 +33,16 @@ var LAYOUT = {
     chipPadYDp: 6,
     chipIconDp: 16,
     chipIconGapDp: 8,
-    chipGapDp: 6,               // pills to chip (inferred)
-    unreadBottomDp: 12,         // the dot 12 dp above the bottom
-    unreadDp: 8                 // (inferred)
+    /* The measure policy of the bolt, the clock, the chip and the bottom slot (imm.java:43-77),
+     * inside the screen's 2 dp padding (mnw.java:2285-2286, aqw(2, 2, 2, 2)): the clock in the
+     * middle; the bottom slot ends 12 dp above the padded bottom on screens under 225 dp, 14 dp
+     * from 225 dp (ini.java:1528, imm.java:63); the chip is centred between the clock's bottom
+     * and the slot's top (imm.java:64). The slot is the unread dot's (bae.java:172-215), whose
+     * composable draws nothing in CP3A (ini.java:2498-2508): it stays empty, 0 px tall. */
+    padDp: 2,
+    slotBottomDp: 12,
+    slotBottomLargeDp: 14,
+    largeScreenDp: 225
 }
 
 // the width of one pill on a screen of this many dp (ini.java:2257)
@@ -44,6 +51,14 @@ function pillWidthDp(screenWidthDp) {
 }
 function pillHeightDp(screenHeightDp) {
     return screenHeightDp * LAYOUT.pillHeightFraction
+}
+// the bottom slot's bottom, dp above the screen's edge: 2 + 12 = 14 dp on PW2 (192 dp)
+function slotBottomDp(smallestWidthDp) {
+    return LAYOUT.padDp + (smallestWidthDp < LAYOUT.largeScreenDp ? LAYOUT.slotBottomDp : LAYOUT.slotBottomLargeDp)
+}
+// the chip's top: centred between the clock's bottom and the bottom slot's top (imm.java:64), any unit
+function chipTop(clockBottom, slotTop, chipHeight) {
+    return (clockBottom + slotTop - chipHeight) / 2
 }
 
 /* ---- level, colours (charging-battery-08) -------------------------------- */
@@ -180,7 +195,8 @@ var INTRO = {
     strokeFromPx: 2.5, strokeStart: 167, strokeEnd: 500, strokeCurve: [0.755, 0, 0.55, 1],
     fillStart: 167, fillEnd: 500, fillCurve: [0.309, 0, 0.2, 1],
     outlineFadeStart: 267, outlineFadeEnd: 583, outlineFadeCurve: [0.48, 0, 0, 1],
-    // 2) the ring, the percentage; 3) the bolt moves into place; 4) clock and chip rise; 5) the dot
+    // 2) the ring, the percentage; 3) the bolt moves into place; 4) clock and chip rise; 5) the
+    // bottom slot fades in (inc.b; nothing is drawn in it)
     ringAt: 1000,
     ringStiffness: 75, ringScaleStiffness: 1400,
     ringScaleFrom: 0.9, ringRotationFrom: -90,
