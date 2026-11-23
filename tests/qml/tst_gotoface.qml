@@ -6,6 +6,10 @@
 //  - while the AP is awake under the always-on screen the 2 s check (ambientExpiry) runs for the
 //    app list and Recents too, and shows the face once the count has run out;
 //  - Go to watch face 15 s: 14 s keeps the list, 15 s is the face; Never keeps the list.
+//  - the home screen comes after AppLifecycle, as on the watch (compositor.qml's homeLoader loads
+//    MainScreen in its componentComplete, after AppLifecycle's bindings were first evaluated, and
+//    MainScreen sets Desktop.desktop in its Component.onCompleted): AppLifecycle takes it through its
+//    `home` property (compositor.qml: home: homeLoader.item), so the check's binding sees it arrive.
 // Stock: HeadlessTaskManagementSession.expireTask moves the expired task to the back and
 // maybeHandleHomeTaskExpiration drops a home task whose top activity is not the home activity to the
 // face (:327-374, :452-469); the timer is a non-wakeup alarm (TaskTimeoutController.java:208).
@@ -58,22 +62,35 @@ Item {
         function setAmbientUpdatesEnabled(on) {}
     }
 
-    // the home screen (MainScreen): the app list, Recents, and the way back to the face
+    // the home screen (MainScreen): the app list, Recents, and the way back to the face. Loaded after
+    // AppLifecycle (homeLoader below), and it sets Desktop.desktop when it completes, as MainScreen does
     QtObject { id: drawerMock; property bool isOpen: false }
     QtObject { id: recentsMock; property bool isOpen: false }
-    QtObject {
-        id: home
-        property QtObject appDrawer: drawerMock
-        property QtObject recents: recentsMock
-        property int faceShows: 0
-        function showWatchface() {
-            faceShows++
-            drawerMock.isOpen = false
-            recentsMock.isOpen = false
+    Component {
+        id: homeComponent
+        Item {
+            id: homeItem
+            property QtObject appDrawer: drawerMock
+            property QtObject recents: recentsMock
+            property int faceShows: 0
+            function showWatchface() {
+                faceShows++
+                drawerMock.isOpen = false
+                recentsMock.isOpen = false
+            }
+            Component.onCompleted: Desktop.desktop = homeItem
         }
     }
+    Loader { id: homeLoader; active: false; sourceComponent: homeComponent }
+    readonly property QtObject home: homeLoader.item
 
-    Loader { id: loader; active: false; source: Qt.resolvedUrl("st/qml/compositor/AppLifecycle.qml") }
+    // compositor.qml: AppLifecycle { id: comp; home: homeLoader.item }
+    Loader {
+        id: loader
+        active: false
+        source: Qt.resolvedUrl("st/qml/compositor/AppLifecycle.qml")
+        onLoaded: item.home = Qt.binding(function () { return homeLoader.item })
+    }
 
     SignalSpy { id: goneSpy; signalName: "goneToFace" }
 
@@ -83,16 +100,35 @@ Item {
         when: windowShown
 
         property var life: null
+        // what initTestCase saw (asserted in test_00, so the other tests still run when it fails)
+        property var homeAtLoad: undefined
+        property var desktopAtLoad: undefined
+        property var homeAfter: undefined
 
         function initTestCase() {
             Lipstick.compositor = lipstickComp
-            Desktop.desktop = home
+            Desktop.desktop = null
             loader.active = true
             tryCompare(loader, "status", Loader.Ready, 30000)
             life = loader.item
             verify(life !== null, "AppLifecycle loaded")
             goneSpy.target = life
             compare(life.appActive, false, "no application: the home screen")
+            homeAtLoad = life.home
+            desktopAtLoad = Desktop.desktop
+            // then the home screen, as compositor.qml's homeLoader brings MainScreen
+            homeLoader.active = true
+            tryCompare(homeLoader, "status", Loader.Ready, 5000)
+            homeAfter = life.home
+        }
+
+        function test_00_home_screen_arrives_after_applifecycle() {
+            compare(homeAtLoad, null, "AppLifecycle loaded with no home screen yet")
+            compare(desktopAtLoad, null, "nor Desktop.desktop")
+            verify(home !== null, "the home screen loaded")
+            compare(homeAfter, home, "AppLifecycle.home follows homeLoader.item")
+            compare(Desktop.desktop, home, "the home screen set Desktop.desktop when it completed")
+            compare(life.homeScreen(), home)
         }
 
         // the display on, the face, nothing open, Go to watch face 1 minute (the default)
@@ -183,9 +219,14 @@ Item {
             verify(!life.ambientExpiry.running, "the face under the always-on screen: no check")
             lipstickComp.displayAmbient = false
             drawerMock.isOpen = true
-            // the binding reads the list through Desktop.desktop: read again on the next ambient change
+            verify(!life.ambientExpiry.running, "awake with the app list: no check (the wake decides)")
             lipstickComp.displayAmbient = true
             verify(life.ambientExpiry.running, "the app list under the always-on screen: the check runs")
+            // the binding follows the lists themselves (home's appDrawer.isOpen and recents.isOpen)
+            drawerMock.isOpen = false
+            verify(!life.ambientExpiry.running, "the app list closed: no check")
+            recentsMock.isOpen = true
+            verify(life.ambientExpiry.running, "Recents under the always-on screen: the check runs")
             lipstickComp.displayAmbient = false
             verify(!life.ambientExpiry.running, "awake: no check (the wake decides)")
         }

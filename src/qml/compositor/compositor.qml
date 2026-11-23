@@ -421,7 +421,7 @@ Item {
 
     KeyRouter { id: keyRouter }
 
-    AppLifecycle { id: comp }
+    AppLifecycle { id: comp; home: homeLoader.item }
 
     // Rounds off the corners of a round screen. The mask depends on nothing
     // but the size of the screen, so rather than masking the whole screen

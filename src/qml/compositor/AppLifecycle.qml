@@ -409,8 +409,9 @@ Compositor {
     function goToFace() {
         if (appActive)
             leaveApp(topmostWindow)
-        if (Desktop.desktop && Desktop.desktop.showWatchface)
-            Desktop.desktop.showWatchface()
+        var d = homeScreen()
+        if (d && d.showWatchface)
+            d.showWatchface()
         Life.episodeEnd(episode)
         goneToFace()
     }
@@ -435,13 +436,23 @@ Compositor {
         scheduleFreeze()
     }
 
+    // The home screen (MainScreen; compositor.qml binds it to homeLoader.item).
+    // Read through this property so that bindings see it arrive: Desktop.desktop
+    // is a plain variable of a .pragma library file (not tracked), and MainScreen
+    // sets it in its Component.onCompleted, after this object's bindings were
+    // first evaluated (homeLoader loads MainScreen in its componentComplete).
+    property QtObject home: null
+    function homeScreen() {
+        return home ? home : Desktop.desktop
+    }
+
     // The app list or Recents is open over the home screen. Stock: both are
     // activities (sysui's launcher in the home task, RecentsActivity), so the
     // count sends them away too: HeadlessTaskManagementSession.expireTask moves
     // the task to the back and maybeHandleHomeTaskExpiration drops a home task
     // whose top activity is not the home activity to the face (:327-374, :452-469).
     function homeOverlayOpen() {
-        var d = Desktop.desktop
+        var d = homeScreen()
         return !!d && ((!!d.appDrawer && d.appDrawer.isOpen) || (!!d.recents && d.recents.isOpen))
     }
 
