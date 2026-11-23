@@ -110,10 +110,11 @@ Item {
         z: arbiter.layers.headsUp
         anchors.fill: parent
         source: "../notifications/NotificationPreview.qml"
-        // what the home screen tells the heads-up: the face is the current panel (a
-        // glanceable, else a bubble), the notification list is (vibration only)
+        // what the home screen tells the heads-up: the face is the current panel, in
+        // always-on too (a glanceable, else a bubble: an alert that came in always-on
+        // shows at the wake), the notification list is (vibration only)
         onLoaded: {
-            item.faceCurrent = Qt.binding(function () { return typeof root !== "undefined" && root !== null && root.faceCurrent === true })
+            item.faceCurrent = Qt.binding(function () { return typeof root !== "undefined" && root !== null && root.faceForAlerts === true })
             item.streamCurrent = Qt.binding(function () { return typeof root !== "undefined" && root !== null && root.streamCurrent === true })
         }
     }

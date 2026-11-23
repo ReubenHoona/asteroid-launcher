@@ -152,8 +152,9 @@ private:
     //! Sets the given notification as the current notification
     void setCurrentNotification(LipstickNotification *notification, int kind = EosAlert::NoKind, bool resumed = false);
 
-    //! Presents the notification: the overlay of the panel in front; false when nothing is shown for it
-    bool present(LipstickNotification *notification, bool resumed);
+    //! Presents the notification: the overlay of the panel in front; false when nothing is shown for it.
+    //! atWake: shown as the display came on (the face may become current just after)
+    bool present(LipstickNotification *notification, bool resumed, bool atWake = false);
 
     void updateWaiting();
 
@@ -208,6 +209,8 @@ private:
 
     int m_kind = EosAlert::NoKind;
     bool m_resumed = false;
+    //! The current notification was shown as the display came on (D60-02)
+    bool m_shownAtWake = false;
     bool m_faceCurrent = false;
     bool m_surfaceBusy = false;
     bool m_detailOpen = false;

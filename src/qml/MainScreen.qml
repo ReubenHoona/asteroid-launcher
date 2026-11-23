@@ -399,11 +399,16 @@ Item {
                                       && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible && !faceEditor.visible
     /* The face is the current panel with nothing over it: a new notification's
      * glanceable is for this, anywhere else it is a bubble; and the notification
-     * list is the current panel: only a vibration (W2-launcher-heads-up) */
-    readonly property bool faceCurrent: faceShown && !displayAmbient && !appDrawer.isOpen && !recents.isOpen
-                                        && !splash.visible && grid.currentHorizontalPos === 0
-                                        && grid.currentVerticalPos === 0 && Math.abs(grid.ringPosition) < 0.001
-                                        && grid.topTrayFraction === 0 && grid.bottomTrayFraction === 0
+     * list is the current panel: only a vibration (W2-launcher-heads-up).
+     * faceForAlerts is the same in always-on too, for the heads-up: an alert
+     * that came in always-on shows at the wake, when mce's display-on signal
+     * may reach the notification presenter before the always-on screen has
+     * ended here (the presenter shows nothing with the display off; D60-02) */
+    readonly property bool faceForAlerts: faceShown && !appDrawer.isOpen && !recents.isOpen
+                                          && !splash.visible && grid.currentHorizontalPos === 0
+                                          && grid.currentVerticalPos === 0 && Math.abs(grid.ringPosition) < 0.001
+                                          && grid.topTrayFraction === 0 && grid.bottomTrayFraction === 0
+    readonly property bool faceCurrent: faceForAlerts && !displayAmbient
     readonly property bool streamCurrent: (wearLayout ? (grid.currentHorizontalPos === 0 && grid.currentVerticalPos === 1)
                                                       : (grid.currentHorizontalPos === -1 && grid.currentVerticalPos === 0))
                                           && appDrawer.progress < 1 && facePicker.progress < 1 && !tilesEditor.visible

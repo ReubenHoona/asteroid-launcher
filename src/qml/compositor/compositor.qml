@@ -132,6 +132,10 @@ Item {
     // its); what the home screen tells it
     readonly property bool headsUpShown: arbiter.headsUpShown
     readonly property bool faceCurrent: homeLoader.item && comp ? (comp.homeActive && homeLoader.item.faceCurrent === true) : false
+    // the same in always-on too: what the heads-up is told (D60-02; the home screen as
+    // loaded, a MainScreen)
+    readonly property var homeScreen: homeLoader.item
+    readonly property bool faceForAlerts: homeScreen && comp ? (comp.homeActive && homeScreen.faceForAlerts === true) : false
     readonly property bool streamCurrent: homeLoader.item && comp ? (comp.homeActive && homeLoader.item.streamCurrent === true) : false
     // the parts, for the tests and the other packages
     readonly property QtObject keys: keyRouter

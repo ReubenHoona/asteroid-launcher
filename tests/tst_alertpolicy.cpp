@@ -52,6 +52,15 @@ int main()
     CHECK(kindFor(false, false) == Bubble);
     CHECK(kindFor(false, true) == NoKind);
 
+    // a bubble shown at the wake becomes the glanceable when the face turns out to be
+    // the current panel (D60-02); only that one, and not with its full view open
+    CHECK(wokenBubbleToGlanceable(Bubble, true, true, false));
+    CHECK(!wokenBubbleToGlanceable(Bubble, true, true, true));
+    CHECK(!wokenBubbleToGlanceable(Bubble, true, false, false));
+    CHECK(!wokenBubbleToGlanceable(Bubble, false, true, false));
+    CHECK(!wokenBubbleToGlanceable(Glanceable, true, true, false));
+    CHECK(!wokenBubbleToGlanceable(NoKind, true, true, false));
+
     // a new alert replaces a glanceable, not a bubble and not the full view
     CHECK(replacesCurrent(Glanceable, Glanceable, false));
     CHECK(!replacesCurrent(Glanceable, Glanceable, true));

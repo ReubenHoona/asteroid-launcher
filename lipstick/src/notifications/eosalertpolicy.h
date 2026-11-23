@@ -93,6 +93,18 @@ inline Kind kindFor(bool faceCurrent, bool batterySaver)
     return batterySaver ? NoKind : Bubble;
 }
 
+/* An alert shown as the display came on is judged again when the home screen
+ * says the face is the current panel: mce's display-on signal can reach the
+ * presenter before the home screen has gone back to the face (an application
+ * left at the wake), and an alert woken on the face is the glanceable (stock
+ * picks the surface when the item is shown on the screen that is on, the
+ * glanceable whenever the watch face is up, kfi.java:79-88, :136, :180-190). A
+ * bubble whose full view is open stays a bubble (D60-02). */
+inline bool wokenBubbleToGlanceable(Kind current, bool faceCurrent, bool shownAtWake, bool detailOpen)
+{
+    return current == Bubble && faceCurrent && shownAtWake && !detailOpen;
+}
+
 // How long the glanceable stays before it becomes the full view
 inline long long glanceHoldMs(bool showImmediately)
 {

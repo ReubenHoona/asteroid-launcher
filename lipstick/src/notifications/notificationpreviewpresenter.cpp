@@ -90,6 +90,14 @@ void NotificationPreviewPresenter::setFaceCurrent(bool current)
         return;
     m_faceCurrent = current;
     emit faceCurrentChanged();
+
+    // The bubble of an alert shown at the wake, and the face is the current panel
+    // now: it is the glanceable (D60-02)
+    if (currentNotification != 0
+            && EosAlert::wokenBubbleToGlanceable(static_cast<EosAlert::Kind>(m_kind), current, m_shownAtWake, m_detailOpen)) {
+        m_kind = EosAlert::Glanceable;
+        emit notificationChanged();
+    }
 }
 
 void NotificationPreviewPresenter::setSurfaceBusy(bool busy)
@@ -261,7 +269,7 @@ void NotificationPreviewPresenter::enqueue(LipstickNotification *notification, q
         showNextNotification();
 }
 
-bool NotificationPreviewPresenter::present(LipstickNotification *notification, bool resumed)
+bool NotificationPreviewPresenter::present(LipstickNotification *notification, bool resumed, bool atWake)
 {
     const int kind = EosAlert::kindFor(m_faceCurrent, batterySaver());
     if (kind == EosAlert::NoKind) {
@@ -272,6 +280,7 @@ bool NotificationPreviewPresenter::present(LipstickNotification *notification, b
 
     m_arrival.remove(notification->replacesId());
     setCurrentNotification(notification, kind, resumed);
+    m_shownAtWake = atWake;
 
     // A new alert on the face while the display is on is user activity: mce's
     // normal dim and blank timers start again (no fixed hold of its own)
@@ -354,6 +363,7 @@ void NotificationPreviewPresenter::setCurrentNotification(LipstickNotification *
         currentNotification = notification;
         m_kind = notification ? kind : static_cast<int>(EosAlert::NoKind);
         m_resumed = notification ? resumed : false;
+        m_shownAtWake = false;
         emit notificationChanged();
     }
 }
@@ -459,5 +469,5 @@ void NotificationPreviewPresenter::displayStateChanged()
         return;
     }
     if (currentNotification == 0)
-        present(notification, resumed);
+        present(notification, resumed, true);
 }
