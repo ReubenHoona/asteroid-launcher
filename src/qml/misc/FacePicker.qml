@@ -47,7 +47,9 @@ Item {
 
     // 0: the face's size (scale 1.613) .. 1: the settled carousel
     property real zoom: 0
-    readonly property real progress: zoom
+    // the away exit (K4) keeps zoom at 1 and fades the picker out: the face counts as shown from its
+    // first frame, as it does when the picker zooms back into it
+    readonly property real progress: closing && fadeOut ? Math.min(zoom, picker.opacity) : zoom
     property bool shown: false
     property bool closing: false
     // the face is being snapshotted before the picker shows
@@ -231,15 +233,19 @@ Item {
         opening = false
         closing = true
         fadeOut = fade
-        if (fade)
+        if (fade) {
+            revealAnim.restart()
             awayAnim.restart()
-        else
+        } else {
             exitAnim.restart()
+        }
     }
     property bool fadeOut: false
 
     // the away exit (K4): scale and alpha of the whole picker, and its circular reveal (a fraction of the
-    // half width), masked only while it runs
+    // half width), masked only while it runs. The picker goes when the scale and alpha end (350 ms), as
+    // stock's view is GONE then (the exit animator's hzo listener, hzs.b); the 700 ms reveal is stopped
+    // there with it: from 300 ms on it is drawn at alpha 0
     property real awayScale: 1
     property real revealRadius: 1
     scale: awayScale
@@ -261,12 +267,13 @@ Item {
             duration: Motion.duration(FP.AWAY_ALPHA_MS)
             easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_ALPHA_CURVE
         }
-        NumberAnimation {
-            target: picker; property: "revealRadius"; to: FP.AWAY_REVEAL_TO
-            duration: Motion.duration(FP.AWAY_REVEAL_MS)
-            easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_REVEAL_CURVE
-        }
         onFinished: picker.finish()
+    }
+    NumberAnimation {
+        id: revealAnim
+        target: picker; property: "revealRadius"; to: FP.AWAY_REVEAL_TO
+        duration: Motion.duration(FP.AWAY_REVEAL_MS)
+        easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_REVEAL_CURVE
     }
     ParallelAnimation {
         id: exitAnim
@@ -289,6 +296,7 @@ Item {
         zoom = 0
         picker.opacity = 1
         awayScale = 1
+        revealAnim.stop()
         revealRadius = 1
         liveResult = null
         liveUrl = ""
@@ -799,6 +807,9 @@ Item {
 
     // an arrow: the centred face swaps with its neighbour, saved at once; it lifts and settles
     function moveCentred(dir) {
+        // not while the picker goes: the away exit keeps zoom at 1, so the arrows stay enabled
+        if (!shown || closing)
+            return false
         var id = centredFid
         if (id === "" || !store || !store.move(id, dir))
             return false
