@@ -238,11 +238,11 @@ Item {
     // the curve of the scroll tween: null is OutCubic (Clear all's scroll to the top, whose stock
     // curve was lost), else a BezierSpline (motion E10: the card scrolls are FastOutSlowIn)
     property var scrollCurve: null
-    // ms: a tween of that length (after delayMs); ms < 0: a spring of that stiffness, -ms
-    function scrollGoal(goalFn, ms, thenExpanded, curve, delayMs) {
+    // stop what moves the list and take it for a scroll to goalFn(); false: no list
+    function takeList(goalFn, thenExpanded) {
         var lv = listView
         if (!lv)
-            return
+            return false
         lv.cancelFlick()
         if (lv.physics)
             lv.physics.stop()
@@ -252,6 +252,12 @@ Item {
         scrollStart = lv.contentY
         scrollProgress = 0
         pendingExpanded = thenExpanded === undefined ? -2 : thenExpanded
+        return true
+    }
+    // ms: a tween of that length (after delayMs); ms < 0: a spring of that stiffness, -ms
+    function scrollGoal(goalFn, ms, thenExpanded, curve, delayMs) {
+        if (!takeList(goalFn, thenExpanded))
+            return
         if (ms < 0) {
             scrollSpring.stiffness = -ms
             scrollSpring.snapTo(0)
@@ -265,6 +271,11 @@ Item {
     }
     function scrollToTop(ms) {
         scrollGoal(function () { return listView.originY - listView.topMargin }, ms)
+    }
+    // the list goes to where goalFn() says at once (stock's scrollToItem, erl.i)
+    function jumpTo(goalFn) {
+        if (takeList(goalFn))
+            scrollDone()
     }
     // the contentY that puts the card of notification nid at y in the list
     function cardTopGoal(nid, y) {
@@ -288,6 +299,9 @@ Item {
             if (Math.abs(g - lv.contentY) < 0.5)
                 break
             lv.contentY = g
+            // the rows' scaled heights changed with the move: lay them out now, not at the next
+            // frame, so the next goal sees where the card is (a jump moves the list far in one step)
+            lv.forceLayout()
         }
         stream.scrollGoalFn = null
         if (stream.pendingExpanded !== -2) {
@@ -339,9 +353,11 @@ Item {
      *    closing card above gives its height up);
      *  - closing a card whose top is more than two screen widths above the
      *    list: scroll back to it (200 ms).
-     * The card changes after the scroll (200 ms on FastOutSlowIn, kvy.java:94,
-     * motion E10). Returns where the card's top is to be in the list (px from
-     * its top), or NaN for no scroll.
+     * The two opening cases jump there and the card opens at once (erl.i is
+     * scrollToItem, erl.java:165-167, 189-198); only the closing case scrolls,
+     * 200 ms on FastOutSlowIn (kvy.java:90-95, motion E10), and the card
+     * closes after it. Returns where the card's top is to be in the list (px
+     * from its top), or NaN for no scroll.
      */
     function preScrollTop(nid, opening) {
         var lv = listView
@@ -376,8 +392,11 @@ Item {
             expandedId = opening ? nid : -1
             if (opening)
                 scrollAfterOpen(nid)
+        } else if (opening) {
+            jumpTo(function () { return cardTopGoal(nid, y) })
+            expandedId = nid
         } else {
-            scrollGoal(function () { return cardTopGoal(nid, y) }, Motion.duration(200), opening ? nid : -1,
+            scrollGoal(function () { return cardTopGoal(nid, y) }, Motion.duration(200), -1,
                        Motion.easing.legacy)
         }
     }
