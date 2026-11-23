@@ -19,7 +19,11 @@ void main() {
     float distSq = x * x + y * y;
 
     vec4 texColor = texture(source, qt_TexCoord0);
-    float mask = step(distSq, 0.25) * smoothstep(distSq, ubuf.end, ubuf.beginning);
+    // nothing past end: the smoothstep below takes the pixel's distance as its first edge, which GLSL
+    // leaves undefined past end (it came out as 1, so a radius under the screen's clipped nothing);
+    // with end = 0.25 (every user but the face picker's reveal) the result is the same as before
+    float inner = distSq < ubuf.end ? smoothstep(distSq, ubuf.end, ubuf.beginning) : 0.0;
+    float mask = step(distSq, 0.25) * inner;
 
     if (ubuf.keepInner == 1) {
         fragColor = texColor * mask * ubuf.qt_Opacity;
