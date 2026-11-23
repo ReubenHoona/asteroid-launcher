@@ -10,6 +10,9 @@
 //    multiplies in): open 1 -> 0.70 and a dim 0.5 p on the same spring; close (WearOpenWatchface) scale and
 //    alpha 0.5 + 0.5 q on 1.0/260 (WearOpenWatchfaceMixinTransition.java:105, $$ExternalSyntheticLambda2
 //    .java:28-32).
+//  - D60-09: once the list has come in, its scroll indicator shows for 2 s (RotaryInput.flashIndicator,
+//    qml-asteroid 7913885), only when the list scrolls; not during the opening (stock M01: it fades in
+//    at the end of the zoom).
 // Run by motion-wt/wo10/run.sh (qmltestrunner under qemu-aarch64 on the image rootfs).
 import QtQuick
 import QtTest
@@ -120,6 +123,24 @@ Item {
                                  exec: "/usr/bin/app" + i },
                          key: "app" + i, desktop: "app" + i, front: false, ongoing: false, status: "" })
             return e
+        }
+
+        // the shared scroll indicator RotaryInput puts on the window (PositionIndicator)
+        function indicator() {
+            var r = top
+            while (r.parent)
+                r = r.parent
+            var kids = r.children
+            for (var i = 0; i < kids.length; i++) {
+                var k = kids[i]
+                if (k.flickable !== undefined && k.shown !== undefined && typeof k.flash === "function")
+                    return k
+            }
+            return null
+        }
+        function indicatorOn(view) {
+            var ind = indicator()
+            return ind !== null && ind.shown && ind.flickable === view
         }
 
         // open (show) and sample each frame until the motion is over: [{ mode, p, q, scale, dim, ... }]
@@ -249,6 +270,50 @@ Item {
             compare(recents.faceScale, 1)
             compare(recents.faceAlpha, 1)
             compare(recents.faceMoving, false)
+        }
+
+        // ---- D60-09: the scroll indicator when the list has come in ----
+
+        function test_06_indicator_once_the_list_has_come_in() {
+            tryVerify(function () { var ind = indicator(); return ind === null || !ind.shown }, 5000, "no indicator before")
+            recents.show()
+            recents.entries = entries(8)
+            var during = false
+            for (var i = 0; i < 300 && recents._mode === "open"; i++) {
+                if (recents.launcher.item && indicatorOn(recents.launcher.item.view))
+                    during = true
+                wait(16)
+            }
+            compare(recents._mode, "", "the opening ended")
+            var view = recents.launcher.item.view
+            verify(view.contentHeight + view.topMargin + view.bottomMargin > view.height, "8 rows scroll")
+            compare(during, false, "not while the list zooms in")
+            tryVerify(function () { return indicatorOn(view) }, 1000, "the indicator on the list once it has come in")
+            var ind = indicator()
+            wait(1500)
+            verify(ind.shown, "still there 1.5 s later")
+            tryVerify(function () { return !ind.shown }, 3000, "hidden about 2 s later")
+            compare(recents.flashIndicator(), true, "flashIndicator() took the list")
+        }
+
+        // the indicator only for a list that scrolls: the decision is RotaryInput's (qml-asteroid); an
+        // empty Recents (header and empty text) and a list of 8 rows, whichever of them scroll
+        function test_07_indicator_only_for_a_list_that_scrolls() {
+            var counts = [0, 8]
+            for (var c = 0; c < counts.length; c++) {
+                if (recents.isOpen)
+                    recents.closeNow()
+                tryVerify(function () { var ind = indicator(); return ind === null || !ind.shown }, 5000, "no indicator before")
+                recents.show()
+                recents.entries = entries(counts[c])
+                tryCompare(recents, "_mode", "", 3000)
+                var view = recents.launcher.item.view
+                var scrolls = view.contentHeight + view.topMargin + view.bottomMargin > view.height + 1
+                if (counts[c] === 8)
+                    verify(scrolls)
+                wait(300)
+                compare(indicatorOn(view), scrolls, counts[c] + " rows, scrolls " + scrolls)
+            }
         }
     }
 }

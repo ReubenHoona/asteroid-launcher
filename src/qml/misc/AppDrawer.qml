@@ -122,7 +122,26 @@ Item {
     AppOpen {
         id: opening
         onPChanged: if (drawer._mode === "open") drawer.progress = p
-        onFinished: if (drawer._mode === "open") { drawer._mode = ""; drawer.progress = 1 }
+        onFinished: if (drawer._mode === "open") {
+            drawer._mode = ""
+            drawer.progress = 1
+            drawer.flashIndicator()
+        }
+    }
+
+    /* Once the list has come in (the opening's springs at rest) its scroll
+     * indicator shows for 2 s, then hides until the list scrolls: CP3A's
+     * ScreenScaffold shows it while a screen that opens is in its New stage,
+     * the launcher's with the default indicator (hca.java:1209); stock Recents
+     * fades it in at the end of its zoom (M01). Only a list that scrolls
+     * (RotaryInput.flashIndicator checks that); the app list, the grid and
+     * Recents (WearList.view); not the old AsteroidOS launchers. */
+    function flashIndicator() {
+        var v = _viewOf(launcher.item)
+        return v !== null && RotaryInput.flashIndicator(v)
+    }
+    function _viewOf(list) {
+        return list && list.view ? list.view : null
     }
 
     WatchfaceReveal {
