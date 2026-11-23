@@ -36,7 +36,8 @@ import "../eoskit/concentric.js" as C
  *                               thin digits, circle; the switch is a cut (M13)    blend (300 ms in, at once out)
  *
  * Options: Color (default Cloud: white dial and pill), Layout: Dial I (default) and Dial II (no tick
- * rings). Stock's Half Dial (the face moved left, three complications) is not built.
+ * rings). Stock's Half Dial (the face moved left, three complications) is not built: a known gap,
+ * what stock does is in eoskit/concentric.js.
  * The hour has two digits in 12 h too ("06", stock); the minute is in the pill.
  *
  * The sensor hub draws the always-on face (huboffload.cpp): the hour and the minute are

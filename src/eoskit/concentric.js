@@ -68,7 +68,23 @@ var SCRIM_DISK = { cx: 288, cy: 192, r: 34 }
 // ---- the options (watch_face_orbita.xml): Color (four_colorway, default index 1 = Cloud) and Layout
 // (COMPLICATIONS_LAYOUT_STYLES, "Layout"): Dial I (default: tick rings on), Dial II (no tick rings:
 // gnr 12 disables both index layers).
-// Half Dial (the face moved left with three complications) is not built.
+// KNOWN GAP (D60-48): stock's third layout, Half Dial, is not built. No capture of it exists to measure
+// (the emulator shots have Dial I only) and the code alone leaves its look open (the hour would sit at
+// the bezel). What stock does, for when it is built:
+//  - gnq case 8: the face's bounds become (-71, 0, 121, 192) units, everything 142 px to the left (the
+//    dials' centre at x 50 px), the hour 40 units (80 px) instead of 44; both index rings on;
+//  - the pill is "half-dial-inset" (gnp 12, InsetPathDrawable at (176, 79) units, length 33): before the
+//    shift a stadium from x 143 to 193 units (110..244 px after it), radius 17; always-on the circle
+//    (gnp 18/19 animate the length 33 -> 0); "full-dial-inset" is off;
+//  - the seconds NumberWheel draws its vignette (setIncludeVignette, setVignetteScreenPercentage 0.75):
+//    RadialGradient at its centre, radius 1.05 x the half width, transparent to 0.75 of it, then black,
+//    PorterDuff DARKEN (= black with that alpha over what is under it), the left half only (drawArc 90,
+//    180); always-on too (the numbers' opacity is 0, the vignette is drawn regardless);
+//  - three bulb complications (192-unit space): top 111.2..154.2 x 19..62 (weather, fallback sunrise and
+//    sunset), centre 137.2..180.2 x 75..118 (date), bottom 111.2..154.2 x 131..174 (heart rate,
+//    fallback unread notifications); off in Dial I and II;
+//  - Ambient Lite time box (gnq 8): x from ((43.32 + 71) / 0.75 - 71) units, 142..242, to 340.68.
+// The hub path would cut the slots off the panel and under the vignette (buildDial's Keep can hold both).
 var LAYOUTS = ["dial1", "dial2"]
 var LAYOUT_NAMES = ["Dial I", "Dial II"]
 
