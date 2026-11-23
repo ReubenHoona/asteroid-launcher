@@ -403,6 +403,17 @@ Compositor {
     // runs only then, KeyRouter)
     property bool wakeFromAmbient: false
     property bool ambientWhileOff: false
+    /* The go-to-face count of the app list and Recents waits for the wake out
+     * of a display-off period: set when the display goes off, cleared by that
+     * wake (onDisplayOn; onDisplayDimmedChanged for a wake into dim) and by
+     * goToFace(). wake() also runs at every AP ambient update
+     * (displayAboutToBeOn, the mce state stays Off: no displayOn) and at
+     * Dim -> On, for which lipstick emits displayOn too
+     * (lipstickcompositor.cpp reactOnDisplayStateChanges); neither is that
+     * wake. Stock stops the count at the wake: leaving the managed ambient
+     * state ends the session (AmbientTaskStateMachine.java:258) and end()
+     * stops the task's timer (HeadlessTaskManagementSession.java:287-310). */
+    property bool homeCountArmed: false
 
     // Back to the face after the time away: the application in front goes
     // to the background, the home screen's overlays close, the face shows
@@ -413,6 +424,7 @@ Compositor {
         if (d && d.showWatchface)
             d.showWatchface()
         Life.episodeEnd(episode)
+        homeCountArmed = false
         goneToFace()
     }
     signal goneToFace()
@@ -511,8 +523,9 @@ Compositor {
     function wake() {
         // an AP ambient update came first and took displayIsOff (the app list
         // or Recents was open): the real wake still checks the count. Qt timers
-        // stop in suspend, so ambientExpiry may not have run.
-        if (!appActive && homeOverlayOpen() && Life.expired(episode, nowMs(), goToFaceMs))
+        // stop in suspend, so ambientExpiry may not have run. Only while the
+        // count is armed: not at Dim -> On after the wake (homeCountArmed)
+        if (homeCountArmed && !appActive && homeOverlayOpen() && Life.expired(episode, nowMs(), goToFaceMs))
             goToFace()
         if (!displayIsOff)
             return
@@ -589,6 +602,7 @@ Compositor {
     onDisplayOff: {
         var t = nowMs()
         displayIsOff = true
+        homeCountArmed = true
         ambientWhileOff = Lipstick.compositor.displayAmbient
         wakeFromAmbient = false
         delayTimer.start()
@@ -616,10 +630,22 @@ Compositor {
         // displayAboutToBeOn: do the wake here as well (it is idempotent)
         delayTimer.stop()
         wake()
+        // the wake out of the display-off period (an AP ambient update emits
+        // no displayOn): the count is over; a later Dim -> On is no wake
+        homeCountArmed = false
         if (appActive && lipstickSettings.lockscreenVisible) {
             lipstickSettings.lockscreenVisible = false
             if (topmostWindow && topmostWindow.window)
                 topmostWindow.window.takeFocus()
+        }
+    }
+
+    // mce can also wake the display into dim (Off -> Dim: no displayOn);
+    // the count is checked then, and the Dim -> On after it is no wake
+    onDisplayDimmedChanged: {
+        if (displayDimmed && homeCountArmed) {
+            wake()
+            homeCountArmed = false
         }
     }
 

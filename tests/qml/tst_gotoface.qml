@@ -6,6 +6,12 @@
 //  - while the AP is awake under the always-on screen the 2 s check (ambientExpiry) runs for the
 //    app list and Recents too, and shows the face once the count has run out;
 //  - Go to watch face 15 s: 14 s keeps the list, 15 s is the face; Never keeps the list.
+//  - the count is checked at the wake out of a display-off period only (homeCountArmed: set at
+//    displayOff, cleared by that wake and by goToFace): an ambient update keeps it, a short wake ends
+//    it, so the Dim -> On after it (lipstick emits displayOn for Dim -> On too) keeps the list in use;
+//    a wake into dim (mce Off -> Dim, no displayOn) is that wake as well. Stock stops the count at
+//    the wake: leaving the managed ambient state ends the session (AmbientTaskStateMachine.java:258),
+//    end() stops the task's timer (HeadlessTaskManagementSession.java:287-310).
 //  - the home screen comes after AppLifecycle, as on the watch (compositor.qml's homeLoader loads
 //    MainScreen in its componentComplete, after AppLifecycle's bindings were first evaluated, and
 //    MainScreen sets Desktop.desktop in its Component.onCompleted): AppLifecycle takes it through its
@@ -136,10 +142,13 @@ Item {
             lipstickComp.displayAmbient = false
             drawerMock.isOpen = false
             recentsMock.isOpen = false
-            if (life.displayIsOff) {
+            life.displayDimmed = false
+            if (life.displayIsOff || life.homeCountArmed) {
                 top.now += 1000
                 life.displayAboutToBeOn()
+                life.displayOn()
             }
+            compare(life.homeCountArmed, false)
             life.goToFaceSetting.value = 60000
             Life.episodeEnd(life.episode)
             home.faceShows = 0
@@ -153,6 +162,7 @@ Item {
             lipstickComp.displayAmbient = true
             life.displayOff()
             compare(life.displayIsOff, true)
+            compare(life.homeCountArmed, true, "the display went off: the count waits for the wake")
         }
         // an AP ambient update: the layout handed to the hub emits displayAboutToBeOn
         function ambientUpdate() {
@@ -171,6 +181,7 @@ Item {
             top.now += 5000
             ambientUpdate()
             compare(life.displayIsOff, false, "the ambient update took displayIsOff (the case of the defect)")
+            compare(life.homeCountArmed, true, "an ambient update is no wake: the count stays armed")
             compare(home.faceShows, 0, "5 s: the list stays")
             // 70 s after the display went off, the AP asleep in between (no timer ran)
             top.now += 65000
@@ -178,6 +189,7 @@ Item {
             compare(home.faceShows, 1, "70 s: the wake shows the face")
             compare(drawerMock.isOpen, false, "the app list is closed")
             compare(goneSpy.count, 1)
+            compare(life.homeCountArmed, false, "the face: the count is over")
         }
 
         function test_02_recents_wake_after_ambient_update() {
@@ -260,6 +272,82 @@ Item {
             realWake()
             compare(home.faceShows, 0, "Never: the list stays")
             compare(drawerMock.isOpen, true)
+        }
+
+        // a short wake ends the count: the list in use with the display on, the display dims, a touch
+        // brings it back on 70 s after the off (mce Dim -> On: lipstick emits displayOn): the list stays.
+        // The next display off starts a new count (the wake was 70 s, as long as the timeout: not short)
+        function test_08_dim_to_on_after_a_short_wake_keeps_the_list() {
+            var lists = [drawerMock, recentsMock]
+            for (var i = 0; i < lists.length; i++) {
+                var list = lists[i]
+                init()
+                var t0 = top.now
+                offWith(list)
+                top.now = t0 + 10000
+                realWake()
+                compare(home.faceShows, 0, "10 s: a short wake, the list stays")
+                compare(life.homeCountArmed, false, "the wake out of the display-off period ends the count")
+                // the display dims (On -> Dim) and comes back on with a touch at 70 s
+                top.now = t0 + 60000
+                life.displayDimmed = true
+                compare(home.faceShows, 0, "the display dims: the list stays")
+                top.now = t0 + 70000
+                life.displayDimmed = false
+                life.displayOn()
+                compare(home.faceShows, 0, "Dim -> On 70 s after the off, in use since 10 s: the list stays")
+                compare(list.isOpen, true)
+                compare(goneSpy.count, 0)
+                // the next display off at 80 s: a new count of 60 s
+                top.now = t0 + 80000
+                lipstickComp.displayAmbient = true
+                life.displayOff()
+                compare(life.homeCountArmed, true)
+                top.now = t0 + 80000 + 59999
+                compare(life.expireWhileOff(), false, "59.999 s after the next off: not yet")
+                top.now = t0 + 80000 + 60000
+                realWake()
+                compare(home.faceShows, 1, "60 s after the next off: the wake shows the face")
+                compare(list.isOpen, false)
+                goneSpy.clear()
+            }
+        }
+
+        // mce can wake the display into dim (Off -> Dim: no displayOn): that is the wake out of the
+        // display-off period; a short one keeps the list and ends the count, the Dim -> On 70 s after
+        // the off keeps the list
+        function test_09_short_wake_into_dim_ends_the_count() {
+            var t0 = top.now
+            offWith(drawerMock)
+            top.now = t0 + 10000
+            lipstickComp.displayAmbient = false
+            life.displayDimmed = true
+            life.displayAboutToBeOn()
+            compare(home.faceShows, 0, "10 s, woken into dim: the list stays")
+            compare(life.displayIsOff, false)
+            compare(life.homeCountArmed, false, "the wake into dim ends the count")
+            top.now = t0 + 70000
+            life.displayDimmed = false
+            life.displayOn()
+            compare(home.faceShows, 0, "Dim -> On at 70 s: the list stays")
+            compare(drawerMock.isOpen, true)
+        }
+
+        // a wake into dim 70 s after the off, the dim state before displayAboutToBeOn: the face
+        function test_10_wake_into_dim_after_the_count_shows_the_face() {
+            var t0 = top.now
+            offWith(recentsMock)
+            top.now = t0 + 5000
+            ambientUpdate()
+            top.now = t0 + 70000
+            lipstickComp.displayAmbient = false
+            life.displayDimmed = true
+            compare(home.faceShows, 1, "70 s, woken into dim: the face")
+            compare(recentsMock.isOpen, false)
+            compare(life.homeCountArmed, false)
+            life.displayAboutToBeOn()
+            compare(home.faceShows, 1, "once")
+            compare(goneSpy.count, 1)
         }
     }
 }
