@@ -225,9 +225,10 @@ Item {
             id: panelRoot
             property bool nightstandWatchfaceActive: nightstandMode.active && nightstandMode.useCustomWatchface && nightstandMode.watchfaceSource != watchFaceSource.value
             /* always-on: the face in grey, not full white. Going to the always-on
-             * screen it changes over in 500 ms with the standard easing (the watch
-             * face's own ambient transition, WFF runtime_ambient_transition_ms;
-             * stock allows up to 1500 ms), before the hub draws the panel; the wake
+             * screen it changes over in 500 ms, linear (the watch face's own ambient
+             * transition, WFF runtime_ambient_transition_ms, whose Variant
+             * interpolation is LINEAR by default, motion J1; stock allows up to
+             * 1500 ms), before the hub draws the panel; the wake
              * is at once, with no brightness ramp (ambient-aod-19, motion-transitions-32).
              * Nothing runs unless the display changes state. */
             property real ambientOpacity: 1.0
@@ -252,8 +253,7 @@ Item {
                 property: "ambientOpacity"
                 to: panelRoot.dimLevel
                 duration: 500
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.easing.standard
+                easing.type: Easing.Linear
             }
             /* Wear OS: a long press on the watchface opens the face picker. As stock
              * (SysUI's recognizer sees every touch before the face and takes the

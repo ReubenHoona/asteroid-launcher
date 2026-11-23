@@ -119,8 +119,8 @@ Item {
                               : Math.max(Math.abs(grid.normalizedHorOffset), Math.abs(grid.normalizedVerOffset)) * 0.4
     property real ambientDarken: 0.0
     /* Going to the always-on screen the wallpaper darkens together with the
-     * face's own change (500 ms, the standard easing: the watch face's
-     * ambient transition, WFF runtime_ambient_transition_ms, ambient-aod-19);
+     * face's own change (500 ms, linear: the watch face's ambient transition,
+     * WFF runtime_ambient_transition_ms, LINEAR by default; ambient-aod-19, motion J1);
      * the wake is at once (no brightness ramp at screen on, stock
      * config_skipScreenOnBrightnessRamp, motion-transitions-32). */
     function setAmbientDarken(v) {
@@ -137,8 +137,7 @@ Item {
         target: desktop
         property: "ambientDarken"
         duration: 500
-        easing.type: Easing.BezierSpline
-        easing.bezierCurve: Motion.easing.standard
+        easing.type: Easing.Linear
     }
 
     property var compositor: Lipstick.compositor
