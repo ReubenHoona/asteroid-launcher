@@ -150,9 +150,10 @@ function idleAction(view, centred) {
 // W3-launcher-faces left the list as it was: the faces it adds are found by these names
 // (modular, bold-numerals, classic, large, list, stacked), and the user's rule is "do what
 // stock does" (stock's favourites include the analog Analog Bold and Classic).
-// Concentric, the default face, leads, as on stock Wear OS 6 (S15: Concentric, Utility, Classic, ...).
-var DEFAULT_FACES = ["concentric", "modular", "bold-numerals", "classic", "large", "list", "stacked",
-                     "default-digital", "analog-aviator"]
+// The order of stock Wear OS 6's fresh carousel (S15: Concentric, Utility, Classic, ..., Big Time last):
+// Concentric, the default face, leads, Modular stands in for Utility, Large for Big Time.
+var DEFAULT_FACES = ["concentric", "modular", "classic", "bold-numerals", "list", "stacked",
+                     "default-digital", "analog-aviator", "large"]
 
 function stemOf(file) {
     return String(file).split("/").pop().replace(/\.qml$/, "")

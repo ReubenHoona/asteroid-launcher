@@ -12,6 +12,8 @@
  *    the hub's slot origins, the long ticks where eosHubTick says on the ring that turns, the short
  *    ticks on a ring that stands still, the hub's time items and covers, the circle), Dial II (no
  *    tick rings) and 24 h;
+ *  - the fresh carousel's order (facepicker.js defaults(): S15 Concentric, Utility, Classic, ...,
+ *    Big Time last);
  *  - screenshots at 10:09:30 and 06:42:05, awake and always-on, into /tmp/concentric-shots.
  * qmltestrunner under qemu-aarch64 with the image rootfs (offscreen, software Qt Quick); the face
  * needs org.asteroid.controls (Motion) from the image.
@@ -21,6 +23,7 @@ import QtQuick
 import QtTest
 import "../../src/eoskit/facekit.js" as Kit
 import "../../src/eoskit/concentric.js" as C
+import "../../src/qml/misc/facepicker.js" as FP
 
 Item {
     id: top
@@ -346,6 +349,26 @@ Item {
             compare(find(f, "eosHubMinute").text, "05")
             compare(visibleAll(f, "eosHubDialNumeral").length, 12)
             ld.source = ""
+        }
+
+        // ---- the fresh carousel (facepicker.js) ----
+        function test_carousel_order() {
+            // the faces of the image, in their folder's order
+            var installed = ["000-default-digital.qml", "010-analog-aviator.qml", "018-modular.qml", "019-list.qml",
+                             "020-stacked.qml", "021-classic.qml", "022-large.qml", "023-bold-numerals.qml",
+                             "027-concentric.qml"].map(function (f) {
+                return "file:///usr/share/asteroid-launcher/watchfaces/" + f
+            })
+            var current = "file:///usr/share/asteroid-launcher/watchfaces/027-concentric.qml"
+            var names = FP.defaults(installed, current).map(function (e) { return FP.plainName(e.file) })
+            // S15: Concentric, Utility, Classic, ..., Big Time (Large) last; the face on the watch once
+            compare(names[0], "concentric")
+            compare(names[1], "modular")
+            compare(names[2], "classic")
+            compare(names[names.length - 1], "large")
+            compare(names.length, 9)
+            compare(names, ["concentric", "modular", "classic", "bold-numerals", "list", "stacked",
+                            "default-digital", "analog-aviator", "large"])
         }
     }
 }
