@@ -66,7 +66,8 @@ var MORPH = {
     detailFadeMs: 100,
     detailScaleFrom: 0.85,
     detailScaleMs: 500,
-    // Easing.InOutQuad stands in for the AccelerateDecelerate interpolator
+    // the curve of all of these is the ObjectAnimator default, AccelerateDecelerate
+    // (cos((t + 1) pi) / 2 + 0.5), which is Easing.InOutSine (motion E6, E7)
     // a crown press: alpha and scale to 0 in 300 ms
     crownCloseMs: 300
 }

@@ -223,30 +223,30 @@ Item {
     SequentialAnimation {
         id: morph
         ParallelAnimation {
-            NumberAnimation { target: preview; property: "glanceOpacity"; to: 0; duration: Motion.duration(HU.MORPH.glanceFadeMs) }
-            NumberAnimation { target: preview; property: "glanceScale"; to: HU.MORPH.glanceScaleTo; duration: Motion.duration(HU.MORPH.glanceFadeMs) }
+            NumberAnimation { target: preview; property: "glanceOpacity"; to: 0; duration: Motion.duration(HU.MORPH.glanceFadeMs); easing.type: Easing.InOutSine }
+            NumberAnimation { target: preview; property: "glanceScale"; to: HU.MORPH.glanceScaleTo; duration: Motion.duration(HU.MORPH.glanceFadeMs); easing.type: Easing.InOutSine }
         }
         ScriptAction { script: preview.mode = "full" }
         ParallelAnimation {
-            NumberAnimation { target: preview; property: "detailOpacity"; to: 1; duration: Motion.duration(HU.MORPH.detailFadeMs) }
+            NumberAnimation { target: preview; property: "detailOpacity"; to: 1; duration: Motion.duration(HU.MORPH.detailFadeMs); easing.type: Easing.InOutSine }
             NumberAnimation {
                 target: preview; property: "detailScale"; to: 1
                 duration: Motion.duration(HU.MORPH.detailScaleMs)
-                easing.type: Easing.InOutQuad
+                easing.type: Easing.InOutSine
             }
         }
     }
 
     ParallelAnimation {
         id: crownGlance
-        NumberAnimation { target: preview; property: "glanceOpacity"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs) }
-        NumberAnimation { target: preview; property: "glanceScale"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs) }
+        NumberAnimation { target: preview; property: "glanceOpacity"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
+        NumberAnimation { target: preview; property: "glanceScale"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
         onFinished: preview.finish()
     }
     ParallelAnimation {
         id: crownDetail
-        NumberAnimation { target: preview; property: "detailOpacity"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs) }
-        NumberAnimation { target: preview; property: "detailScale"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs) }
+        NumberAnimation { target: preview; property: "detailOpacity"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
+        NumberAnimation { target: preview; property: "detailScale"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
         onFinished: preview.finish()
     }
 
