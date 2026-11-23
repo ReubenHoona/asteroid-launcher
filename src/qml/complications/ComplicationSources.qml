@@ -299,6 +299,10 @@ Item {
             d.elements = []
             d.known = false
         }
+        // no glyph by '--': an icon that shows a value (a battery level, a filled bell)
+        // would say what the text does not (D60-03)
+        if (d.text === "--")
+            d.icon = ""
         return d
     }
     function liveInfo(id) {
@@ -362,7 +366,8 @@ Item {
             var pc = known ? String(battery.percent) : "--"
             return base({ type: known ? "ranged" : "short", text: pc, short: pc,
                           title: name("battery") + ": " + pc, long: name("battery") + ": " + pc,
-                          icon: C.batteryIcon(battery.percent, battery.charging),
+                          // no level glyph without a level (D60-03)
+                          icon: known ? C.batteryIcon(battery.percent, battery.charging) : "",
                           progress: known ? battery.percent / 100 : -1, known: known })
         }
         case "phonebattery":
@@ -572,12 +577,14 @@ Item {
     }
     HealthLog { id: heartLog; sensor: "heartrateMonitor"; buckets: 1; active: sources.wants("heartrate") }
 
-    // the watch's battery (mce), taken while active
+    // the watch's battery (mce), taken while a slot shows it, with the screen off and in
+    // always-on too: the always-on face shows the number (stock Pixel faces keep their
+    // complications there; D60-03). mce sends the level, nothing is polled.
     QtObject {
         id: battery
         property int percent: -1
         property bool charging: false
-        readonly property bool on: sources.wants("battery")
+        readonly property bool on: sources.demand.battery === true
         function take() {
             percent = mceLevel.percent
             charging = mceState.value === MceBatteryState.Charging
@@ -595,13 +602,23 @@ Item {
         property bool connected: false
         property int level: -1
         readonly property bool known: connected && level >= 0
-        readonly property bool on: sources.wants("phonebattery")
+        // while a slot shows it, as the watch's battery (the bus signals keep it); asked
+        // again at each screen on, as before
+        readonly property bool on: sources.demand.phonebattery === true
         onOnChanged: if (on) ask()
         function ask() {
             phoneDBus.typedCall("Connected", [], function (c) { phone.connected = c }, function () { phone.connected = false })
             phoneDBus.typedCall("BatteryLevel", [], function (l) { phone.level = l }, function () { phone.level = -1 })
         }
     }
+    onActiveChanged: if (active && phone.on) phone.ask()
+    /* What the always-on face shows that the sensor hub cannot keep current
+     * (D60-03): the battery values while a slot shows them, whole percent. A
+     * new one rebuilds the hub's layout (AmbientController.hubLayoutInputs) at
+     * the next AP wakeup, so between wakeups the number may lag by a percent
+     * or two, never '--'. */
+    readonly property string hubValues: (battery.on ? battery.percent + (battery.charging ? "+" : "") : "")
+                                        + "/" + (phone.on ? (phone.known ? phone.level : -1) : "")
     DBusInterface {
         id: phoneDBus
         bus: DBus.SessionBus

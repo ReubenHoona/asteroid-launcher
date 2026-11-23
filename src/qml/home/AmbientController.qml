@@ -133,6 +133,8 @@ Item {
                                                JSON.stringify(faceLayer.faceStyleValue),
                                                JSON.stringify(faceLayer.faceComplicationsValue),
                                                unreadDotShown ? "dot" : "", statusIconsKey,
+                                               // the battery values a slot shows (D60-03)
+                                               complications.hubValues,
                                                // the face or an application in front: a layout of the one
                                                // must never be handed to the hub at the next display off
                                                // for the other (the compositor reuses the held layout at

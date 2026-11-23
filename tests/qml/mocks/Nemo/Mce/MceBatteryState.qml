@@ -5,4 +5,7 @@ QtObject {
     enum State { Unknown, Charging, Discharging, NotCharging, Full }
     readonly property bool valid: true
     readonly property int value: Backend.batteryState
+    // the real type's change signal of value is stateChanged (ComplicationSources)
+    signal stateChanged()
+    onValueChanged: stateChanged()
 }
