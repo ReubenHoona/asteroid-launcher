@@ -110,13 +110,17 @@ Item {
     }
     Component.onCompleted: sync()
 
+    // the chip on the face being tapped (StatusSlot sets it around activate()): the app grows out
+    // of it (the origin launch, motion A2); else it opens from the centre
+    property Item launchFrom: null
+
     // the chip was tapped: an app opens
     Connections {
         target: feed.registry
         ignoreUnknownSignals: true
         function onActivated(key, app) {
             if (app && typeof desktop !== "undefined" && desktop && desktop.launchByName)
-                desktop.launchByName(app, null)
+                desktop.launchByName(app, feed.launchFrom, feed.launchFrom !== null)
         }
     }
 }

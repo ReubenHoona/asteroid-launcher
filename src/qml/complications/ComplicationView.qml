@@ -57,6 +57,8 @@ Item {
     property Item slotItem
     property string faceName
     property QtObject sources
+    // an app opened by a tap here grows out of the complication (MainScreen.launchApp, motion A2)
+    readonly property bool launchOrigin: true
 
     anchors.fill: parent
 

@@ -308,17 +308,27 @@ Item {
 
     /* Launch the app of /usr/share/applications/<name>.desktop the way the
      * launcher does (lipstick's launcher item: booster, splash) */
-    function launchByName(name, fromItem) {
+    function launchByName(name, fromItem, fromOrigin) {
         for (var i = 0; i < launcherModel.itemCount; i++) {
             var it = launcherModel.get(i)
             if (it && it.object)
                 it = it.object
             if (it && it.filePath && it.filePath.split("/").pop() === name + ".desktop") {
-                launchApp(it, fromItem)
+                launchApp(it, fromItem, fromOrigin)
                 return true
             }
         }
         return false
+    }
+
+    // the launch springs grow the next window out of item (null: from the centre;
+    // the origin launch, motion A2)
+    function armOrigin(item) {
+        var root = Desktop.compositorRoot
+        var m = root && root.windowMotion ? root.windowMotion.launch : null
+        if (!m || !m.armOrigin)
+            return
+        m.armOrigin(item ? item.mapToItem(root, 0, 0, item.width, item.height) : null, root.width, root.height)
     }
 
     /* Launch an application from the launcher. The launch splash grows out
@@ -326,11 +336,15 @@ Item {
      * colours of the application and covers the screen until its window
      * shows up, as Wear OS does. The app launchers call this as
      * desktop.launchApp(model.object, circle). */
-    function launchApp(launcherItem, fromItem) {
+    function launchApp(launcherItem, fromItem, fromOrigin) {
         // a tile's app opens as every launch does, with no origin of the tile's
         // own (stock starts it with makeBasic options: tiles-framework-29)
         if (fromItem && fromItem.tileFrame === true)
             fromItem = null
+        // from a complication or the ongoing-activity chip the app grows out of
+        // it (the origin transition, motion A2: FullOriginTransitionPlayer); from
+        // the app list, a tile and the rest it zooms from the centre (A1)
+        var origin = fromItem && (fromOrigin === true || fromItem.launchOrigin === true) ? fromItem : null
         // "Assistant" in the app list is the launcher's own overlay
         if (launcherItem.filePath && launcherItem.filePath.split("/").pop() === "asteroid-assistant.desktop") {
             if (Desktop.compositorRoot && Desktop.compositorRoot.openAssistant)
@@ -344,11 +358,13 @@ Item {
         }
         // Recents: this launch is the newest (the history is written now, never by a timer)
         recents.record(launcherItem)
+        armOrigin(origin)
         // already running, hidden in the background: it comes back warm, with
         // the open motion and no splash (AppLifecycle.resumeApp)
         if (Desktop.compositorRoot && Desktop.compositorRoot.resumeApp
                 && Desktop.compositorRoot.resumeApp(launcherItem.exec)) {
             launchedFromDrawer = appDrawer.isOpen
+            armOrigin(null)
             return
         }
         launchedFromDrawer = appDrawer.isOpen
@@ -359,6 +375,8 @@ Item {
                                        alb.outerColor(launcherItem.filePath),
                                        launcherItem.iconId === "" ? "ios-help" : launcherItem.iconId)
         }
+        // an origin the splash did not take (the display is off) is not kept for a later launch
+        armOrigin(null)
         launcherItem.launchApplication()
     }
 

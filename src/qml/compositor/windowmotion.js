@@ -34,6 +34,38 @@ var LAUNCH = {
     behindDim: 0.5
 }
 
+/* ---- the launch from a complication or the ongoing-activity chip: the origin
+ *      transition (motion A2) ----
+ * wear-sdk com/google/wear/app/FullOriginTransitionPlayer.java:19-35,49-87 and
+ * BaseOriginTransitionPlayer.java:44: the opening app grows out of the tapped
+ * element. Its centre goes to the screen's on 1.0/400 and its size to the
+ * screen's on 1.0/200; it fades in linearly over 50 ms after 50 ms. The face
+ * scales 1 -> 0.85 on 1.0/500 with no dim. These springs run to the end
+ * (addSpringAnimation(..., false, 0)), minimum visible change 0.39 of 100. Only
+ * for an element of at most 80 % of the screen (AppLaunchTransitionHelper.java:89). */
+var ORIGIN = {
+    position: { stiffness: 400, dampingRatio: 1.0 },
+    size: { stiffness: 200, dampingRatio: 1.0 },
+    face: { stiffness: 500, dampingRatio: 1.0 },
+    faceScale: 0.85,
+    visibleChange: 0.0039,
+    fadeDelayMs: 50,
+    fadeMs: 50,
+    maxArea: 0.80
+}
+
+/* The origin launch at the position, size and face spring values a, s, q
+ * (0 -> 1), for an element whose centre is (ox, oy) px from the screen's centre
+ * and whose larger side is k of the screen's width */
+function origin(a, s, q, ox, oy, k) {
+    return {
+        scale: k + (1 - k) * s,
+        dx: ox * (1 - a),
+        dy: oy * (1 - a),
+        behindScale: 1 - (1 - ORIGIN.faceScale) * q
+    }
+}
+
 /* ---- back to the watch face: the crown in an app, the app list closing
  *      (motion-transitions-04, -06) ---- */
 var HOME = {

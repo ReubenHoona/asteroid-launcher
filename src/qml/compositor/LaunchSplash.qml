@@ -150,13 +150,25 @@ Item {
         onTriggered: splash.finish()
     }
 
-    // the opening window: zooms with the launch springs, then stands still
+    // the opening window: zooms with the launch springs (from a complication or
+    // the chip it also moves from the tapped element: dx, dy), then stands still
     Item {
         id: plate
         anchors.fill: parent
         readonly property bool zooming: splash.motion ? splash.motion.inProgress : false
-        scale: zooming ? splash.motion.scale : 1
         opacity: zooming ? splash.motion.alpha : 1
+        transform: [
+            Scale {
+                origin.x: plate.width / 2
+                origin.y: plate.height / 2
+                xScale: plate.zooming ? splash.motion.scale : 1
+                yScale: xScale
+            },
+            Translate {
+                x: plate.zooming ? splash.motion.dx : 0
+                y: plate.zooming ? splash.motion.dy : 0
+            }
+        ]
 
         Rectangle {
             anchors.fill: parent

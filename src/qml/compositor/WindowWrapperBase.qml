@@ -54,12 +54,20 @@ Item {
     readonly property real openScale: opening && motion ? motion.scale : 1
     opacity: opening && motion ? motion.alpha : 1
 
-    transform: Scale {
-        origin.x: wrapper.width / 2
-        origin.y: wrapper.height / 2
-        xScale: wrapper.openScale
-        yScale: wrapper.openScale
-    }
+    // from a complication or the chip the window also moves out of the tapped
+    // element (the origin launch, motion A2: AppOpen dx, dy)
+    transform: [
+        Scale {
+            origin.x: wrapper.width / 2
+            origin.y: wrapper.height / 2
+            xScale: wrapper.openScale
+            yScale: wrapper.openScale
+        },
+        Translate {
+            x: wrapper.opening && wrapper.motion ? wrapper.motion.dx : 0
+            y: wrapper.opening && wrapper.motion ? wrapper.motion.dy : 0
+        }
+    ]
 
     Component.onCompleted: {
         window.parent = wrapper

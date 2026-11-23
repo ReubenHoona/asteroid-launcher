@@ -111,8 +111,12 @@ Item {
             interactive: statusSlot.interactive
             iconOnly: ongoingFeed.isIconOnly(entry && entry.app ? entry.app : "")
             onTapped: function (key, app) {
+                // the app grows out of the chip (the origin launch, motion A2); activate() emits
+                // activated() at once, OngoingFeed launches in it
+                ongoingFeed.launchFrom = chip.pill
                 if (ongoingFeed.registry)
                     ongoingFeed.registry.activate(key)
+                ongoingFeed.launchFrom = null
                 // an entry without an app has its full view instead (system-dialogs-misc-12)
                 if (!app && Desktop.liveUpdate)
                     Desktop.liveUpdate.tap(key)
