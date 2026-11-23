@@ -573,20 +573,26 @@ GestureFilterArea {
 
     /* The tray's own black background: a circle over the face and under the
      * tray's content, transparent until the tray is 25 % out and opaque at
-     * 50 % (TrayRules.backgroundAlpha). attachTray() makes one for a tray. */
+     * 50 % (TrayRules.backgroundAlpha). It stays on the screen while the tray
+     * slides over it, so the face dims evenly: CP3A sets the round black
+     * drawable on the tray's still container and clears the sliding view's
+     * own background (ihv.java:13-19, from jud.java:189-197 for quick
+     * settings and jul.java:137-142 for the stream). attachTray() makes one
+     * for a tray. */
     Component {
         id: trayBackground
         Rectangle {
             property Item tray: null
             property int row: 0
-            x: tray ? tray.x : 0
-            y: tray ? tray.y : 0
-            width: tray ? tray.width : 0
-            height: tray ? tray.height : 0
+            objectName: "trayBackground" + row
+            x: -content.x
+            y: -content.y
+            width: panelsGrid.width
+            height: panelsGrid.height
             z: 1
             radius: width / 2
             color: "#000000"
-            visible: !!tray && tray.visible && panelsGrid.trayMode
+            visible: !!tray && tray.visible && panelsGrid.trayMode && opacity > 0
             opacity: TrayRules.backgroundAlpha(panelsGrid.trayFraction(row))
         }
     }

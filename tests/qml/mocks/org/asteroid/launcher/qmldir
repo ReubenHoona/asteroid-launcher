@@ -1,3 +1,4 @@
 module org.asteroid.launcher
 AppLauncher 1.0 AppLauncher.qml
 HealthLog 1.0 HealthLog.qml
+GestureFilterArea 1.0 GestureFilterArea.qml
