@@ -266,6 +266,23 @@ Item {
 
     // ---- the list --------------------------------------------------------------
 
+    /* CP3A gives quick settings its scroll indicator only once the tray is fully open: laj.h sets
+     * the open flag at fraction 1.0 (laj.java:135; 1.0 when the tray settles, ihp.b; 0.5 while it
+     * moves, ihp.d), kmk passes it to lah.d as z, and lah.java:371-380 hands the ScreenScaffold an
+     * indicator only when it is set. The scaffold then shows it as a screen that opens: about 2 s,
+     * then hidden until the list scrolls. The list opens at its end, so the thumb is at the
+     * bottom. Here: once the tray is open and at rest (row -1, all the way out, no spring, no
+     * finger on it) the list's indicator shows for 2 s (RotaryInput.flashIndicator, qml-asteroid
+     * 7913885). Trays only (the Wear layout). */
+    readonly property bool openAtRest: grid.trayMode === true && grid.currentVerticalPos === -1
+                                       && grid.topTrayFraction >= 0.999 && grid.trayDragging !== true
+                                       && !(grid.trayAnimation && grid.trayAnimation.running)
+    onOpenAtRestChanged: if (openAtRest) flashIndicator()
+    // whether the indicator took the list (it does when the list scrolls)
+    function flashIndicator() {
+        return RotaryInput.flashIndicator(list)
+    }
+
     function toEnd() {
         list.contentY = Math.max(0, list.contentHeight - list.height)
     }

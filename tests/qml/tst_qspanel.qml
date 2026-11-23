@@ -42,6 +42,8 @@ Item {
         property real topTrayFraction: 1
         property bool trayMode: true
         property bool handingOver: false
+        property bool trayDragging: false
+        property QtObject trayAnimation: QtObject { property bool running: false }
         property int rotaryExitEdge: 1
         property var calls: []
         function note(name, args) { var c = calls.slice(); c.push({ name: name, args: args }); calls = c }
@@ -156,6 +158,8 @@ Item {
             grid.currentVerticalPos = 0
             grid.topTrayFraction = 1
             grid.trayMode = true
+            grid.trayDragging = false
+            grid.trayAnimation.running = false
             grid.rotaryExitEdge = 1
             alwaysOnDisplay.value = true
             start()
@@ -638,6 +642,71 @@ Item {
             compare(p.pullFraction, 1); compare(pull.y, 0)
             grid.trayMode = true
             grid.topTrayFraction = 1
+        }
+
+        // the shared scroll indicator RotaryInput puts on the window (PositionIndicator)
+        function indicator() {
+            var r = root
+            while (r.parent)
+                r = r.parent
+            var kids = r.children
+            for (var i = 0; i < kids.length; i++) {
+                var k = kids[i]
+                if (k.flickable !== undefined && k.shown !== undefined && typeof k.flash === "function")
+                    return k
+            }
+            return null
+        }
+
+        function test_16_indicator_when_the_tray_comes_to_rest() {
+            // D60-09: CP3A shows quick settings' indicator once the tray is fully open (laj.java:135,
+            // lah.java:371-380), as a screen that opens: about 2 s, the thumb at the bottom (the list at
+            // its end)
+            var p = panel(), l = list()
+            verify(l.contentHeight > l.height, "a list that scrolls")
+            var ind = indicator()
+            if (ind)
+                ind.shown = false
+            // on its way out: no indicator
+            grid.trayAnimation.running = true
+            grid.topTrayFraction = 0.6
+            grid.currentVerticalPos = -1
+            wait(50)
+            verify(!p.openAtRest)
+            ind = indicator()
+            verify(!ind || !ind.shown, "not while the tray moves")
+            grid.topTrayFraction = 1
+            wait(50)
+            verify(!p.openAtRest, "still on the spring")
+            ind = indicator()
+            verify(!ind || !ind.shown, "not on the spring")
+            grid.trayAnimation.running = false
+            verify(p.openAtRest, "open and at rest")
+            ind = indicator()
+            verify(ind !== null && ind.shown, "the indicator shows")
+            compare(ind.flickable, l)
+            compare(l.contentY, l.contentHeight - l.height)
+            verify(l.atYEnd, "the thumb at the bottom: the list at its end")
+            // it sits on the right edge (stock S11: x 363-379)
+            var o = ind.mapToItem(root, 0, 0)
+            verify(o.x + ind.width > 340, "on the right: " + o.x + " " + ind.width)
+            shot("qs-10-indicator")
+            tryVerify(function () { return !ind.shown }, 4000, "and hides about 2 s later")
+            // a finger on the tray: not at rest; let go: shown again
+            grid.trayDragging = true
+            verify(!p.openAtRest)
+            grid.trayDragging = false
+            verify(p.openAtRest)
+            verify(ind.shown, "at rest again")
+            tryVerify(function () { return !ind.shown }, 4000)
+            // closed, or without trays: nothing
+            grid.currentVerticalPos = 0
+            verify(!p.openAtRest)
+            grid.trayMode = false
+            grid.currentVerticalPos = -1
+            verify(!p.openAtRest)
+            grid.trayMode = true
+            grid.currentVerticalPos = 0
         }
 
         // ---- the button -------------------------------------------------------------
