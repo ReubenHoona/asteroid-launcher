@@ -47,8 +47,9 @@ import "headsup.js" as HU
  *    fades in over 100 ms scaling 0.85 -> 1 over 500 ms. A tap on the
  *    glanceable goes there at once. There is no auto-dismiss: it stays until
  *    the display leaves ON (the presenter brings it back if the display is on
- *    again within 10 s) or the user closes it, with the crown (alpha and scale
- *    to 0 in 300 ms) or a swipe right; closing returns to the face and the
+ *    again within 10 s) or the user closes it, with the crown (all of it, its
+ *    black backdrop too, alpha and scale to 0 in 300 ms from 1, a morph going
+ *    on under it) or a swipe right; closing returns to the face and the
  *    notification stays in the list;
  *  - kind 2, anywhere else (an app, the tiles, the app list): the icon bubble
  *    (HunBubble.qml), 3000 ms; a tap or a drag up grows the full view over
@@ -77,11 +78,15 @@ Item {
     // swipe back are the view's (the key router asks)
     readonly property bool viewShown: mode === "glance" || mode === "full" || (mode === "bubble" && bubble.windowUp)
     readonly property bool immediately: notificationPreviewPresenter.showImmediately === true
-    // the morph's and the closing's numbers, for the tests
+    // the morph's numbers (the glanceable's and the full view's own), for the tests
     property real glanceOpacity: 1
     property real glanceScale: 1
     property real detailOpacity: 1
     property real detailScale: 1
+    // CP3A's root view (fullview_root_view.xml: the scrim, the glanceable and the full view's
+    // container): 1 but while the crown closes it (juh.java:647), on top of the morph's numbers
+    property real rootOpacity: 1
+    property real rootScale: 1
     property bool detailActive: false
 
     readonly property Item glanceItem: glance
@@ -89,6 +94,7 @@ Item {
     readonly property Item detailItem: detailLoader.item
     readonly property Item detailHost: detailLoader
     readonly property Timer stageTimer: stage
+    readonly property ParallelAnimation closeAnimation: crownClose
     readonly property real stageMs: immediately ? HU.STAGE.holdImmediate : HU.STAGE.hold
 
     property bool _finishing: false
@@ -112,8 +118,7 @@ Item {
     function show(n, kind) {
         stage.stop()
         morph.stop()
-        crownGlance.stop()
-        crownDetail.stop()
+        crownClose.stop()
         glance.stop()
         clearBubble()
         detailActive = false
@@ -121,6 +126,8 @@ Item {
         glanceScale = 1
         detailOpacity = 1
         detailScale = 1
+        rootOpacity = 1
+        rootScale = 1
         shownNotification = n
         if (kind === 1) {
             mode = "glance"
@@ -137,8 +144,7 @@ Item {
     function reset() {
         stage.stop()
         morph.stop()
-        crownGlance.stop()
-        crownDetail.stop()
+        crownClose.stop()
         glance.stop()
         clearBubble()
         detailActive = false
@@ -146,6 +152,8 @@ Item {
         glanceScale = 1
         detailOpacity = 1
         detailScale = 1
+        rootOpacity = 1
+        rootScale = 1
         shownNotification = null
         mode = "none"
     }
@@ -181,6 +189,15 @@ Item {
             d.showIndicator()
     }
 
+    // The morph has ended (CP3A kmp.onAnimationEnd, jpb.java:370-371: klg.c()). While the
+    // crown's close runs the view is leaving with the root and nothing comes in: CP3A's arrow
+    // and scroll indicator are the root's children and fade out with it, eos's indicator is the
+    // window's and would stay over the face for 2 s after the view
+    function morphEnded() {
+        if (!crownClose.running)
+            detailShown(true)
+    }
+
     // The glanceable becomes the full view (its time ran out, or a tap)
     function toFull() {
         if (mode !== "glance")
@@ -193,21 +210,19 @@ Item {
         morph.restart()
     }
 
-    // The crown while a view shows: a keyboard of the reply goes first; then the
-    // face glanceable and the full view over it end in 300 ms (alpha and scale to
-    // 0), the bubble's expanded view fades out (300 ms, cubic 0, 0, 0.2, 1) and the
-    // app under it stays
+    // The crown while a view shows: a keyboard of the reply goes first; then over the face the
+    // root (the scrim, the glanceable and the full view) ends in 300 ms, alpha and scale 1 -> 0
+    // from the root's own values, a morph going on under it (CP3A juh.java:647 r() animates the
+    // root only and cancels nothing), so the scrim never jumps to the view's numbers; the
+    // bubble's expanded view fades out (300 ms, cubic 0, 0, 0.2, 1) and the app under it stays
     function closeFromCrown() {
         if (Desktop.keyboard && Desktop.keyboard.dismiss) {
             Desktop.keyboard.dismiss()
             return
         }
-        if (mode === "glance") {
+        if (mode === "glance" || mode === "full") {
             stage.stop()
-            crownGlance.restart()
-        } else if (mode === "full") {
-            morph.stop()
-            crownDetail.restart()
+            crownClose.restart()
         } else if (mode === "bubble" && bubble.windowUp) {
             bubble.closeExpanded()
         }
@@ -249,43 +264,41 @@ Item {
                 easing.type: Easing.InOutSine
             }
         }
-        ScriptAction { script: preview.detailShown(true) }
+        ScriptAction { script: preview.morphEnded() }
     }
 
+    // CP3A juh.java:647 r(): this.q (the root) .animate() alpha and scale to 0 in 300 ms, the
+    // ViewPropertyAnimator's AccelerateDecelerate (InOutSine); at its end the root is 1 again
+    // and the view goes (jug: q())
     ParallelAnimation {
-        id: crownGlance
-        NumberAnimation { target: preview; property: "glanceOpacity"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
-        NumberAnimation { target: preview; property: "glanceScale"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
-        onFinished: preview.finish()
-    }
-    ParallelAnimation {
-        id: crownDetail
-        NumberAnimation { target: preview; property: "detailOpacity"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
-        NumberAnimation { target: preview; property: "detailScale"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
+        id: crownClose
+        NumberAnimation { target: preview; property: "rootOpacity"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
+        NumberAnimation { target: preview; property: "rootScale"; to: 0; duration: Motion.duration(HU.MORPH.crownCloseMs); easing.type: Easing.InOutSine }
         onFinished: preview.finish()
     }
 
     // CP3A's full_view_scrim (res/layout/fullview_root_view.xml): a full-screen colorBackground
     // view under the full view's container and the glanceable. The morph scales and fades only
     // those two (juh.java:366-389), so nothing of the face shows between them; the crown's close
-    // animates the whole root, the scrim with the view (juh.java:647). None over an app (the
-    // bubble's own scrim is HunBubble's)
+    // animates the whole root from its own 1 (juh.java:647), the scrim with the view whatever
+    // the morph had reached. None over an app (the bubble's own scrim is HunBubble's)
     Rectangle {
         id: scrim
         objectName: "fullViewScrim"
         anchors.fill: parent
         color: "#000000"
         visible: preview.mode === "glance" || preview.mode === "full"
-        opacity: crownGlance.running ? preview.glanceOpacity : crownDetail.running ? preview.detailOpacity : 1
-        scale: crownGlance.running ? preview.glanceScale : crownDetail.running ? preview.detailScale : 1
+        opacity: preview.rootOpacity
+        scale: preview.rootScale
     }
 
     Glanceable {
         id: glance
         anchors.fill: parent
         visible: preview.mode === "glance" || (morph.running && preview.glanceOpacity > 0)
-        opacity: preview.glanceOpacity
-        scale: preview.glanceScale
+        // its own numbers (the morph) under the root's (the crown's close)
+        opacity: preview.glanceOpacity * preview.rootOpacity
+        scale: preview.glanceScale * preview.rootScale
         notification: preview.shownNotification
         onTapped: preview.toFull()
     }
@@ -307,8 +320,8 @@ Item {
         height: preview.height
         active: preview.detailActive
         y: preview.mode === "bubble" ? preview.height * (1 - bubble.p) : 0
-        opacity: preview.mode === "bubble" ? bubble.closeOpacity : preview.detailOpacity
-        scale: preview.mode === "bubble" ? 1 : preview.detailScale
+        opacity: preview.mode === "bubble" ? bubble.closeOpacity : preview.detailOpacity * preview.rootOpacity
+        scale: preview.mode === "bubble" ? 1 : preview.detailScale * preview.rootScale
         visible: active && opacity > 0
         sourceComponent: HeadsUpDetail {
             notification: preview.shownNotification

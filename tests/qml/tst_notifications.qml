@@ -9,7 +9,9 @@
 //    800 / 0.8), as tall as the full layout (at least 64 dp); a card made open is open from its
 //    first frame and takes a new height at once until the user toggles it;
 //  - D60-06: CP3A's full_view_scrim, a black full-screen layer under the morph, neither scaled
-//    nor faded by it (the face never shows through); the crown's close takes it with the view;
+//    nor faded by it (the face never shows through); the crown's close takes it with the view as
+//    CP3A's root (juh.java:647): alpha and scale 1 -> 0 in 300 ms from the root's own 1, also in
+//    the middle of the morph, which goes on under it and brings nothing in at its end;
 //  - D60-07: when the morph ends (CP3A's onFullViewShown) the full view shows CP3A's header arrow
 //    (shy_view_header_arrow: the Lottie held at progress 0.75, turned 180 degrees in a 24 dp view
 //    8 dp below the top) and fades it 150 ms later over 300 ms, and (D60-09) the scroll indicator
@@ -397,21 +399,170 @@ Item {
             p.detailScale = 1
         }
 
-        // The crown's close takes the scrim with the view (CP3A animates the whole root, juh.java:647)
+        // The crown's close takes the scrim with the view: CP3A animates the whole root, this.q
+        // .animate() alpha and scale 1 -> 0 in 300 ms on the ViewPropertyAnimator's
+        // AccelerateDecelerate (juh.java:647); at its end the root is 1 again and the view gone (jug)
         function test_d60_06_crown_close() {
             var p = preview()
             var n = notif({ replacesId: 62, summary: "Sam", body: "On my way" })
             notificationPreviewPresenter.kind = 1
             notificationPreviewPresenter.notification = n
+            var a = p.closeAnimation.animations
+            compare(a.length, 2)
+            compare(a[0].property, "rootOpacity"); compare(a[0].to, 0)
+            compare(a[1].property, "rootScale"); compare(a[1].to, 0)
+            for (var k = 0; k < 2; k++) {
+                compare(a[k].duration, 300, "300 ms")
+                compare(a[k].easing.type, Easing.InOutSine, "AccelerateDecelerate")
+            }
             p.toFull()
             tryVerify(function () { return p.mode === "full" && p.detailScale === 1 }, 3000)
             var s = scrimOf(p)
+            var calls = notificationPreviewPresenter.nextCalls
+            var t0 = Date.now()
             p.closeFromCrown()
-            tryVerify(function () { return p.detailOpacity < 0.9 && p.detailOpacity > 0.1 }, 3000, "mid-close")
-            fuzzyCompare(s.opacity, p.detailOpacity, 0.0001)
-            fuzzyCompare(s.scale, p.detailScale, 0.0001)
+            verify(p.closeAnimation.running)
+            compare(p.rootOpacity, 1); compare(p.rootScale, 1)
+            tryVerify(function () { return p.rootOpacity < 0.9 && p.rootOpacity > 0.1 }, 3000, "mid-close")
+            fuzzyCompare(s.opacity, p.rootOpacity, 0.0001)
+            fuzzyCompare(s.scale, p.rootScale, 0.0001)
+            // the view's own numbers stay where the morph left them; the root's go
+            compare(p.detailOpacity, 1)
+            compare(p.detailScale, 1)
+            fuzzyCompare(p.detailHost.opacity, p.rootOpacity, 0.0001)
+            fuzzyCompare(p.detailHost.scale, p.rootScale, 0.0001)
             tryCompare(p, "mode", "none", 3000)
+            verify(Date.now() - t0 >= 290, "over 300 ms: " + (Date.now() - t0))
             verify(!s.visible)
+            compare(p.rootOpacity, 1, "the root 1 again (jug)")
+            compare(p.rootScale, 1)
+            compare(notificationPreviewPresenter.nextCalls, calls + 1, "finished: the next alert asked for")
+        }
+
+        // What the crown's close draws at each step while it runs: the root's and the scrim's
+        // numbers, the view's and the glanceable's own and what they are drawn at
+        function closeSamples(p, s) {
+            var out = []
+            var take = function () {
+                if (!p.closeAnimation.running)
+                    return
+                out.push({ root: p.rootOpacity, rootScale: p.rootScale, so: s.opacity, ss: s.scale,
+                           ds: p.detailScale, dop: p.detailOpacity, host: p.detailHost.opacity,
+                           hostScale: p.detailHost.scale, go: p.glanceOpacity, glance: p.glanceItem.opacity })
+            }
+            // the close sets the root alpha, then its scale: a frame is complete at the scale
+            p.rootScaleChanged.connect(take)
+            p.detailOpacityChanged.connect(take)
+            p.detailScaleChanged.connect(take)
+            p.glanceOpacityChanged.connect(take)
+            return out
+        }
+        function checkSamples(out) {
+            verify(out.length >= 3, "frames of the close: " + out.length)
+            var last = 2
+            for (var i = 0; i < out.length; i++) {
+                var o = out[i]
+                // the scrim is the root's, never the view's numbers
+                fuzzyCompare(o.so, o.root, 1e-9)
+                fuzzyCompare(o.ss, o.rootScale, 1e-9)
+                fuzzyCompare(o.rootScale, o.root, 1e-9)
+                verify(o.root <= last + 1e-9, "the root only goes down")
+                last = o.root
+                // the view and the glanceable under the root: never more than it
+                fuzzyCompare(o.host, o.dop * o.root, 1e-9)
+                fuzzyCompare(o.hostScale, o.ds * o.root, 1e-9)
+                fuzzyCompare(o.glance, o.go * o.root, 1e-9)
+                verify(o.host <= o.root + 1e-9, "the view no more than the root: " + o.host + " > " + o.root)
+            }
+            fuzzyCompare(out[out.length - 1].root, 0, 1e-9, "the root ends at 0")
+        }
+
+        // The crown in the middle of the morph (the view at about 0.9): CP3A's close is the root's,
+        // from its own 1, and cancels nothing (juh.java:647 r()). The scrim stays at 1 and unscaled
+        // on the first frame (no face ring; before, it took the view's 0.9 at once), then goes 1 -> 0
+        // with the root over 300 ms while the view's own scale goes on growing under it
+        function test_d60_06_crown_close_mid_morph() {
+            var p = preview()
+            var n = notif({ replacesId: 64, summary: "Sam", body: "On my way" })
+            notificationPreviewPresenter.kind = 1
+            notificationPreviewPresenter.notification = n
+            p.toFull()
+            tryVerify(function () { return p.mode === "full" && p.detailScale >= 0.88 }, 3000, "in the morph")
+            var at = p.detailScale
+            verify(at < 0.97, "the middle of the morph: " + at)
+            var s = scrimOf(p)
+            var out = closeSamples(p, s)
+            var t0 = Date.now()
+            p.closeFromCrown()
+            // the close's first frame: the root and the scrim at 1, not the view's numbers
+            compare(p.rootOpacity, 1)
+            compare(p.rootScale, 1)
+            compare(s.opacity, 1)
+            compare(s.scale, 1)
+            verify(s.visible)
+            var img = shot(top, "d60-06-crown-mid-morph")
+            // outside the view's disc (radius 192 x 0.88-0.97, at most 186 px): black, not the face
+            compare(px(img, 192, 4), [0, 0, 0], "top ring")
+            compare(px(img, 4, 192), [0, 0, 0], "left ring")
+            compare(px(img, 379, 192), [0, 0, 0], "right ring")
+            compare(px(img, 192, 379), [0, 0, 0], "bottom ring")
+            compare(px(img, 3, 3), [0, 0, 0], "corner")
+            tryCompare(p, "mode", "none", 3000)
+            verify(Date.now() - t0 >= 290, "over 300 ms: " + (Date.now() - t0))
+            checkSamples(out)
+            var most = at
+            for (var i = 0; i < out.length; i++)
+                most = Math.max(most, out[i].ds)
+            verify(most > at, "the morph went on under the close: " + at + " -> " + most)
+            compare(p.rootOpacity, 1)
+            compare(p.rootScale, 1)
+        }
+
+        // The crown while the glanceable still fades (the morph's first 100 ms): the root closes,
+        // the morph goes on under it (the full view comes in at most at the root's alpha, never
+        // over a faded scrim) and the close's end ends both
+        function test_d60_06_crown_close_glance_part() {
+            var p = preview()
+            var n = notif({ replacesId: 65, summary: "Sam", body: "On my way" })
+            notificationPreviewPresenter.kind = 1
+            notificationPreviewPresenter.notification = n
+            p.toFull()
+            compare(p.mode, "glance", "the glanceable's part of the morph")
+            var s = scrimOf(p)
+            var out = closeSamples(p, s)
+            p.closeFromCrown()
+            compare(s.opacity, 1)
+            compare(s.scale, 1)
+            tryCompare(p, "mode", "none", 3000)
+            checkSamples(out)
+            compare(p.rootOpacity, 1)
+            compare(p.glanceOpacity, 1)
+        }
+
+        // The morph ends under the close (the crown late in it): the view is leaving and nothing
+        // comes in: no header arrow, no scroll indicator over the face (eos's is the window's)
+        function test_d60_06_crown_close_morph_ends() {
+            var p = preview()
+            var n = notif({ replacesId: 66, summary: "Trains", body: longBody() })
+            notificationPreviewPresenter.kind = 1
+            notificationPreviewPresenter.notification = n
+            p.toFull()
+            tryVerify(function () { return p.mode === "full" && p.detailScale >= 0.95 }, 3000, "late in the morph")
+            verify(p.detailScale < 1, "the morph not over: " + p.detailScale)
+            var d = p.detailItem
+            verify(d !== null)
+            var most = 0
+            d.arrowOpacityChanged.connect(function () { most = Math.max(most, d.arrowOpacity) })
+            var ends = 0
+            p.detailScaleChanged.connect(function () { if (p.detailScale === 1 && p.closeAnimation.running) ends++ })
+            p.closeFromCrown()
+            tryCompare(p, "mode", "none", 3000)
+            compare(ends, 1, "the morph ended under the close")
+            compare(most, 0, "no header arrow")
+            var ind = indicator()
+            verify(!ind || !ind.shown, "no scroll indicator")
+            wait(200)
+            verify(!ind || !ind.shown, "no scroll indicator later")
         }
 
         // The bubble over an app leaves the app showing: no scrim
