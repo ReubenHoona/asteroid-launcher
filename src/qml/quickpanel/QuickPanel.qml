@@ -44,8 +44,9 @@ import "tray.js" as TrayRules
 
 /*
  * The quick settings panel, as stock CP3A's (W2-launcher-quick-settings): a
- * vertical list of rows of three buttons (the top row holds count mod 3), the
- * battery button first, the status tray last; it opens showing the bottom of
+ * vertical list of rows of three buttons, filled from the bottom up (the top
+ * row holds count mod 3), Battery, Settings and Sound the bottom row, the
+ * status tray last; it opens showing the bottom of
  * the list; the crown scrolls it and, pushed past its end, closes the tray;
  * the rows shrink and fade at the screen edges. SysUI lah.java, kxx.java,
  * kxr.java; the numbers and where they come from are in qs.js.

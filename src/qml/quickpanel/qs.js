@@ -15,17 +15,22 @@
 
 var ROW_SIZE = 3
 
-/* Rows of three; the top row holds (count mod 3) tiles when that is not 0
- * (lah.java:318-344). Each row's tiles are reversed before they are placed
- * left to right (lah.java:499-500, inferred by the audit). */
+/* Rows of three, read from the bottom up: CP3A reverses the list before it is
+ * grouped (kxx.java:422 and :653, quicksettings_buttons .h(): Guava's
+ * ImmutableList.reverse(), nkn.java), so the list's first tiles (Battery,
+ * Settings, Sound) make the bottom row and the remainder row, count mod 3
+ * tiles when that is not 0, is the top one (lah.java:33-41, :318-344). Each
+ * row's tiles are reversed again before they are placed left to right
+ * (lah.java:331, :342), so a row reads in the list's order. */
 function rows(ids) {
-    var n = ids.length
+    var rev = ids.slice().reverse()
+    var n = rev.length
     var first = n % ROW_SIZE
     var out = []
     if (first > 0)
-        out.push(ids.slice(0, first))
+        out.push(rev.slice(0, first))
     for (var i = first; i < n; i += ROW_SIZE)
-        out.push(ids.slice(i, i + ROW_SIZE))
+        out.push(rev.slice(i, i + ROW_SIZE))
     for (var r = 0; r < out.length; r++)
         out[r].reverse()
     return out

@@ -223,12 +223,23 @@ Item {
 
         function test_01_rows_of_three_top_row_count_mod_3() {
             function seq(n) { var a = []; for (var i = 0; i < n; i++) a.push(i); return a }
-            // 11 tiles: the top row holds 2, then rows of three; each row reversed
-            compare(JSON.stringify(QS.rows(seq(11))), "[[1,0],[4,3,2],[7,6,5],[10,9,8]]")
-            compare(JSON.stringify(QS.rows(seq(10))), "[[0],[3,2,1],[6,5,4],[9,8,7]]")
-            compare(JSON.stringify(QS.rows(seq(12))), "[[2,1,0],[5,4,3],[8,7,6],[11,10,9]]")
-            compare(JSON.stringify(QS.rows(seq(2))), "[[1,0]]")
+            // D60-15: read from the bottom up (CP3A kxx.java:422 reverses the list, lah.java:318-344
+            // groups it and reverses each row): the list's first three tiles are the bottom row in
+            // their order, the top row holds the count mod 3 last ones
+            compare(JSON.stringify(QS.rows(seq(11))), "[[9,10],[6,7,8],[3,4,5],[0,1,2]]")
+            compare(JSON.stringify(QS.rows(seq(10))), "[[9],[6,7,8],[3,4,5],[0,1,2]]")
+            compare(JSON.stringify(QS.rows(seq(12))), "[[9,10,11],[6,7,8],[3,4,5],[0,1,2]]")
+            compare(JSON.stringify(QS.rows(seq(2))), "[[0,1]]")
             compare(JSON.stringify(QS.rows([])), "[]")
+            // the input is not changed
+            var s11 = seq(11)
+            QS.rows(s11)
+            compare(JSON.stringify(s11), JSON.stringify(seq(11)))
+            // stock's eleven on the watch (no Mobile): Touch lock, Find my phone at the top
+            compare(JSON.stringify(QS.rows(["battery", "settingsButton", "soundToggle", "bedtimeToggle", "dndToggle", "cinemaToggle",
+                                            "airplaneToggle", "flashlightButton", "brightnessButton", "touchLockToggle", "findPhoneButton"])),
+                    '[["touchLockToggle","findPhoneButton"],["airplaneToggle","flashlightButton","brightnessButton"],'
+                    + '["bedtimeToggle","dndToggle","cinemaToggle"],["battery","settingsButton","soundToggle"]]')
             for (var n = 1; n <= 14; n++) {
                 var rows = QS.rows(seq(n))
                 compare(rows[0].length, n % 3 === 0 ? 3 : n % 3)
@@ -342,7 +353,7 @@ Item {
         function test_10_default_tiles_and_places() {
             // touch lock (not built) and Mobile (no modem) are hidden: ten tiles
             compare(ids().join(","), "battery,settingsButton,soundToggle,bedtimeToggle,dndToggle,cinemaToggle,airplaneToggle,flashlightButton,brightnessButton,findPhoneButton")
-            compare(JSON.stringify(panel().rowIds), '[["battery"],["bedtimeToggle","soundToggle","settingsButton"],["airplaneToggle","cinemaToggle","dndToggle"],["findPhoneButton","brightnessButton","flashlightButton"]]')
+            compare(JSON.stringify(panel().rowIds), '[["findPhoneButton"],["airplaneToggle","flashlightButton","brightnessButton"],["bedtimeToggle","dndToggle","cinemaToggle"],["battery","settingsButton","soundToggle"]]')
             // none of the ours-only tiles
             var gone = ["lockButton", "bluetoothToggle", "hapticsToggle", "wifiToggle", "extraDimToggle", "aodToggle", "powerOffToggle", "rebootToggle", "musicButton"]
             for (var i = 0; i < gone.length; i++)
@@ -352,12 +363,18 @@ Item {
             compare(first.width, 104); compare(first.height, 104)
             var rowH = find(panel(), "qsRow1")
             compare(rowH.height, 104)
+            // open (the end of the list): Battery, Settings, Sound the bottom row left to right, over the pill
+            compare(slot("battery").x, 28)
+            compare(slot("settingsButton").x, 28 + 112)
+            compare(slot("soundToggle").x, 28 + 224)
+            compare(slot("bedtimeToggle").x, 28)
+            compare(slot("dndToggle").x, 28 + 112)
+            compare(slot("cinemaToggle").x, 28 + 224)
+            verify(slot("battery").mapToItem(root, 0, 0).y > slot("bedtimeToggle").mapToItem(root, 0, 0).y, "Battery under Bedtime")
             list().contentY = 0
             wait(80)
-            compare(slot("bedtimeToggle").x, 28)
-            compare(slot("soundToggle").x, 28 + 112)
-            compare(slot("settingsButton").x, 28 + 224)
-            compare(slot("battery").x, 140)
+            // the top row: Find my phone alone
+            compare(slot("findPhoneButton").x, 140)
             compare(find(panel(), "qsRow1").y - find(panel(), "qsRow0").y, 112)
             // 40 px top padding and a spacer of 19 px for a top row of one
             compare(find(panel(), "qsRow0").y, 40 + 19)
@@ -436,28 +453,28 @@ Item {
         function test_14_edge_morph_on_the_rows() {
             var l = list()
             // at the end: the first row is above the screen, shrunk and gone; the last rows are whole
-            var s0 = slot("battery")
+            var s0 = slot("findPhoneButton")
             verify(s0.scale < 1, "the top row is morphed: " + s0.scale)
             near(s0.scale, 0.15, 1e-6)
             near(s0.item.containerAlpha, 0, 1e-6)
             near(s0.item.contentAlpha, 0, 1e-6)
-            compare(slot("findPhoneButton").scale, 1)
-            compare(slot("findPhoneButton").item.containerAlpha, 1)
+            compare(slot("battery").scale, 1)
+            compare(slot("battery").item.containerAlpha, 1)
             // a row half way in: scale, alpha follow the spec's function of the row's place
             l.contentY = l.contentHeight - l.height - 60
             wait(80)
             var row = find(panel(), "qsRow3")
             var m = QS.morph(row.y - l.contentY, row.height, l.height)
-            var sl = slot("findPhoneButton")
+            var sl = slot("battery")
             near(sl.scale, m.scale, 1e-6)
             near(sl.item.containerAlpha, m.container, 1e-6)
             near(sl.item.contentAlpha, m.content, 1e-6)
             verify(m.scale < 1)
             // the outer buttons of a row of three slide in
-            var b = slot("flashlightButton")
+            var b = slot("soundToggle")
             var base = QS.sidePadding(3, 384, 104, 8) + 2 * 112
             near(b.x - base, QS.slide(2, 3, 104, m.scale), 1e-6, "outer button slid")
-            compare(slot("brightnessButton").x, QS.sidePadding(3, 384, 104, 8) + 112)
+            compare(slot("settingsButton").x, QS.sidePadding(3, 384, 104, 8) + 112)
             shot("qs-03-morph")
         }
 
