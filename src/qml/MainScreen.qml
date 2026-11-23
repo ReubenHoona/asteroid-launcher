@@ -75,6 +75,9 @@ Item {
     // the handler can live in the Loader's own scope.
     signal watchfaceReloadRequested()
 
+    // the wallpaper under the face (the face picker draws it under the faces' snapshots)
+    readonly property Item wallpaperItem: wallpaper
+
     AppLauncherBackground { id: alb }
 
     property var defaultCenterColor: alb.centerColor("/usr/share/asteroid-launcher/default-colors.desktop")

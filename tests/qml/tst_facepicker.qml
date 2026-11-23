@@ -3,6 +3,11 @@
 // The face picker (src/qml/misc/FacePicker.qml) and its Add new list (src/qml/misc/FaceAddList.qml) drawn with
 // the image's controls on the repo mocks. 384 x 384 px = 192 dp, 1 dp = 2 px. WO-11 of the image 60 defect list:
 //
+// D60-28: a preview is the face on its own background inside a 4 px #202124 ring, black inside
+// (managementui_border_color, managementui_items_border_width 2 dp). The face on the watch is the snapshot taken
+// at the open, a face with a cached snapshot is that snapshot (CP3A kdu.java:305-345, kch.java:134-150); an eos
+// face is drawn over the wallpaper, so the wallpaper goes under a snapshot. The shipped picture is drawn only
+// while there is no snapshot: never two pictures at once.
 // D60-29: the chip stays in the middle (x 140-244) and the arrows keep their slots (x 68 and 252, 8 px gaps):
 // CP3A hides them INVISIBLE (ibk.java:30-31), the row is not centred again. A button that hides waits (chip
 // 75 ms, arrows 150 ms: ibj.java) and slides down by the row's height (8 + 13 + 32 + 5 = 58 dp) in 375 ms
@@ -219,6 +224,84 @@ Item {
                 picker = null
                 wait(30)
             }
+        }
+
+        // ---- D60-28 ----------------------------------------------------------------------------------------
+        // r1 has a cached snapshot with a transparent background (/tmp/wo11-prev/r1.png from the runner: 384 px,
+        // the white block of liveFace), as the watch's GL grabs are. The software renderer of this test makes
+        // its own grabs opaque (black where the item is empty), so the live snapshot hides what is under it here:
+        // its layering is checked on the items, the pixels under a snapshot on r1.
+        function test_d60_28_previews() {
+            setup([["r1", "018-modular"], ["r2", "021-classic"], ["r3", "022-large"]], "r2")
+            openPicker()
+            var c = cellOf("r2")
+            var ring = find(c, "eosFaceRing")
+            verify(ring !== null, "ring")
+            compare(String(ring.color), "#000000", "inside the ring is black, not filled grey")
+            near(ring.border.width, 2 * dp, 0.01, "the ring is managementui_items_border_width 2 dp")
+            compare(String(ring.border.color), "#202124", "managementui_border_color")
+            near(ring.width, 238 + 8, 0.5, "outer 246 px")
+            // the face on the watch: its snapshot over the wallpaper of the open, no shipped picture
+            var shot = find(c, "eosFaceShot"), shipped = find(c, "eosFaceShipped"), bg = find(c, "eosFaceBackground")
+            verify(shot.ready, "the snapshot of the face on the watch")
+            compare(String(shot.source), picker.liveUrl, "taken at the open")
+            compare(shipped.opacity, 0, "the shipped picture is not drawn under the snapshot")
+            verify(bg !== null && bg.visible, "the wallpaper under the live snapshot")
+            verify(picker.backgroundUrl !== "", "the wallpaper was snapshotted at the open")
+            compare(String(bg.source), picker.backgroundUrl, "that snapshot")
+            near(bg.width, 238 * 1.1, 0.6, "the wallpaper at the preview's scale (110 % of the face)")
+            near(bg.height, 238 * 1.1, 0.6, "both ways")
+            near(bg.x, (238 - 238 * 1.1) / 2, 0.6, "centred as on the screen")
+            near(bg.y, (238 - 238 * 1.1) / 2, 0.6, "centred as on the screen")
+            var kids = find(c, "eosFacePreview").children
+            var under = -1, over = -1
+            for (var k = 0; k < kids.length; k++) {
+                if (kids[k].objectName === "eosFacePicture")
+                    under = k
+                if (kids[k] === shot)
+                    over = k
+            }
+            verify(under >= 0 && over > under, "the wallpaper is drawn under the snapshot")
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-open.png")
+            var cy = Math.round(picker.previewCy)
+            colourNear(img, 192, 144, "#ffffff", 8, "the face's block")
+            colourNear(img, 192 + 121, cy, "#202124", 4, "the 4 px ring")
+            colourNear(img, 192 + 127, cy, "#000000", 4, "outside the ring")
+
+            // a face with no snapshot yet: the shipped picture on black, no wallpaper
+            var c3 = cellOf("r3")
+            verify(c3 !== null, "r3 is made (cache buffer)")
+            compare(find(c3, "eosFaceShot").ready, false, "no snapshot of r3")
+            compare(find(c3, "eosFaceShipped").opacity, 1, "the shipped picture of r3")
+            compare(find(c3, "eosFaceBackground").visible, false, "no wallpaper under a shipped picture")
+            picker.positionAt("r3")
+            wait(100)
+            img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-shipped.png")
+            colourNear(img, 192 - 112, cy, "#000000", 4, "black inside the ring of a shipped picture")
+            colourNear(img, 192 - 121, cy, "#202124", 4, "its ring")
+
+            // a face with a cached snapshot (transparent, as on the watch): that snapshot on the wallpaper, once
+            picker.positionAt("r1")
+            wait(100)
+            c = cellOf("r1")
+            verify(find(c, "eosFaceShot").ready, "the cached snapshot of r1")
+            compare(find(c, "eosFaceShipped").opacity, 0, "no shipped picture under it")
+            verify(find(c, "eosFaceBackground").visible, "the wallpaper under the cached snapshot")
+            img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-cached.png")
+            colourNear(img, 192, 144, "#ffffff", 8, "the cached face's block")
+            colourNear(img, 130, 230, "#2050a0", 8, "the wallpaper under the cached snapshot")
+            colourNear(img, 91, 188, "#e04020", 12, "the wallpaper's mark where the screen has it")
+            colourNear(img, 153, 152, "#2050a0", 12, "no digits of the shipped 018 picture (ink there)")
+            colourNear(img, 192 + 121, cy, "#202124", 4, "the ring")
+
+            // the face on the watch was saved for the next time when the picker opened
+            tryVerify(function () { return facePreviews.exists("r2") }, 10000, "r2 cached")
+            // the wallpaper's snapshot goes with the picker
+            picker.closeNow()
+            compare(picker.backgroundUrl, "", "let go at the close")
         }
 
         // ---- D60-29 ----------------------------------------------------------------------------------------

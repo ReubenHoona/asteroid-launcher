@@ -80,6 +80,14 @@ Item {
     // the snapshot of the live face the picker opened over
     property string liveUrl: ""
     property var liveResult: null
+    // the wallpaper the faces are drawn over (MainScreen's), its snapshot taken with the face's, and where it
+    // lies against the face (fractions of the face's size: MainScreen's is 110 %, centred)
+    property Item background: null
+    property string backgroundUrl: ""
+    property var backgroundResult: null
+    property rect backgroundRect: Qt.rect(0, 0, 1, 1)
+    // the snapshots still to come before the carousel shows
+    property int grabsPending: 0
     // a preview file was written
     property int previewVersion: 0
 
@@ -174,20 +182,42 @@ Item {
         rowInstant = true
         positionAt(store.currentId)
         rowInstant = false
-        // a snapshot of the face the carousel opens over: the centre preview, exactly the face
+        // a snapshot of the face the carousel opens over, and of the wallpaper under it: the centre preview,
+        // exactly the face as it is on the screen
         liveUrl = ""
         liveResult = null
+        backgroundUrl = ""
+        backgroundResult = null
         opening = true
-        var started = false
-        if (liveFace && liveFace.grabToImage)
-            started = liveFace.grabToImage(function (r) {
-                if (!picker.opening)
-                    return
-                picker.liveResult = r
-                picker.liveUrl = r.url
-                picker.begin()
-            })
-        if (!started)
+        grabsPending = 0
+        if (liveFace && liveFace.grabToImage
+                && liveFace.grabToImage(function (r) {
+                    if (!picker.opening)
+                        return
+                    picker.liveResult = r
+                    picker.liveUrl = r.url
+                    picker.grabbed()
+                }))
+            grabsPending++
+        if (liveFace && liveFace.width > 0 && background && background.visible && background.grabToImage) {
+            var tl = background.mapToItem(liveFace, 0, 0)
+            var br = background.mapToItem(liveFace, background.width, background.height)
+            backgroundRect = Qt.rect(tl.x / liveFace.width, tl.y / liveFace.height,
+                                     (br.x - tl.x) / liveFace.width, (br.y - tl.y) / liveFace.height)
+            if (background.grabToImage(function (r) {
+                    if (!picker.opening)
+                        return
+                    picker.backgroundResult = r
+                    picker.backgroundUrl = r.url
+                    picker.grabbed()
+                }))
+                grabsPending++
+        }
+        if (grabsPending === 0)
+            begin()
+    }
+    function grabbed() {
+        if (--grabsPending <= 0)
             begin()
     }
     function begin() {
@@ -313,6 +343,8 @@ Item {
         revealRadius = 1
         liveResult = null
         liveUrl = ""
+        backgroundResult = null
+        backgroundUrl = ""
         addList.closeNow()
         editing = false
         hideTimer.stop()
@@ -572,7 +604,13 @@ Item {
                     opacity: picker.namesOpacity * cell.nameLift
                 }
 
-                // the preview: a ring (4 px, #202124, outside the 238 px preview), the face's picture
+                /* the preview: the face's picture inside a ring of 4 px #202124 (managementui_border_color,
+                 * managementui_items_border_width 2 dp, outside the 238 px picture), black inside. Stock draws
+                 * one picture of the face with its background: the snapshot of the face on the watch, taken at
+                 * the open, and the cached snapshots of the others (kdu.java:305-345, kch.java:134-150). An eos
+                 * face is drawn over the wallpaper, so a snapshot (live or cached) has the wallpaper of the open
+                 * under it, where it lies on the screen; the shipped picture is drawn, on black, only while a
+                 * face has no snapshot. */
                 Item {
                     id: preview
                     objectName: "eosFacePreview"
@@ -587,7 +625,9 @@ Item {
                         objectName: "eosFaceRing"
                         anchors.fill: parent
                         radius: width / 2
-                        color: FP.RING_COLOR
+                        color: "#000000"
+                        border.width: picker.ringWidth
+                        border.color: FP.RING_COLOR
                     }
                     // while a picture loads: a #32000000 disc
                     Rectangle {
@@ -599,21 +639,40 @@ Item {
                         color: FP.PLACEHOLDER
                         visible: !shipped.ready && !shot.ready
                     }
-                    // the shipped picture, then how the face last looked on this watch over it
-                    Image {
-                        id: shipped
-                        objectName: "eosFaceShipped"
-                        readonly property bool ready: status === Image.Ready
+                    Item {
+                        objectName: "eosFacePicture"
                         anchors.centerIn: parent
                         width: picker.itemSize
                         height: width
-                        sourceSize.width: 182
-                        sourceSize.height: 182
-                        source: cell.isAdd ? "" : picker.previewFolder + FP.stemOf(cell.file) + ".png"
-                        asynchronous: true
-                        fillMode: Image.PreserveAspectFit
-                        smooth: true
-                        opacity: cell.flying ? 0 : 1
+                        clip: true
+                        // the wallpaper under a snapshot
+                        Image {
+                            objectName: "eosFaceBackground"
+                            readonly property bool wanted: shot.ready && !cell.flying && picker.backgroundUrl !== ""
+                            x: picker.backgroundRect.x * picker.itemSize
+                            y: picker.backgroundRect.y * picker.itemSize
+                            width: picker.backgroundRect.width * picker.itemSize
+                            height: picker.backgroundRect.height * picker.itemSize
+                            source: wanted ? picker.backgroundUrl : ""
+                            visible: wanted
+                            cache: false
+                            asynchronous: false
+                            smooth: true
+                        }
+                        // the shipped picture: only while there is no snapshot (never two sets of digits)
+                        Image {
+                            id: shipped
+                            objectName: "eosFaceShipped"
+                            readonly property bool ready: status === Image.Ready
+                            anchors.fill: parent
+                            sourceSize.width: 182
+                            sourceSize.height: 182
+                            source: cell.isAdd ? "" : picker.previewFolder + FP.stemOf(cell.file) + ".png"
+                            asynchronous: true
+                            fillMode: Image.PreserveAspectFit
+                            smooth: true
+                            opacity: cell.flying || shot.ready ? 0 : 1
+                        }
                     }
                     Image {
                         id: shot

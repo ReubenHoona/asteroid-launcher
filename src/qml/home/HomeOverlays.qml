@@ -308,6 +308,8 @@ Item {
         z: 6
         store: faceLayer.favourites
         liveFace: desktop.centreItem ? desktop.centreItem.activeFace : null
+        // the wallpaper the face is drawn over: under the face's snapshots in the carousel
+        background: desktop.wallpaperItem
         sources: complications
         awake: desktop.displayAwake && !displayAmbient
         onEditRequested: faceEditorItem.open()
