@@ -277,14 +277,17 @@ Item {
         if (takeList(goalFn))
             scrollDone()
     }
-    // the contentY that puts the card of notification nid at y in the list
-    function cardTopGoal(nid, y) {
+    // the contentY that puts the card of notification nid at y in the list; pastEnd: not held to the
+    // list's end (its size has not caught up yet with a card that has just been told to open)
+    function cardTopGoal(nid, y, pastEnd) {
         var lv = listView
         var row = rowItems[nid]
         if (!lv || !row)
             return lv ? lv.contentY : 0
         var want = lv.contentY + (row.mapToItem(lv, 0, 0).y - y)
         var lo = lv.originY - lv.topMargin
+        if (pastEnd)
+            return Math.max(lo, want)
         var hi = Math.max(lo, lv.originY + lv.contentHeight + lv.bottomMargin - lv.height)
         return Math.max(lo, Math.min(hi, want))
     }
@@ -416,7 +419,11 @@ Item {
         if (!lv || !row)
             return
         var goal = function () { return cardTopGoal(nid, lv.topMargin) }
-        if (Math.abs(goal() - lv.contentY) < 0.5)
+        // nothing to scroll when the card's top is where the list starts already. Asked past the
+        // list's end: the card has not grown yet (its height spring and the list's layout run from
+        // the next frame), so the end still has its closed height, and at the end of the list goal()
+        // would always say there is nothing to scroll. goal() keeps the end as the card grows.
+        if (Math.abs(cardTopGoal(nid, lv.topMargin, true) - lv.contentY) < 0.5)
             return
         if (isConversation(row.notification))
             scrollGoal(goal, Motion.duration(300), undefined, Motion.easing.legacy, Motion.duration(20))
