@@ -6,12 +6,17 @@
 //    back to 1 when Recents closes (on the face's spring q); the face is not moved
 //    (WearAppLaunchMixinTransition$$ExternalSyntheticLambda0.java:29-35, WearAppLaunchMixinTransition
 //    .java:63 BaselineAnimator 1.0/260).
+//  - D60-25: Recents over the face moves the face as the app list does (the values MainScreen's faceStack
+//    multiplies in): open 1 -> 0.70 and a dim 0.5 p on the same spring; close (WearOpenWatchface) scale and
+//    alpha 0.5 + 0.5 q on 1.0/260 (WearOpenWatchfaceMixinTransition.java:105, $$ExternalSyntheticLambda2
+//    .java:28-32).
 // Run by motion-wt/wo10/run.sh (qmltestrunner under qemu-aarch64 on the image rootfs).
 import QtQuick
 import QtTest
 import org.asteroid.controls
 import org.nemomobile.lipstick
 import "st/qml/desktop.js" as Desktop
+import "st/qml/compositor/windowmotion.js" as WM
 
 Item {
     id: top
@@ -200,6 +205,50 @@ Item {
                 compare(s[i].appScale, 1)
                 compare(s[i].appDim, 0)
             }
+        }
+
+        // ---- D60-25: Recents over the face moves the face ----
+
+        function test_04_over_the_face_open_moves_the_face() {
+            compare(WM.LAUNCH.baseline.stiffness, 260)
+            compare(WM.LAUNCH.baseline.dampingRatio, 1.0)
+            compare(WM.LAUNCH.behindDrop, 0.30)
+            compare(WM.LAUNCH.behindDim, 0.5)
+            var s = sample(function () { recents.show(); recents.entries = entries(2) }, "open")
+            compare(recents.movesFace, true)
+            verify(s.length >= 3, "frames of the opening: " + s.length)
+            for (var i = 0; i < s.length; i++) {
+                var f = s[i]
+                fuzzyCompare(f.faceScale, 1 - 0.3 * f.p, 1e-6, "face scale 1 - 0.3 p at p " + f.p)
+                fuzzyCompare(f.faceDim, 0.5 * f.p, 1e-6, "face dim 0.5 p at p " + f.p)
+                compare(f.faceAlpha, 1)
+                compare(f.faceMoving, true, "the face is cropped to a circle while it moves")
+            }
+            // at rest under the opaque disc: the face as it was
+            compare(recents.faceScale, 1)
+            compare(recents.faceDim, 0)
+            compare(recents.faceMoving, false)
+        }
+
+        function test_05_over_the_face_close_grows_the_face_from_half() {
+            compare(WM.HOME.face.stiffness, 260)
+            compare(WM.HOME.face.dampingRatio, 1.0)
+            compare(WM.HOME.faceStart, 0.5)
+            recents.show()
+            recents.entries = entries(2)
+            tryCompare(recents, "_mode", "", 3000)
+            var s = sample(function () { recents.close() }, "close")
+            verify(s.length >= 3, "frames of the closing: " + s.length)
+            for (var i = 0; i < s.length; i++) {
+                var f = s[i]
+                fuzzyCompare(f.faceScale, 0.5 + 0.5 * f.q, 1e-6, "face scale 0.5 + 0.5 q at q " + f.q)
+                fuzzyCompare(f.faceAlpha, 0.5 + 0.5 * f.q, 1e-6, "face alpha 0.5 + 0.5 q at q " + f.q)
+                compare(f.faceDim, 0)
+                compare(f.faceMoving, true)
+            }
+            compare(recents.faceScale, 1)
+            compare(recents.faceAlpha, 1)
+            compare(recents.faceMoving, false)
         }
     }
 }

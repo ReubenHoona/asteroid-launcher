@@ -525,19 +525,20 @@ Item {
 
     /* The face and what it stands on, drawn as one: the grid with the face
      * and the trays, the tiles' dots, the status slot and the wallpaper. The
-     * app list opens over it (W2-launcher-window-motion): while the list zooms
-     * in the face shrinks to 0.70 under a 50 % black dim; while the list goes,
-     * the face grows from 0.5 (faceScale, faceAlpha, faceDim of AppDrawer).
-     * Cropped to a circle while it moves; at rest nothing is changed. */
+     * app list and Recents open over it (W2-launcher-window-motion): while one
+     * zooms in the face shrinks to 0.70 under a 50 % black dim; while it goes,
+     * the face grows from 0.5 (faceScale, faceAlpha, faceDim of AppDrawer and of
+     * Recents, an AppDrawer; one of them moves at a time, the other gives 1 and
+     * 0). Cropped to a circle while it moves; at rest nothing is changed. */
     Item {
         id: faceStack
         anchors.fill: parent
         // Recents over an application: the application stays behind it (it shrinks
         // and dims, WindowTransitions), not the face
         visible: !(recents.isOpen && !recents.movesFace)
-        scale: appDrawer.faceScale
-        opacity: appDrawer.faceAlpha
-        layer.enabled: appDrawer.faceMoving && DeviceSpecs.hasRoundScreen
+        scale: appDrawer.faceScale * recents.faceScale
+        opacity: appDrawer.faceAlpha * recents.faceAlpha
+        layer.enabled: (appDrawer.faceMoving || recents.faceMoving) && DeviceSpecs.hasRoundScreen
         layer.effect: CircleMaskShader { }
 
         PanelsGrid {
@@ -624,7 +625,7 @@ Item {
             anchors.fill: parent
             radius: width / 2
             color: "black"
-            opacity: appDrawer.faceDim
+            opacity: Math.max(appDrawer.faceDim, recents.faceDim)
             visible: opacity > 0
         }
     }
