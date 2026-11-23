@@ -35,7 +35,8 @@ Item {
     Item {
         id: grid
         property int currentVerticalPos: 0
-        property real topTrayFraction: 0
+        // the panel is shown open (1): less is the pull, which moves the content (D60-20)
+        property real topTrayFraction: 1
         property bool trayMode: true
         property bool handingOver: false
         property int rotaryExitEdge: 1

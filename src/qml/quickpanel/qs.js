@@ -178,6 +178,24 @@ function statusTransform(top, bottom, h) {
     return { scale: scale, alpha: alpha, dy: dy }
 }
 
+/* ---- the pull (lah.java) -------------------------------------------------- */
+
+/* While quick settings is pulled in, CP3A's list moves in two parts, p being
+ * how far out the tray is (laj.java:183-199 from ihr.java:79-92: the tray's
+ * position over its size): the list is offset down by the screen height x
+ * (1 - p) (lah.java:420-425 with afn.java case 14), which cancels the tray's
+ * slide, and its last item, combined-bottom-spacer, is max(1 dp, 1.25 x the
+ * screen height x (1 - p)) high (lah.java:547 with eqa.java case 3) while the
+ * list is kept at its end on every change of p (lah.java:299-311). So on the
+ * screen the content comes in 1.25 x the finger and arrives with the tray.
+ * pullGrowth is how far the spacer has grown over its rest height: the content
+ * is that much higher on the screen than at rest. */
+var PULL_SPACER_FACTOR = 1.25
+function pullGrowth(p, height, minimum) {
+    return Math.max(minimum, PULL_SPACER_FACTOR * height * (1 - clamp01(p))) - minimum
+}
+function pullOffset(p, height) { return height * (1 - clamp01(p)) }
+
 /* ---- the tiles ------------------------------------------------------------ */
 
 /* the stock default list (CP3A arrays.xml:68-85, gap quick-settings-09); a

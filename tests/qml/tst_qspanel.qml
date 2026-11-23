@@ -38,7 +38,8 @@ Item {
     Item {
         id: grid
         property int currentVerticalPos: 0
-        property real topTrayFraction: 0
+        // the panel is shown open (1): less is the pull, which moves the content (D60-20)
+        property real topTrayFraction: 1
         property bool trayMode: true
         property bool handingOver: false
         property int rotaryExitEdge: 1
@@ -153,7 +154,8 @@ Item {
             DeviceSpecs.hasCellular = false
             grid.calls = []
             grid.currentVerticalPos = 0
-            grid.topTrayFraction = 0
+            grid.topTrayFraction = 1
+            grid.trayMode = true
             grid.rotaryExitEdge = 1
             alwaysOnDisplay.value = true
             start()
@@ -453,6 +455,7 @@ Item {
             l.contentY = 0
             grid.topTrayFraction = 0.4
             compare(l.contentY, l.contentHeight - l.height)
+            grid.topTrayFraction = 1
             // the pill is at the bottom of the screen: 20 px under it in its box, the box's layer
             // 3.8 px up (kxf.java case 16)
             var st = find(panel(), "statusTray")
@@ -576,6 +579,65 @@ Item {
             var r1 = find(panel(), "qsRow1")
             near(b.y0 - (r1.y - l.contentY + 104), 8, 1, "8 px under the row above")
             shot("qs-05-bottom-pills")
+        }
+
+        function test_15_pull_comes_in_ahead_of_the_finger() {
+            // D60-20: CP3A's list during the pull (lah.java, afn.java case 14, eqa.java case 3): offset down
+            // by H (1 - p) (the tray's slide cancelled), its end spacer max(1 dp, 1.25 H (1 - p)): on the
+            // screen the content is 1.25 H (1 - p) - 2 px higher than at rest
+            near(QS.pullGrowth(1, 384, 2), 0, 1e-9)
+            near(QS.pullGrowth(0.5, 384, 2), 238, 1e-9)
+            near(QS.pullGrowth(0, 384, 2), 478, 1e-9)
+            near(QS.pullGrowth(0.999, 384, 2), 0, 1e-9)
+            near(QS.pullOffset(0.5, 384), 192, 1e-9)
+            compare(QS.PULL_SPACER_FACTOR, 1.25)
+            var p = panel(), l = list()
+            var pull = l.transform[1]
+            compare(pull.objectName, "qsPull")
+            var st = find(p, "statusTray"), lay = find(p, "statusLayer")
+            // at rest: nothing
+            compare(p.pullGrowth, 0); compare(pull.y, 0)
+            var rest = st.mapToItem(root, 0, st.height / 2).y
+            var restRow = find(p, "qsRow3").mapToItem(root, 0, 0).y
+            // half way (the finger 192 px down): the tray box is 192 px up on the watch (this mock grid
+            // does not move the panel); the list is drawn 192 - 238 = -46 px in it, so 238 px higher
+            // on the screen than at rest
+            grid.topTrayFraction = 0.5
+            wait(50)
+            compare(l.contentY, l.contentHeight - l.height)
+            near(p.pullGrowth, 238, 1e-9); near(p.pullOffset, 192, 1e-9)
+            near(pull.y, -46, 1e-9)
+            near(find(p, "qsRow3").mapToItem(root, 0, 0).y - restRow, -46, 0.01, "content in the tray")
+            // the edge morph and the status tray take the screen's places
+            var row3 = find(p, "qsRow3")
+            var m = QS.morph(row3.y - l.contentY - 238, 104, 384)
+            near(slot("battery").scale, m.scale, 1e-6)
+            verify(m.scale < 1, "the bottom row is at the top of the screen")
+            near(lay.topFraction * 384, 300 - 238, 0.5, "status box on the screen")
+            var t = QS.statusTransform(62 / 384, 146 / 384, 84)
+            near(lay.scale, t.scale, 1e-6); near(lay.opacity, t.alpha, 1e-6)
+            // on the screen (the tray's slide, -192 px, added): the pill's centre is the finger's way less
+            // about 105 px (stock M07: 105 +- 15)
+            var onScreen = st.mapToItem(root, 0, st.height / 2).y - 192
+            near(onScreen - 192, -105, 15, "pill behind the finger")
+            near(onScreen, rest - 238 + t.dy - (-3.81), 0.5, "pill on the screen")
+            shot("qs-09-pull-half")
+            // three quarters, then back to rest: the rest place does not change
+            grid.topTrayFraction = 0.75
+            wait(50)
+            near(p.pullGrowth, 1.25 * 384 * 0.25 - 2, 1e-9)
+            grid.topTrayFraction = 1
+            wait(50)
+            compare(pull.y, 0)
+            near(st.mapToItem(root, 0, st.height / 2).y, rest, 1e-6)
+            near(find(p, "qsRow3").mapToItem(root, 0, 0).y, restRow, 1e-6)
+            // no trays (the AsteroidOS layout): no pull
+            grid.trayMode = false
+            grid.topTrayFraction = 0
+            wait(50)
+            compare(p.pullFraction, 1); compare(pull.y, 0)
+            grid.trayMode = true
+            grid.topTrayFraction = 1
         }
 
         // ---- the button -------------------------------------------------------------

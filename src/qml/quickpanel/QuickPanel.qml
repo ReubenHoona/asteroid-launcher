@@ -88,6 +88,15 @@ Item {
     /*! The list a drag is handed over to the tray from (PanelsGrid nested scroll): at its end, the finger going up. */
     readonly property Item handOverView: list
 
+    /* The pull (QS.pullGrowth): how far out the tray is, the spacer's growth and the offset that
+     * cancels the tray's slide. The list is drawn pullOffset - pullGrowth lower in the tray, so
+     * on the screen it is pullGrowth higher than at rest, and the edge morph and the status tray
+     * take their places on the screen, as CP3A's list, whose viewport stays on the screen. The
+     * content itself (and its end, where the list is kept) does not change. 1 without trays. */
+    readonly property real pullFraction: grid.trayMode ? Math.max(0, Math.min(1, grid.topTrayFraction)) : 1
+    readonly property real pullGrowth: QS.pullGrowth(pullFraction, height, Theme.dp(1))
+    readonly property real pullOffset: QS.pullOffset(pullFraction, height)
+
     MceBatteryLevel { id: batteryChargePercentage }
     MceChargerType { id: mceChargerType }
 
@@ -295,10 +304,16 @@ Item {
             id: qsPhysics
             flickable: list
         }
-        transform: Scale {
-            origin.y: qsPhysics.stretchOrigin
-            yScale: qsPhysics.stretchScale
-        }
+        transform: [
+            Scale {
+                origin.y: qsPhysics.stretchOrigin
+                yScale: qsPhysics.stretchScale
+            },
+            Translate {
+                objectName: "qsPull"
+                y: rootitem.pullOffset - rootitem.pullGrowth
+            }
+        ]
         onContentHeightChanged: if (!dragging && !flicking) rootitem.toEnd()
 
         Column {
@@ -317,7 +332,7 @@ Item {
                     width: col.width
                     height: rootitem.tileSize
                     // the row in the viewport, for the edge morph
-                    readonly property var m: QS.morph(y - list.contentY, height, list.height)
+                    readonly property var m: QS.morph(y - list.contentY - rootitem.pullGrowth, height, list.height)
 
                     Repeater {
                         model: rowItem.ids
@@ -362,8 +377,8 @@ Item {
                     height: QS.statusBoxHeight(rootitem.height)
                     anchors.bottom: parent.bottom
                     // the box's edges in the list's viewport, fractions of its height
-                    readonly property real topFraction: (statusBox.y + y - list.contentY) / Math.max(1, list.height)
-                    readonly property real bottomFraction: (statusBox.y + y + height - list.contentY) / Math.max(1, list.height)
+                    readonly property real topFraction: (statusBox.y + y - list.contentY - rootitem.pullGrowth) / Math.max(1, list.height)
+                    readonly property real bottomFraction: (statusBox.y + y + height - list.contentY - rootitem.pullGrowth) / Math.max(1, list.height)
                     readonly property var t: QS.statusTransform(topFraction, bottomFraction, height)
                     scale: t.scale
                     opacity: t.alpha
