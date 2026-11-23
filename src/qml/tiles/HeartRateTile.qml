@@ -17,8 +17,8 @@ import "tilecontent.js" as TC
  * 2 hours in 3 minute means (40 buckets from asteroid-sensorlogd's log, HealthLog's window mode; the line #94D6FF over
  * a soft gradient), the highest mean with its dot and label in red (#E46962), the lowest in blue (#2BC7F7), and the
  * window as the caption ("11:53 AM - 1:53 PM", in the 12 or 24 hour format of Settings). Without readings in the
- * window: "No heart rate data has been collected in the last 2 hrs.". Bottom text: the heart icon (#FFBA2B),
- * "Current bpm" and the live heart rate, "--" until the sensor has one. No edge button; a tap on the card opens the
+ * window: "No heart rate data has been collected in the last 2 hrs.". Bottom text: "Current bpm" over the heart icon
+ * (#FFBA2B) and the live heart rate, "--" until the sensor has one. No edge button; a tap on the card opens the
  * Health app on the heart rate page.
  *
  * Battery (M1, DECISIONS Q14): the live reading runs the heart rate sensor only while the tile is on screen with
@@ -35,9 +35,6 @@ TileBase {
     bottomValue: tile.bpm > 0 ? String(tile.bpm) : "--"
     bottomIcon: "ms-favorite"
     bottomIconColor: TC.HR_ICON
-    // 24 / 26 px: a line of 14 characters has to fit between the round screen's edges (28 px is the frame's default)
-    bottomLabelRole: "bodySmall"
-    bottomValueRole: "labelSmall"
 
     function openHeartRate() {
         // asteroid-health opens its heart rate page on today when this is set (and recent) on its

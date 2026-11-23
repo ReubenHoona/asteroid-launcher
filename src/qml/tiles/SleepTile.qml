@@ -30,9 +30,6 @@ TileBase {
     bottomLabel: (sum.valid ? qsTrId("id-tile-sleep-score") : "") + localeManager.changesObserver
     bottomValue: sum.valid ? (sum.score > 0 ? String(sum.score) : "- -") : ""
     bottomValueColor: TC.GREEN
-    // 24 / 26 px: a line of 14 characters has to fit between the round screen's edges (28 px is the frame's default)
-    bottomLabelRole: "bodySmall"
-    bottomValueRole: "labelSmall"
 
     onLiveChanged: {
         if (live) {

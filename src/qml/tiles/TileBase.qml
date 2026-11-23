@@ -19,9 +19,9 @@ import "../pager.js" as Pager
  * with sideMarginFraction for MIN) and an optional edge button at the bottom
  * (46 dp tall, 3 dp from the edge, 52 % wide, primary / onPrimary). Without
  * an edge button the content ends 19.6 % of the height above the bottom, or,
- * with a bottom text (bottomLabel / bottomValue: 26 % side margins, 5.2 %
- * under it, 6 dp above it), above that. The title is white (onBackground),
- * never the tile's accent (tiles-individual-02, -04).
+ * with a bottom text (two lines: bottomLabel, then bottomValue with its icon;
+ * 26 % side margins, 5.2 % under it, 6 dp above it), above that. The title
+ * is white (onBackground), never the tile's accent (tiles-individual-02, -04).
  *
  * Stock's tile has no catch-all click: each card or button is its own
  * clickable (TileCard, tiles-individual-32) and a tap on empty black does
@@ -67,9 +67,11 @@ Item {
     property string bottomIcon: ""
     property color bottomIconColor: Theme.color.onSurface
     property color bottomValueColor: Theme.color.onSurface
-    // the type roles of the bottom text (28 px by default; a longer line takes smaller ones)
-    property string bottomLabelRole: "bodyMedium"
-    property string bottomValueRole: "titleSmall"
+    // the type roles of the bottom text: CP3A's label is 14 sp and its value 16 sp (label glyphs 14 dp and
+    // value digits 12 dp tall in Fitbit's tile_primarygoal/heartrate/sleep_preview.xml; 21 and 24 px in
+    // Weather's sun/uv_tile_preview.webp)
+    property string bottomLabelRole: "titleSmall"
+    property string bottomValueRole: "titleMedium"
     default property alias content: body.data
     readonly property alias body: body
     readonly property alias chip: chip
@@ -169,41 +171,57 @@ Item {
         }
     }
 
-    // the bottom text slot: label and value on one line, 26 % side margins
-    Row {
+    // the bottom text slot, 26 % side margins: CP3A's two lines (the M3 layout's label over its bottom
+    // slot, as in the Fitbit and Weather tile previews), the label and under it the value with its icon,
+    // each line centred and no wider than the slot. The value stays whole and a label too long ends in an
+    // ellipsis (so does a value that alone is wider than the slot). D60-21
+    Column {
         id: bottomSlot
         visible: tile.hasBottomText && !chip.visible
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: tile.bottomTextBottom
-        width: Math.min(implicitWidth, tile.width - 2 * tile.bottomTextSide)
+        width: tile.width - 2 * tile.bottomTextSide
         height: visible ? implicitHeight : 0
-        spacing: Theme.dp(4)
-        Icon {
-            id: bottomIconItem
-            objectName: "tileBottomIcon"
-            visible: name !== ""
-            name: tile.bottomIcon
-            color: tile.bottomIconColor
-            width: Theme.dp(16)
-            height: width
-            anchors.verticalCenter: parent.verticalCenter
-        }
         Label {
             id: bottomLabelItem
             visible: text !== ""
+            x: (bottomSlot.width - width) / 2
+            width: Math.min(implicitWidth, bottomSlot.width)
+            horizontalAlignment: Text.AlignHCenter
+            elide: Text.ElideRight
             text: tile.bottomLabel
             role: tile.bottomLabelRole
             color: Theme.color.onSurface
             maximumLineCount: 1
         }
-        Label {
-            id: bottomValueItem
-            visible: text !== ""
-            text: tile.bottomValue
-            role: tile.bottomValueRole
-            color: tile.bottomValueColor
-            maximumLineCount: 1
+        Row {
+            id: bottomValueLine
+            // from the texts, not the children's visible (a hidden row hides them, and would stay hidden)
+            visible: tile.bottomIcon !== "" || tile.bottomValue !== ""
+            anchors.horizontalCenter: parent.horizontalCenter
+            spacing: Theme.dp(4)
+            Icon {
+                id: bottomIconItem
+                objectName: "tileBottomIcon"
+                visible: name !== ""
+                name: tile.bottomIcon
+                color: tile.bottomIconColor
+                width: Theme.dp(16)
+                height: width
+                anchors.verticalCenter: parent.verticalCenter
+            }
+            Label {
+                id: bottomValueItem
+                visible: text !== ""
+                width: Math.min(implicitWidth, bottomSlot.width
+                                - (tile.bottomIcon !== "" ? bottomIconItem.width + bottomValueLine.spacing : 0))
+                elide: Text.ElideRight
+                text: tile.bottomValue
+                role: tile.bottomValueRole
+                color: tile.bottomValueColor
+                maximumLineCount: 1
+            }
         }
     }
 

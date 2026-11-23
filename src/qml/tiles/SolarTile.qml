@@ -51,9 +51,6 @@ TileBase {
     readonly property string eventTime: known ? TimeFormat.time(new Date(next.at * 1000)) : ""
     readonly property real progress: known ? next.frac : 0
 
-    // 24 / 26 px: a time with AM or PM has to fit between the round screen's edges
-    bottomLabelRole: "bodySmall"
-    bottomValueRole: "labelSmall"
     bottomLabel: (other.kind === "sunrise" ? qsTrId("id-tile-sunrise") : other.kind === "sunset" ? qsTrId("id-tile-sunset") : "")
                  + localeManager.changesObserver
     bottomValue: other.kind !== "none" ? TimeFormat.time(new Date(other.at * 1000)) : ""

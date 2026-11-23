@@ -42,8 +42,6 @@ TileBase {
 
     //% "Max UV"
     bottomLabel: qsTrId("id-tile-max-uv") + localeManager.changesObserver
-    bottomLabelRole: "bodySmall"
-    bottomValueRole: "labelSmall"
     bottomValue: maxUv !== null ? String(Math.round(maxUv)) : "--"
 
     TileCard {

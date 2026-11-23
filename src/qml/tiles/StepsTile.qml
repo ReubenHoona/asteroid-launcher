@@ -29,9 +29,6 @@ TileBase {
     bottomLabel: qsTrId("id-tile-daily-goal") + localeManager.changesObserver
     bottomValue: Number(goal.value).toLocaleString(Qt.locale(), "f", 0)
     bottomValueColor: TC.GREEN
-    // 24 / 26 px: a line of 14 characters has to fit between the round screen's edges (28 px is the frame's default)
-    bottomLabelRole: "bodySmall"
-    bottomValueRole: "labelSmall"
 
     HealthLog {
         id: log
