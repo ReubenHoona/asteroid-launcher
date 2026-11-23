@@ -67,6 +67,8 @@ WearList {
     model: root.columns > 1 ? null : sortedModel
     cells: root.columns > 1 ? sortedModel : null
     colorOf: function (path) { return alb.centerColor(path) }
+    glyphOf: function (path) { return alb.glyphColor(path) }
+    ownIconOf: function (path) { return alb.ownIcon(path) }
 
     onActivated: (object, origin) => {
         if (typeof desktop !== "undefined" && desktop.launchApp)

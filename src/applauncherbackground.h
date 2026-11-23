@@ -41,9 +41,19 @@ class Q_DECL_EXPORT AppLauncherBackground : public QObject
 public:
     Q_INVOKABLE QColor outerColor(QString filePath);
     Q_INVOKABLE QColor centerColor(QString filePath);
+    /* eos (D60-26): the colour of the glyph on the app's disc,
+     * X-Eos-Glyph-Color (stock: the apps' adaptive icons draw their glyph in
+     * their own colours); white without the key, the AsteroidOS look */
+    Q_INVOKABLE QColor glyphColor(QString filePath);
+    /* eos (D60-26): the app draws its own full-colour icon with its own disc,
+     * shown as it is: X-Eos-Own-Icon=true. An entry with neither eos key and a
+     * white centre colour is one too (the AsteroidOS Flashlight's mark before
+     * the key, apps-misc-02); with X-Eos-Glyph-Color a white disc is a disc */
+    Q_INVOKABLE bool ownIcon(QString filePath);
 
 private:
-    QHash<QString, QColor> m_outerColors, m_centerColors;
+    QHash<QString, QColor> m_outerColors, m_centerColors, m_glyphColors;
+    QHash<QString, bool> m_ownIcons;
 };
 
 #endif // APPLAUNCHERBACKGROUND_H

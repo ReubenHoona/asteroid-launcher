@@ -19,9 +19,12 @@ MouseArea {
     property string title: ""
     property string iconId: ""
     property color discColor: Theme.color.primary
-    // A white centre colour (X-Asteroid-Center-Color=#FFFFFF) marks an app that draws its own full-colour icon with
-    // its own disc (the Flashlight): the file is drawn as it is, not as a white glyph on a white disc (apps-misc-02)
-    readonly property bool ownIcon: discColor.r >= 0.99 && discColor.g >= 0.99 && discColor.b >= 0.99
+    // the glyph on the disc (X-Eos-Glyph-Color, AppLauncherBackground.glyphColor; white without it). Stock draws
+    // the apps' adaptive icons: CP3A's are white discs with blue glyphs (D60-26)
+    property color glyphColor: "white"
+    // the app draws its own full-colour icon with its own disc (X-Eos-Own-Icon, AppLauncherBackground.ownIcon;
+    // the AsteroidOS Flashlight's white centre colour without the keys): the file is drawn as it is (apps-misc-02)
+    property bool ownIcon: false
     readonly property string iconUrl: iconId === "" ? "" : (iconId.charAt(0) === "/" ? "file://" + iconId
                                                                                    : "file:///usr/share/icons/asteroid/" + iconId + ".svg")
     property real contentAlpha: 1
@@ -73,9 +76,10 @@ MouseArea {
     Icon {
         visible: !cell.ownIcon
         anchors.centerIn: disc
-        width: disc.width * 0.66
+        // the glyph about 0.67 of the disc, as the list's row (WearRow)
+        width: disc.width * 0.80
         height: width
-        color: "white"
+        color: cell.glyphColor
         name: cell.iconId === "" ? "ios-help" : cell.iconId
         opacity: cell.contentAlpha
     }

@@ -185,3 +185,10 @@ add_executable(tst_huboffload_flip tst_huboffload_flip.cpp ../src/huboffload.cpp
 set_target_properties(tst_huboffload_flip PROPERTIES AUTOMOC ON)
 target_include_directories(tst_huboffload_flip BEFORE PRIVATE stubs ../src)
 target_link_libraries(tst_huboffload_flip PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)
+
+# The app icon keys of a .desktop file (src/applauncherbackground.*, D60-26): the disc, X-Eos-Glyph-Color and
+# X-Eos-Own-Icon on temporary files; Qt Core and Gui, no display
+add_executable(tst_launchericons tst_launchericons.cpp ../src/applauncherbackground.cpp ../src/applauncherbackground.h)
+set_target_properties(tst_launchericons PROPERTIES AUTOMOC ON)
+target_include_directories(tst_launchericons PRIVATE ../src)
+target_link_libraries(tst_launchericons PRIVATE Qt6::Core Qt6::Gui)

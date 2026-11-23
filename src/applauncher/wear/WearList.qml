@@ -31,7 +31,10 @@ import "WearEdge.js" as Edge
  *
  * Content: model (rows: its "object" role holds a LauncherItem) or, for the
  * grid, cells (an object with itemCount and get(i)). The rows' colours come
- * from colorOf(filePath), their status line from statusOf(object).
+ * from colorOf(filePath), glyphOf(filePath) and ownIconOf(filePath) (the
+ * .desktop file's X-Asteroid-Center-Color, X-Eos-Glyph-Color and
+ * X-Eos-Own-Icon, AppLauncherBackground), their status line from
+ * statusOf(object).
  */
 Item {
     id: root
@@ -47,6 +50,8 @@ Item {
     property var cells: null
     property var spec: columns > 1 ? Edge.GRID : Edge.LIST
     property var colorOf: function (path) { return Theme.color.primary }
+    property var glyphOf: function (path) { return "white" }
+    property var ownIconOf: function (path) { return false }
     property var statusOf: function (object) { return "" }
     // a row looks pressed (the first run tutorial): the first row or icon
     property bool fakePressed: false
@@ -230,6 +235,8 @@ Item {
                 title: slot.object ? slot.object.title + localeManager.changesObserver : ""
                 iconId: slot.object ? slot.object.iconId : ""
                 discColor: slot.object ? root.colorOf(slot.object.filePath) : Theme.color.primary
+                glyphColor: slot.object ? root.glyphOf(slot.object.filePath) : "white"
+                ownIcon: slot.object ? root.ownIconOf(slot.object.filePath) : false
                 status: slot.object ? root.statusOf(slot.object) : ""
                 containerAlpha: slot.ev.containerAlpha
                 contentAlpha: slot.ev.contentAlpha
@@ -274,6 +281,8 @@ Item {
                     title: object ? object.title + localeManager.changesObserver : ""
                     iconId: object ? object.iconId : ""
                     discColor: object ? root.colorOf(object.filePath) : Theme.color.primary
+                    glyphColor: object ? root.glyphOf(object.filePath) : "white"
+                    ownIcon: object ? root.ownIconOf(object.filePath) : false
                     contentAlpha: slot.ev.contentAlpha
                     fakePressed: root.fakePressed && slot.first + index === 0
                     enabled: !view.dragging

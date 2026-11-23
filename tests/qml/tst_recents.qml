@@ -32,6 +32,8 @@ Item {
         id: alb
         function centerColor(p) { return "#3366aa" }
         function outerColor(p) { return "#000000" }
+        function glyphColor(p) { return "#ffffff" }
+        function ownIcon(p) { return false }
     }
     QtObject {
         id: desktop

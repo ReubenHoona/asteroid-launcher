@@ -53,3 +53,35 @@ QColor AppLauncherBackground::centerColor(QString filePath)
     return ret;
 }
 
+QColor AppLauncherBackground::glyphColor(QString filePath)
+{
+    if(m_glyphColors.contains(filePath))
+        return m_glyphColors.value(filePath);
+
+    QSettings settings(filePath, QSettings::NativeFormat);
+    QColor ret(settings.value("Desktop Entry/X-Eos-Glyph-Color", QString("#FFFFFF")).toString());
+    if(!ret.isValid())
+        ret = QColor(Qt::white);
+    m_glyphColors.insert(filePath, ret);
+    return ret;
+}
+
+bool AppLauncherBackground::ownIcon(QString filePath)
+{
+    if(m_ownIcons.contains(filePath))
+        return m_ownIcons.value(filePath);
+
+    QSettings settings(filePath, QSettings::NativeFormat);
+    bool ret;
+    if(settings.contains("Desktop Entry/X-Eos-Own-Icon")) {
+        ret = settings.value("Desktop Entry/X-Eos-Own-Icon").toBool();
+    } else if(settings.contains("Desktop Entry/X-Eos-Glyph-Color")) {
+        ret = false;
+    } else {
+        const QColor c = centerColor(filePath);
+        ret = c.red() == 255 && c.green() == 255 && c.blue() == 255;
+    }
+    m_ownIcons.insert(filePath, ret);
+    return ret;
+}
+

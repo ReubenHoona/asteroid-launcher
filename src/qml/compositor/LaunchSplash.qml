@@ -18,15 +18,18 @@ import "windowmotion.js" as WM
  * tapped icon.
  *
  *   - the icon is the application's own, as the app list draws it: a disc in
- *     the application's colour with a white glyph. An application without a
- *     colour shows its bare glyph, scaled 1.25 (splash_icon_no_background_scale_factor)
+ *     the application's colour with its glyph colour (white without one), or
+ *     its own full-colour icon. An application without a colour shows its bare
+ *     glyph, scaled 1.25 (splash_icon_no_background_scale_factor)
  *   - it is shown at least 400 ms, and only when the display is on
  *   - it leaves as Wear OS's TYPE_FADE_OUT does (starting_window_exit_animation_type
  *     = 1): the icon fades out linearly in 50 ms, the whole window fades out
  *     in 200 ms starting at 50 ms (250 ms in all)
  *
- * start(rect, centerColor, outerColor, iconName) (rect and outerColor are
- * not used any more), finish() when the window of the application is shown,
+ * start(rect, centerColor, outerColor, iconName, glyphColor, ownIcon) (rect
+ * and outerColor are not used any more; glyphColor and ownIcon are
+ * AppLauncherBackground's, D60-26; without them a white glyph, and a white
+ * centre colour is an own icon), finish() when the window of the application is shown,
  * cancel() to drop it at once. A launch that brings up no window gives up
  * after 6 s.
  *
@@ -48,20 +51,24 @@ Item {
     readonly property Item iconItem: icon
     readonly property Item discItem: disc
     property bool _hasDisc: false
-    // the app's centre colour is white: its icon is a full-colour file with a disc of its own (the Flashlight,
-    // apps-misc-02), drawn as it is and not as a white glyph on a white disc
     property color _center: "transparent"
     property string _iconName: ""
-    readonly property bool _ownIcon: _hasDisc && _center.r >= 0.99 && _center.g >= 0.99 && _center.b >= 0.99
+    property color _glyph: "white"
+    // the app's icon is a full-colour file with a disc of its own (X-Eos-Own-Icon; the AsteroidOS Flashlight's
+    // white centre colour without the keys, apps-misc-02), drawn as it is
+    property bool _ownIcon: false
     property bool _finishAsked: false
     property bool _minDone: true
 
-    function start(rect, centerColor, outerColor, iconName) {
+    function start(rect, centerColor, outerColor, iconName, glyphColor, ownIcon) {
         if (!displayOn)
             return
         exitAnim.stop()
         _hasDisc = !!centerColor
         _center = centerColor ? centerColor : "transparent"
+        _glyph = glyphColor ? glyphColor : "white"
+        _ownIcon = _hasDisc && (ownIcon !== undefined ? !!ownIcon
+                                : (_center.r >= 0.99 && _center.g >= 0.99 && _center.b >= 0.99))
         disc.color = _center
         _iconName = iconName ? iconName : ""
         icon.name = _iconName
@@ -192,10 +199,10 @@ Item {
             Icon {
                 id: icon
                 anchors.centerIn: parent
-                // the glyph inside the disc's safe zone (as the app list's row), or bare at 1.25
-                width: splash._hasDisc ? parent.width * 0.66 : parent.width * WM.SPLASH.bareIconScale
+                // the glyph about 0.67 of the disc (as the app list's row, WearRow), or bare at 1.25
+                width: splash._hasDisc ? parent.width * 0.80 : parent.width * WM.SPLASH.bareIconScale
                 height: width
-                color: "white"
+                color: splash._glyph
                 visible: name !== "" && !splash._ownIcon
             }
 

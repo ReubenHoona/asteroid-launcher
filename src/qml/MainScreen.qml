@@ -375,7 +375,9 @@ Item {
                              : Qt.rect(0, 0, 0, 0)
             Desktop.launchSplash.start(r, alb.centerColor(launcherItem.filePath),
                                        alb.outerColor(launcherItem.filePath),
-                                       launcherItem.iconId === "" ? "ios-help" : launcherItem.iconId)
+                                       launcherItem.iconId === "" ? "ios-help" : launcherItem.iconId,
+                                       alb.glyphColor(launcherItem.filePath),
+                                       alb.ownIcon(launcherItem.filePath))
         }
         // an origin the splash did not take (the display is off) is not kept for a later launch
         armOrigin(null)

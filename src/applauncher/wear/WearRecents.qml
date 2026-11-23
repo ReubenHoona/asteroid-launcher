@@ -42,6 +42,8 @@ WearList {
     edgeText: qsTrId("id-all-apps") + localeManager.changesObserver
     edgeIcon: ""
     colorOf: function (path) { return alb.centerColor(path) }
+    glyphOf: function (path) { return alb.glyphColor(path) }
+    ownIconOf: function (path) { return alb.ownIcon(path) }
     statusOf: function (object) {
         for (var i = 0; i < root.entries.length; i++)
             if (object && root.entries[i].item.filePath === object.filePath)
