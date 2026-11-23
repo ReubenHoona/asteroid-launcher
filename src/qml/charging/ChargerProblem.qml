@@ -83,8 +83,9 @@ Item {
                     PathPolyline {
                         path: {
                             var s = glyph.width / 24, out = [], p = Charging.BOLT.points
+                            // Qt.point: PathPolyline reads a plain { x, y } as 0,0 (D60-10)
                             for (var i = 0; i <= p.length; i++)
-                                out.push({ x: p[i % p.length][0] * s * 0.8 + glyph.width * 0.1, y: p[i % p.length][1] * s * 0.8 + glyph.height * 0.1 })
+                                out.push(Qt.point(p[i % p.length][0] * s * 0.8 + glyph.width * 0.1, p[i % p.length][1] * s * 0.8 + glyph.height * 0.1))
                             return out
                         }
                     }

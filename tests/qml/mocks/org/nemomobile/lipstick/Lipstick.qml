@@ -8,6 +8,8 @@ QtObject {
         property int screenOrientation: 1
         signal displayOff()
         signal displayOn()
+        signal displayAboutToBeOn()
+        signal displayAmbientUpdate()
     }
     property var notificationModel: null
 }

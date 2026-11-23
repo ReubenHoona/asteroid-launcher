@@ -317,6 +317,10 @@ function misaligned(s) {
 
 /* ---- the bolt glyph (our own, in a 24 x 24 box, 20 tall as ic_power) ------ */
 
+/* The vertices are Qt.point values: PathPolyline.path takes points only, and a plain
+ * { x, y } object reads as 0,0, so every vertex sat at the corner and nothing was
+ * drawn (D60-10). */
+
 var BOLT = {
     box: 24,
     // top, left, left notch, bottom tip, right, right notch (clockwise from the top)
@@ -330,26 +334,26 @@ function boltHalves() {
 function boltClosed() {
     var out = []
     for (var i = 0; i < BOLT.points.length; i++)
-        out.push({ x: BOLT.points[i][0], y: BOLT.points[i][1] })
-    out.push({ x: BOLT.points[0][0], y: BOLT.points[0][1] })
+        out.push(Qt.point(BOLT.points[i][0], BOLT.points[i][1]))
+    out.push(Qt.point(BOLT.points[0][0], BOLT.points[0][1]))
     return out
 }
-// the first `f` (0..1) of a polyline's length, as a list of {x, y}
+// the first `f` (0..1) of a polyline's length, as a list of points
 function partial(pts, f) {
     var total = 0, i
     for (i = 1; i < pts.length; i++)
         total += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])
     var want = total * Math.max(0, Math.min(1, f))
-    var out = [{ x: pts[0][0], y: pts[0][1] }]
+    var out = [Qt.point(pts[0][0], pts[0][1])]
     var done = 0
     for (i = 1; i < pts.length && want > 0; i++) {
         var len = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])
         if (done + len <= want + 1e-9) {
-            out.push({ x: pts[i][0], y: pts[i][1] })
+            out.push(Qt.point(pts[i][0], pts[i][1]))
             done += len
         } else {
             var k = (want - done) / len
-            out.push({ x: pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * k, y: pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * k })
+            out.push(Qt.point(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * k, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * k))
             break
         }
     }
