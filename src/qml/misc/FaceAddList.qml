@@ -288,13 +288,14 @@ Item {
             id: swipe
             target: null
             yAxis.enabled: false
-            property real lastDx: 0
+            // the finger's x at its last move: stock's gaq.i, the raw X of the last MOVE (gar.java:150-152)
+            property real lastMoveX: 0
             property real dx: 0
             property real vx: 0
             property real vy: 0
             onTranslationChanged: {
-                lastDx = translation.x - dx
                 dx = translation.x
+                lastMoveX = centroid.scenePosition.x
                 vx = centroid.velocity.x
                 vy = centroid.velocity.y
                 if (active)
@@ -303,11 +304,14 @@ Item {
             onActiveChanged: {
                 if (active) {
                     dx = 0
-                    lastDx = 0
+                    lastMoveX = centroid.scenePosition.x
                     vx = 0
                     vy = 0
                 } else {
-                    list.release(dx, vx, vy, lastDx < 0)
+                    // moving back is the UP left of the last MOVE (gar.java:192, getRawX() >= gaq.i), not a last
+                    // step to the left; Qt hands a DragHandler no new position at the release, so an UP where
+                    // the finger last was is not moving back, as on the watch
+                    list.release(dx, vx, vy, centroid.scenePosition.x < lastMoveX)
                 }
             }
         }

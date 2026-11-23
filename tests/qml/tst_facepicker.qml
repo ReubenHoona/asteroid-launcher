@@ -569,6 +569,18 @@ Item {
             compare(list.swipeScale, 1, "reset")
             compare(panel.layer.enabled, false, "no layer")
         }
+        // past 0.33 W, then a slow last step back: stock goes (the UP is where the last MOVE was, so not moving
+        // back, gar.java:192), the step left is not a fling back (gar.java:195)
+        function test_d60_33_last_step_back() {
+            var list = openAdd()
+            // 160 px slowly, then 8 px back in 40 ms: 152 px, past 0.33 W (126.7 px)
+            dragRight(list, 20, 8, 40)
+            mouseMove(list, 60 + 152, 300, 40)
+            near(list.swipeX, 0.3 * (152 / 384) * 384 / 2, 1.5, "the list followed the step back")
+            mouseRelease(list, 60 + 152, 300, Qt.LeftButton, Qt.NoModifier, 40)
+            tryCompare(list, "visible", false, 5000)
+            compare(picker.view, "carousel", "the carousel is back")
+        }
         function test_d60_33_fling() {
             var list = openAdd()
             // 48 px fast (8 px per 4 ms = 2000 px/s): a fling of more than 500 dp/s

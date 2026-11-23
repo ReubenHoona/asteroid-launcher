@@ -165,8 +165,9 @@ var ADD_ROW_FROM = 0.15             // the bottom row slides up from 15 % of the
  * gar.java / gax.java). While the finger moves right by p of the width the list is scaled 1 - 0.3 p about its
  * centre and moved right by (1 - scale) W / 2, so its right edge stays put, and darkened by min(0.3, p / 2)
  * (gar.java:174-184, gax.java:116-127). On release it goes when it was dragged past 0.33 of the width and the
- * finger is not moving back, or on a fling right of config_viewMinFlingVelocity (500 dp/s on a watch,
- * framework values-watch/dimens.xml) faster than up or down; a fling back of that speed keeps it
+ * UP is not left of the last MOVE (not moving back, gar.java:192), or on a fling right of
+ * config_viewMinFlingVelocity (500 dp/s on a watch, framework values-watch/dimens.xml) faster than up or
+ * down; a fling back of that speed keeps it
  * (gar.java:186-194). Then a spring 1.0/600, minimum visible change 0.5 px, from where it is at the finger's
  * speed to the width (gone: the carousel is back, iax.java:15-26) or to 0 (gar.java:201-250,
  * gax.java:51-67); along it the scale is 1 - 2 x / W held in 0.7 .. 1 and the dim follows the largest
@@ -192,7 +193,8 @@ function addDismissDragScale(p) {
 function addDismissSpringScale(x, w) {
     return Math.max(ADD_DISMISS_MIN_SCALE, Math.min(1 - 2 * x / w, 1))
 }
-// whether a swipe of dx px released at vx, vy px/s (movingBack: the last move went left) dismisses the list
+// whether a swipe of dx px released at vx, vy px/s (movingBack: the release is left of the last move, gar.java:192)
+// dismisses the list
 // of width px, with dpPx px per dp
 function addDismissCommits(dx, vx, vy, movingBack, width, dpPx) {
     var fling = ADD_DISMISS_FLING_DP * dpPx
