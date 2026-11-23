@@ -71,6 +71,8 @@ Item {
     readonly property QtObject launch: launchMotion
     readonly property QtObject reveal: revealMotion
     readonly property real w: root ? root.width : Dims.w(100)
+    // the home screen's Recents (compositor.qml: MainScreen.recents)
+    property var recents: null
 
     /* ---- what the layers do now ------------------------------------- */
 
@@ -87,6 +89,19 @@ Item {
                                         : (closing ? "home" : (launching ? "launch" : ""))
     // the window leaves under a finger or on its own (the circle mask is on)
     readonly property bool windowMoving: backActive || closing
+
+    /* Recents opened over the application in front (side button, Recent apps):
+     * the application is the launch transition's closing task, it shrinks to
+     * 0.70 and dims to 0.5 behind the zooming Recents disc and comes back to 1
+     * when Recents closes (AppDrawer behind*; CP3A
+     * WearAppLaunchMixinTransition$$ExternalSyntheticLambda0.java:29-35).
+     * recentsMoving: while that moves (the circle mask and the black under the
+     * layers are on); at rest the application is under the opaque disc. The
+     * application grows on after the disc has gone (the face spring is the
+     * slower one). */
+    readonly property bool recentsOverApp: !!recents && (recents.isOpen || recents.behindMoving)
+                                           && !recents.movesFace && !!comp && comp.appActive
+    readonly property bool recentsMoving: recentsOverApp && recents.behindMoving
     readonly property bool homeMoving: layerMode !== ""
 
     // the swipe's geometry at the smoothed progress, or in the commit
@@ -98,11 +113,12 @@ Item {
         : WM.back(backSpring.value, w)
 
     // the application layer
-    readonly property real appScale: backActive ? _back.appScale : (closing ? revealMotion.topScale : 1)
+    readonly property real appScale: backActive ? _back.appScale
+                                     : (closing ? revealMotion.topScale : (recentsOverApp ? recents.behindScale : 1))
     // the left edge at appLeft: the scaled window's own left edge is w (1 - s) / 2
     readonly property real appX: backActive ? _back.appLeft - w * (1 - _back.appScale) / 2 : 0
     readonly property real appAlpha: !backActive && closing ? revealMotion.topAlpha : 1
-    readonly property real appDim: backActive ? _back.appDim : 0
+    readonly property real appDim: backActive ? _back.appDim : (recentsOverApp ? recents.behindDim : 0)
 
     // the home screen
     readonly property real homeScale: backActive ? _back.homeScale

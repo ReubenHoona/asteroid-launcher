@@ -532,6 +532,9 @@ Item {
     Item {
         id: faceStack
         anchors.fill: parent
+        // Recents over an application: the application stays behind it (it shrinks
+        // and dims, WindowTransitions), not the face
+        visible: !(recents.isOpen && !recents.movesFace)
         scale: appDrawer.faceScale
         opacity: appDrawer.faceAlpha
         layer.enabled: appDrawer.faceMoving && DeviceSpecs.hasRoundScreen

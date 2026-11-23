@@ -71,6 +71,19 @@ Item {
     readonly property real faceDim: movesFace ? (_backPose ? _backPose.homeDim
                                                  : (_mode === "open" ? opening.behindDim : 0)) : 0
     readonly property bool faceMoving: movesFace && (_mode !== "" || _back !== "")
+    /* What is behind the list whatever it is (the face, or the application under
+     * Recents: WindowTransitions reads these): the closing task of the app launch
+     * transition, 1 -> 0.70 under a black dim 0 -> 0.5 on the opening's baseline
+     * spring (behindP = its p); on the way back from 0.70 to 1 on the face's spring
+     * (WatchfaceReveal q); behind a back swipe the swipe's home pose. At rest open
+     * the end of the opening (under the list's opaque disc). */
+    readonly property real behindP: _mode === "open" ? opening.p
+                                    : (_mode === "close" ? 1 - closing.q : (isOpen ? 1 : 0))
+    readonly property real behindScale: _backPose ? _backPose.homeScale
+                                        : (_mode === "open" ? opening.behindScale : 1 - WM.LAUNCH.behindDrop * behindP)
+    readonly property real behindDim: _backPose ? _backPose.homeDim
+                                      : (_mode === "open" ? opening.behindDim : WM.LAUNCH.behindDim * behindP)
+    readonly property bool behindMoving: _mode !== "" || _back !== ""
 
     visible: progress > 0 || _warming
     anchors.fill: parent

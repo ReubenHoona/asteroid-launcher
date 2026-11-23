@@ -34,6 +34,14 @@ import "compositor/lifecycle.js" as Life
 AppDrawer {
     id: recents
 
+    /* Over the face the face behind shrinks and dims (AppDrawer face*); over an
+     * application the application does (AppDrawer behind*, WindowTransitions):
+     * stock opens Recents with the app launch transition, whose closing task is
+     * whatever is in front (WearAppLaunchMixinTransition$$ExternalSyntheticLambda0
+     * .java:29-35: scale 1 - 0.3 p about the centre, a black dim 0.5 p, on the
+     * 1.0/260 baseline spring). Decided when it opens (show()). */
+    movesFace: false
+
     // the list: the file of the shared frame, loaded at the first opening
     // (AppDrawer loads its source at once, so none is set until then)
     readonly property string listSource: "file:///usr/share/asteroid-launcher/applauncher/wear/WearRecents.qml"
@@ -126,6 +134,7 @@ AppDrawer {
         rebuild()
         if (String(source) === "")
             source = listSource
+        movesFace = Lipstick.compositor.homeActive
         open()
     }
 

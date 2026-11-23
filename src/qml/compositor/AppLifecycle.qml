@@ -657,7 +657,8 @@ Compositor {
             // the application in front goes to the background (setCurrentWindow)
             appLayer.ready = false
             w.smoothBorders = Qt.binding(function() {
-                return transitions.windowMoving || !appLayer.ready
+                // round while it moves: a swipe or the crown, the launch, Recents over it
+                return transitions.windowMoving || !appLayer.ready || transitions.recentsMoving
             })
             // a new application ends a swipe still settling
             transitions.endEdgeSwipe()

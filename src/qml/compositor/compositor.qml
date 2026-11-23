@@ -225,12 +225,13 @@ Item {
         }
     }
 
-    // Behind the layers while they move (the home screen shrinks over black)
+    // Behind the layers while they move (the home screen shrinks over black; an
+    // application shrinks behind Recents)
     Rectangle {
         z: -1
         anchors.fill: parent
         color: "black"
-        visible: transitions.homeMoving
+        visible: transitions.homeMoving || transitions.recentsMoving
     }
 
     // Launch feedback, Wear OS style: the tapped icon grows into a disc in
@@ -399,7 +400,11 @@ Item {
         anchors.fill: parent
     }
 
-    WindowTransitions { id: transitions }
+    WindowTransitions {
+        id: transitions
+        readonly property var home: homeLoader.item
+        recents: home ? home.recents : null
+    }
 
     /* Accessibility (W3-launcher-a11y-security): magnification (the scene's own transform), the
      * vibration watch, and the screen reader's state (KeyRouter reads its shortcut and toggle) */
