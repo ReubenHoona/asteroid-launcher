@@ -4,6 +4,7 @@
  */
 
 import QtQuick
+import QtQuick.Shapes
 import org.nemomobile.lipstick
 import org.asteroid.controls
 import Nemo.Configuration
@@ -73,6 +74,11 @@ Item {
     // the empty state's column sits between 7.1 % and 16 % of the height
     readonly property real emptyTop: Math.round(0.071 * height)
     readonly property real emptyBottom: Math.round(0.16 * height)
+    // its text: a 140 dp box with 7.3 % of the screen as side padding (kwf.java:323, kvn.java:74)
+    readonly property real emptyTextPadding: Math.round(0.073 * height)
+    // CP3A's trophy_40px (res/drawable/trophy_40px.xml, 960 x 960 viewport): the Material
+    // Symbols trophy, filled (one path: the cup and the two holes of its handles)
+    readonly property string trophyPath: "M282.67,433.33L282.67,272L186.67,272Q186.67,272 186.67,272Q186.67,272 186.67,272L186.67,314.67Q186.67,357.33 213.67,389.83Q240.67,422.33 282.67,433.33ZM677.33,433.33Q719.33,422.33 746.33,389.83Q773.33,357.33 773.33,314.67L773.33,272Q773.33,272 773.33,272Q773.33,272 773.33,272L677.33,272L677.33,433.33ZM446.67,773.33L446.67,633.33Q394.33,622.33 353.5,588.5Q312.67,554.67 296,504Q221.67,495.67 170.83,442.17Q120,388.67 120,314.67L120,272Q120,244.5 139.58,224.92Q159.17,205.33 186.67,205.33L282.67,205.33L282.67,186.67Q282.67,159.17 302.25,139.58Q321.83,120 349.33,120L610.67,120Q638.17,120 657.75,139.58Q677.33,159.17 677.33,186.67L677.33,205.33L773.33,205.33Q800.83,205.33 820.42,224.92Q840,244.5 840,272L840,314.67Q840,388.67 789.17,442.17Q738.33,495.67 664,504Q647.33,554.67 606.5,588.5Q565.67,622.33 513.33,633.33L513.33,773.33L634.67,773.33Q648.83,773.33 658.42,782.95Q668,792.57 668,806.78Q668,821 658.42,830.5Q648.83,840 634.67,840L325.33,840Q311.17,840 301.58,830.38Q292,820.77 292,806.55Q292,792.33 301.58,782.83Q311.17,773.33 325.33,773.33L446.67,773.33Z"
 
     // the notifications by id, and the ids in the list, newest first
     property var byId: ({})
@@ -862,7 +868,9 @@ Item {
             }
 
             // Nothing to show (kvn.java:22-75, STRINGS empty_state_text): a
-            // trophy and a line, no Clear all, no clock
+            // trophy and a line, no Clear all, no clock. The trophy is CP3A's
+            // filled trophy_40px drawn at 28 dp in onSurface (kvn.java:73); the
+            // text 6 dp below it in a 140 dp box with 7.3 % side padding
             Item {
                 anchors.fill: parent
                 anchors.topMargin: stream.emptyTop
@@ -871,15 +879,26 @@ Item {
                 Column {
                     anchors.centerIn: parent
                     spacing: Theme.dp(6)
-                    Icon {
+                    Shape {
+                        id: trophy
+                        objectName: "emptyTrophy"
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: Theme.dp(28)
                         height: width
-                        name: "ios-trophy-outline"
-                        color: Theme.color.onSurface
+                        preferredRendererType: Shape.CurveRenderer
+                        ShapePath {
+                            fillColor: Theme.color.onSurface
+                            strokeColor: "transparent"
+                            strokeWidth: -1
+                            scale: Qt.size(trophy.width / 960, trophy.height / 960)
+                            PathSvg { path: stream.trophyPath }
+                        }
                     }
                     Label {
+                        objectName: "emptyLabel"
                         width: Theme.dp(140)
+                        leftPadding: stream.emptyTextPadding
+                        rightPadding: stream.emptyTextPadding
                         //% "You're all caught up"
                         text: qsTrId("id-all-caught-up") + localeManager.changesObserver
                         role: "titleLarge"

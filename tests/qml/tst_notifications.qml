@@ -14,6 +14,8 @@
 //    (shy_view_header_arrow: the Lottie held at progress 0.75, turned 180 degrees in a 24 dp view
 //    8 dp below the top) and fades it 150 ms later over 300 ms, and (D60-09) the scroll indicator
 //    shows on its list for 2 s (RotaryInput.flashIndicator);
+//  - D60-08: the empty stream's filled trophy (trophy_40px at 28 dp) and its 140 dp text box with
+//    7.3 % side padding (kvn.java);
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -522,6 +524,53 @@ Item {
             verify(d.shown, "in once grown")
             var ind = indicator()
             verify(ind && ind.shown && ind.flickable === d.scroller, "the indicator on the full view's list")
+        }
+
+        /* ---- D60-08: the empty stream ------------------------------------ */
+
+        function stream() {
+            var s = make("NotificationStream.qml", { width: 384, height: 384, panelsGrid: gridMock })
+            return s
+        }
+
+        // Nothing to show: CP3A's filled trophy_40px at 28 dp in onSurface over "You're all caught
+        // up" in a 140 dp box with 7.3 % side padding (224 px for the text: two lines), the column
+        // centred between 7.1 % and 16 % of the height, 6 dp between them (kvn.java, kwf.java:688-705)
+        function test_d60_08_empty() {
+            var s = stream()
+            tryVerify(function () { return s.modelEmpty }, 3000)
+            wait(100)
+            var t = byName(s, "emptyTrophy")
+            verify(t !== null, "the trophy")
+            verify(t.visible)
+            compare(t.width, 56)
+            compare(t.height, 56)
+            var sp = t.data[0]
+            compare(String(sp.fillColor), String(Theme.color.onSurface))
+            compare(sp.strokeWidth, -1)
+            compare(sp.scale.width, 56 / 960)
+            compare(sp.scale.height, 56 / 960)
+            var path = sp.pathElements[0].path
+            compare(path.indexOf("M282.67,433.33L282.67,272L186.67,272"), 0, "trophy_40px's path")
+            verify(path.indexOf("L446.67,773.33Z") === path.length - "L446.67,773.33Z".length)
+            var l = byName(s, "emptyLabel")
+            verify(l !== null, "the label")
+            compare(l.width, 280)
+            compare(l.leftPadding, 28)
+            compare(l.rightPadding, 28)
+            compare(l.lineCount, 2, "two lines")
+            var tp = t.mapToItem(s, 0, 0)
+            var lp = l.mapToItem(s, 0, 0)
+            compare(tp.x, 164)
+            compare(lp.x, 52)
+            fuzzyCompare(lp.y - (tp.y + 56), 12, 0.5)
+            // the column centred in 27 .. 323
+            fuzzyCompare((tp.y + lp.y + l.height) / 2, (27 + 384 - 61) / 2, 1)
+            var img = shot(s, "d60-08-empty")
+            // filled: the cup's middle is the glyph's colour (an outline is empty there)
+            var mid = px(img, 192, Math.round(tp.y + 56 * 300 / 960))
+            var on = Theme.color.onSurface
+            compare(mid, [Math.round(on.r * 255), Math.round(on.g * 255), Math.round(on.b * 255)], "the cup is filled")
         }
     }
 }
