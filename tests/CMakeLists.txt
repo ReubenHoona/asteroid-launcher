@@ -185,3 +185,13 @@ add_executable(tst_huboffload_flip tst_huboffload_flip.cpp ../src/huboffload.cpp
 set_target_properties(tst_huboffload_flip PROPERTIES AUTOMOC ON)
 target_include_directories(tst_huboffload_flip BEFORE PRIVATE stubs ../src)
 target_link_libraries(tst_huboffload_flip PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)
+
+# HubOffload::build for the Concentric face (src/watchfaces/027-concentric.qml): the minutes dial as sprites on 60 fixed
+# slots, the covers over it, the 12 h hour with its leading zero (huboffload.cpp buildDial, eosHubZeroPad). The real
+# face file (it needs the image's org.asteroid.controls for Motion) in software Qt Quick, the compositor stand-in:
+#   QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ./tst_huboffload_dial
+add_executable(tst_huboffload_dial tst_huboffload_dial.cpp ../src/huboffload.cpp ../src/huboffload.h ../src/eoslayout.c)
+set_target_properties(tst_huboffload_dial PROPERTIES AUTOMOC ON)
+target_include_directories(tst_huboffload_dial BEFORE PRIVATE stubs ../src)
+target_compile_definitions(tst_huboffload_dial PRIVATE SRC_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(tst_huboffload_dial PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)

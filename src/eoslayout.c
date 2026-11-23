@@ -38,7 +38,7 @@ enum {
 #define BT_TEXT_GLYPHS	14	/* SkBindingType of a bitmap-text glyph binding (op 35) */
 #define BT_MATRIX_TX	2	/* op 19 types 0..8: element of a concat op's SkMatrix (hub 0x3d2b3c) */
 #define BT_MATRIX_TY	5
-#define MAX_ITEMS	64
+#define MAX_ITEMS	256	/* sprites with a bound glyph: Concentric's dial has 120 */
 
 typedef struct {
 	uint8_t *d;

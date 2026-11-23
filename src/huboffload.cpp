@@ -13,12 +13,15 @@
 #include <QFontMetricsF>
 #include <QGlyphRun>
 #include <QImage>
+#include <QJSValue>
+#include <QPen>
 #include <QLocale>
 #include <QPainter>
 #include <QQuickItem>
 #include <QQuickWindow>
 #include <QStandardPaths>
 #include <algorithm>
+#include <functional>
 #include <QTextLayout>
 #include <QTime>
 #include <cmath>
@@ -385,6 +388,315 @@ void collectTexts(QQuickItem *item, QList<QQuickItem *> *out)
         collectTexts(c, out);
 }
 
+// The visible items of a face with an objectName, in tree (drawing) order
+void collectNamed(QQuickItem *item, const QString &name, QList<QQuickItem *> *out)
+{
+    if (!item->isVisible())
+        return;
+    if (item->objectName() == name)
+        *out << item;
+    const QList<QQuickItem *> children = item->childItems();
+    for (QQuickItem *c : children)
+        collectNamed(c, name, out);
+}
+
+// ---- the dial and the covers (huboffload.h) ----
+
+const int kDialSlots = 60;
+
+// A row of A8 cells that are pictures, not digits: the dial's numerals (cell v = value v, blank
+// unless a multiple of 5), its long ticks (cell j = the tick of slot j, then a blank one) and a
+// cover (one cell). ch rows of cw * n bytes, in the panel's orientation.
+struct Cells {
+    int cw = 0, ch = 0, n = 0;
+    QByteArray strip;
+    uint32_t rgba = 0;
+    int typeface = -1;
+};
+
+// One sprite of them: a slot at a fixed panel pixel whose glyph is an expression of the hub's
+// minute, or (expr empty) glyph 0 for good
+struct CellSprite {
+    int cells;
+    QPoint at;
+    QString expr;
+};
+
+int cellsBytes(const Cells &c)
+{
+    return ((c.cw + 15) & ~15) * c.n * c.ch;
+}
+
+uint32_t tint(const QColor &c, qreal opacity)
+{
+    const qreal o = opacity * c.alphaF();
+    return (uint32_t(qRound(c.red() * o)) << 24) | (uint32_t(qRound(c.green() * o)) << 16) |
+           (uint32_t(qRound(c.blue() * o)) << 8) | 0xff;
+}
+
+// A QML function of the dial (eosHubSlotOrigin, eosHubTick) for slot j; a JS object comes back as
+// a map, Qt.point as a point
+QVariant callDial(QQuickItem *dial, const char *fn, int j)
+{
+    QVariant r;
+    if (!QMetaObject::invokeMethod(dial, fn, Q_RETURN_ARG(QVariant, r), Q_ARG(QVariant, QVariant(j))))
+        return QVariant();
+    if (r.canConvert<QJSValue>())
+        r = r.value<QJSValue>().toVariant();
+    return r;
+}
+
+// pictures drawn in panel coordinates: one cell per entry, each at its own whole-pixel origin,
+// all the size of the largest
+struct Picture {
+    QRectF bounds;              // panel px it covers
+    std::function<void(QPainter *, const QPointF &origin)> paint;
+};
+
+void renderPictures(const QList<Picture> &pics, bool blank, Cells *c, QList<QPoint> *origins)
+{
+    int cw = 1, ch = 1;
+    origins->clear();
+    for (const Picture &p : pics) {
+        const QRect r = p.bounds.toAlignedRect();
+        *origins << r.topLeft();
+        cw = qMax(cw, r.width());
+        ch = qMax(ch, r.height());
+    }
+    c->cw = cw;
+    c->ch = ch;
+    c->n = pics.size() + (blank ? 1 : 0);
+    c->strip = QByteArray(cw * c->n * ch, 0);
+    for (int i = 0; i < pics.size(); i++) {
+        QImage img(cw, ch, QImage::Format_Grayscale8);
+        img.fill(0);
+        QPainter p(&img);
+        p.setRenderHint(QPainter::Antialiasing);
+        pics[i].paint(&p, QPointF((*origins)[i]));
+        p.end();
+        for (int y = 0; y < ch; y++)
+            memcpy(c->strip.data() + y * cw * c->n + i * cw, img.constScanLine(y), cw);
+    }
+}
+
+/*
+ * The inner dial of a face (Concentric): an item named eosHubDial with
+ *   eosHubMinute           the whole minute it shows now (the always-on face)
+ *   eosHubSlotOrigin(j)    the top-left (the dial's px) of a numeral Text at slot j, j * 6 degrees
+ *                          counter-clockwise from 3 o'clock, at a whole minute
+ *   eosHubTick(j)          {x1, y1, x2, y2}: the long tick of slot j (the dial's px), eosHubTickWidth
+ *                          wide in eosHubTickColor
+ * and in it the 12 numeral Texts "00" ... "55" named eosHubDialNumeral and the long ticks named
+ * eosHubDialTick (none: the dial has no ticks). Slot j shows value (minute + j) % 60 when it is a
+ * multiple of 5 (and its long tick then): the hub picks the glyph from its minute, so the dial
+ * turns with no AP wake. The rest of the dial (the short ticks) is the background.
+ * Covers: Rectangles named eosHubCover (a fill or a border, not both) that the face draws over
+ * the dial; they are left out of the background and the hub draws them over the dial's sprites,
+ * under the time.
+ */
+bool buildDial(QQuickItem *face, const QDateTime &shown, bool turned, QList<Cells> *cells,
+               QList<CellSprite> *out, QList<QQuickItem *> *hide, QString *why)
+{
+    QQuickItem *dial = face->findChild<QQuickItem *>(QStringLiteral("eosHubDial"));
+    if (!dial || !dial->isVisible())
+        return true;
+    const int minute = shown.time().minute();
+    if (dial->property("eosHubMinute").toInt() != minute) {
+        *why = QString("the dial shows minute %1, not %2").arg(dial->property("eosHubMinute").toInt()).arg(minute);
+        return false;
+    }
+
+    // the numerals: one atlas of 60 cells (value v; blank unless a multiple of 5), one sprite per slot
+    QList<QQuickItem *> numerals;
+    collectNamed(dial, QStringLiteral("eosHubDialNumeral"), &numerals);
+    if (numerals.size() != kDialSlots / 5) {
+        *why = QString("the dial has %1 numerals, not 12").arg(numerals.size());
+        return false;
+    }
+    const QFont font = numerals[0]->property("font").value<QFont>();
+    const QColor color = numerals[0]->property("color").value<QColor>();
+    const qreal opacity = effectiveOpacity(numerals[0]);
+    const qreal padL = numerals[0]->property("leftPadding").toReal();
+    const qreal padT = numerals[0]->property("topPadding").toReal();
+    for (QQuickItem *n : numerals) {
+        bool t = false;
+        if (!usable(n, why, &t))
+            return false;
+        const int v = n->property("text").toString().toInt();
+        if (t != turned || n->property("font").value<QFont>() != font ||
+            n->property("color").value<QColor>() != color || effectiveOpacity(n) != opacity ||
+            n->property("text").toString() != QStringLiteral("%1").arg(v, 2, 10, QLatin1Char('0')) || v % 5) {
+            *why = "the dial's numerals differ (font, colour, text or turn)";
+            return false;
+        }
+        // where the AP has it is where the hub's slot puts it (the layout holds for every minute)
+        const int slot = ((v - minute) % kDialSlots + kDialSlots) % kDialSlots;
+        const QPointF o = callDial(dial, "eosHubSlotOrigin", slot).toPointF();
+        const QPointF d = dial->mapToScene(o) - n->mapToScene(QPointF(0, 0));
+        if (std::fabs(d.x()) > 1e-3 || std::fabs(d.y()) > 1e-3) {
+            *why = QString("dial numeral %1 is not at its slot %2").arg(v).arg(slot);
+            return false;
+        }
+    }
+    Line line;
+    if (!layoutLine(font, QStringLiteral("00"), &line)) {
+        *why = "dial numerals: no text layout";
+        return false;
+    }
+    const qreal penX = padL + line.pen[0];
+    if (!whole(penX)) {
+        *why = "dial numerals: the pen is not on a whole pixel";
+        return false;
+    }
+    // the cells: each string drawn as the scene graph draws the Text (QPainter's raster engine
+    // places the second digit at the same fractional pen), cropped to the ink of all 12
+    const QFontMetricsF fm(font);
+    const int pad = int(std::ceil(fm.height())) + 2;
+    const int w = int(std::ceil(2 * fm.maxWidth())) + 2 * pad, h = int(std::ceil(fm.height())) + 2 * pad;
+    const int ox = pad, oy = pad + int(std::lround(line.ascent));
+    QList<QImage> imgs;
+    QRect ink;
+    for (int v = 0; v < kDialSlots; v += 5) {
+        QImage img(w, h, QImage::Format_Grayscale8);
+        img.fill(0);
+        QPainter p(&img);
+        p.setRenderHint(QPainter::TextAntialiasing);
+        p.setFont(font);
+        p.setPen(Qt::white);
+        p.drawText(QPointF(ox, oy), QStringLiteral("%1").arg(v, 2, 10, QLatin1Char('0')));
+        p.end();
+        for (int y = 0; y < h; y++) {
+            const uchar *s = img.constScanLine(y);
+            for (int x = 0; x < w; x++)
+                if (s[x])
+                    ink |= QRect(x, y, 1, 1);
+        }
+        imgs << img;
+    }
+    if (ink.isEmpty() || ink.left() == 0 || ink.top() == 0 || ink.right() == w - 1 || ink.bottom() == h - 1) {
+        *why = "dial numerals: no glyphs";
+        return false;
+    }
+    Cells nc;
+    nc.cw = ink.width();
+    nc.ch = ink.height();
+    nc.n = kDialSlots;
+    nc.strip = QByteArray(nc.cw * nc.n * nc.ch, 0);
+    nc.rgba = tint(color, opacity);
+    for (int i = 0; i < imgs.size(); i++)
+        for (int y = 0; y < nc.ch; y++)
+            memcpy(nc.strip.data() + y * nc.cw * nc.n + (i * 5) * nc.cw,
+                   imgs[i].constScanLine(ink.top() + y) + ink.left(), nc.cw);
+    if (turned)
+        EosHub::turnCells180(&nc.strip, nc.cw, nc.n, nc.ch);
+    const QRect cellInk = ink.translated(-ox, -oy);
+    const int numeralCells = cells->size();
+    *cells << nc;
+
+    // the long ticks: cell j the tick of slot j as it lies on the panel, cell 60 blank
+    QList<QQuickItem *> ticks;
+    collectNamed(dial, QStringLiteral("eosHubDialTick"), &ticks);
+    QList<CellSprite> tickSprites;
+    if (!ticks.isEmpty()) {
+        if (ticks.size() != kDialSlots / 5) {
+            *why = QString("the dial has %1 long ticks, not 12").arg(ticks.size());
+            return false;
+        }
+        const qreal tw = dial->property("eosHubTickWidth").toReal();
+        const QColor tc = dial->property("eosHubTickColor").value<QColor>();
+        QList<Picture> pics;
+        for (int j = 0; j < kDialSlots; j++) {
+            const QVariantMap m = callDial(dial, "eosHubTick", j).toMap();
+            if (!m.contains(QStringLiteral("x1")) || tw <= 0) {
+                *why = "the dial's ticks have no geometry";
+                return false;
+            }
+            const QPointF a = dial->mapToScene(QPointF(m.value("x1").toReal(), m.value("y1").toReal()));
+            const QPointF b = dial->mapToScene(QPointF(m.value("x2").toReal(), m.value("y2").toReal()));
+            // a flat-capped bar: half its width out from the centre line, none past its ends (the 14 px
+            // ticks fit 16 px cells); less a hair of rounding noise
+            const QPointF dir = (b - a) / std::hypot(b.x() - a.x(), b.y() - a.y());
+            const qreal ex = tw / 2 * std::fabs(dir.y()) - 1e-4, ey = tw / 2 * std::fabs(dir.x()) - 1e-4;
+            const QRectF r = QRectF(a, b).normalized().adjusted(-ex, -ey, ex, ey);
+            pics << Picture{ r, [a, b, tw](QPainter *p, const QPointF &origin) {
+                p->setPen(QPen(Qt::white, tw, Qt::SolidLine, Qt::FlatCap));
+                p->drawLine(a - origin, b - origin);
+            } };
+        }
+        Cells tcs;
+        QList<QPoint> at;
+        renderPictures(pics, true, &tcs, &at);
+        tcs.rgba = tint(tc, effectiveOpacity(ticks[0]));
+        const int ti = cells->size();
+        *cells << tcs;
+        for (int j = 0; j < kDialSlots; j++)
+            tickSprites << CellSprite{ ti, at[j], QString("((({1} + %1) % 5) == 0 ? %1 : %2)").arg(j).arg(kDialSlots) };
+    }
+
+    // the numeral sprites, slot by slot: the glyph is the value at the slot (a blank cell between)
+    QList<CellSprite> numeralSprites;
+    for (int j = 0; j < kDialSlots; j++) {
+        const QPointF o = dial->mapToScene(callDial(dial, "eosHubSlotOrigin", j).toPointF());
+        const QPoint origin = glyphOrigin(o, penX, padT + line.ascent, turned);
+        numeralSprites << CellSprite{ numeralCells, EosHub::spriteTopLeft(origin, cellInk, turned),
+                                      QString("(({1} + %1) % %2)").arg(j).arg(kDialSlots) };
+    }
+    // drawn as the face has them: the ticks, then the numerals
+    *out << tickSprites << numeralSprites;
+    *hide << numerals << ticks;
+
+    // the covers, in the face's order, over the dial
+    QList<QQuickItem *> covers;
+    collectNamed(face, QStringLiteral("eosHubCover"), &covers);
+    for (QQuickItem *cv : covers) {
+        if (!cv->inherits("QQuickRectangle")) {
+            *why = "a cover is not a Rectangle";
+            return false;
+        }
+        const QPointF o0 = cv->mapToScene(QPointF(0, 0));
+        if (EosHub::sceneTurn(cv->mapToScene(QPointF(1, 1)) - o0) == 0) {
+            *why = "a cover is rotated or scaled";
+            return false;
+        }
+        const QRectF r = cv->mapRectToScene(QRectF(0, 0, cv->width(), cv->height()));
+        if (r.left() < 0 || r.top() < 0 || r.right() > EL_FB_W || r.bottom() > EL_FB_H) {
+            *why = QString("a cover leaves the screen (%1,%2 %3x%4)").arg(r.x()).arg(r.y()).arg(r.width()).arg(r.height());
+            return false;
+        }
+        const QColor fill = cv->property("color").value<QColor>();
+        QObject *border = cv->property("border").value<QObject *>();
+        const qreal bw = border ? border->property("width").toReal() : 0;
+        const QColor bc = border ? border->property("color").value<QColor>() : QColor();
+        const bool filled = fill.alpha() > 0, stroked = bw > 0 && bc.alpha() > 0;
+        if (filled == stroked) {
+            *why = "a cover has to be a fill or a border";
+            return false;
+        }
+        const qreal radius = qMin(cv->property("radius").toReal(), qMin(r.width(), r.height()) / 2);
+        Picture pic{ r.adjusted(-1, -1, 1, 1), [r, radius, filled, bw](QPainter *p, const QPointF &origin) {
+            const QRectF b = r.translated(-origin);
+            if (filled) {
+                p->setPen(Qt::NoPen);
+                p->setBrush(Qt::white);
+                p->drawRoundedRect(b, radius, radius);
+            } else {
+                // a Rectangle's border is inside its bounds
+                p->setPen(QPen(Qt::white, bw));
+                p->setBrush(Qt::NoBrush);
+                p->drawRoundedRect(b.adjusted(bw / 2, bw / 2, -bw / 2, -bw / 2), radius - bw / 2, radius - bw / 2);
+            }
+        } };
+        Cells cc;
+        QList<QPoint> at;
+        renderPictures({ pic }, false, &cc, &at);
+        cc.rgba = tint(filled ? fill : bc, effectiveOpacity(cv));
+        *out << CellSprite{ int(cells->size()), at[0], QString() };
+        *cells << cc;
+        *hide << cv;
+    }
+    return true;
+}
+
 } // namespace
 
 HubOffload::HubOffload(QObject *parent) : QObject(parent)
@@ -415,8 +727,10 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     // the face writes: ASCII or the locale's (locale-formats-10: one rule for
     // the face, the time texts and the hub, never the AP's drawing for a locale)
     const int h24 = shown.time().hour(), h12 = (h24 + 11) % 12 + 1;
-    const QString hourText = use12h ? QString::number(h12)
-                                    : QStringLiteral("%1").arg(h24, 2, 10, QLatin1Char('0'));
+    // a face whose 12 h hour keeps its leading zero ("06", Concentric) says so on the hour item
+    const bool zeroPad = use12h && hour->property("eosHubZeroPad").toBool();
+    const QString hourText = use12h && !zeroPad ? QString::number(h12)
+                                                : QStringLiteral("%1").arg(use12h ? h12 : h24, 2, 10, QLatin1Char('0'));
     const QString minuteText = QStringLiteral("%1").arg(shown.time().minute(), 2, 10, QLatin1Char('0'));
     const QChar localeZero = EosHub::zeroOfLocale(QLocale().zeroDigit());
     const QChar zero = EosHub::digitSet(hour->property("text").toString(), hourText,
@@ -490,6 +804,10 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         } else if (!use12h) {
             variants << Variant{ 2, here, { { EL_EXPR_HOUR24_D1, 0, 2, {} },
                                             { EL_EXPR_HOUR24_D2, 0, 9, {} } } };
+        } else if (zeroPad) {
+            // 01 .. 12: always two digits where the face has them
+            variants << Variant{ 2, here, { { EL_EXPR_HOUR12_D1, 0, 1, {} },
+                                            { EL_EXPR_HOUR12_D2, 0, 9, {} } } };
         } else {
             const QString h = QStringLiteral(EL_EXPR_HOUR12);
             const QString one = QString("(%1 > 9)").arg(h), two = QString("(%1 < 10)").arg(h);
@@ -537,6 +855,13 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
             }
         }
     }
+    // a face's turning dial and what covers it (Concentric): sprites on fixed slots, under the time
+    QList<Cells> dialCells;
+    QList<CellSprite> dialSprites;
+    QList<QQuickItem *> dialItems;
+    if (!m_overlay && !buildDial(face, shown, turned, &dialCells, &dialSprites, &dialItems, why))
+        return false;
+
     int bytes = 0;
     for (int i = 0; i < atlases.size(); i++) {
         if (!renderAtlas(&atlases[i], ascents[i], steps[i])) {
@@ -545,18 +870,25 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
         }
         bytes += atlasBytes(atlases[i]);
     }
+    for (const Cells &c : dialCells)
+        bytes += cellsBytes(c);
     if (bytes > kAtlasBudget) {
         *why = QString("digit atlases of %1 KB, more than %2 KB").arg(bytes / 1024)
                .arg(kAtlasBudget / 1024);
         return false;
     }
 
-    // the background: the ambient screen with the time items hidden
+    // the background: the ambient screen with the time items hidden (and the dial's numerals, long
+    // ticks and covers: the hub draws them)
     hour->setVisible(false);
     minute->setVisible(false);
+    for (QQuickItem *i : dialItems)
+        i->setVisible(false);
     QImage bg = win->grabWindow();
     hour->setVisible(true);
     minute->setVisible(true);
+    for (QQuickItem *i : dialItems)
+        i->setVisible(true);
     if (bg.isNull()) {
         *why = "grab failed";
         return false;
@@ -619,6 +951,35 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
             return false;
         }
     }
+    for (Cells &c : dialCells) {
+        c.typeface = el_glyph_atlas_a8(L, c.n, c.cw, c.ch, reinterpret_cast<const uint8_t *>(c.strip.constData()),
+                                       c.cw * c.n, nullptr);
+        if (c.typeface < 0) {
+            *why = QString("dial cells: %1").arg(el_error(L));
+            el_free(L);
+            return false;
+        }
+    }
+    // the dial first, then its covers, as the face draws them; the time over all
+    QStringList where;
+    for (int i = 0; i < dialCells.size(); i++)
+        where << QString("%1x%2x%3:").arg(dialCells[i].cw).arg(dialCells[i].ch).arg(dialCells[i].n);
+    for (const CellSprite &s : dialSprites) {
+        const Cells &c = dialCells[s.cells];
+        const QByteArray e = s.expr.toLatin1();
+        const char *expr = e.constData();
+        const uint16_t glyph0 = 0;
+        where[s.cells] += QString(" %1,%2").arg(s.at.x()).arg(s.at.y());
+        if (s.expr.isEmpty() ? el_sprite_text(L, c.typeface, s.at.x(), s.at.y(), c.rgba, 1, nullptr, &glyph0)
+                             : el_sprite_text(L, c.typeface, s.at.x(), s.at.y(), c.rgba, 1, &expr, nullptr)) {
+            *why = QString("dial: %1").arg(el_error(L));
+            el_free(L);
+            return false;
+        }
+    }
+    // (the host test of the layouts checks these lines: cells w x h x n, then each sprite's top-left)
+    for (int i = 0; i < where.size(); i++)
+        qDebug().noquote() << "hub offload: dial cells" << i << where[i];
     for (const Sprite &s : sprites) {
         const Atlas &a = atlases[s.atlas];
         const QByteArray e = cellExpr(s, a).toLatin1();
@@ -670,7 +1031,7 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     }
     qInfo().noquote() << QString("hub offload: layout of %1 messages loaded (%2 sprites, "
                                  "atlases %3 KB), valid until %4")
-                         .arg(count).arg(sprites.size()).arg(bytes / 1024)
+                         .arg(count).arg(sprites.size() + dialSprites.size()).arg(bytes / 1024)
                          .arg(until->isValid() ? until->toString(QStringLiteral("ddd HH:mm")) : QStringLiteral("it changes"));
     return true;
 }

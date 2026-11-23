@@ -32,7 +32,17 @@ class QQuickItem;
  * the hub takes over. In 12 h a one-digit hour is centred (or aligned) as the
  * face's Text item places it: the layout has both the one- and the two-digit
  * hour and the hub shows one or the other ("<" and "?:" in the glyph
- * expressions).
+ * expressions). A face whose 12 h hour keeps its leading zero ("06",
+ * Concentric) sets eosHubZeroPad on the hour item: then both digits always.
+ *
+ * A face with a dial that turns with the minute (Concentric's inner dial)
+ * names it eosHubDial (huboffload.cpp, buildDial): its 12 numerals and long
+ * ticks become sprites on 60 fixed slots (j * 6 degrees) whose glyph the hub
+ * picks from its minute (slot j shows value (minute + j) % 60 when that is a
+ * multiple of 5, a blank cell otherwise), so the dial turns with no AP wake
+ * and no new hub op (glyph bindings, % == ?:). Rectangles named eosHubCover
+ * (the black under Concentric's circle, the circle) are drawn by the hub over
+ * the dial's sprites and under the time, as the face draws them.
  *
  * The layout is rebuilt only when something in it changes (face, date, item
  * geometry) and is valid until the background changes: the next local
