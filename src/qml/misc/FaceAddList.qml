@@ -100,6 +100,7 @@ Item {
     }
     WearSpring {
         id: dismissSpring
+        objectName: "eosAddDismissSpring"
         stiffness: FP.ADD_DISMISS_STIFFNESS
         dampingRatio: FP.ADD_DISMISS_DAMPING
         visibilityThreshold: FP.ADD_DISMISS_MIN_CHANGE

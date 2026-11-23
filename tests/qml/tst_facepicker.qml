@@ -600,6 +600,15 @@ Item {
             verify(!list.dismissCommits(200, -1200, 0, false), "a fling back cancels")
             verify(list.dismissCommits(200, -1000, 0, false), "only faster than 500 dp/s back")
             verify(!list.dismissCommits(20, 999, 0, false), "slower than 500 dp/s")
+            // the spring of the way out or back (gax.java:55-62): 1.0 / 600, minimum visible change 0.5 px
+            var spring = find(list, "eosAddDismissSpring")
+            verify(spring !== null, "the dismiss spring")
+            compare(spring.stiffness, 600, "stiffness 600")
+            compare(spring.dampingRatio, 1.0, "damping ratio 1.0")
+            compare(spring.visibilityThreshold, 0.5, "minimum visible change 0.5 px")
+            compare(FP.ADD_DISMISS_STIFFNESS, 600, "FP stiffness")
+            compare(FP.ADD_DISMISS_DAMPING, 1.0, "FP damping")
+            compare(FP.ADD_DISMISS_MIN_CHANGE, 0.5, "FP minimum change")
         }
     }
 }
