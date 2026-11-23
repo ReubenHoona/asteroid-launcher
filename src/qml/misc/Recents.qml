@@ -42,6 +42,13 @@ AppDrawer {
      * 1.0/260 baseline spring). Decided when it opens (show()). */
     movesFace: false
 
+    /* Over an application the face is not drawn behind Recents (MainScreen's
+     * faceStack): the application is there. Read live, not fixed at show():
+     * when the application leaves while Recents is open (the crown: keymap
+     * leaveApp), the home screen is in front again and the face is drawn under
+     * the closing disc, as before Recents moved what is behind it. */
+    readonly property bool hidesFace: isOpen && !movesFace && !Lipstick.compositor.homeActive
+
     // the list: the file of the shared frame, loaded at the first opening
     // (AppDrawer loads its source at once, so none is set until then)
     readonly property string listSource: "file:///usr/share/asteroid-launcher/applauncher/wear/WearRecents.qml"

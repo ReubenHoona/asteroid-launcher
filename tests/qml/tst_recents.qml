@@ -5,7 +5,9 @@
 //    task, 1 -> 0.70 (scale 1 - 0.3 p) under a black dim 0.5 p on the opening's baseline spring, and
 //    back to 1 when Recents closes (on the face's spring q); the face is not moved
 //    (WearAppLaunchMixinTransition$$ExternalSyntheticLambda0.java:29-35, WearAppLaunchMixinTransition
-//    .java:63 BaselineAnimator 1.0/260).
+//    .java:63 BaselineAnimator 1.0/260). While it is open over the application the face is not drawn
+//    (Recents.hidesFace, MainScreen's faceStack.visible); when the application leaves with Recents open
+//    (the crown: keymap leaveApp) the face is drawn again, at rest, under the closing disc.
 //  - D60-25: Recents over the face moves the face as the app list does (the values MainScreen's faceStack
 //    multiplies in): open 1 -> 0.70 and a dim 0.5 p on the same spring; close (WearOpenWatchface) scale and
 //    alpha 0.5 + 0.5 q on 1.0/260 (WearOpenWatchfaceMixinTransition.java:105, $$ExternalSyntheticLambda2
@@ -156,7 +158,7 @@ Item {
                              appScale: wt.appScale, appDim: wt.appDim,
                              moving: wt.recentsMoving, over: wt.recentsOverApp,
                              faceScale: recents.faceScale, faceAlpha: recents.faceAlpha, faceDim: recents.faceDim,
-                             faceMoving: recents.faceMoving })
+                             faceMoving: recents.faceMoving, open: recents.isOpen, hides: recents.hidesFace })
                 if (recents._mode === "" && i > 0)
                     break
                 wait(16)
@@ -185,6 +187,7 @@ Item {
                 compare(f.faceScale, 1)
                 compare(f.faceDim, 0)
                 compare(f.faceMoving, false)
+                compare(f.hides, f.open, "the face is not drawn while Recents is open over the application")
                 if (f.p > 0.2 && f.p < 0.8)
                     mid = true
             }
@@ -195,6 +198,7 @@ Item {
             fuzzyCompare(wt.appDim, 0.5, 1e-9)
             compare(wt.recentsOverApp, true)
             compare(wt.recentsMoving, false, "at rest: no circle mask, no black under the layers")
+            compare(recents.hidesFace, true, "at rest over the application: no face behind")
         }
 
         function test_02_over_app_close_brings_the_app_back() {
@@ -227,7 +231,9 @@ Item {
                 compare(s[i].over, false)
                 compare(s[i].appScale, 1)
                 compare(s[i].appDim, 0)
+                compare(s[i].hides, false, "over the face: the face is drawn")
             }
+            compare(recents.hidesFace, false)
         }
 
         // ---- D60-25: Recents over the face moves the face ----
@@ -316,6 +322,42 @@ Item {
                 wait(300)
                 compare(indicatorOn(view), scrolls, counts[c] + " rows, scrolls " + scrolls)
             }
+        }
+
+        // ---- D60-24: the application leaves while Recents is open over it ----
+
+        // the crown on Recents over an application leaves the application (keymap leaveApp) and Recents
+        // stays open: the face is drawn under it again (hidesFace is read live, movesFace was decided at
+        // show()), so the closing disc shrinks and fades over the face at rest, not over black
+        function test_08_over_app_the_app_leaves_the_face_is_drawn_again() {
+            lipstickComp.homeActive = false
+            comp.appActive = true
+            recents.show()
+            recents.entries = entries(2)
+            tryCompare(recents, "_mode", "", 3000)
+            compare(recents.hidesFace, true, "Recents over the application: the face is not drawn")
+            compare(wt.recentsOverApp, true)
+            // the application leaves; Recents stays open
+            comp.appActive = false
+            lipstickComp.homeActive = true
+            compare(recents.isOpen, true)
+            compare(recents.movesFace, false, "decided when Recents opened")
+            compare(recents.hidesFace, false, "the application has left: the face is drawn under Recents")
+            compare(wt.recentsOverApp, false, "nothing of the application is moved any more")
+            compare(wt.appScale, 1)
+            compare(wt.appDim, 0)
+            var s = sample(function () { recents.close() }, "close")
+            verify(s.length >= 3, "frames of the closing: " + s.length)
+            for (var i = 0; i < s.length; i++) {
+                var f = s[i]
+                compare(f.hides, false, "the face is drawn under the closing disc at q " + f.q)
+                compare(f.faceScale, 1, "the face at rest (not moved: Recents opened over an application)")
+                compare(f.faceAlpha, 1)
+                compare(f.faceDim, 0)
+                compare(f.over, false)
+            }
+            compare(recents.isOpen, false)
+            compare(recents.hidesFace, false)
         }
     }
 }
