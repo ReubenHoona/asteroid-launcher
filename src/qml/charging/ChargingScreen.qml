@@ -259,14 +259,18 @@ Item {
     }
 
     // the ring: progress 0 -> level (the intro) and then at the pace of the default effects spring
-    property real shownLevel: introActive ? (level / 100) * st.ring : level / 100
-    Behavior on shownLevel {
+    // (written by the spring below, which sets the first value as it is: no binding here)
+    property real shownLevel: 0
+    // a level change on the default effects spring itself, 1.0/500 (motion F3); during the intro and
+    // while hidden it follows at once
+    WearSpring {
+        target: screen
+        property: "shownLevel"
+        to: screen.introActive ? (screen.level / 100) * screen.st.ring : screen.level / 100
         enabled: !screen.introActive && screen.shown
-        NumberAnimation {
-            duration: Motion.springDuration(Motion.standard.defaultEffects.stiffness)
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: Motion.springEasing
-        }
+        stiffness: Motion.standard.defaultEffects.stiffness
+        dampingRatio: 1.0
+        visibilityThreshold: 0.0005
     }
     Item {
         id: ring
