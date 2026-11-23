@@ -435,6 +435,16 @@ Compositor {
         scheduleFreeze()
     }
 
+    // The app list or Recents is open over the home screen. Stock: both are
+    // activities (sysui's launcher in the home task, RecentsActivity), so the
+    // count sends them away too: HeadlessTaskManagementSession.expireTask moves
+    // the task to the back and maybeHandleHomeTaskExpiration drops a home task
+    // whose top activity is not the home activity to the face (:327-374, :452-469).
+    function homeOverlayOpen() {
+        var d = Desktop.desktop
+        return !!d && ((!!d.appDrawer && d.appDrawer.isOpen) || (!!d.recents && d.recents.isOpen))
+    }
+
     // Stock runs the go-to-face count through the always-on screen as well:
     // the TaskTimeoutController non-wakeup alarm fires at the first AP wake
     // after the timeout (a notification, the hub, a check-in), the task goes
@@ -447,8 +457,10 @@ Compositor {
         interval: 2000
         repeat: true
         // not displayIsOff: every hand-over of a layout to the hub is an AP
-        // ambient update, which emits displayAboutToBeOn (wake() clears it)
-        running: comp.appActive && comp.liteShowing()
+        // ambient update, which emits displayAboutToBeOn (wake() clears it).
+        // With no application: the app list or Recents under the always-on screen
+        running: (comp.appActive && comp.liteShowing())
+                 || (!comp.appActive && comp.homeOverlayOpen() && Lipstick.compositor.displayAmbient)
         onTriggered: comp.expireWhileOff()
     }
     // Ambient Lite (an application under the always-on time) is up; the
@@ -457,6 +469,14 @@ Compositor {
         return !!root.ambientLite && root.ambientLite.kind === "lite"
     }
     function expireWhileOff() {
+        // the app list or Recents: the face when the count has run out (the
+        // hub draws the face under the always-on time already)
+        if (!appActive && homeOverlayOpen()) {
+            if (!Life.expired(episode, nowMs(), goToFaceMs))
+                return false
+            goToFace()
+            return true
+        }
         if (!appActive || !liteShowing() || frontExempt())
             return false
         if (!Life.expired(episode, nowMs(), goToFaceMs))
@@ -478,6 +498,11 @@ Compositor {
     }
 
     function wake() {
+        // an AP ambient update came first and took displayIsOff (the app list
+        // or Recents was open): the real wake still checks the count. Qt timers
+        // stop in suspend, so ambientExpiry may not have run.
+        if (!appActive && homeOverlayOpen() && Life.expired(episode, nowMs(), goToFaceMs))
+            goToFace()
         if (!displayIsOff)
             return
         displayIsOff = false

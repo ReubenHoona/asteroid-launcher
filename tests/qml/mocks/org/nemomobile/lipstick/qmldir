@@ -1,3 +1,4 @@
 module org.nemomobile.lipstick
 NotificationListModel 1.0 NotificationListModel.qml
 singleton Lipstick 1.0 Lipstick.qml
+Compositor 1.0 Compositor.qml
