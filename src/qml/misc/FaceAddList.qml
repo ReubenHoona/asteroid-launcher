@@ -6,6 +6,7 @@
 import QtQuick
 import org.asteroid.controls
 import "facepicker.js" as FP
+import "compositor"
 
 /*
  * The add-face list of the watch face picker (face-interaction-18), as stock
@@ -17,9 +18,12 @@ import "facepicker.js" as FP
  *
  * Opening: scale 0.25 to 1 in 250 ms (the standard easing), alpha 0 to 1 in
  * 75 ms, from a black disc (the circular reveal), a white #12ffffff flash held
- * 75 ms and faded over 750 ms. Back (swipe right or the crown): the same in
- * reverse. A tap on a face emits picked(), with where the preview is; the
- * picker adds the face and flies the preview into the carousel.
+ * 75 ms and faded over 750 ms. Back by the crown: the same in reverse. A swipe
+ * right is stock's SwipeDismissFrameLayout (facepicker.js ADD_DISMISS_*): the
+ * list follows the finger, squeezed with its right edge pinned and dimmed, and
+ * goes right on a spring, or springs back. A tap on a face emits picked(), with
+ * where the preview is; the picker adds the face and flies the preview into the
+ * carousel.
  */
 Item {
     id: list
@@ -37,6 +41,72 @@ Item {
     signal picked(string file, real cx, real cy, real size)
     signal closed()
 
+    // the swipe to dismiss: the list's move right (px), its scale, the progress its dim follows; it is
+    // swiping from the first move of the finger to the end of its spring
+    property real swipeX: 0
+    property real swipeScale: 1
+    property real swipeP: 0
+    property bool swiping: false
+    property bool dismissing: false
+    readonly property real swipeDim: FP.addDismissDim(swipeP)
+
+    function dismissCommits(dx, vx, vy, movingBack) {
+        return FP.addDismissCommits(dx, vx, vy, movingBack, width, 2 * u)
+    }
+    // the finger has moved it dx px
+    function dragTo(dx) {
+        if (!visible || leaving)
+            return
+        dismissSpring.stop()
+        swiping = true
+        swipeP = Math.max(0, dx) / width
+        swipeScale = FP.addDismissDragScale(swipeP)
+        swipeX = Math.max(0, 1 - swipeScale) * width / 2
+    }
+    // the finger let go at vx, vy px/s
+    function release(dx, vx, vy, movingBack) {
+        if (!swiping || leaving)
+            return
+        dismissing = dismissCommits(dx, vx, vy, movingBack)
+        if (dismissing)
+            leaving = true
+        dismissSpring.snapTo(swipeX)
+        dismissSpring.animateTo(dismissing ? width : 0, vx)
+    }
+    function springMoved(x) {
+        if (!swiping)
+            return
+        swipeX = Math.max(0, Math.min(width, x))
+        swipeScale = FP.addDismissSpringScale(swipeX, width)
+        swipeP = Math.max(swipeP, (swipeScale - 1) / -FP.ADD_DISMISS_SCALE)
+    }
+    function springDone() {
+        var gone = dismissing
+        resetSwipe()
+        if (gone) {
+            // as back() ends, without its reverse zoom
+            leaving = false
+            visible = false
+            closed()
+        }
+    }
+    function resetSwipe() {
+        dismissSpring.stop()
+        swiping = false
+        dismissing = false
+        swipeX = 0
+        swipeScale = 1
+        swipeP = 0
+    }
+    WearSpring {
+        id: dismissSpring
+        stiffness: FP.ADD_DISMISS_STIFFNESS
+        dampingRatio: FP.ADD_DISMISS_DAMPING
+        visibilityThreshold: FP.ADD_DISMISS_MIN_CHANGE
+        onValueChanged: list.springMoved(value)
+        onFinished: list.springDone()
+    }
+
     readonly property real previewSize: 160 * u
     readonly property real ringWidth: 4 * u
     readonly property real nameTop: 12 * u
@@ -49,6 +119,7 @@ Item {
 
     function open() {
         leaveAnim.stop()
+        resetSwipe()
         leaving = false
         panel.scale = FP.ADD_SCALE_FROM
         panel.opacity = 0
@@ -63,6 +134,7 @@ Item {
         if (!visible || leaving)
             return
         enterAnim.stop()
+        resetSwipe()
         leaving = true
         leaveAnim.restart()
     }
@@ -71,6 +143,7 @@ Item {
     function closeNow() {
         enterAnim.stop()
         leaveAnim.stop()
+        resetSwipe()
         leaving = false
         visible = false
     }
@@ -83,8 +156,22 @@ Item {
 
     Item {
         id: panel
+        objectName: "eosAddPanel"
         anchors.fill: parent
         transformOrigin: Item.Center
+        // the swipe: scaled about the centre, then moved right
+        transform: [
+            Scale {
+                origin.x: panel.width / 2
+                origin.y: panel.height / 2
+                xScale: list.swipeScale
+                yScale: list.swipeScale
+            },
+            Translate { x: list.swipeX }
+        ]
+        // stock clips the moving frame to the round outline (gax.java:96-98); a layer only while it moves
+        layer.enabled: list.swiping
+        layer.effect: CircleMaskShader { }
 
         // the circular reveal: a black disc that grows with the list
         Rectangle {
@@ -186,26 +273,41 @@ Item {
             visible: opacity > 0
         }
 
-        // swipe right: back (the stock decision rule of the back swipe)
+        // the dim of the swipe (stock: a SRC_ATOP black on the frame's layer, gax.java:116-127)
+        Rectangle {
+            objectName: "eosAddDim"
+            anchors.fill: parent
+            radius: width / 2
+            color: "#000000"
+            opacity: list.swipeDim
+            visible: opacity > 0
+        }
+
+        // swipe right: the list follows the finger, then goes or comes back
         DragHandler {
             id: swipe
             target: null
             yAxis.enabled: false
             property real lastDx: 0
             property real dx: 0
-            property real v: 0
+            property real vx: 0
+            property real vy: 0
             onTranslationChanged: {
                 lastDx = translation.x - dx
                 dx = translation.x
-                v = centroid.velocity.x
+                vx = centroid.velocity.x
+                vy = centroid.velocity.y
+                if (active)
+                    list.dragTo(dx)
             }
             onActiveChanged: {
                 if (active) {
                     dx = 0
                     lastDx = 0
-                    v = 0
-                } else if (Motion.backShouldCommit(dx, v, lastDx, list.width, Theme.dp(1))) {
-                    list.back()
+                    vx = 0
+                    vy = 0
+                } else {
+                    list.release(dx, vx, vy, lastDx < 0)
                 }
             }
         }

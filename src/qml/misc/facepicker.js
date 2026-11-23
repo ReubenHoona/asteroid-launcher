@@ -134,6 +134,48 @@ var ADD_ROW_DELAY_MS = 150
 var ADD_ROW_MS = 300
 var ADD_ROW_FROM = 0.15             // the bottom row slides up from 15 % of the height
 
+/* The add list's swipe to dismiss. Stock wraps the list in a SwipeDismissFrameLayout
+ * (management_ui_root_layout.xml:66-71, ManagementView.java:954-958; androidx's, as decompiled in sysui
+ * gar.java / gax.java). While the finger moves right by p of the width the list is scaled 1 - 0.3 p about its
+ * centre and moved right by (1 - scale) W / 2, so its right edge stays put, and darkened by min(0.3, p / 2)
+ * (gar.java:174-184, gax.java:116-127). On release it goes when it was dragged past 0.33 of the width and the
+ * finger is not moving back, or on a fling right of config_viewMinFlingVelocity (500 dp/s on a watch,
+ * framework values-watch/dimens.xml) faster than up or down; a fling back of that speed keeps it
+ * (gar.java:186-194). Then a spring 1.0/600, minimum visible change 0.5 px, from where it is at the finger's
+ * speed to the width (gone: the carousel is back, iax.java:15-26) or to 0 (gar.java:201-250,
+ * gax.java:51-67); along it the scale is 1 - 2 x / W held in 0.7 .. 1 and the dim follows the largest
+ * progress reached (gax.java:69-84). */
+var ADD_DISMISS_SCALE = 0.3
+var ADD_DISMISS_MIN_SCALE = 0.7
+var ADD_DISMISS_MAX_DIM = 0.3
+var ADD_DISMISS_COMMIT = 0.33
+var ADD_DISMISS_FLING_DP = 500
+var ADD_DISMISS_STIFFNESS = 600
+var ADD_DISMISS_DAMPING = 1.0
+var ADD_DISMISS_MIN_CHANGE = 0.5
+
+// the dim of the list at progress p
+function addDismissDim(p) {
+    return Math.max(0, Math.min(ADD_DISMISS_MAX_DIM, p / 2))
+}
+// the scale while the finger moves it by p of the width
+function addDismissDragScale(p) {
+    return 1 - ADD_DISMISS_SCALE * Math.max(0, p)
+}
+// the scale on the spring, at x px of a width w
+function addDismissSpringScale(x, w) {
+    return Math.max(ADD_DISMISS_MIN_SCALE, Math.min(1 - 2 * x / w, 1))
+}
+// whether a swipe of dx px released at vx, vy px/s (movingBack: the last move went left) dismisses the list
+// of width px, with dpPx px per dp
+function addDismissCommits(dx, vx, vy, movingBack, width, dpPx) {
+    var fling = ADD_DISMISS_FLING_DP * dpPx
+    var go = (dx > width * ADD_DISMISS_COMMIT && !movingBack) || (vx >= fling && vx > Math.abs(vy))
+    if (go && vx < -fling)
+        go = false
+    return go
+}
+
 // ---- the crown and the idle timer (face-interaction-10, -11) -----------------
 
 /* The crown button in the picker: what it does. `view` is "carousel", "add"

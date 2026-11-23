@@ -19,6 +19,10 @@
 // D60-31: the curved face name in onSurface #E8E7EE.
 // D60-32: the names hide for 166 ms and fade in over 100 ms on the ValueAnimator default, AccelerateDecelerate
 // (= InOutSine) (ManagementView.java:580-587).
+// D60-33: the Add new list follows a swipe right as CP3A's SwipeDismissFrameLayout (gar.java:174-194,
+// gax.java:36-127): scale 1 - 0.3 p with the right edge pinned, dim min(0.3, p / 2); it goes past 0.33 W (not
+// moving back) or on a fling of 500 dp/s on a 1.0/600 spring to x = W and the carousel is back
+// (iax.java:15-26), otherwise it springs back.
 //
 // Shots go to /tmp/wo11-shots. Run by motion-wt/wo11/run.sh (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the picker staged as module LauncherQml at its resource paths).
@@ -440,6 +444,95 @@ Item {
             compare(fade.easing.type, Easing.InOutSine, "AccelerateDecelerate: (1 - cos(pi t)) / 2")
             openPicker()
             compare(picker.namesOpacity, 1, "names in")
+        }
+
+        // ---- D60-33 ----------------------------------------------------------------------------------------
+        function openAdd() {
+            setup([["s1", "018-modular"], ["s2", "021-classic"]], "s1")
+            openPicker()
+            var list = find(picker, "eosFaceAddList")
+            list.open()
+            tryCompare(list, "isOpen", true, 5000)
+            wait(Motion.duration(400))
+            return list
+        }
+        // a drag right from x 60, `steps` moves of `step` px, `ms` apart
+        function dragRight(list, steps, step, ms) {
+            mousePress(list, 60, 300)
+            for (var i = 1; i <= steps; i++)
+                mouseMove(list, 60 + step * i, 300, ms)
+        }
+        function test_d60_33_squeeze_and_back() {
+            var list = openAdd()
+            var panel = find(list, "eosAddPanel"), dim = find(list, "eosAddDim")
+            verify(panel !== null && dim !== null, "panel and dim")
+            // 96 px slowly (200 px/s): p = 0.25
+            dragRight(list, 12, 8, 40)
+            var p = 96 / 384
+            near(list.swipeScale, 1 - 0.3 * p, 0.012, "scale 1 - 0.3 p")
+            near(list.swipeX, 0.3 * p * 384 / 2, 1.5, "moved right by (1 - scale) W / 2")
+            near(dim.opacity, Math.min(0.3, p / 2), 0.012, "dim min(0.3, p / 2)")
+            var r = panel.mapToItem(list, panel.width, panel.height / 2)
+            near(r.x, 384, 1.5, "the right edge stays pinned")
+            var l = panel.mapToItem(list, 0, panel.height / 2)
+            near(l.x, 384 - 384 * (1 - 0.3 * p), 2, "the left edge comes in")
+            verify(panel.layer.enabled, "clipped round while it moves (clipToOutline)")
+            // (the software renderer cannot run the round clip's shader: the shot is taken without it)
+            panel.layer.enabled = false
+            wait(30)
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-33-mid.png")
+            panel.layer.enabled = Qt.binding(function () { return list.swiping })
+            colourNear(img, 20, 192, "#000000", 6, "the carousel's black left of the squeezed list")
+            colourNear(img, 381, 192, "#000000", 30, "the list's black disc still reaches the right edge")
+            // released short of 0.33 W, not flung: back on the spring, the list stays
+            mouseRelease(list, 60 + 96, 300, Qt.LeftButton, Qt.NoModifier, 60)
+            tryCompare(list, "swipeX", 0, 5000)
+            tryCompare(list, "swipeScale", 1, 5000)
+            tryCompare(dim, "opacity", 0, 5000)
+            verify(list.visible && list.isOpen, "still open")
+            compare(panel.layer.enabled, false, "no layer at rest")
+        }
+        function test_d60_33_commit() {
+            var list = openAdd()
+            var panel = find(list, "eosAddPanel"), leave = find(list, "eosAddLeave")
+            // 160 px slowly: past 0.33 W (126.7 px)
+            dragRight(list, 20, 8, 40)
+            var seen = { min: 1 }
+            var conn = function () { seen.min = Math.min(seen.min, list.swipeScale) }
+            list.swipeScaleChanged.connect(conn)
+            mouseRelease(list, 60 + 160, 300, Qt.LeftButton, Qt.NoModifier, 60)
+            verify(!leave.running, "not the reverse zoom")
+            tryCompare(list, "visible", false, 5000)
+            list.swipeScaleChanged.disconnect(conn)
+            verify(seen.min >= 0.7 - 1e-6, "the scale stops at 0.7: " + seen.min)
+            verify(seen.min <= 0.75, "and gets there on the way out: " + seen.min)
+            compare(picker.shown, true, "the carousel is back")
+            compare(picker.view, "carousel", "the carousel")
+            compare(picker.zoom, 1, "not zoomed")
+            compare(list.swipeX, 0, "reset")
+            compare(list.swipeScale, 1, "reset")
+            compare(panel.layer.enabled, false, "no layer")
+        }
+        function test_d60_33_fling() {
+            var list = openAdd()
+            // 48 px fast (8 px per 4 ms = 2000 px/s): a fling of more than 500 dp/s
+            dragRight(list, 6, 8, 4)
+            mouseRelease(list, 60 + 48, 300, Qt.LeftButton, Qt.NoModifier, 4)
+            tryCompare(list, "visible", false, 5000)
+            compare(picker.view, "carousel", "the carousel")
+        }
+        function test_d60_33_rule() {
+            var list = openAdd()
+            // gar.java:186-194 on the 384 px screen (1 dp = 2 px, fling 500 dp/s = 1000 px/s)
+            verify(list.dismissCommits(130, 0, 0, false), "past 0.33 W")
+            verify(!list.dismissCommits(126, 0, 0, false), "short of 0.33 W")
+            verify(!list.dismissCommits(200, 0, 0, true), "moving back at the release")
+            verify(list.dismissCommits(20, 1000, 0, false), "a fling right")
+            verify(!list.dismissCommits(20, 1000, 1200, false), "not when it goes more up or down")
+            verify(!list.dismissCommits(200, -1200, 0, false), "a fling back cancels")
+            verify(list.dismissCommits(200, -1000, 0, false), "only faster than 500 dp/s back")
+            verify(!list.dismissCommits(20, 999, 0, false), "slower than 500 dp/s")
         }
     }
 }
