@@ -201,9 +201,17 @@ Item {
             duration: Motion.duration(FP.OPEN_MS)
             easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
         }
+        // the names: hidden 166 ms, then 0 -> 1 in 100 ms. Stock sets no interpolator on these two
+        // ValueAnimators (only the scale set has one), so they run on the ValueAnimator default,
+        // AccelerateDecelerate, (cos((t + 1) pi) + 1) / 2 = InOutSine (ManagementView.java:580-587)
         SequentialAnimation {
-            PauseAnimation { duration: Motion.duration(FP.NAMES_HIDDEN_MS) }
-            NumberAnimation { target: picker; property: "namesOpacity"; to: 1; duration: Motion.duration(FP.NAMES_FADE_MS) }
+            PauseAnimation { objectName: "eosFaceNamesHidden"; duration: Motion.duration(FP.NAMES_HIDDEN_MS) }
+            NumberAnimation {
+                objectName: "eosFaceNamesFade"
+                target: picker; property: "namesOpacity"; to: 1
+                duration: Motion.duration(FP.NAMES_FADE_MS)
+                easing.type: Easing.InOutSine
+            }
         }
         onFinished: {
             picker.namesOpacity = 1

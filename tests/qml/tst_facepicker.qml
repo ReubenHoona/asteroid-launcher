@@ -4,6 +4,8 @@
 // the image's controls on the repo mocks. 384 x 384 px = 192 dp, 1 dp = 2 px. WO-11 of the image 60 defect list:
 //
 // D60-31: the curved face name in onSurface #E8E7EE.
+// D60-32: the names hide for 166 ms and fade in over 100 ms on the ValueAnimator default, AccelerateDecelerate
+// (= InOutSine) (ManagementView.java:580-587).
 //
 // Shots go to /tmp/wo11-shots. Run by motion-wt/wo11/run.sh (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the picker staged as module LauncherQml at its resource paths).
@@ -213,6 +215,20 @@ Item {
                 compare(String(n.color), String(Theme.color.onSurface), "the name is onSurface")
                 compare(String(n.color), "#e8e7ee", "onSurface #E8E7EE")
             }
+        }
+
+        // ---- D60-32 ----------------------------------------------------------------------------------------
+        function test_d60_32_names_fade() {
+            setup([["f1", "018-modular"], ["f2", "021-classic"]], "f1")
+            var open = find(picker, "eosFaceOpenAnim")
+            verify(open !== null, "open animation")
+            var hidden = findAnim(open, "eosFaceNamesHidden"), fade = findAnim(open, "eosFaceNamesFade")
+            verify(hidden !== null && fade !== null, "names hidden and fade")
+            compare(hidden.duration, Motion.duration(166), "names hidden 166 ms")
+            compare(fade.duration, Motion.duration(100), "then 100 ms")
+            compare(fade.easing.type, Easing.InOutSine, "AccelerateDecelerate: (1 - cos(pi t)) / 2")
+            openPicker()
+            compare(picker.namesOpacity, 1, "names in")
         }
     }
 }
