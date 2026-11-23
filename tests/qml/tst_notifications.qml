@@ -8,6 +8,8 @@
 //  - D60-05: an open card shows its full layout alone, on its own open progress (openP, spring
 //    800 / 0.8), as tall as the full layout (at least 64 dp); a card made open is open from its
 //    first frame and takes a new height at once until the user toggles it;
+//  - D60-06: CP3A's full_view_scrim, a black full-screen layer under the morph, neither scaled
+//    nor faded by it (the face never shows through); the crown's close takes it with the view;
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -329,6 +331,77 @@ Item {
             compare(d.card.openP, 1)
             verify(!collapsedLayer(d.card).visible, "still the full layer only")
             compare(fullLoader(d.card).opacity, 1)
+        }
+
+        /* ---- D60-06: the morph's scrim ---------------------------------- */
+
+        function preview() {
+            var p = make("notifications/NotificationPreview.qml", {})
+            return p
+        }
+        function scrimOf(p) { return byName(p, "fullViewScrim") }
+
+        // While the glanceable turns into the full view nothing of the face shows: a black layer
+        // under both, the screen's size, at 1 and unscaled whatever the morph's scales
+        function test_d60_06_scrim() {
+            var p = preview()
+            var n = notif({ replacesId: 61, summary: "Sam", body: "On my way" })
+            notificationPreviewPresenter.kind = 1
+            notificationPreviewPresenter.notification = n
+            compare(p.mode, "glance")
+            var s = scrimOf(p)
+            verify(s !== null, "a scrim")
+            verify(s.visible, "under the glanceable")
+            compare(s.width, 384)
+            compare(s.height, 384)
+            compare(String(s.color), "#000000")
+            compare(s.opacity, 1)
+            compare(s.scale, 1)
+            verify(s.z < p.detailHost.z, "under the full view")
+            p.toFull()
+            tryCompare(p, "mode", "full", 3000)
+            compare(s.opacity, 1)
+            compare(s.scale, 1)
+            verify(s.visible)
+            tryVerify(function () { return p.detailScale === 1 && p.detailOpacity === 1 }, 3000, "morph over")
+            // the morph's first frames of the full view: 0.85, the glanceable gone
+            p.glanceOpacity = 0
+            p.detailScale = 0.85
+            wait(100)
+            var img = shot(top, "d60-06-morph")
+            // between the scaled view's disc (radius 163 px) and the screen's edge: black, not the face
+            compare(px(img, 192, 12), [0, 0, 0], "top ring")
+            compare(px(img, 12, 192), [0, 0, 0], "left ring")
+            compare(px(img, 372, 192), [0, 0, 0], "right ring")
+            compare(px(img, 192, 372), [0, 0, 0], "bottom ring")
+            p.detailScale = 1
+        }
+
+        // The crown's close takes the scrim with the view (CP3A animates the whole root, juh.java:647)
+        function test_d60_06_crown_close() {
+            var p = preview()
+            var n = notif({ replacesId: 62, summary: "Sam", body: "On my way" })
+            notificationPreviewPresenter.kind = 1
+            notificationPreviewPresenter.notification = n
+            p.toFull()
+            tryVerify(function () { return p.mode === "full" && p.detailScale === 1 }, 3000)
+            var s = scrimOf(p)
+            p.closeFromCrown()
+            tryVerify(function () { return p.detailOpacity < 0.9 && p.detailOpacity > 0.1 }, 3000, "mid-close")
+            fuzzyCompare(s.opacity, p.detailOpacity, 0.0001)
+            fuzzyCompare(s.scale, p.detailScale, 0.0001)
+            tryCompare(p, "mode", "none", 3000)
+            verify(!s.visible)
+        }
+
+        // The bubble over an app leaves the app showing: no scrim
+        function test_d60_06_bubble_no_scrim() {
+            var p = preview()
+            var n = notif({ replacesId: 63, summary: "Sam", body: "On my way" })
+            notificationPreviewPresenter.kind = 2
+            notificationPreviewPresenter.notification = n
+            compare(p.mode, "bubble")
+            verify(!scrimOf(p).visible, "no scrim over the app")
         }
     }
 }

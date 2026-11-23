@@ -250,6 +250,21 @@ Item {
         onFinished: preview.finish()
     }
 
+    // CP3A's full_view_scrim (res/layout/fullview_root_view.xml): a full-screen colorBackground
+    // view under the full view's container and the glanceable. The morph scales and fades only
+    // those two (juh.java:366-389), so nothing of the face shows between them; the crown's close
+    // animates the whole root, the scrim with the view (juh.java:647). None over an app (the
+    // bubble's own scrim is HunBubble's)
+    Rectangle {
+        id: scrim
+        objectName: "fullViewScrim"
+        anchors.fill: parent
+        color: "#000000"
+        visible: preview.mode === "glance" || preview.mode === "full"
+        opacity: crownGlance.running ? preview.glanceOpacity : crownDetail.running ? preview.detailOpacity : 1
+        scale: crownGlance.running ? preview.glanceScale : crownDetail.running ? preview.detailScale : 1
+    }
+
     Glanceable {
         id: glance
         anchors.fill: parent
