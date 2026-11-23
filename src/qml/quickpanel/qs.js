@@ -199,6 +199,25 @@ function visibleTiles(list, available) {
     return out
 }
 
+/* ---- the glyphs ---------------------------------------------------------- */
+
+/* CP3A draws Bedtime, Theater and Flashlight with filled glyphs, the same in
+ * both states (kxx.java:223, :264, :287: compose_btn_bedtime, a bed with a
+ * sleeper; compose_btn_theater, a clapperboard; compose_btn_flashlight, a
+ * torch). The image's icon set has no filled match, so these are Material
+ * Symbols Rounded glyphs (Google, Apache License 2.0; google/material-design-
+ * icons 10ecc14, symbols/web/<name>/materialsymbolsrounded/<name>_fill1_24px.svg),
+ * path data in their 960 box with y from -960 to 0: hotel, movie, flashlight_on.
+ * The licence text is COPYING.Apache-2.0. */
+var GLYPH_BED = "M80-200q-17 0-28.5-11.5T40-240v-520q0-17 11.5-28.5T80-800q17 0 28.5 11.5T120-760v360h320v-240q0-33 23.5-56.5T520-720h240q66 0 113 47t47 113v320q0 17-11.5 28.5T880-200q-17 0-28.5-11.5T840-240v-80H120v80q0 17-11.5 28.5T80-200Zm200-240q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35Z"
+var GLYPH_CLAPPER = "m160-800 65 130q7 14 20 22t28 8q30 0 46-25.5t2-52.5l-41-82h80l65 130q7 14 20 22t28 8q30 0 46-25.5t2-52.5l-41-82h80l65 130q7 14 20 22t28 8q30 0 46-25.5t2-52.5l-41-82h120q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800Z"
+var GLYPH_TORCH = "M240-760v-40q0-33 23.5-56.5T320-880h320q33 0 56.5 23.5T720-800v40H240Zm240 420q25 0 42.5-17.5T540-400q0-25-17.5-42.5T480-460q-25 0-42.5 17.5T420-400q0 25 17.5 42.5T480-340ZM320-160v-360l-67-100q-7-10-10-21t-3-23v-16h480v16q0 12-3 23t-10 21l-67 100v360q0 33-23.5 56.5T560-80H400q-33 0-56.5-23.5T320-160Z"
+/* Do Not Disturb (compose_btn_dnd, kxx.java:276: a disc with a bar) and Find my
+ * phone (compose_btn_phone, kxx.java:247: a phone with waves on both sides) are
+ * in the icon set: Material Symbols do_not_disturb_on (fill 1) and vibration */
+var ICON_DND = "ms-do_not_disturb_on-fill"
+var ICON_FIND_PHONE = "ms-vibration"
+
 /* ---- the battery button (kxx.java:293-347, kxb.java) -------------------- */
 
 var BATTERY_STEPS = [15, 20, 30, 40, 50, 60, 70, 90, 99, 100]

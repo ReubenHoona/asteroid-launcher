@@ -28,6 +28,7 @@
  */
 
 import QtQuick
+import QtQuick.Shapes
 import org.asteroid.controls
 import "qs.js" as QS
 
@@ -55,6 +56,9 @@ MouseArea {
     height: width
 
     property alias icon: ic.name
+    /*! A glyph drawn from SVG path data instead of an icon of the set: a 960 box with y
+     *  from -960 to 0 (Material Symbols' web glyphs), drawn iconSize square. */
+    property string glyph: ""
     property bool checkable: false
     property bool checked: false
     /*! The icon, px. */
@@ -199,12 +203,41 @@ MouseArea {
             width: ma.iconSize
             height: width
             anchors.centerIn: parent
+            visible: ma.glyph === ""
             color: ma.contentColor
             Behavior on color {
                 ColorAnimation {
                     duration: Motion.duration(250)
                     easing.type: Easing.BezierSpline
                     easing.bezierCurve: Motion.easing.standardDecelerate
+                }
+            }
+        }
+
+        Shape {
+            id: _glyph
+            objectName: "qsGlyph"
+            width: ma.iconSize
+            height: width
+            anchors.centerIn: parent
+            visible: ma.glyph !== ""
+            preferredRendererType: Shape.CurveRenderer
+            // the path's y runs from -960 to 0
+            transform: Translate { y: _glyph.height }
+            ShapePath {
+                id: _glyphPath
+                strokeWidth: -1
+                strokeColor: "transparent"
+                fillColor: ma.contentColor
+                fillRule: ShapePath.WindingFill
+                scale: Qt.size(_glyph.width / 960, _glyph.height / 960)
+                PathSvg { path: ma.glyph }
+                Behavior on fillColor {
+                    ColorAnimation {
+                        duration: Motion.duration(250)
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: Motion.easing.standardDecelerate
+                    }
                 }
             }
         }

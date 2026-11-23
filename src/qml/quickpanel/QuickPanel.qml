@@ -772,7 +772,8 @@ Item {
         id: bedtimeToggleComponent
         QuickPanelToggle {
             objectName: "bedtimeToggle"
-            icon: checked ? "ios-moon" : "ios-moon-outline"
+            // CP3A's bed with a sleeper in both states (compose_btn_bedtime, kxx.java:264)
+            glyph: QS.GLYPH_BED
             checkable: true
             checked: rootitem.modesReady && modes.bedtime
             //% "Bedtime mode"
@@ -799,7 +800,8 @@ Item {
         id: cinemaToggleComponent
         QuickPanelToggle {
             objectName: "theaterToggle"
-            icon: checked ? "ios-film" : "ios-film-outline"
+            // CP3A's clapperboard in both states (compose_btn_theater, kxx.java:287)
+            glyph: QS.GLYPH_CLAPPER
             checkable: true
             checked: rootitem.modesReady && modes.theater
             //% "Theater mode"
@@ -840,8 +842,8 @@ Item {
         id: dndToggleComponent
         QuickPanelToggle {
             objectName: "dndToggle"
-            // stock's do-not-disturb-on circle; the moon is Bedtime's
-            icon: checked ? "ios-remove-circle" : "ios-remove-circle-outline"
+            // CP3A's filled disc with a bar in both states (compose_btn_dnd, kxx.java:276)
+            icon: QS.ICON_DND
             checkable: true
             checked: doNotDisturb.value
             //% "Do Not Disturb"
@@ -931,7 +933,8 @@ Item {
         id: flashlightButtonComponent
         QuickPanelToggle {
             objectName: "flashlightButton"
-            icon: "gm-flashlight-on"
+            // CP3A's filled torch (compose_btn_flashlight, kxx.java:223)
+            glyph: QS.GLYPH_TORCH
             iconSize: Theme.dp(27)
             //% "Flashlight"
             label: qsTrId("id-qs-flashlight")
@@ -1102,7 +1105,8 @@ Item {
         id: findPhoneButtonComponent
         QuickPanelToggle {
             objectName: "findPhoneButton"
-            icon: "ios-phone-portrait"
+            // CP3A's phone with waves (compose_btn_phone, 32 dp: kxx.java:247)
+            icon: QS.ICON_FIND_PHONE
             iconSize: Theme.dp(32)
             checkable: true
             checked: findPhone.ringing

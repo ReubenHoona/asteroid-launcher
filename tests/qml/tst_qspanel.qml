@@ -647,6 +647,60 @@ Item {
             compare(tile("brightnessButton").iconSize, 52)
         }
 
+        function test_22b_glyphs_as_cp3a() {
+            // D60-17: CP3A's glyphs (kxx.java:223-287), the same in both states: Bedtime a bed with a
+            // sleeper, Theater a clapperboard, Flashlight a filled torch (path glyphs), DND a filled disc
+            // with a bar, Find my phone a phone with waves (icons of the set); sizes 26, 26, 27, 26, 32 dp
+            var cases = [["bedtimeToggle", "glyph", QS.GLYPH_BED, 52], ["cinemaToggle", "glyph", QS.GLYPH_CLAPPER, 52],
+                         ["flashlightButton", "glyph", QS.GLYPH_TORCH, 54], ["dndToggle", "icon", "ms-do_not_disturb_on-fill", 52],
+                         ["findPhoneButton", "icon", "ms-vibration", 64]]
+            for (var i = 0; i < cases.length; i++) {
+                var t = tile(cases[i][0])
+                compare(t[cases[i][1]], cases[i][2], cases[i][0])
+                compare(t.iconSize, cases[i][3], cases[i][0] + " size")
+                var g = find(t, "qsGlyph")
+                compare(g.visible, cases[i][1] === "glyph", cases[i][0] + " path glyph")
+                if (cases[i][1] === "glyph") {
+                    compare(t.icon, "")
+                    compare(g.width, cases[i][3]); compare(g.height, cases[i][3])
+                }
+            }
+            compare(QS.GLYPH_BED.indexOf("M80-200"), 0)
+            compare(QS.GLYPH_CLAPPER.indexOf("m160-800"), 0)
+            compare(QS.GLYPH_TORCH.indexOf("M240-760"), 0)
+            // the same glyph when on
+            modes.bedtime = true; modes.theater = true
+            wait(60)
+            compare(tile("bedtimeToggle").glyph, QS.GLYPH_BED)
+            compare(tile("cinemaToggle").glyph, QS.GLYPH_CLAPPER)
+            Backend.confSet("/org/asteroidos/notifications/do-not-disturb", true)
+            wait(60)
+            verify(tile("dndToggle").checked)
+            compare(tile("dndToggle").icon, "ms-do_not_disturb_on-fill")
+            modes.bedtime = false; modes.theater = false
+            Backend.confSet("/org/asteroidos/notifications/do-not-disturb", false)
+            wait(60)
+            // drawn: the glyph's box holds the content colour (the bed fills a good part of its 26 dp box)
+            var bt = tile("bedtimeToggle")
+            show(bt)
+            wait(150)
+            var gb = find(bt, "qsGlyph")
+            // (the Shape's own Translate moves its origin down by its height: the box starts at -height)
+            var o = gb.mapToItem(root, 0, -gb.height)
+            near(o.x, centre(bt).x - 26, 1, "glyph box x"); near(o.y, centre(bt).y - 26, 1, "glyph box y")
+            var img = grabImage(screen)
+            var lit = 0, n = 0
+            for (var y = 0; y < 52; y += 2)
+                for (var x = 0; x < 52; x += 2) {
+                    var p = img.pixel(Math.round(o.x + x), Math.round(o.y + y))
+                    n++
+                    if (p.r > 0.6 && p.g > 0.6 && p.b > 0.6)
+                        lit++
+                }
+            verify(lit / n > 0.15 && lit / n < 0.8, "bed glyph drawn: " + lit + " of " + n)
+            shot("qs-08-glyphs")
+        }
+
         function test_23_tap_debounce_and_long_press() {
             panel().tapDebounce = 300
             wait(50)

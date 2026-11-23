@@ -204,7 +204,8 @@ Item {
             yes()
             verify(modes.bedtime)
             verify(t.checked)
-            compare(t.icon, "ios-moon")
+            // D60-17: CP3A's bed (qs.js GLYPH_BED) in both states
+            compare(t.glyph.indexOf("M80-200"), 0)
             compare(Backend.confGet("/org/asteroidos/modes/ask/bedtime"), undefined)
             // the always-on tile: greyed out, shown off
             var aod = tile("aodToggle")
@@ -236,7 +237,8 @@ Item {
             shot("quickpanel-04-theater-dialog-dont-show")
             yes()
             verify(modes.theater)
-            compare(t.icon, "ios-film")
+            // D60-17: CP3A's clapperboard (qs.js GLYPH_CLAPPER) in both states
+            compare(t.glyph.indexOf("m160-800"), 0)
             compare(Backend.confGet("/org/asteroidos/modes/ask/theater"), false)
             tap(t)
             verify(!modes.theater)
@@ -266,7 +268,8 @@ Item {
 
         function test_05_dnd_asks_the_first_time() {
             var t = tile("dndToggle")
-            compare(t.icon, "ios-remove-circle-outline")
+            // D60-17: CP3A's filled disc with a bar in both states
+            compare(t.icon, "ms-do_not_disturb_on-fill")
             tap(t)
             compare(alert().title, "Turn on Do Not Disturb?")
             shot("quickpanel-06-dnd-dialog")
@@ -275,7 +278,7 @@ Item {
             cb.clicked(null)
             yes()
             compare(Backend.confGet("/org/asteroidos/notifications/do-not-disturb"), true)
-            compare(t.icon, "ios-remove-circle")
+            compare(t.icon, "ms-do_not_disturb_on-fill")
             wait(150)
             tap(t)
             compare(Backend.confGet("/org/asteroidos/notifications/do-not-disturb"), false)
@@ -310,7 +313,8 @@ Item {
         // the Flashlight tile, in the panel by default as stock's, opens the Flashlight app
         function test_08_flashlight_tile() {
             var t = tile("flashlightButton")
-            compare(t.icon, "gm-flashlight-on")
+            // D60-17: CP3A's filled torch (qs.js GLYPH_TORCH)
+            compare(t.glyph.indexOf("M240-760"), 0)
             verify(!t.checkable)
             shot("quickpanel-08-flashlight-tile")
             tap(t)
