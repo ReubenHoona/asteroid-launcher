@@ -15,7 +15,8 @@ import "status.js" as Status
  * X-ambient-ongoing-plus-unread): the bare white 18 dp static icon (stopwatch 28 x 32 px), never
  * expanded: no pill, no text, also while a stopwatch runs. The row's band is its only backdrop, the
  * row brings the slot in and out. Tap runs the entry's touch, a long press opens the live update's
- * menu (LiveMenu); the tap target is at least 60 dp square, centred on the icon.
+ * menu (LiveMenu); the tap target is as wide as the row's slot pitch (it ends half way to the dot or
+ * the status icon beside it) and at least 60 dp tall, centred on the icon.
  *
  * Battery (M1): interactive (the display on, not ambient): an animated icon loops; nothing else runs,
  * no timer. Ambient: the static icon only; the sensor hub draws what the AP drew last
@@ -31,6 +32,8 @@ Item {
     // the row's slot of this icon is shown (its appear above 0): a change of entry then gives way in
     // ROW_MS; else it is at once
     property bool present: false
+    // how wide the tap area may be: the row's slot pitch (it must not reach the dot or the status icon)
+    property real tapWidth: width
 
     signal tapped(string key, string app)
     signal menuRequested(string key, string app, string title)
@@ -165,7 +168,9 @@ Item {
         id: touch
         objectName: "liveTap"
         anchors.centerIn: parent
-        width: Math.max(parent.width, Theme.dp(Status.ROW_TAP_MIN_DP))
+        // centred exactly (its width is not whole pixels)
+        anchors.alignWhenCentered: false
+        width: Math.min(parent.width, chip.tapWidth)
         height: Math.max(parent.height, Theme.dp(Status.ROW_TAP_MIN_DP))
         enabled: chip.wanted && chip.isSet(chip.shown)
         onClicked: chip.tapped(chip.shown.key, chip.shown.app || "")

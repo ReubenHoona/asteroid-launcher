@@ -45,8 +45,8 @@ var ROW_BAND_OPACITY = 0.7
 // nothing moves in the always-on screen
 var ROW_MS = 300
 var ROW_CURVE = [0.4, 0, 0.2, 1, 1, 1]
-// the ongoing icon's tap target: at least 60 dp (120 px) square, centred on its slot
-// (overlay_icon_min_tap_target_height)
+// the ongoing icon's tap target: at least 60 dp (120 px) tall (overlay_icon_min_tap_target_height),
+// as wide as the slot's pitch (rowPitch: it ends half way to the next slot's centre), centred on its slot
 var ROW_TAP_MIN_DP = 60
 
 // The slots shown, left to right: the ongoing activity, the unread dot, the status icon
@@ -65,6 +65,13 @@ function rowSlots(ongoing, dot, status) {
  * towards 9 o'clock), the group centred: slotPx of arc apart on a circle of radiusPx. */
 function rowAngle(i, n, slotPx, radiusPx) {
     return radiusPx > 0 ? (i - (n - 1) / 2) * slotPx / radiusPx : 0
+}
+
+// The least horizontal distance between the centres of two neighbouring slots (the outer pair of three:
+// 35.7 px for 36 px on 169; a pair of two is 35.9 apart): how wide an upright tap area centred on a slot may
+// be without reaching past half way to its neighbour
+function rowPitch(slotPx, radiusPx) {
+    return radiusPx > 0 ? radiusPx * Math.sin(slotPx / radiusPx) : slotPx
 }
 
 // The centre of a slot at that angle on the circle of radiusPx about (cx, cy); the slot stays upright

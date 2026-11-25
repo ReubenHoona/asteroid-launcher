@@ -10,7 +10,8 @@
 //  - pixels: the 12 px white dot at x 186-197, y 355-366; the face under the band at 30 % of its value;
 //    the bare charging bolt of WO-61-M1 at x 182-201, y 345-376 (20 x 32 px); nothing at the top;
 //  - the 300 ms appear, slide and band changes awake, none in the always-on screen; a status glyph
-//    replaced; the ongoing icon with no text, its 120 px tap target, tap and long press;
+//    replaced; the ongoing icon with no text, its 36 x 120 px tap target, tap and long press; taps on the
+//    dot and the status icon beside it do not open the ongoing app;
 //  - the band clear of Concentric's hub-drawn dial; screenshots over Concentric into /tmp/l1h-shots.
 // Coordinates here are the scene's (a pixel's centre is at +0.5).
 // Run beside st/ (the tree as its qrc lays it out in st/qml, the faces in st/watchfaces and st/eoskit)
@@ -197,9 +198,11 @@ Item {
             // the slots stay upright
             compare(row.ongoingSlot.rotation, 0)
             compare(row.statusIconSlot.rotation, 0)
-            // the ongoing icon's tap target: at least 120 px square, centred on its slot
+            // the ongoing icon's tap target: the slot's width (never the neighbour's), 120 px tall, centred
             var tap = find(row, "liveTap")
-            verify(tap.width >= 120 && tap.height >= 120, tap.width + " x " + tap.height)
+            near(tap.width, Status.rowPitch(36, 169), 1e-9, "the slot pitch wide")
+            near(tap.width, 35.73, 0.01, "35.7 px")
+            compare(tap.height, 120)
             var tc0 = tap.mapToItem(top, tap.width / 2, tap.height / 2)
             near(tc0.x, o.x, 0.01, "tap centre x"); near(tc0.y, o.y, 0.01, "tap centre y")
 
@@ -453,6 +456,45 @@ Item {
             compare(row.statusIcon.shownKey, "charging")
             tryCompare(row.statusIconSlot, "appear", 0, 2000)
             compare(row.statusIcon.shownKey, "")
+        }
+
+        // ---- the ongoing icon's tap area stays in its slot ----------------------------------------------
+        // (the independent check of L1: a 120 px square target covered the dot and part of the status icon)
+        function test_11_tap_areas() {
+            make({ interactive: false, ongoingEntry: top.stopwatch, dotWanted: true, statusKey: "charging" })
+            wait(50)
+            var o = centre(row.ongoingSlot), d = centre(row.dotSlot), st = centre(row.statusIconSlot)
+            var tap = find(row, "liveTap")
+            var tl = tap.mapToItem(top, 0, 0), br = tap.mapToItem(top, tap.width, tap.height)
+            // its right edge is half way to the dot's centre
+            near(br.x, (o.x + d.x) / 2, 0.01, "tap area right edge")
+            verify(br.x <= d.x - 18 + 0.3, "at the dot slot's edge")
+            near(br.y - tl.y, 120, 0.01, "120 px tall")
+            // the dot and the status icon: no tap on the ongoing entry
+            mouseClick(top, d.x, d.y)
+            mouseClick(top, d.x - 12, d.y)
+            mouseClick(top, st.x, st.y)
+            mouseClick(top, st.x - 12, st.y)
+            compare(top.taps, 0, "taps beside the ongoing icon")
+            mousePress(top, d.x, d.y)
+            wait(1000)
+            mouseRelease(top, d.x, d.y)
+            compare(top.menus, 0, "long press on the dot")
+            // the icon itself, and 50 px above it
+            mouseClick(top, o.x, o.y)
+            compare(top.taps, 1)
+            mouseClick(top, o.x, o.y - 50)
+            compare(top.taps, 2)
+            // two slots: the same
+            row.statusKey = ""
+            wait(50)
+            o = centre(row.ongoingSlot); d = centre(row.dotSlot)
+            mouseClick(top, d.x - 10, d.y)
+            compare(top.taps, 2, "the dot's slot")
+            mouseClick(top, o.x + 10, o.y)
+            compare(top.taps, 3, "the icon's slot")
+            var tr = tap.mapToItem(top, tap.width, 0)
+            verify(tr.x <= (o.x + d.x) / 2 + 0.01, "two slots: short of half way to the dot")
         }
     }
 }

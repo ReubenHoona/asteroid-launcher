@@ -14,7 +14,8 @@ import "status.js" as Status
  * place of CP3A's three overlays (the status icon at the top, the unread bar, the Live Space pill):
  *   - slots of 18 dp (36 px) along a circle 11.5 dp inside the screen's edge (radius 169 px; one
  *     slot is centred at pixel 191.5, 360.5), 36 px of arc apart, upright; left to right the ongoing
- *     activity's icon (LiveSpace), the unread dot (a 12 px white disc), the status icon
+ *     activity's icon (LiveSpace; its tap target the slot pitch wide, 120 px tall), the unread dot (a
+ *     12 px white disc), the status icon
  *     (FaceStatusIcon); only the visible ones count, centred as a group: x 191.5; 174 / 210;
  *     156 / 192 / 228;
  *   - behind them one band: an arc stroke 42 px thick on the same circle (y 340-382 at 6 o'clock),
@@ -254,6 +255,7 @@ Item {
             entry: row.ongoingEntry
             interactive: row.interactive
             present: slotOngoing.appear > 0
+            tapWidth: Status.rowPitch(row.slotSize, row.arcRadius)
             onTapped: function (key, app) { row.ongoingTapped(key, app) }
             onMenuRequested: function (key, app, title) { row.ongoingMenuRequested(key, app, title) }
         }
