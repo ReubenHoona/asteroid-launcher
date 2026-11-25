@@ -41,8 +41,9 @@ import "home/unread.js" as Unread
  * notification indicator", on by default): `dotWanted` while a notification
  * came after the notification stream was last looked at; the face's bottom row
  * draws it as a 12 px white dot (home/FaceOverlayRow.qml, N61-17: the Wear OS 6
- * emulator's look in place of CP3A's bar at 6 o'clock). What counts and what
- * marks it read is stock's UnreadItemsTracker (home/unread.js):
+ * emulator's look in place of CP3A's bar at 6 o'clock), the charging screen as
+ * a 10 px primary dot (N61-18). What counts and what marks it read is stock's
+ * UnreadItemsTracker (home/unread.js):
  * a new item is unread, a newer revision of a read one is unread again, showing
  * the stream marks them all read, opening one notification from a heads-up
  * marks only that one (W2-launcher-status, status-indicators-05, -08).

@@ -152,8 +152,9 @@ Item {
     // for the watchfaces: no nightstand mode any more (the stock charging screen is the
     // compositor's, W2-launcher-charging); the name stays so the faces keep loading
     property alias nightstand: nightstandMode.active
-    // the charging screen's unread dot
+    // the unread notifications, and whether their dot shows (the setting on): the charging screen's dot
     readonly property int unreadCount: statusSlot.notificationIndicator.unreadCount
+    readonly property bool unreadDotWanted: statusSlot.unreadDotWanted
 
     onAboutToCloseChanged: {
         grid.moveTo(0, 0)

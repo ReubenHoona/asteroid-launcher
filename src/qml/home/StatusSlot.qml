@@ -62,6 +62,8 @@ Item {
     anchors.fill: parent
 
     readonly property Item notificationIndicator: notifIndicator
+    // the unread dot is wanted (the setting on, a notification unread): the row's and the charging screen's
+    readonly property bool unreadDotWanted: notifIndicator.dotWanted
     readonly property Item rightIndicator: rightEdgeIndicator
     readonly property Item leftIndicator: leftEdgeIndicator
     readonly property Item topIndicator: topEdgeIndicator

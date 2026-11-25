@@ -8,8 +8,10 @@
 /* The charging screen's rules and numbers (W2-launcher-charging), as pure
  * functions so that every number is a test assertion (tests tst_charging.qml).
  * Stock = Pixel Watch 2, CP3A SysUI ChargingComposeActivity (ini.java, ilj/ill/
- * ilo/ilm/iln, evf, hxe, msa, back_charging_intro_bolt.json). Units: dp on a
- * 192 dp screen (1 dp = 2 px on eos); times in ms.
+ * ilo/ilm/iln, evf, hxe, msa, back_charging_intro_bolt.json). The look is the
+ * Wear OS 6 emulator's where it differs (N61-18: the screens S03, S03-b, S03-c
+ * at 91 %: ring alpha, colour roles, digit weight, minutes corner, chip size,
+ * the unread dot). Units: dp on a 192 dp screen (1 dp = 2 px on eos); times in ms.
  *
  * Nothing here runs by itself: no timer, no polling. The screen's animations
  * are driven by the display being on (ChargingScreen.qml). */
@@ -20,29 +22,41 @@ var LAYOUT = {
     ringStrokeDp: 8,            // ini.java:2190-2272 (ring), full circle
     ringInsetDp: 2,
     ringGapDp: 8 / 3,           // stroke / 3 on each side of the indicator
-    ringAlpha: 0.8,             // indicator primaryDim at 80 %
-    percentTopDp: 14,           // '82%' top centre 14 dp from the top, arcSmall 14 sp
+    ringAlpha: 1,               // indicator primaryDim at 100 % (S03-c: #CDD4EB; CP3A 80 %)
+    percentTopDp: 16,           // '91%' top centre, arcSmall 14 sp at weight 500: the glyph top at y 38 (S03-c)
+    percentWeight: 500,         // regular/medium (S03-c: stroke about 3 px)
     boltDp: 24,                 // ic_power at 24 dp
     boltGapDp: 6,               // 6 dp above the clock (ini.java:2697)
     pillWidthSub: 0.1666,       // (192 - 192 * 0.1666 - 4) / 2 = 78 dp (ini.java:2257)
     pillHeightFraction: 0.3646, // of the screen height: 70 dp (ini.java:2257)
     pillGapDp: 4,
     hoursCornerDp: 40,          // wider than half of 70: a stadium
-    minutesCornerDp: 18,
-    chipPadXDp: 8,
-    chipPadYDp: 6,
+    minutesCornerDp: 26,        // S03-c: a 52 px corner on all four (CP3A 18 dp)
+    // the digits: very heavy (S03-c '06' glyph box 120 x 78 px, '0' stroke 16-17 px); the system font
+    // (no Google Sans Flex, NEWLOOK-61 decision 2): Noto Sans ExtraBold 53 sp gives a 78 px cap
+    digitSp: 53,
+    digitWeight: 800,
+    // the digits' ink middle 1.75 dp above the pill's middle (S03-c: '06' y 150-226 in the pill 122-262)
+    digitRiseDp: 1.75,
+    // the chip: the labelSmall line (16 sp) with no vertical padding, 6 dp each side (S03-c: 32 px
+    // tall, x 139-244, y 288-319; CP3A 8 / 6 dp)
+    chipPadXDp: 6,
+    chipPadYDp: 0,
     chipIconDp: 16,
     chipIconGapDp: 8,
     /* The measure policy of the bolt, the clock, the chip and the bottom slot (imm.java:43-77),
      * inside the screen's 2 dp padding (mnw.java:2285-2286, aqw(2, 2, 2, 2)): the clock in the
      * middle; the bottom slot ends 12 dp above the padded bottom on screens under 225 dp, 14 dp
      * from 225 dp (ini.java:1528, imm.java:63); the chip is centred between the clock's bottom
-     * and the slot's top (imm.java:64). The slot is the unread dot's (bae.java:172-215), whose
-     * composable draws nothing in CP3A (ini.java:2498-2508): it stays empty, 0 px tall. */
+     * and the slot's top (imm.java:64). The slot is the unread dot's (bae.java:172-215, a
+     * wrap-content box): CP3A's composable draws nothing in it (ini.java:2498-2508), the Wear OS 6
+     * emulator draws the dot (S03-c: 10 px, primary #DBE2F9, x 187-196, y 346-355), so the slot is
+     * 5 dp tall with unread notifications and 0 px without. */
     padDp: 2,
     slotBottomDp: 12,
     slotBottomLargeDp: 14,
-    largeScreenDp: 225
+    largeScreenDp: 225,
+    unreadDp: 5
 }
 
 // the width of one pill on a screen of this many dp (ini.java:2257)
@@ -55,6 +69,10 @@ function pillHeightDp(screenHeightDp) {
 // the bottom slot's bottom, dp above the screen's edge: 2 + 12 = 14 dp on PW2 (192 dp)
 function slotBottomDp(smallestWidthDp) {
     return LAYOUT.padDp + (smallestWidthDp < LAYOUT.largeScreenDp ? LAYOUT.slotBottomDp : LAYOUT.slotBottomLargeDp)
+}
+// the bottom slot's height in dp: the dot's while there are unread notifications, else nothing
+function slotHeightDp(unread) {
+    return unread ? LAYOUT.unreadDp : 0
 }
 // the chip's top: centred between the clock's bottom and the bottom slot's top (imm.java:64), any unit
 function chipTop(clockBottom, slotTop, chipHeight) {
@@ -80,7 +98,10 @@ function isLow(level) {
 
 /* The colour roles of each element, by role name and alpha (Theme.color.<role>):
  * ring indicator, ring track, pill, digits, chip, chip text, percentage, bolt.
- * ini.java:1982-1990, 2190-2272, 2690-2700; grw.java:256-300. */
+ * ini.java:1982-1990, 2190-2272, 2690-2700; grw.java:256-300. The normal set is the
+ * Wear OS 6 emulator's (S03-c at 91 %: ring #CDD4EB, digits #E8E7EE, pills and chip
+ * #24262B, percentage and chip text #C6B8F9, bolt #BEB1EF = tertiaryDim at 96 %);
+ * the low set stays CP3A's (no capture under 15 %). */
 function roles(low) {
     if (low)
         return {
@@ -90,10 +111,10 @@ function roles(low) {
             percent: ["onBackground", 0.8], bolt: ["onBackground", 0.8]
         }
     return {
-        ring: ["primaryDim", 0.8], track: ["surfaceContainerLow", 1],
-        pill: ["surfaceContainerLow", 1], digit: ["onSurfaceVariant", 1],
-        chip: ["surfaceContainer", 1], chipText: ["primary", 1],
-        percent: ["onBackground", 1], bolt: ["onBackground", 1]
+        ring: ["primaryDim", LAYOUT.ringAlpha], track: ["surfaceContainerLow", 1],
+        pill: ["surfaceContainerLow", 1], digit: ["onSurface", 1],
+        chip: ["surfaceContainerLow", 1], chipText: ["tertiaryDim", 1],
+        percent: ["tertiaryDim", 1], bolt: ["tertiaryDim", 0.96]
     }
 }
 // the change between the two sets: 300 ms (the 'chargingLowBatteryTransition')
@@ -196,7 +217,7 @@ var INTRO = {
     fillStart: 167, fillEnd: 500, fillCurve: [0.309, 0, 0.2, 1],
     outlineFadeStart: 267, outlineFadeEnd: 583, outlineFadeCurve: [0.48, 0, 0, 1],
     // 2) the ring, the percentage; 3) the bolt moves into place; 4) clock and chip rise; 5) the
-    // bottom slot fades in (inc.b; nothing is drawn in it)
+    // bottom slot fades in (inc.b; the unread dot when there is one)
     ringAt: 1000,
     ringStiffness: 75, ringScaleStiffness: 1400,
     ringScaleFrom: 0.9, ringRotationFrom: -90,

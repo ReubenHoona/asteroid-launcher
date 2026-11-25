@@ -14,16 +14,19 @@ import "../compositor/windowmotion.js" as WM
 
 /* The charging screen (W2-launcher-charging; audit charging-battery-01, -06, -07, -08):
  * full screen on the charger, as stock's ChargingComposeActivity (ini.java).
- * 192 dp: black; the battery ring round the edge (8 dp stroke, 2 dp inset,
- * gap 8/3 dp, 12 o'clock start, indicator primaryDim at 80 %); '82%' top
- * centre 14 dp from the top (arcSmall); the bolt 24 dp, 6 dp above the clock;
- * the clock in two pills 78 x 70 dp 4 dp apart (hours corner 40 dp, minutes
- * 18 dp; digits numeralLarge, 'hh' zero-padded in 12 h, 'HH' in 24 h, no
- * AM/PM); under it a pill chip with the date (ICU's 'EEE d' in the locale:
- * '23 Mon' in en_US, 'Mon 23' in en_GB) or, when the next alarm rings within
- * 24 h, the alarm icon and its time, centred between the clock and the bottom
- * slot 14 dp above the edge, which stays empty (CP3A's unread dot draws
- * nothing). At 15 % and below the whole screen turns red (300 ms).
+ * 192 dp, in the Wear OS 6 emulator's look (N61-18, S03-c): black; the battery
+ * ring round the edge (8 dp stroke, 2 dp inset, gap 8/3 dp, 12 o'clock start,
+ * indicator primaryDim); '91%' top centre in tertiaryDim (arcSmall, weight 500,
+ * glyph top 38 px); the bolt 24 dp in tertiaryDim at 96 %, 6 dp above the clock;
+ * the clock in two surfaceContainerLow pills 78 x 70 dp 4 dp apart (hours
+ * corner 40 dp, minutes 26 dp; digits onSurface, Noto Sans ExtraBold 53 sp,
+ * 'hh' zero-padded in 12 h, 'HH' in 24 h, no AM/PM); under it a 16 sp tall
+ * pill chip (surfaceContainerLow, tertiaryDim text) with the date (ICU's
+ * 'EEE d' in the locale: '23 Mon' in en_US, 'Mon 23' in en_GB) or, when the
+ * next alarm rings within 24 h, the alarm icon and its time, centred between
+ * the clock and the bottom slot 14 dp above the edge, which holds the 5 dp
+ * primary unread dot while notifications are unread. At 15 % and below the
+ * whole screen turns red (300 ms; CP3A's colours).
  *
  * The plug-in plays the intro (Charging.introAt: our own bolt traced, filled
  * and scaled 2.83 -> 1.06 in 1 s, then the ring, the bolt move and the rise of
@@ -55,10 +58,11 @@ Item {
     // a hide fades out (the unplug) instead of going at once
     property bool fade: false
 
-    // the battery level in per cent; the time; 12 or 24 h; the next alarm
+    // the battery level in per cent; the time; 12 or 24 h; unread notifications (the dot); the next alarm
     property int level: Charging.clampLevel(battery.percent)
     property date now: new Date()
     property bool use12h: !TimeFormat.use24h
+    property bool unread: false
     property real nextAlarmMs: alarms ? alarms.nextAlarmMs : 0
 
     // the intro: time in ms; at rest it stands at its end
@@ -77,8 +81,9 @@ Item {
     readonly property real pillW: Theme.dp(Charging.pillWidthDp(wDp))
     readonly property real pillH: Theme.dp(Charging.pillHeightDp(hDp))
     readonly property real pillTop: (height - pillH) / 2
-    // the top of the empty bottom slot (its bottom: it is 0 px tall)
-    readonly property real slotTop: height - Theme.dp(Charging.slotBottomDp(Math.min(wDp, hDp)))
+    // the bottom slot: its bottom 14 dp above the edge; 5 dp tall with the unread dot, else 0 px
+    readonly property real slotBottom: height - Theme.dp(Charging.slotBottomDp(Math.min(wDp, hDp)))
+    readonly property real slotTop: slotBottom - Theme.dp(Charging.slotHeightDp(unread))
     readonly property var parts: Charging.clockParts(now, use12h)
     readonly property string localeName: currentLocale()
     readonly property var chipInfo: Charging.chip(now, nextAlarmMs, use12h, Qt.locale(localeName).amText,
@@ -323,7 +328,21 @@ Item {
         text: screen.percentText
         color: screen.percentColor
         opacity: screen.st.percent
+        font.weight: Charging.LAYOUT.percentWeight
         font.features: Theme.tabularNumerals
+    }
+
+    // the digits' ink ('0') middle digitRiseDp above the pill's middle, whatever the font's ascent and
+    // descent (a Label with its own pixel size has Qt's text box, not the role's line box)
+    FontMetrics {
+        id: digitMetrics
+        font.family: Theme.fontFamily
+        font.pixelSize: Theme.sp(Charging.LAYOUT.digitSp)
+        font.weight: Charging.LAYOUT.digitWeight
+    }
+    function digitOffset(boxHeight) {
+        var r = digitMetrics.tightBoundingRect("0")
+        return -Theme.dp(Charging.LAYOUT.digitRiseDp) - (digitMetrics.ascent + r.y + r.height / 2 - boxHeight / 2)
     }
 
     // the clock: hours and minutes in two pills
@@ -343,10 +362,14 @@ Item {
             radius: Theme.dp(Charging.LAYOUT.hoursCornerDp)
             color: screen.pillColor
             Label {
+                objectName: "eosChargingHoursText"
                 anchors.centerIn: parent
+                anchors.verticalCenterOffset: screen.digitOffset(height)
                 role: "numeralLarge"
                 text: screen.parts.hours
                 color: screen.digitColor
+                font.pixelSize: Theme.sp(Charging.LAYOUT.digitSp)
+                font.weight: Charging.LAYOUT.digitWeight
                 font.features: Theme.tabularNumerals
             }
         }
@@ -357,10 +380,14 @@ Item {
             radius: Theme.dp(Charging.LAYOUT.minutesCornerDp)
             color: screen.pillColor
             Label {
+                objectName: "eosChargingMinutesText"
                 anchors.centerIn: parent
+                anchors.verticalCenterOffset: screen.digitOffset(height)
                 role: "numeralLarge"
                 text: screen.parts.minutes
                 color: screen.digitColor
+                font.pixelSize: Theme.sp(Charging.LAYOUT.digitSp)
+                font.weight: Charging.LAYOUT.digitWeight
                 font.features: Theme.tabularNumerals
             }
         }
@@ -372,7 +399,8 @@ Item {
         objectName: "eosChargingChip"
         readonly property bool alarm: screen.chipInfo.kind === "alarm"
         width: chipRow.width + 2 * Theme.dp(Charging.LAYOUT.chipPadXDp)
-        height: chipRow.height + 2 * Theme.dp(Charging.LAYOUT.chipPadYDp)
+        // the labelSmall line (16 sp), not the label's own box (taller with Noto's metrics)
+        height: Theme.type.labelSmall.lineHeight + 2 * Theme.dp(Charging.LAYOUT.chipPadYDp)
         radius: height / 2
         color: screen.chipColor
         x: (screen.width - width) / 2
@@ -422,6 +450,18 @@ Item {
         opacity: screen.pulse
     }
 
-    // no unread dot: CP3A's charging screen keeps the slot under the chip (bae.java:172-215,
-    // imm.java:63) but its dot composable draws nothing (ini.java:2498-2508)
+    // the unread dot in the bottom slot (bae.java:172-215): the emulator's 5 dp primary dot (S03-c,
+    // x 187-196, y 346-355); CP3A's composable draws nothing there (ini.java:2498-2508)
+    Rectangle {
+        objectName: "eosChargingDot"
+        visible: screen.unread
+        width: Theme.dp(Charging.LAYOUT.unreadDp)
+        height: width
+        radius: width / 2
+        color: Theme.color.primary
+        antialiasing: true
+        x: (screen.width - width) / 2
+        y: screen.slotBottom - height
+        opacity: screen.st.dot
+    }
 }

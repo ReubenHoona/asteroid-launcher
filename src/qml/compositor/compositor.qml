@@ -306,6 +306,9 @@ Item {
         plugIntro: charging.intro
         fade: charging.fade
         awake: comp ? !comp.displayIsOff : true
+        // the unread dot (N61-18): the home screen's, with the setting "Show unread notification
+        // indicator" (stock's charging view state copies notificationDotEnabled, inj.java:29)
+        unread: root.homeScreen ? root.homeScreen.unreadDotWanted === true : false
         onIntroFinished: charging.intro = false
     }
     ChargerProblem {

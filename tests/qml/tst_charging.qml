@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 //
 // The rules and numbers of the charging screen (src/qml/charging/charging.js), as
-// stock CP3A's ChargingComposeActivity: layout (charging-battery-01, the measure
-// policy imm.java), level and colours (-08), clock and chip (ICU "EEE d" through
+// stock CP3A's ChargingComposeActivity in the Wear OS 6 emulator's look (N61-18,
+// S03-c): layout (charging-battery-01, the measure policy imm.java, the unread dot's
+// slot), level and colours (-08), clock and chip (ICU "EEE d" through
 // org.asteroid.utils DateFormat), intro (-06), pulse (-07), plug and unplug
 // (-02, -03), the quality screen rule (app-inventory-03) and the bolt glyph, whose
 // vertices must be Qt.point values for PathPolyline (D60-10). Staged as module
@@ -36,15 +37,19 @@ TestCase {
         compare(L.ringStrokeDp, 8)
         compare(L.ringInsetDp, 2)
         near(L.ringGapDp, 8 / 3, 1e-9)
-        compare(L.ringAlpha, 0.8)
-        compare(L.percentTopDp, 14)
+        compare(L.ringAlpha, 1)
+        compare(L.percentTopDp, 16)
+        compare(L.percentWeight, 500)
         compare(L.boltDp, 24)
         compare(L.boltGapDp, 6)
         compare(L.pillGapDp, 4)
         compare(L.hoursCornerDp, 40)
-        compare(L.minutesCornerDp, 18)
-        compare(L.chipPadXDp, 8)
-        compare(L.chipPadYDp, 6)
+        compare(L.minutesCornerDp, 26)
+        compare(L.digitSp, 53)
+        compare(L.digitWeight, 800)
+        compare(L.digitRiseDp, 1.75)
+        compare(L.chipPadXDp, 6)
+        compare(L.chipPadYDp, 0)
         compare(L.chipIconDp, 16)
         compare(L.chipIconGapDp, 8)
         // the layout sits in the screen's 2 dp padding (mnw.java); the bottom slot 12 dp above
@@ -54,8 +59,9 @@ TestCase {
         compare(L.slotBottomLargeDp, 14)
         compare(L.largeScreenDp, 225)
         verify(L.chipGapDp === undefined)
-        verify(L.unreadDp === undefined)
         verify(L.unreadBottomDp === undefined)
+        // the unread dot: 5 dp, in the bottom slot (S03-c)
+        compare(L.unreadDp, 5)
         // pills: (192 - 192 * 0.1666 - 4) / 2 = 78 dp, 0.3646 of 192 = 70 dp
         near(Charging.pillWidthDp(192), 78, 0.01)
         near(Charging.pillHeightDp(192), 70, 0.01)
@@ -69,8 +75,12 @@ TestCase {
         // 384 px: clock 122..262 px, slot top 384 - 28 = 356 px, a 56 px chip -> 281 px
         compare(Charging.chipTop(262, 356, 56), 281)
         compare(Charging.chipTop(262, 356, 32), 293)
-        // the slot is empty (CP3A composes nothing in it), so its top is its bottom
-        compare(Charging.chipTop(262, 384 - 2 * Charging.slotBottomDp(192), 56), 281)
+        // the slot is the dot's: 5 dp with unread notifications, else empty (its top is its bottom)
+        compare(Charging.slotHeightDp(true), 5)
+        compare(Charging.slotHeightDp(false), 0)
+        compare(Charging.chipTop(262, 384 - 2 * Charging.slotBottomDp(192), 32), 293)
+        // with the dot: (262 + 346 - 32) / 2 = 288, the emulator's chip top (S03-c, y 288-319)
+        compare(Charging.chipTop(262, 384 - 2 * (Charging.slotBottomDp(192) + Charging.slotHeightDp(true)), 32), 288)
     }
 
     // ---- level and colours: charging-battery-08
@@ -88,14 +98,16 @@ TestCase {
     }
     function test_roles() {
         var n = Charging.roles(false), l = Charging.roles(true)
-        compare(n.ring.join(), "primaryDim,0.8")
+        // the emulator's (S03-c, C8)
+        compare(n.ring.join(), "primaryDim,1")
         compare(n.track.join(), "surfaceContainerLow,1")
         compare(n.pill.join(), "surfaceContainerLow,1")
-        compare(n.digit.join(), "onSurfaceVariant,1")
-        compare(n.chip.join(), "surfaceContainer,1")
-        compare(n.chipText.join(), "primary,1")
-        compare(n.percent.join(), "onBackground,1")
-        compare(n.bolt.join(), "onBackground,1")
+        compare(n.digit.join(), "onSurface,1")
+        compare(n.chip.join(), "surfaceContainerLow,1")
+        compare(n.chipText.join(), "tertiaryDim,1")
+        compare(n.percent.join(), "tertiaryDim,1")
+        compare(n.bolt.join(), "tertiaryDim,0.96")
+        // the low set and the intro bolt stay CP3A's (no capture under 15 %)
         compare(l.ring.join(), "errorDim,0.8")
         compare(l.track.join(), "error,0.48")
         compare(l.pill.join(), "onError,1")
