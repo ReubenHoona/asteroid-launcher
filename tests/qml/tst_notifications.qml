@@ -593,18 +593,26 @@ Item {
             var n = notif({ replacesId: 66, summary: "Trains", body: longBody() })
             notificationPreviewPresenter.kind = 1
             notificationPreviewPresenter.notification = n
+            // the crown at the first frame the view's scale is 0.985 or more: on N61-21's FastOutSlowIn
+            // about 230 ms of the 540 are left, less than the close's 300 (at 0.95 it was 365: a poll
+            // for it could press too early to see the morph end)
+            var d = null, most = 0, ends = 0, pressed = false, at = 0
+            p.detailScaleChanged.connect(function () {
+                if (!pressed && p.mode === "full" && p.detailScale >= 0.985 && p.detailScale < 1) {
+                    pressed = true
+                    at = p.detailScale
+                    d = p.detailItem
+                    d.arrowOpacityChanged.connect(function () { most = Math.max(most, d.arrowOpacity) })
+                    p.closeFromCrown()
+                }
+                if (pressed && p.detailScale === 1 && p.closeAnimation.running)
+                    ends++
+            })
             p.toFull()
-            tryVerify(function () { return p.mode === "full" && p.detailScale >= 0.95 }, 3000, "late in the morph")
-            verify(p.detailScale < 1, "the morph not over: " + p.detailScale)
-            var d = p.detailItem
+            tryVerify(function () { return pressed }, 3000, "late in the morph")
             verify(d !== null)
-            var most = 0
-            d.arrowOpacityChanged.connect(function () { most = Math.max(most, d.arrowOpacity) })
-            var ends = 0
-            p.detailScaleChanged.connect(function () { if (p.detailScale === 1 && p.closeAnimation.running) ends++ })
-            p.closeFromCrown()
             tryCompare(p, "mode", "none", 3000)
-            compare(ends, 1, "the morph ended under the close")
+            compare(ends, 1, "the morph ended under the close (the crown at " + at + ")")
             compare(most, 0, "no header arrow")
             var ind = indicator()
             verify(!ind || !ind.shown, "no scroll indicator")
