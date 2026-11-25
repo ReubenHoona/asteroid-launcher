@@ -838,6 +838,9 @@ Item {
                                       && !stream.touchExploration && !stream.clearing
                         hasSecondaryAction: stream.canBlock(row.notification)
                         onPrimaryAction: row.clear()
+                        // a cleared card that comes back (another card's reveal covers it) before its
+                        // notification has gone is a card again
+                        onState_Changed: if (state_ === "covered") row.cleared = false
                         onSecondaryAction: stream.openBlockingMenu(row.notification, null)
                         opacity: row.clearingNow ? 1 - stream.clearProgress : 1
                         transform: Translate { x: row.clearingNow ? -stream.clearProgress * stream.width : 0 }

@@ -1345,6 +1345,33 @@ Item {
             compare(String(byName(c, "cardSurface").color), "#2f3036", "closed again")
         }
 
+        // A full swipe whose notification is not taken away yet (a phone's that waits for the
+        // phone): the row is the cleared pill until the card comes back, then a card again at its
+        // own height
+        function test_n61_20_cleared_comes_back() {
+            var s = stream()
+            Lipstick.notificationModel.add(notif({ replacesId: 2010, appName: "Shell", summary: "Retest one", body: "Stays" }))
+            tryVerify(function () { return s.listView && s.listView.count === 1 }, 4000)
+            wait(300)
+            var row = s.rowItems[2010]
+            var sw = swipeOf(row)
+            var acts = 0
+            sw.primaryAction.connect(function () { acts++ })
+            var y = row.mapToItem(top, 0, 0).y + row.height / 2
+            dragTo(70, 383, y)
+            mouseRelease(top, 383, y)
+            tryVerify(function () { return acts === 1 }, 3000, "cleared")
+            verify(row.cleared, "the row is the pill")
+            compare(sw.state_, "revealed")
+            // another card's reveal covers it (SwipeToReveal _coverOthers)
+            sw.settle("covered")
+            tryVerify(function () { return sw.state_ === "covered" && Math.abs(sw.offset) < 0.5 }, 3000, "the card back")
+            verify(!row.cleared, "a card again")
+            verify(row.visible)
+            var c = cardOf(row)
+            fuzzyCompare(row.height, c.height, 0.5, "at its own height")
+        }
+
         function test_d60_09_stream_empty() {
             var s = stream()
             tryVerify(function () { return s.modelEmpty }, 3000)
