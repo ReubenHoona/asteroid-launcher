@@ -31,20 +31,18 @@ import QtQuick
 import Nemo.Configuration
 import org.nemomobile.lipstick
 import org.asteroid.controls
-import QtQuick.Shapes
 import "desktop.js" as Desktop
 import "home/unread.js" as Unread
 
 /*
  * The home screen's notification indicator. The AsteroidOS layout: the
  * notifications' icons at the top while the notification panels show. The
- * Wear layout: Wear OS's unread notification indicator (CP3A Koru overlay,
- * Settings "Show unread notification indicator", on by default): a short bar
- * at 6 o'clock on the watch face (an arc segment of the screen's edge circle:
- * stroke 4 dp, round caps, 16 dp long, white, over a soft black pill; it
- * slides up 5 dp in 500 ms when it shows, nai.java:33-58, overlay.css) while a
- * notification came after the notification stream was last looked at. What
- * counts and what marks it read is stock's UnreadItemsTracker (home/unread.js):
+ * Wear layout: Wear OS's unread notification indicator (Settings "Show unread
+ * notification indicator", on by default): `dotWanted` while a notification
+ * came after the notification stream was last looked at; the face's bottom row
+ * draws it as a 12 px white dot (home/FaceOverlayRow.qml, N61-17: the Wear OS 6
+ * emulator's look in place of CP3A's bar at 6 o'clock). What counts and what
+ * marks it read is stock's UnreadItemsTracker (home/unread.js):
  * a new item is unread, a newer revision of a read one is unread again, showing
  * the stream marks them all read, opening one notification from a heads-up
  * marks only that one (W2-launcher-status, status-indicators-05, -08).
@@ -163,96 +161,6 @@ Item {
         readItems = Unread.markRead(readItems, n)
         fromHeadsUp = true
         countUnread()
-    }
-
-    /* The unread bar (CP3A Koru overlay, nai.java:33-58, assets/overlay.css): an arc segment of
-     * the screen's edge circle at 6 o'clock, stroke 4 dp (8 px), round caps, 16 dp (32 px) long
-     * end to end, white; its centre line 4 px inside the edge (radius screen/2 - stroke/2). The
-     * sweep is 2 atan(((length - stroke) / 2) / radius) = 7.2 degrees on the 192 dp screen. Under
-     * it a soft black pill 32 x 8 dp (64 x 16 px) at 80 %, its bottom 2 dp (4 px) under the screen
-     * edge (the stock one is a blurred picture; ours is three stacked pills of the same box).
-     * It slides up 5 dp (10 px) in 500 ms, cubic-bezier(0, 0, 0, 1), when it shows and back down
-     * when it goes; in the always-on screen no animation. It fades as the face is swiped away.
-     * The always-on layout of the sensor hub has it from the grab (ambient-aod-10). */
-    Item {
-        id: unreadBar
-        objectName: "unreadBar"
-        readonly property real offset: notifIndic.panelsGrid
-                                       ? Math.abs(notifIndic.panelsGrid.normalizedHorOffset) + Math.abs(notifIndic.panelsGrid.normalizedVerOffset)
-                                       : 0
-        // the screen, in this item's own coordinates
-        readonly property real screenW: notifIndic.parent ? notifIndic.parent.width : Dims.w(100)
-        readonly property real screenH: notifIndic.parent ? notifIndic.parent.height : Dims.h(100)
-        readonly property real strokeW: Theme.dp(Unread.BAR_STROKE_DP)
-        readonly property real lengthW: Theme.dp(Unread.BAR_LENGTH_DP)
-        readonly property real arcRadius: screenW / 2 - strokeW / 2
-        readonly property real sweep: Unread.barSweepDeg(screenW, lengthW, strokeW)
-        readonly property real slideDistance: Theme.dp(Unread.BAR_SLIDE_DP)
-        readonly property bool wanted: notifIndic.dotWanted
-        // the bar's rest is 0, away it is 5 dp down
-        property real shift: wanted ? 0 : slideDistance
-        readonly property bool animated: !Lipstick.compositor.displayAmbient && Motion.animationScale > 0
-        Behavior on shift {
-            enabled: unreadBar.animated
-            NumberAnimation {
-                duration: Motion.duration(Unread.BAR_SLIDE_MS)
-                easing.type: Easing.BezierSpline
-                easing.bezierCurve: Motion.easing.standardDecelerate
-            }
-        }
-        x: 0
-        y: -notifIndic.y
-        width: screenW
-        height: screenH
-        // fades as the watch face is swiped away (the same in the always-on screen)
-        opacity: Math.max(0, 1 - 3 * offset)
-        visible: (wanted || shift < slideDistance) && opacity > 0
-
-        Item {
-            id: barGroup
-            anchors.fill: parent
-            transform: Translate { y: unreadBar.shift }
-
-            // the soft black pill: 64 x 16 px, its bottom 4 px under the edge; three layers, the
-            // middle of it 80 % black, the rim soft
-            Repeater {
-                model: [ { w: 1.0, h: 1.0, a: 0.35 }, { w: 0.8, h: 0.8, a: 0.4 }, { w: 0.6, h: 0.6, a: 0.55 } ]
-                delegate: Rectangle {
-                    objectName: "unreadPill" + index
-                    readonly property real boxW: Theme.dp(Unread.PILL_W_DP)
-                    readonly property real boxH: Theme.dp(Unread.PILL_H_DP)
-                    width: boxW * modelData.w
-                    height: boxH * modelData.h
-                    radius: height / 2
-                    color: "#000000"
-                    opacity: modelData.a
-                    x: (unreadBar.width - width) / 2
-                    // centred in the box whose bottom is 2 dp under the screen edge
-                    y: unreadBar.height + Theme.dp(Unread.PILL_BELOW_DP) - boxH + (boxH - height) / 2
-                }
-            }
-
-            Shape {
-                id: arc
-                objectName: "unreadArc"
-                anchors.fill: parent
-                ShapePath {
-                    strokeColor: "#ffffff"
-                    strokeWidth: unreadBar.strokeW
-                    fillColor: "transparent"
-                    capStyle: ShapePath.RoundCap
-                    PathAngleArc {
-                        centerX: unreadBar.width / 2
-                        centerY: unreadBar.height / 2
-                        radiusX: unreadBar.arcRadius
-                        radiusY: unreadBar.arcRadius
-                        // 90 degrees is 6 o'clock (clockwise from 3 o'clock)
-                        startAngle: 90 - unreadBar.sweep / 2
-                        sweepAngle: unreadBar.sweep
-                    }
-                }
-            }
-        }
     }
 
     // the AsteroidOS layout's icons

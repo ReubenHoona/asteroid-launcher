@@ -38,23 +38,25 @@ import "../desktop.js" as Desktop
 import ".."
 
 /* The status slot of the home screen (split out of MainScreen.qml): what the watch
- * face overlay of stock Wear OS draws over the face (W2-launcher-status):
- *   - the status icon, one at a time at the top centre (FaceStatusIcon, fed by
- *     StatusSources: the 16 stock types in the stock order);
- *   - the unread notification bar at the bottom (NotificationIndicator);
- *   - the ongoing activity chip at the bottom, the Live Space (LiveSpace, fed by the
- *     ongoing registry, OngoingFeed, MediaOngoing);
- *   - the four edge hints of the AsteroidOS layout (stock draws none on the Wear
+ * face overlay of stock Wear OS draws over the face (W2-launcher-status), since N61-17
+ * as the Wear OS 6 emulator draws it: one row at the bottom (FaceOverlayRow), the
+ * same awake and always-on, with
+ *   - the ongoing activity's icon, the Live Space (LiveSpace, fed by the ongoing
+ *     registry, OngoingFeed, MediaOngoing);
+ *   - the unread notification dot (NotificationIndicator counts, the row draws);
+ *   - the status icon, one at a time (FaceStatusIcon, fed by StatusSources: the 16
+ *     stock types in the stock order; Touch lock is one of them);
+ *   - and the four edge hints of the AsteroidOS layout (stock draws none on the Wear
  *     layout's face: status-indicators-10).
  * Instantiated once in MainScreen as `statusSlot`, at z 0 above the grid as before;
  * MainScreen forwards rightIndicator, leftIndicator, topIndicator and bottomIndicator
  * (the grid, the app launchers and the first-run wizard use them). Reads MainScreen's
  * `grid` and `desktop` through the context.
  *
- * Battery: everything here follows signals; the icon and the chip draw static, at full
- * opacity, with no animation in the always-on screen, and the sensor hub draws what the AP
- * drew last: `ambientIconsKey` says when that changes (AmbientController invalidates the hub's
- * layout once per change). */
+ * Battery: everything here follows signals; the row draws static, at full opacity, with no
+ * animation in the always-on screen, and the sensor hub draws what the AP drew last (the row is
+ * part of its background picture): `ambientIconsKey` and the dot flag say when that changes
+ * (AmbientController invalidates the hub's layout once per change). */
 Item {
     id: statusSlot
     anchors.fill: parent
@@ -65,18 +67,21 @@ Item {
     readonly property Item topIndicator: topEdgeIndicator
     readonly property Item bottomIndicator: bottomEdgeIndicator
     readonly property Item sources: statusSources
-    readonly property Item statusIcon: faceStatus
-    readonly property Item liveSpace: chip
+    readonly property Item overlayRow: row
+    readonly property Item statusIcon: row.statusIcon
+    readonly property Item liveSpace: row.liveSpace
     readonly property Item feed: ongoingFeed
     readonly property Item media: mediaOngoing
 
     // the Wear layout (MainScreen's): no edge hints there
     readonly property bool wearLayout: typeof desktop === "undefined" || !desktop || desktop.wearLayout !== false
-    // the screen is on and showing: the icon and the chip animate; else they are static
+    // the screen is on and showing: the row animates; else it is static
     readonly property bool interactive: (typeof desktop === "undefined" || !desktop
                                          || (desktop.displayAwake === true && desktop.displayAmbient !== true))
-    // what the sensor hub's always-on layout depends on: the status icon and the chip's icon
-    readonly property string ambientIconsKey: Status.ambientKey(statusSources.slotKey, chip.ambientKey)
+    // what the sensor hub's always-on layout depends on: the status icon and the ongoing icon (the
+    // dot has its own flag, notificationIndicator.dotWanted)
+    readonly property string ambientIconsKey: Status.ambientKey(row.statusWanted ? statusSources.slotKey : "",
+                                                                row.liveSpace.ambientKey)
 
     NotificationIndicator {
         id: notifIndicator
@@ -99,21 +104,17 @@ Item {
 
         StatusSources { id: statusSources }
 
-        FaceStatusIcon {
-            id: faceStatus
-            slotKey: statusSources.slotKey
+        // the bottom row: the ongoing icon, the unread dot, the status icon (N61-17)
+        FaceOverlayRow {
+            id: row
             interactive: statusSlot.interactive
-        }
-
-        LiveSpace {
-            id: chip
-            entry: ongoingFeed.registry ? ongoingFeed.registry.top : ({})
-            interactive: statusSlot.interactive
-            iconOnly: ongoingFeed.isIconOnly(entry && entry.app ? entry.app : "")
-            onTapped: function (key, app) {
-                // the app grows out of the chip (the origin launch, motion A2); activate() emits
+            statusKey: statusSources.slotKey
+            ongoingEntry: ongoingFeed.registry ? ongoingFeed.registry.top : ({})
+            dotWanted: notifIndicator.dotWanted
+            onOngoingTapped: function (key, app) {
+                // the app grows out of the icon (the origin launch, motion A2); activate() emits
                 // activated() at once, OngoingFeed launches in it
-                ongoingFeed.launchFrom = chip.pill
+                ongoingFeed.launchFrom = row.liveSpace.pill
                 if (ongoingFeed.registry)
                     ongoingFeed.registry.activate(key)
                 ongoingFeed.launchFrom = null
@@ -121,7 +122,7 @@ Item {
                 if (!app && Desktop.liveUpdate)
                     Desktop.liveUpdate.tap(key)
             }
-            onMenuRequested: function (key, app, title) { statusSlot.openLiveMenu(app, title) }
+            onOngoingMenuRequested: function (key, app, title) { statusSlot.openLiveMenu(app, title) }
         }
     }
 

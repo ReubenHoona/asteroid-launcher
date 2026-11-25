@@ -30,8 +30,9 @@ import "system.js" as Sys
  *    ms; letting go early springs it back (damping 1.0, stiffness 260); a
  *    full ring turns the lock off. mce without the edge triggers sends only
  *    the 3 s hold: KeyRouter then calls unlock() from it.
- *  - The status icon "Touch lock on" (36 px disc, top centre) shows on the
- *    watch face while it is on.
+ *  - The status icon "Touch lock on" shows on the watch face while it is on:
+ *    the face's bottom row draws it (home/FaceOverlayRow, status key
+ *    'wet-touch', N61-17), a bare glyph like the other status icons.
  * Nothing here polls or runs a timer while the lock is off; the hint's
  * timer runs only while the view is up with the display on. */
 Item {
@@ -41,7 +42,7 @@ Item {
 
     /* the display is on; the lock's view goes with it */
     property bool displayOn: true
-    /* the watch face is what shows (not an app, not an overlay): the status icon */
+    /* the watch face is what shows (not an app, not an overlay) */
     property bool onFace: false
     /* the launcher turns its screen over 180 degrees for a crown on the left
      * (none does today): the crown is on the right again then */
@@ -58,7 +59,6 @@ Item {
     // when the lock was last turned off by the crown (KeyRouter: the rest of that hold is not a press)
     property real exitedAt: -1e9
     readonly property bool crownOnRight: Sys.crownOnRight(wrist.value, displayRotated)
-    readonly property alias statusIcon: statusDisc
     readonly property alias exitView: hintView
 
     // turned on, by any way
@@ -198,29 +198,8 @@ Item {
         mouseEnabled: true
     }
 
-    /* the status icon, as the other status indicators (36 px black disc at 85 %, top centre) */
-    Rectangle {
-        id: statusDisc
-        objectName: "touchLockStatus"
-        width: Theme.size.statusIcon
-        height: width
-        radius: width / 2
-        color: "#000000"
-        opacity: 0.85
-        anchors.horizontalCenter: parent.horizontalCenter
-        y: Theme.dp(3)
-        visible: touchLock.locked && touchLock.onFace && !hintView.visible
-        Icon {
-            anchors.centerIn: parent
-            width: parent.width * 0.6
-            height: width
-            name: "ms-screen_lock_portrait"
-            color: Theme.color.onSurface
-        }
-        Accessible.role: Accessible.StaticText
-        //% "Touch lock on"
-        Accessible.name: qsTrId("id-touch-lock-on")
-    }
+    /* the status icon is the face's: the 'wet-touch' status of the bottom row (home/FaceOverlayRow,
+     * N61-17), the touch-lock glyph like the other status icons */
 
     /* the exit view */
     Rectangle {

@@ -5,25 +5,16 @@
 
 .pragma library
 
-/* The face chip of the ongoing activities (W2-launcher-status; audit
- * status-indicators-12, -13, alarms-timers-stopwatch-32, media-controls-17):
- * its text, its timer parts, its icon and its size. The registry (C++,
- * src/ongoingregistry.h) orders the entries; this is what the chip shows of
- * the first. Stock: the Live Space of SysUI (mzr.java:226-262, mzw.java
+/* The ongoing activities (W2-launcher-status; audit status-indicators-12, -13,
+ * alarms-timers-stopwatch-32, media-controls-17): their text, their timer parts
+ * and their icon. The registry (C++, src/ongoingregistry.h) orders the entries;
+ * the face's bottom row shows the first one's icon (LiveSpace, N61-17: icon
+ * only, as the Wear OS 6 emulator), the stream's live chips (LiveChips) the
+ * text. Stock: the Live Space of SysUI (mzr.java:226-262, mzw.java
  * StatusTransformer, dji.java:308-327, myx.java:22-38). */
 
-// $ST VALUES.tsv sysui live_space_height 32dp, live_space_bottom_padding 8dp; the icon 18 dp
-// (overlay_icon_size); the tap target at least 60 dp tall (overlay_icon_min_tap_target_height)
-var HEIGHT_DP = 32
-var BOTTOM_DP = 8
+// the icon 18 dp (overlay_icon_size)
 var ICON_DP = 18
-var TAP_MIN_DP = 60
-// the expanded chip is at most this share of the screen's chord at its middle (our design)
-var MAX_CHORD = 0.7
-// the transitions of the chip: 250 ms (the Live Space code holds a 250 ms duration, mzg.java:33)
-var TRANSITION_MS = 250
-// our own look: black at 70 % behind the icon
-var BACKDROP_OPACITY = 0.7
 
 var DEFAULT_ICON = {
     call: "ms-call",
@@ -97,13 +88,8 @@ function text(e, nowMs) {
     return e.when > 0 ? timerText(e, nowMs) : ""
 }
 
-// expanded when the entry has something to say (dji.java:308-327)
-function expanded(e, nowMs) {
-    return text(e, nowMs) !== ""
-}
-
 /* Milliseconds until the text changes next, Infinity when it does not (a paused timer, "Now", no time):
- * the chip arms one single-shot timer for that, never polls. */
+ * a live chip arms one single-shot timer for that, never polls. */
 function nextChangeMs(e, nowMs) {
     if (!e || !(e.when > 0))
         return Infinity
@@ -137,16 +123,7 @@ function description(e) {
     return "Ongoing " + (e && e.title ? e.title : "") + " running in the background"
 }
 
-// the always-on layout key of the chip: the entry and its icon, never the text (the hub draws icon only)
+// the always-on layout key of the face's icon: the entry and its icon, never the text
 function chipKey(e) {
     return e && e.key ? e.key + "|" + staticIcon(e) : ""
-}
-
-/* The most the expanded chip may be wide: MAX_CHORD of the screen's chord at the chip's middle height.
- * screenPx the screen's width, middleFromBottomPx the chip's middle above the screen's bottom. */
-function maxWidth(screenPx, middleFromBottomPx) {
-    var r = screenPx / 2
-    var dy = r - middleFromBottomPx
-    var chord = 2 * Math.sqrt(Math.max(0, r * r - dy * dy))
-    return MAX_CHORD * chord
 }

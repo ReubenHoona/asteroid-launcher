@@ -6,29 +6,84 @@
 .pragma library
 
 /* The face status icon (W2-launcher-status; audit status-indicators-01, -03,
- * -04, -22): which of the 16 status types shows, its icon and words, and how
- * a change animates. Pure rules: StatusSources.qml feeds them the state,
- * FaceStatusIcon.qml draws the result. Stock CP3A SysUI, "system tray":
+ * -04, -22): which of the 16 status types shows, its icon and words. Pure
+ * rules: StatusSources.qml feeds them the state, FaceStatusIcon.qml draws the
+ * result in the face's bottom row. Stock CP3A SysUI, "system tray":
  * jpb.java:62-115 (icon and words of each type), ilb.java:38 (priority map,
  * ascending, index 0 wins), naf.java:24-45 (the first active type; "Device is
- * locked" first), nae.java:24,76-140 and assets/system_tray.css (the fades). */
+ * locked" first).
+ *
+ * The bottom row (N61-17, the look of the Wear OS 6 emulator, BP2A): the
+ * face's overlays are one row at 6 o'clock, the same awake and always-on:
+ * the ongoing activity's icon, the unread dot, the status icon, left to
+ * right, only the visible ones counted and centred as a group on an arc, over
+ * one black band at 70 % (FaceOverlayRow.qml). Measured on the emulator's
+ * screens S01, S02, X-face-ongoing-stopwatch(-6s), X-face-ongoing-plus-unread,
+ * X-ambient-ongoing-plus-unread, X-face-charging(-dnd), X-face-airplane. */
 
 // ilb.java:38: index 0 wins
 var ORDER = ["thermal", "wet", "mic", "location", "safety", "screenLock", "charging", "airplane",
              "btOff", "lteDisconnected", "phoneDisconnected", "bedtime", "theater", "dnd",
              "batterySaver", "batteryLow"]
 
-// assets/system_tray.css: .fade-in 0.35 s, .fade-out 0.15 s; nae.java:24 the replacement's fade-in
-// starts 350 ms after the change (begin "custom+0.35")
-var FADE_IN_MS = 350
-var FADE_OUT_MS = 150
-var REPLACE_DELAY_MS = 350
-// cubic-bezier(0.0, 0.0, 0.0, 1.0) and cubic-bezier(0.3, 0.0, 1.0, 1.0) as Easing.BezierSpline
-var FADE_IN_CURVE = [0, 0, 0, 1, 1, 1]
-var FADE_OUT_CURVE = [0.3, 0, 1, 1, 1, 1]
-// .status-icon: y 1dp, 18 x 18 dp
-var TOP_DP = 1
-var SIZE_DP = 18
+// ---- the bottom row (N61-17) -------------------------------------------------------------------
+// One slot is 18 dp (36 px): the status glyph's box, the ongoing icon's box, the dot's place. The
+// slots' centres lie on a circle about the screen's centre, 11.5 dp inside the edge (radius 169 px
+// on the 384 px screen: a single slot is centred at pixel 191.5, 360.5), 36 px of arc apart.
+var ROW_SLOT_DP = 18
+var ROW_EDGE_DP = 11.5
+// the unread dot: a 6 dp (12 px) white disc (S01, S02: x 186-197, y 355-366)
+var ROW_DOT_DP = 6
+// the band: an arc stroke 21 dp (42 px) thick on the slots' circle (y 340-382 at 6 o'clock) with
+// round caps; between the cap centres it runs n slots less half its thickness (n * 36 - 21 px), so
+// it is 57 x 42 px for one slot, 93 for two, 129 for three. Black at 178/255 (the face under it
+// reads 0.30 of its value: a numeral's 255 reads 69-77)
+var ROW_BAND_DP = 21
+var ROW_BAND_OPACITY = 0.7
+// a slot shows and goes with opacity and scale 0 <-> 1, its neighbours slide to their new places
+// and the band follows, in 300 ms FastOutSlowIn (the legacy overlay's; no capture contradicts it);
+// nothing moves in the always-on screen
+var ROW_MS = 300
+var ROW_CURVE = [0.4, 0, 0.2, 1, 1, 1]
+// the ongoing icon's tap target: at least 60 dp (120 px) square, centred on its slot
+// (overlay_icon_min_tap_target_height)
+var ROW_TAP_MIN_DP = 60
+
+// The slots shown, left to right: the ongoing activity, the unread dot, the status icon
+function rowSlots(ongoing, dot, status) {
+    var out = []
+    if (ongoing)
+        out.push("ongoing")
+    if (dot)
+        out.push("dot")
+    if (status)
+        out.push("status")
+    return out
+}
+
+/* Slot i of n: its angle in radians from 6 o'clock along the slots' circle (negative to the left,
+ * towards 9 o'clock), the group centred: slotPx of arc apart on a circle of radiusPx. */
+function rowAngle(i, n, slotPx, radiusPx) {
+    return radiusPx > 0 ? (i - (n - 1) / 2) * slotPx / radiusPx : 0
+}
+
+// The centre of a slot at that angle on the circle of radiusPx about (cx, cy); the slot stays upright
+function rowPoint(angle, cx, cy, radiusPx) {
+    return { x: cx + radiusPx * Math.sin(angle), y: cy + radiusPx * Math.cos(angle) }
+}
+
+// The band's sweep in degrees for n slots: n slots of arc less half the band's thickness between the
+// centres of its round caps (0 for no slot)
+function bandSweepDeg(n, slotPx, bandPx, radiusPx) {
+    if (n <= 0 || radiusPx <= 0)
+        return 0
+    return Math.max(0, n * slotPx - bandPx / 2) / radiusPx * 180 / Math.PI
+}
+
+// The band's length end to end along its middle, caps included (57, 93, 129 px for 1, 2, 3 slots)
+function bandLength(n, slotPx, bandPx) {
+    return n > 0 ? n * slotPx + bandPx / 2 : 0
+}
 
 // the battery low level when no auto Battery Saver level is set (ojn.java flag 45385279 default 10)
 var LOW_BATTERY_DEFAULT = 10
@@ -36,8 +91,8 @@ var LOW_BATTERY_DEFAULT = 10
 var ICON_DIR = "file:///usr/share/icons/asteroid/"
 
 // the words (w2_status_* of the stock strings) and the icon of each type; the eos-status-* SVGs are
-// W2-meta-icons-fonts' (an 18 dp black disc at 85 % and the glyph). Touch lock draws its own disc
-// (system/TouchLock.qml): the tray holds the slot for it and draws nothing.
+// the bare white glyphs of WO-61-M1 (no disc of their own: the row's band is the only backdrop).
+// Touch lock and Water lock share the "wet" type; touch lock has its own glyph (eos-status-touchlock).
 var INFO = {
     thermal:           { icon: "eos-status-thermal",            words: "Watch is warm" },
     wet:               { icon: "eos-status-waterlock",          words: "Water lock on" },
@@ -110,16 +165,21 @@ function current(active) {
     return ""
 }
 
-// What fills the slot: the type, the wet kinds apart ("wet-touch" has no icon here)
+// What fills the slot: the type, the wet kinds apart
 function slotKey(type, wetKind) {
     if (type === "wet")
         return wetKind === "water" ? "wet-water" : "wet-touch"
     return type
 }
 
+// the glyph of the touch lock (WO-61-M1): it is a status icon of the row like the others
+var TOUCH_LOCK_ICON = "eos-status-touchlock"
+
 function iconSource(key) {
-    if (key === "" || key === "wet-touch")
+    if (key === "")
         return ""
+    if (key === "wet-touch")
+        return ICON_DIR + TOUCH_LOCK_ICON + ".svg"
     var info = INFO[key === "wet-water" ? "wet" : key]
     return info && info.icon !== "" ? ICON_DIR + info.icon + ".svg" : ""
 }
@@ -132,9 +192,8 @@ function words(key) {
     return info ? info.words : ""
 }
 
-/* How the slot changes from `prev` to `next` (nae.java:76-140): none, show (first icon: fade in 350 ms),
- * hide (last icon: fade out 150 ms, then display none), replace (the old one fades out in 150 ms, the
- * new one fades in over 350 ms starting 350 ms after the change). */
+/* How the slot changes from `prev` to `next`: none, show (the row brings the slot in), hide (the row
+ * takes it out), replace (the slot stays; the old glyph gives way to the new one in ROW_MS). */
 function transition(prev, next) {
     if (prev === next)
         return "none"
@@ -145,9 +204,9 @@ function transition(prev, next) {
     return "replace"
 }
 
-/* What the always-on screen's layout needs to know: the sensor hub draws the face with the icons
- * as the AP drew them at the last update, so a change of this is a change of that layout
- * (ambient-aod-18). The icons are static and at full opacity there. */
+/* What the always-on screen's layout needs to know: the sensor hub draws the face with the row
+ * as the AP drew it at the last update (its background picture), so a change of this is a change
+ * of that layout (ambient-aod-18). The row is static and at full opacity there. */
 function ambientKey(statusKey, chipKey) {
     return (statusKey !== "" ? "s:" + statusKey : "") + (chipKey !== "" ? "|c:" + chipKey : "")
 }

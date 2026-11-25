@@ -226,6 +226,7 @@ set(QML_FILES
 	qml/home/StatusSources.qml
 	qml/home/FaceStatusIcon.qml
 	qml/home/LiveSpace.qml
+	qml/home/FaceOverlayRow.qml
 	qml/home/OngoingFeed.qml
 	qml/home/MediaOngoing.qml
 	qml/home/LiveChips.qml
@@ -425,6 +426,7 @@ set_source_files_properties(qml/home/ongoing.js                   PROPERTIES QT_
 set_source_files_properties(qml/home/StatusSources.qml            PROPERTIES QT_RESOURCE_ALIAS home/StatusSources.qml)
 set_source_files_properties(qml/home/FaceStatusIcon.qml           PROPERTIES QT_RESOURCE_ALIAS home/FaceStatusIcon.qml)
 set_source_files_properties(qml/home/LiveSpace.qml                PROPERTIES QT_RESOURCE_ALIAS home/LiveSpace.qml)
+set_source_files_properties(qml/home/FaceOverlayRow.qml           PROPERTIES QT_RESOURCE_ALIAS home/FaceOverlayRow.qml)
 set_source_files_properties(qml/home/OngoingFeed.qml              PROPERTIES QT_RESOURCE_ALIAS home/OngoingFeed.qml)
 set_source_files_properties(qml/home/MediaOngoing.qml             PROPERTIES QT_RESOURCE_ALIAS home/MediaOngoing.qml)
 set_source_files_properties(qml/home/LiveChips.qml                PROPERTIES QT_RESOURCE_ALIAS home/LiveChips.qml)

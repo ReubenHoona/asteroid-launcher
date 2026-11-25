@@ -6,229 +6,155 @@
 import QtQuick
 import org.asteroid.controls
 import "ongoing.js" as Ongoing
+import "status.js" as Status
 
-/* The face chip of the ongoing activities, stock's Live Space ("At A Glance"; W2-launcher-status,
- * audit status-indicators-12, -13, alarms-timers-stopwatch-32, media-controls-17): a pill at the
- * bottom of the face for the first entry of the registry. Height 32 dp, 8 dp above the screen
- * edge (live_space_height, live_space_bottom_padding). Collapsed it is the 18 dp icon; expanded,
- * when the entry has text (a status, a timer part, a duration), the icon and one line of text.
- * Tap runs the entry's touch, a long press asks to turn the app's live updates off (the menu is
- * LiveSpaceMenu). Our own look: black at 70 % behind it (the stock geometry file is not in the
- * firmware we have), the expanded chip at most 70 % of the screen chord at its height.
+/* The face's ongoing activity indicator, stock's Live Space (W2-launcher-status, audit
+ * status-indicators-12, -13, alarms-timers-stopwatch-32, media-controls-17), for the first entry of
+ * the registry: since N61-17 the first slot of the face's bottom row (FaceOverlayRow), as the Wear OS
+ * 6 emulator draws it (X-face-ongoing-stopwatch, -6s, X-face-ongoing-plus-unread,
+ * X-ambient-ongoing-plus-unread): the bare white 18 dp static icon (stopwatch 28 x 32 px), never
+ * expanded: no pill, no text, also while a stopwatch runs. The row's band is its only backdrop, the
+ * row brings the slot in and out. Tap runs the entry's touch, a long press opens the live update's
+ * menu (LiveMenu); the tap target is at least 60 dp square, centred on the icon.
  *
- * Battery (M1): interactive (the display on, not ambient): the animated icon loops, the
- * text's timer part ticks with one single-shot timer armed for the next change, the
- * transitions run (250 ms). Ambient: the static icon only, no text, no timer, no animation;
- * the sensor hub draws what the AP drew last (StatusSlot.ambientIconsKey says when that
- * changes). `entry` is the registry's top ({} none); nothing here polls it. */
+ * Battery (M1): interactive (the display on, not ambient): an animated icon loops; nothing else runs,
+ * no timer. Ambient: the static icon only; the sensor hub draws what the AP drew last
+ * (StatusSlot.ambientIconsKey says when that changes). `entry` is the registry's top ({} none);
+ * nothing here polls it. */
 Item {
     id: chip
     objectName: "liveSpaceRoot"
 
-    // the registry's first entry ({key, app, title, category, icon, staticIcon, status, when, ...})
+    // the registry's first entry ({key, app, title, category, icon, staticIcon, ...})
     property var entry: ({})
     property bool interactive: true
-    // the user chose "Icon only" for this app (the long press menu's Show on watch face)
-    property bool iconOnly: false
-    // the clock, for the tests
-    property var clock: function () { return Date.now() }
-    property real now: 0
+    // the row's slot of this icon is shown (its appear above 0): a change of entry then gives way in
+    // ROW_MS; else it is at once
+    property bool present: false
 
     signal tapped(string key, string app)
     signal menuRequested(string key, string app, string title)
 
-    // what the chip holds while a change runs (the entry it fades away from)
+    // the entry drawn: it stays while the row takes the slot out
     property var shown: ({})
-    readonly property bool present: shown && shown.key !== undefined && shown.key !== ""
-    readonly property bool wanted: entry && entry.key !== undefined && entry.key !== ""
+    readonly property bool wanted: isSet(entry)
     readonly property bool animated: interactive && Motion.animationScale > 0
-    readonly property bool expanded: interactive && present && !iconOnly && Ongoing.expanded(shown, now)
-    readonly property string label: present ? Ongoing.text(shown, now) : ""
-    readonly property string iconName: present ? Ongoing.staticIcon(shown) : ""
+    readonly property string iconName: isSet(shown) ? Ongoing.staticIcon(shown) : ""
     //% "Ongoing %1 running in the background"
-    readonly property string description: present ? qsTrId("id-ongoing-description").arg(shown.title || "") : ""
+    readonly property string description: isSet(shown) ? qsTrId("id-ongoing-description").arg(shown.title || "") : ""
     // what the always-on layout needs: the entry and its icon, never the text
     readonly property string ambientKey: wanted ? Ongoing.chipKey(entry) : ""
-    readonly property alias pill: pill
-    readonly property alias ticker: tick
-    readonly property alias introAnim: changeIn
+    // where an app launched from the icon grows from (OngoingFeed.launchFrom)
+    readonly property alias pill: iconBox
+    readonly property alias replaceAnim: replace
 
-    readonly property real pillHeight: Theme.dp(Ongoing.HEIGHT_DP)
-    readonly property real bottomGap: Theme.dp(Ongoing.BOTTOM_DP)
-    readonly property real iconSize: Theme.dp(Ongoing.ICON_DP)
-    readonly property real maxPillWidth: Ongoing.maxWidth(parent ? parent.width : Theme.dp(192) * 2,
-                                                          bottomGap + pillHeight / 2)
+    width: Theme.dp(Status.ROW_SLOT_DP)
+    height: width
 
-    // the tap target is at least 60 dp tall (overlay_icon_min_tap_target_height)
-    width: Math.max(pill.width, Theme.dp(Ongoing.TAP_MIN_DP))
-    height: Theme.dp(Ongoing.TAP_MIN_DP)
-    anchors.bottom: parent ? parent.bottom : undefined
-    anchors.horizontalCenter: parent ? parent.horizontalCenter : undefined
-    visible: present
+    function isSet(e) { return e !== undefined && e !== null && e.key !== undefined && e.key !== "" }
 
-    // ---- what is shown follows the entry: intro, replace, update, exit ----
+    // ---- what is drawn follows the entry ----
     onEntryChanged: follow()
-    // (read from the objects themselves: the bindings of wanted and present may not have run yet
-    // when the change handler does)
-    function isSet(e) { return e && e.key !== undefined && e.key !== "" }
     function follow() {
-        var want = isSet(entry), have = isSet(shown)
-        var next = want ? entry : ({})
-        var same = have && want && shown.key === entry.key
-        if (!animated || same) {
-            changeOut.stop(); changeIn.stop(); exitOut.stop()
-            shown = next
-            fade = want ? 1 : 0
+        // no entry: the row takes the slot out, the last icon stays drawn meanwhile
+        if (!isSet(entry))
+            return
+        var swap = isSet(shown) && shown.key !== entry.key
+        if (swap && animated && present) {
+            old.entry = shown
+            shown = entry
+            replace.restart()
             return
         }
-        if (!want) {
-            // exit: fade away, then nothing
-            changeIn.stop(); changeOut.stop()
-            exitOut.restart()
-        } else if (have) {
-            // replace: the old fades out, the new fades in
-            exitOut.stop(); changeIn.stop()
-            changeOut.restart()
-        } else {
-            // intro: the first one fades in
-            exitOut.stop(); changeOut.stop()
-            shown = next
-            fade = 0
-            changeIn.restart()
+        if (swap) {
+            replace.stop()
+            _p = 1
         }
+        // a new entry, or the same one updated: at once
+        shown = entry
     }
-    property real fade: 0
-    SequentialAnimation {
-        id: changeOut
-        NumberAnimation { target: chip; property: "fade"; to: 0; duration: Motion.duration(Ongoing.TRANSITION_MS)
-                          easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.standard }
-        ScriptAction { script: chip.shown = chip.isSet(chip.entry) ? chip.entry : ({}) }
-        NumberAnimation { target: chip; property: "fade"; to: 1; duration: Motion.duration(Ongoing.TRANSITION_MS)
-                          easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.standard }
+    // the display went off or ambient with a change running: it is over, at once
+    onAnimatedChanged: if (!animated) {
+        replace.stop()
+        _p = 1
     }
+    Component.onCompleted: follow()
+
+    // the replacement's progress: the old icon goes (opacity and scale 1 -> 0), the new one comes
+    property real _p: 1
     NumberAnimation {
-        id: changeIn
-        target: chip; property: "fade"; to: 1; duration: Motion.duration(Ongoing.TRANSITION_MS)
-        easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.standard
-    }
-    SequentialAnimation {
-        id: exitOut
-        NumberAnimation { target: chip; property: "fade"; to: 0; duration: Motion.duration(Ongoing.TRANSITION_MS)
-                          easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.standard }
-        ScriptAction { script: if (!chip.isSet(chip.entry)) chip.shown = ({}) }
-    }
-    // the display went off or ambient: a change running is over at once, the icon at full opacity
-    onAnimatedChanged: if (!animated) follow()
-
-    // ---- the text's timer part: one single-shot timer for the next change ----
-    onShownChanged: { now = clock(); arm() }
-    onInteractiveChanged: { if (interactive) now = clock(); arm() }
-    onVisibleChanged: arm()
-    function arm() {
-        var ms = Ongoing.nextChangeMs(shown, now)
-        if (interactive && visible && present && isFinite(ms)) {
-            tick.interval = Math.max(1, Math.ceil(ms))
-            tick.restart()
-        } else {
-            tick.stop()
-        }
-    }
-    Timer {
-        id: tick
-        repeat: false
-        onTriggered: { chip.now = chip.clock(); chip.arm() }
-    }
-    Component.onCompleted: { now = clock(); follow() }
-
-    // ---- the pill ----
-    Rectangle {
-        id: pill
-        objectName: "liveSpace"
-        anchors.bottom: parent.bottom
-        anchors.bottomMargin: chip.bottomGap
-        anchors.horizontalCenter: parent.horizontalCenter
-        height: chip.pillHeight
-        radius: height / 2
-        color: "#000000"
-        opacity: Ongoing.BACKDROP_OPACITY * chip.fade
-        // the content width: 12 dp, the icon, 4 dp, the text, 8 dp
-        readonly property real contentWidth: Theme.dp(12) + chip.iconSize + Theme.dp(4) + liveText.implicitWidth + Theme.dp(8)
-        width: chip.expanded ? Math.min(contentWidth, chip.maxPillWidth) : height
-        Behavior on width {
-            enabled: chip.animated
-            NumberAnimation { duration: Motion.duration(Ongoing.TRANSITION_MS)
-                              easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.standard }
-        }
-        clip: true
+        id: replace
+        target: chip
+        property: "_p"
+        from: 0
+        to: 1
+        duration: Motion.duration(Status.ROW_MS)
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: Status.ROW_CURVE
     }
 
-    // the icon and the text sit over the backdrop with the chip's own fade (not the 70 %)
-    Item {
-        id: content
-        objectName: "liveContent"
-        anchors.fill: pill
-        opacity: chip.fade
-
-        // 18 dp icon, centred when collapsed, 12 dp from the start when expanded
-        Item {
-            id: iconBox
-            objectName: "liveIcon"
-            width: chip.iconSize
-            height: width
-            anchors.verticalCenter: parent.verticalCenter
-            x: chip.expanded ? Theme.dp(12) : (parent.width - width) / 2
-            Behavior on x {
-                enabled: chip.animated
-                NumberAnimation { duration: Motion.duration(Ongoing.TRANSITION_MS)
-                                  easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.standard }
-            }
-
-            // the animated icon plays only while the screen is on and the chip is seen
-            readonly property bool animatedOn: chip.interactive && chip.present && Ongoing.isFile(chip.shown.icon)
-            Icon {
-                anchors.fill: parent
-                visible: !iconBox.animatedOn && !Ongoing.isFile(chip.iconName)
-                name: Ongoing.isFile(chip.iconName) ? "" : chip.iconName
-                color: "#ffffff"
-            }
-            Image {
-                anchors.fill: parent
-                visible: !iconBox.animatedOn && Ongoing.isFile(chip.iconName)
-                source: Ongoing.isFile(chip.iconName) ? chip.iconName : ""
-                sourceSize: Qt.size(width, height)
-                fillMode: Image.PreserveAspectFit
-            }
-            AnimatedImage {
-                objectName: "liveAnimatedIcon"
-                anchors.fill: parent
-                visible: iconBox.animatedOn
-                source: iconBox.animatedOn ? chip.shown.icon : ""
-                fillMode: Image.PreserveAspectFit
-                playing: iconBox.animatedOn && chip.visible
-            }
-        }
-
-        Label {
-            id: liveText
-            objectName: "liveText"
-            visible: chip.expanded
-            anchors.verticalCenter: parent.verticalCenter
-            x: Theme.dp(12) + chip.iconSize + Theme.dp(4)
-            width: Math.max(0, content.width - x - Theme.dp(8))
-            text: chip.label
-            role: "titleSmall"
+    // one entry's icon: its static icon by name or file, or its animated file while animatedOn
+    component LiveIcon: Item {
+        id: li
+        property var entry: ({})
+        property bool animatedOn: false
+        readonly property string name: entry && entry.key ? Ongoing.staticIcon(entry) : ""
+        anchors.fill: parent
+        Icon {
+            anchors.fill: parent
+            visible: !li.animatedOn && li.name !== "" && !Ongoing.isFile(li.name)
+            name: Ongoing.isFile(li.name) ? "" : li.name
             color: "#ffffff"
-            maximumLineCount: 1
-            elide: Text.ElideRight
-            font.features: { "tnum": 1 }
         }
+        Image {
+            anchors.fill: parent
+            visible: !li.animatedOn && Ongoing.isFile(li.name)
+            source: Ongoing.isFile(li.name) ? li.name : ""
+            sourceSize: Qt.size(width, height)
+            fillMode: Image.PreserveAspectFit
+        }
+        AnimatedImage {
+            objectName: "liveAnimatedIcon"
+            anchors.fill: parent
+            visible: li.animatedOn
+            source: li.animatedOn ? li.entry.icon : ""
+            fillMode: Image.PreserveAspectFit
+            playing: li.animatedOn && li.visible
+        }
+    }
+
+    // the icon, 18 dp, white
+    Item {
+        id: iconBox
+        objectName: "liveIcon"
+        anchors.fill: parent
+        opacity: chip._p
+        scale: chip._p
+        // the animated icon plays only while the screen is on
+        LiveIcon {
+            entry: chip.shown
+            animatedOn: chip.interactive && chip.isSet(chip.shown) && Ongoing.isFile(chip.shown.icon)
+        }
+    }
+    // the icon it gives way to (only while a replacement runs)
+    Item {
+        id: old
+        objectName: "liveIconFading"
+        property var entry: ({})
+        anchors.fill: parent
+        visible: replace.running
+        opacity: 1 - chip._p
+        scale: 1 - chip._p
+        LiveIcon { entry: old.entry }
     }
 
     MouseArea {
         id: touch
         objectName: "liveTap"
-        anchors.fill: parent
-        enabled: chip.present && chip.wanted
+        anchors.centerIn: parent
+        width: Math.max(parent.width, Theme.dp(Status.ROW_TAP_MIN_DP))
+        height: Math.max(parent.height, Theme.dp(Status.ROW_TAP_MIN_DP))
+        enabled: chip.wanted && chip.isSet(chip.shown)
         onClicked: chip.tapped(chip.shown.key, chip.shown.app || "")
         onPressAndHold: chip.menuRequested(chip.shown.key, chip.shown.app || "", chip.shown.title || "")
     }

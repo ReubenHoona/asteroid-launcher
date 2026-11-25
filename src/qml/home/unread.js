@@ -97,19 +97,3 @@ function prune(read, items) {
             out[k] = read[k]
     return out
 }
-
-// the bar's geometry (nai.java:33-58, overlay.css): a segment of the screen's edge circle at 6 o'clock
-var BAR_STROKE_DP = 4      // arc-width 4dp, round caps
-var BAR_LENGTH_DP = 16     // 16 dp end to end, caps included
-var BAR_REST_DP = 2        // y = 100% - 2dp at rest
-var BAR_SLIDE_DP = 5       // from 100% + 3dp: 5 dp up
-var BAR_SLIDE_MS = 500     // cubic-bezier(0, 0, 0, 1)
-var PILL_W_DP = 32, PILL_H_DP = 8, PILL_OPACITY = 0.8, PILL_BELOW_DP = 2
-
-/* The sweep in degrees of a bar `lengthPx` long with `strokePx` caps on a circle `screenPx` across: the
- * chord between the cap centres, 2 * atan(((length - stroke) / 2) / radius) (nai.java:41-44; 7.2 degrees
- * on the 192 dp screen). */
-function barSweepDeg(screenPx, lengthPx, strokePx) {
-    var radius = screenPx / 2
-    return 2 * Math.atan(((lengthPx - strokePx) / 2) / radius) * 180 / Math.PI
-}

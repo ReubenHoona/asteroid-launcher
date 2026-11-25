@@ -7,25 +7,26 @@ import QtQuick
 import org.asteroid.controls
 import "status.js" as Status
 
-/* The face status icon (W2-launcher-status; audit status-indicators-01, -04): one
- * 18 x 18 dp icon at the top centre, 1 dp from the edge, the one type StatusSources
- * says (stock "system tray", assets/system_tray.css, nae.java:24,76-140).
- *   first icon     fades in over 350 ms, cubic-bezier(0, 0, 0, 1);
- *   last icon gone fades out over 150 ms, cubic-bezier(0.3, 0, 1, 1), then display none;
- *   replacement    the old icon (a second image) fades out in 150 ms, the new one fades in
- *                  over 350 ms starting 350 ms after the change.
- * Animated only while `interactive` (the display is on and not ambient, animations on);
- * otherwise the change is at once, at full opacity: the always-on screen has no
- * animation, and a change that comes while the sensor hub draws waits for the next draw
- * anyway. Nothing runs when nothing changes. */
+/* The face status icon (W2-launcher-status; audit status-indicators-01, -04): the one type
+ * StatusSources says (stock "system tray", jpb.java, naf.java). Since N61-17 it is the last slot of
+ * the face's bottom row (FaceOverlayRow), as the Wear OS 6 emulator draws it (X-face-charging,
+ * X-face-charging-dnd, X-face-airplane): a bare white 18 dp glyph (the eos-status-* files of
+ * WO-61-M1, no disc of their own; the charging bolt 20 x 32 px), one at a time. The row places it
+ * and brings it in and out; here only a change from one glyph to another: the old one gives way
+ * (opacity and scale 1 -> 0) as the new one comes (0 -> 1) in ROW_MS, while the slot is shown and
+ * `animated` (the display on, not ambient, animations on); otherwise at once. A slot going away keeps
+ * its glyph while the row takes it out. Nothing runs when nothing changes. */
 Item {
     id: tray
+    objectName: "faceStatusIcon"
 
     // the slot's content (Status.slotKey of StatusSources)
     property string slotKey: ""
-    property bool interactive: true
+    property bool animated: false
+    // the row's slot of this icon is shown (its appear above 0)
+    property bool present: false
 
-    // what the slot holds now (the target of the running change)
+    // what the slot holds now (the target of a running change)
     readonly property string shownKey: _held
     // the words of the icon (the stock w2_status_* strings), translated
     readonly property var wordsTable: ({
@@ -33,6 +34,7 @@ Item {
         "thermal": qsTrId("id-status-thermal"),
         //% "Water lock on"
         "wet-water": qsTrId("id-status-water-lock"),
+        //% "Touch lock on"
         "wet-touch": qsTrId("id-touch-lock-on"),
         //% "Microphone on"
         "mic": qsTrId("id-status-mic"),
@@ -66,25 +68,18 @@ Item {
     readonly property string description: _held !== "" && wordsTable[_held] !== undefined ? wordsTable[_held] : ""
     readonly property alias mainIcon: main
     readonly property alias crossIcon: cross
-    // the animations, for the tests
-    readonly property alias fadeInAnim: fadeIn
-    readonly property alias fadeOutAnim: fadeOut
-    readonly property alias crossOutAnim: crossOut
-    readonly property alias replaceInAnim: replaceIn
-    readonly property bool animating: fadeIn.running || fadeOut.running || crossOut.running || replaceIn.running
-    readonly property bool animated: interactive && Motion.animationScale > 0
+    // the replacement, for the tests
+    readonly property alias replaceAnim: replace
+    readonly property bool animating: replace.running
 
-    // y 1 dp from the top edge, 18 dp square, centred
-    width: Theme.dp(Status.SIZE_DP)
+    // the slot's box: 18 dp square
+    width: Theme.dp(Status.ROW_SLOT_DP)
     height: width
-    x: parent ? (parent.width - width) / 2 : 0
-    y: Theme.dp(Status.TOP_DP)
-    // (the images are shown by these two flags: a child is only visible when its parent is)
-    property bool _mainOn: false
-    property bool _crossOn: false
-    visible: _mainOn || _crossOn
 
     property string _held: ""
+    property string _old: ""
+    // the replacement's progress
+    property real _p: 1
 
     component Glyph: Image {
         anchors.fill: parent
@@ -92,113 +87,57 @@ Item {
         fillMode: Image.PreserveAspectFit
         asynchronous: false
         cache: true
-        visible: false
-        opacity: 0
     }
-    Glyph { id: main; objectName: "statusIcon"; visible: tray._mainOn }
-    Glyph { id: cross; objectName: "statusIconFading"; visible: tray._crossOn }
+    Glyph {
+        id: main
+        objectName: "statusIcon"
+        source: Status.iconSource(tray._held)
+        visible: tray._held !== ""
+        opacity: tray._p
+        scale: tray._p
+    }
+    Glyph {
+        id: cross
+        objectName: "statusIconFading"
+        source: replace.running ? Status.iconSource(tray._old) : ""
+        visible: replace.running
+        opacity: 1 - tray._p
+        scale: 1 - tray._p
+    }
 
     function settle() {
         var next = slotKey
-        if (next === _held)
+        // nothing, or the slot goes: the glyph stays while the row takes the slot out
+        if (next === "" || next === _held)
             return
-        var kind = Status.transition(_held, next)
-        var old = _held
+        if (Status.transition(_held, next) === "replace" && animated && present) {
+            _old = _held
+            _held = next
+            replace.restart()
+            return
+        }
+        replace.stop()
+        _p = 1
         _held = next
-        stopAll()
-        if (!animated || kind === "none") {
-            apply(next)
-            return
-        }
-        switch (kind) {
-        case "show":
-            main.source = Status.iconSource(next)
-            main.opacity = 0
-            _mainOn = true
-            fadeIn.restart()
-            break
-        case "hide":
-            fadeOut.restart()
-            break
-        case "replace":
-            var oldSource = Status.iconSource(old)
-            cross.source = oldSource
-            cross.opacity = 1
-            _crossOn = oldSource !== ""
-            crossOut.restart()
-            main.source = Status.iconSource(next)
-            main.opacity = 0
-            _mainOn = true
-            replaceIn.restart()
-            break
-        }
-    }
-
-    // the final look, at once
-    function apply(key) {
-        main.source = Status.iconSource(key)
-        main.opacity = key !== "" ? 1 : 0
-        _mainOn = key !== ""
-        _crossOn = false
-        cross.opacity = 0
-    }
-    function stopAll() {
-        fadeIn.stop(); fadeOut.stop(); crossOut.stop(); replaceIn.stop()
     }
 
     onSlotKeyChanged: settle()
     // the display went off or ambient with a change running: it is over, at once
     onAnimatedChanged: if (!animated) {
-        stopAll()
-        apply(_held)
+        replace.stop()
+        _p = 1
     }
     Component.onCompleted: settle()
 
     NumberAnimation {
-        id: fadeIn
-        target: main
-        property: "opacity"
+        id: replace
+        target: tray
+        property: "_p"
+        from: 0
         to: 1
-        duration: Motion.duration(Status.FADE_IN_MS)
+        duration: Motion.duration(Status.ROW_MS)
         easing.type: Easing.BezierSpline
-        easing.bezierCurve: Status.FADE_IN_CURVE
-    }
-    SequentialAnimation {
-        id: fadeOut
-        NumberAnimation {
-            target: main
-            property: "opacity"
-            to: 0
-            duration: Motion.duration(Status.FADE_OUT_MS)
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: Status.FADE_OUT_CURVE
-        }
-        // then display none
-        ScriptAction { script: if (tray._held === "") _mainOn = false }
-    }
-    SequentialAnimation {
-        id: crossOut
-        NumberAnimation {
-            target: cross
-            property: "opacity"
-            to: 0
-            duration: Motion.duration(Status.FADE_OUT_MS)
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: Status.FADE_OUT_CURVE
-        }
-        ScriptAction { script: _crossOn = false }
-    }
-    SequentialAnimation {
-        id: replaceIn
-        PauseAnimation { duration: Motion.duration(Status.REPLACE_DELAY_MS) }
-        NumberAnimation {
-            target: main
-            property: "opacity"
-            to: 1
-            duration: Motion.duration(Status.FADE_IN_MS)
-            easing.type: Easing.BezierSpline
-            easing.bezierCurve: Status.FADE_IN_CURVE
-        }
+        easing.bezierCurve: Status.ROW_CURVE
     }
 
     Accessible.role: Accessible.StaticText
