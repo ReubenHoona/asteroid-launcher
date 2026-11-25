@@ -17,6 +17,7 @@ QtObject {
     signal rowsMoved(var parent, int start, int end, var destination, int row)
 
     function get(i) { return items[i] }
+    function indexOf(n) { return items.indexOf(n) }
     // newest first, as lipstick sorts
     function add(n) {
         var l = items.slice()
