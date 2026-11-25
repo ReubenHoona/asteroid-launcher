@@ -559,10 +559,12 @@ Item {
     // ---- the sources ------------------------------------------------------
 
     // steps so far today (asteroid-sensorlogd's log), against the daily goal
+    // no log for today yet (the morning before the first steps) is 0 steps, as the Steps tile and
+    // stock's step complication show it, not 'no data'
     QtObject {
         id: steps
-        readonly property bool known: stepsLog.hasData
-        readonly property int count: stepsLog.lastValue
+        readonly property bool known: true
+        readonly property int count: stepsLog.hasData ? stepsLog.lastValue : 0
         readonly property int goal: stepsGoal.value
     }
     HealthLog { id: stepsLog; sensor: "stepCounter"; buckets: 1; active: sources.wants("steps") || sources.wants("distance") }
