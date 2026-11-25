@@ -12,14 +12,17 @@
  * hun_window_view.xml, VALUES.tsv default_glanceable_*, hun_*.
  */
 
-// ---- the glanceable (audit heads-up-alerts-01) ----
+// ---- the glanceable (audit heads-up-alerts-01; the Wear OS 6 emulator's look, S09) ----
 var GLANCE = {
-    // the primary icon: 30 dp, its top at 19.6 % of the screen height
+    // the small icon, bare, in a 30 dp box at the start: a Material Symbols glyph's ink (2 of its
+    // 24 units in from the box's edges, 5 px) from 9.9 % of the width and 21.9 % of the height,
+    // (38, 84) px as S09's (ink 37-92 x 83-130)
     iconSize: 60,
-    iconTopFraction: 0.196,
-    // the glyph inside the icon's circle (the stream's 18 / 24 dp ratio)
-    glyphFraction: 0.75,
-    // side padding 9.2 % of the width
+    iconInkInset: 5,
+    iconInkStartFraction: 0.099,
+    iconTopFraction: 0.219,
+    // the title's side padding, 9.2 % of the width: Noto Sans starts its capitals about 4 px in
+    // at 24 sp, so its ink begins at x 39 as S09's
     sidePaddingFraction: 0.092,
     // the title: displayMedium with its size overridden, 24 sp on a 27 sp line, 3 lines
     titleSize: 48,
@@ -29,8 +32,8 @@ var GLANCE = {
     chatTitleSize: 52,
     chatTitleLine: 58,
     chatTitleLines: 2,
-    // 6 dp between the icon and the title
-    titleGap: 12,
+    // between the icon's box and the title's line (1 dp): its capitals' top at y 158 (S09)
+    titleGap: 2,
     // the app name along the bottom edge: arcMedium 15 / 18 sp, 4 dp from the edge
     nameEdge: 8,
     // the picture of a conversation: 104 dp, pill radius 41 dp (one to one);
@@ -195,8 +198,8 @@ function isChat(n) {
     return messages(n).length > 0
 }
 
-/* Title = the newest message for chats, else the text (the body; the title
- * of the notification when it has no body). */
+/* Title = the newest message for chats, else the notification's title (the
+ * emulator, S09: contentTitle, not the text), its text when it has no title. */
 function titleOf(n) {
     if (!n)
         return ""
@@ -205,10 +208,10 @@ function titleOf(n) {
         if (m[i].t !== "")
             return m[i].t
     }
-    var body = n.body !== undefined && n.body !== null ? String(n.body) : ""
-    if (body !== "")
-        return body
-    return n.summary !== undefined && n.summary !== null ? String(n.summary) : ""
+    var summary = n.summary !== undefined && n.summary !== null ? String(n.summary) : ""
+    if (summary !== "")
+        return summary
+    return n.body !== undefined && n.body !== null ? String(n.body) : ""
 }
 
 // the newest message's picture ("" for none)

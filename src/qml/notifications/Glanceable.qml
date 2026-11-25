@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+pragma ComponentBehavior: Bound
+
 import QtQuick
 import org.asteroid.controls
 import ".."
@@ -11,14 +13,18 @@ import "headsup.js" as HU
 /*
  * A new notification on the watch face, full screen (audit heads-up-alerts-01,
  * -08; stock CP3A SysUI fullview_root_view.xml, ksx.java:74-200, 1230-1332,
- * klj.java:68-89): a black round screen; the primary icon (30 dp, 60 px) with
- * its top at 19.6 % of the height; below it, 6 dp on, the title (the newest
- * message of a chat, else the text) 24 sp on a 27 sp line, at most 3 lines,
- * centred in the 9.2 % side padding (a chat: 26 / 29 sp, 2 lines, and the
- * newest picture under it); and the app name along the bottom edge (arcMedium,
- * 4 dp from the edge). The picture of a chat is 104 dp with a pill radius of
- * 41 dp, or 72 dp in a 116 x 96 dp box for a group. px at 384; scaled by
- * width / 384.
+ * klj.java:68-89), in the Wear OS 6 emulator's look (S09, raw/hsheet.png): a
+ * black round screen; the notification's small icon bare and white (no disc)
+ * in a 30 dp (60 px) box at the start, its glyph's ink from 9.9 % of the width
+ * and 21.9 % of the height (a picture file is drawn as it is); under it the
+ * title (the notification's title, else its text; the newest message of a
+ * chat) 24 sp on a 27 sp line, at most 3 lines, start-aligned in the 9.2 %
+ * side padding (its ink from x 39), its capitals' top at y 158 (a chat:
+ * 26 / 29 sp, 2 lines, and the newest picture under it); and the app name
+ * along the bottom edge, bold with no tracking (Noto Sans Bold stands in for
+ * the emulator's heavy rounded face), 4 dp from the edge. The picture of a
+ * chat is 104 dp with a pill radius of 41 dp, or 72 dp in a 116 x 96 dp box
+ * for a group. px at 384; scaled by width / 384.
  *
  * It comes in on springs of damping 1 (ksx.java): the icon, the picture and
  * the title fade in from 10 % of the screen height below (stiffness 260, the
@@ -60,19 +66,16 @@ Item {
     readonly property Timer entryDelay: delay
 
     // the geometry, for the tests
-    readonly property real iconTop: Math.round(HU.GLANCE.iconTopFraction * height)
+    // the icon's box (its glyph's ink starts 5 px in) and the title's side padding
+    readonly property real iconTop: Math.round(HU.GLANCE.iconTopFraction * height) - Math.round(HU.GLANCE.iconInkInset * u)
+    readonly property real iconStart: Math.round(HU.GLANCE.iconInkStartFraction * width) - Math.round(HU.GLANCE.iconInkInset * u)
     readonly property real sidePadding: Math.round(HU.GLANCE.sidePaddingFraction * width)
     readonly property real offset: HU.ENTRY.offsetFraction * height
-    readonly property Item iconItem: iconCircle
+    readonly property Item iconItem: iconBox
     readonly property Item titleItem: titleLabel
     readonly property Item pictureItem: pictureHolder
     readonly property Item nameItem: curvedName
 
-    function accentOf(n) {
-        var h = n && n.hints ? n.hints["x-asteroid-accent-color"] : undefined
-        var c = h ? String(h).replace("#", "") : ""
-        return /^[0-9a-fA-F]{6}$/.test(c) ? "#" + c : Theme.color.primary
-    }
     function iconOf(n) {
         function none(s) { return s === "" || s === null || s === undefined }
         if (!n)
@@ -81,6 +84,9 @@ Item {
         if (!none(n.appIcon)) return n.appIcon
         return "ios-mail-outline"
     }
+    readonly property string iconName: iconOf(notification)
+    // an icon given as a picture file (a path or a URL) rather than a glyph name
+    readonly property bool iconIsFile: iconName.charAt(0) === "/" || iconName.indexOf("file:") === 0
 
     // From the start: everything comes in
     function start() {
@@ -130,32 +136,39 @@ Item {
         color: "#000000"
     }
 
-    // the primary icon
-    Rectangle {
-        id: iconCircle
+    // the small icon at the start (the end in a right-to-left language): a glyph in
+    // onBackground, a picture file as it is; no container
+    Item {
+        id: iconBox
         width: Math.round(HU.GLANCE.iconSize * glance.u)
         height: width
-        radius: width / 2
-        x: (glance.width - width) / 2
+        x: glance.LayoutMirroring.enabled ? glance.width - glance.iconStart - width : glance.iconStart
         y: glance.iconTop + (1 - glance.iconP) * glance.offset
-        color: glance.accentOf(glance.notification)
         opacity: glance.iconP
         scale: HU.ENTRY.iconScaleFrom + (1 - HU.ENTRY.iconScaleFrom) * glance.iconP
         Icon {
-            anchors.centerIn: parent
-            width: Math.round(parent.width * HU.GLANCE.glyphFraction)
-            height: width
-            name: glance.iconOf(glance.notification)
-            color: Theme.color.onPrimary
+            anchors.fill: parent
+            visible: !glance.iconIsFile
+            name: visible ? glance.iconName : ""
+            color: Theme.color.onBackground
+        }
+        Image {
+            anchors.fill: parent
+            visible: glance.iconIsFile
+            source: !visible ? "" : glance.iconName.charAt(0) === "/" ? "file://" + glance.iconName : glance.iconName
+            sourceSize: Qt.size(width, height)
+            fillMode: Image.PreserveAspectFit
+            smooth: true
         }
     }
 
-    // the title, onBackground, centred
+    // the title, onBackground, start-aligned (horizontalAlignment left unset: a
+    // right-to-left text and a mirrored layout align it to the right)
     Label {
         id: titleLabel
         x: glance.sidePadding
         width: glance.width - 2 * glance.sidePadding
-        y: glance.iconTop + iconCircle.height + HU.GLANCE.titleGap * glance.u + (1 - glance.titleP) * glance.offset
+        y: glance.iconTop + iconBox.height + HU.GLANCE.titleGap * glance.u + (1 - glance.titleP) * glance.offset
         text: glance.title
         font.pixelSize: Math.round(glance.titleSize * glance.u)
         font.weight: Font.Medium
@@ -164,7 +177,6 @@ Item {
         wrapMode: Text.Wrap
         maximumLineCount: glance.chat ? HU.GLANCE.chatTitleLines : HU.GLANCE.titleLines
         elide: Text.ElideRight
-        horizontalAlignment: Text.AlignHCenter
         color: Theme.color.onBackground
         opacity: glance.titleP
     }
@@ -201,15 +213,116 @@ Item {
         }
     }
 
-    // the app name along the bottom edge
-    CurvedText {
+    // the app name along the bottom edge: arcMedium bold, no tracking
+    BoldEdgeName {
         id: curvedName
         anchors.fill: parent
         text: glance.appName
-        role: "arcMedium"
         edgeMargin: Math.round(HU.GLANCE.nameEdge * glance.u)
         color: Theme.color.onBackground
         opacity: glance.nameP
+    }
+
+    /* CurvedText (org.asteroid.controls) with the arcMedium role at weight 700 and no
+     * tracking (the role's own is 599 with 1.4 sp): its letters along the bottom edge,
+     * read left to right, centred at 6 o'clock, their middle edgeMargin + half the
+     * line from the edge, no wider than 120 degrees (an ellipsis past that) */
+    component BoldEdgeName: Item {
+        id: curved
+        property string text: ""
+        property color color: Theme.color.onBackground
+        property real edgeMargin: Theme.dp(2)
+        readonly property string role: "arcMedium"
+        readonly property var _role: Theme.type.arcMedium
+        readonly property real pixelSize: _role.pixelSize
+        readonly property real lineHeight: _role.lineHeight
+        readonly property int weight: Font.Bold
+        readonly property real letterSpacing: 0
+        readonly property real maxSweep: 120
+        readonly property real radius: Math.min(width, height) / 2 - edgeMargin - lineHeight / 2
+        readonly property var _chars: text.split("")
+        readonly property var _widths: {
+            var widths = []
+            for (var i = 0; i < _chars.length; i++) {
+                var item = _letters.count > i ? _letters.itemAt(i) : null
+                widths.push(item ? item.implicitWidth : 0)
+            }
+            return widths
+        }
+        readonly property real _maxLength: maxSweep * Math.PI / 180 * Math.max(1, radius)
+        // the whole text along the arc, px
+        readonly property real naturalLength: {
+            var t = 0
+            for (var i = 0; i < _widths.length; i++)
+                t += _widths[i]
+            return t
+        }
+        readonly property bool fits: naturalLength <= _maxLength
+        readonly property int _shown: {
+            if (fits)
+                return _widths.length
+            var room = _maxLength - _ellipsis.implicitWidth
+            var t = 0, n = 0
+            while (n < _widths.length && t + _widths[n] <= room) {
+                t += _widths[n]
+                n++
+            }
+            return n
+        }
+        readonly property bool _elided: _shown < _chars.length
+        readonly property real _length: {
+            var t = 0
+            for (var i = 0; i < _shown; i++)
+                t += _widths[i]
+            return t + (_elided ? _ellipsis.implicitWidth : 0)
+        }
+        readonly property var _mids: {
+            var mids = []
+            var x = -_length / 2
+            for (var j = 0; j < _shown; j++) {
+                mids.push(x + _widths[j] / 2)
+                x += _widths[j]
+            }
+            mids.push(x + _ellipsis.implicitWidth / 2)
+            return mids
+        }
+
+        Repeater {
+            id: _letters
+            model: curved._chars.length
+            delegate: EdgeLetter {
+                required property int index
+                arc: curved
+                visible: index < curved._shown
+                text: curved._chars[index] !== undefined ? curved._chars[index] : ""
+                along: curved._mids[index] !== undefined ? curved._mids[index] : 0
+            }
+        }
+        EdgeLetter {
+            id: _ellipsis
+            arc: curved
+            text: "…"
+            visible: curved._elided
+            along: curved._mids.length > 0 ? curved._mids[curved._mids.length - 1] : 0
+        }
+    }
+    // one letter of BoldEdgeName (arc), turned to follow the edge
+    component EdgeLetter: Text {
+        property BoldEdgeName arc
+        property real along: 0
+        // radians from 6 o'clock, positive to the reader's right
+        readonly property real angle: arc && arc.radius > 0 ? along / arc.radius : 0
+        color: arc ? arc.color : "transparent"
+        font.family: Theme.fontFamily
+        font.pixelSize: arc ? arc.pixelSize : 1
+        font.weight: Font.Bold
+        // the role's width (90: SemiCondensed) at weight 700
+        font.styleName: arc && arc._role.width < 95 ? "SemiCondensed Bold" : "Bold"
+        font.letterSpacing: arc ? arc.letterSpacing : 0
+        font.variableAxes: arc ? { "wght": arc.weight, "wdth": arc._role.width, "ROND": 100, "opsz": arc._role.opsz } : {}
+        x: arc ? arc.width / 2 + arc.radius * Math.sin(angle) - width / 2 : 0
+        y: arc ? arc.height / 2 + arc.radius * Math.cos(angle) - height / 2 : 0
+        rotation: -angle * 180 / Math.PI
     }
 
     TapHandler {

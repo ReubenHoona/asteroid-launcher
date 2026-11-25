@@ -27,7 +27,10 @@
 //    on LinearOutSlowIn;
 //  - N61-21: the heads-up's full view flat on black as the emulator's S10-d (no card surface, a
 //    45 px header disc at (44, 84), the text ink from x 37), and the emulator's morph (M09): the
-//    glanceable out in 80 ms, the view in over 85 ms growing 0.88 -> 1 on FastOutSlowIn in 540 ms.
+//    glanceable out in 80 ms, the view in over 85 ms growing 0.88 -> 1 on FastOutSlowIn in 540 ms;
+//  - N61-22: the glanceable as the emulator's S09: the small icon bare and white, its ink from
+//    (38, 84); the notification's title start-aligned, its ink from x 39 and its capitals' top at
+//    y 158; the app name along the edge in bold with no tracking.
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -1035,11 +1038,14 @@ Item {
             return findAll(fullLoader(card), function (it) { return it.compact === false && it.headerInset !== undefined })[0]
         }
         // the first column from x0 to x1 with a pixel brighter than mid grey between rows y0 and y1
+        function inScreen(x, y) {
+            return (x - 192) * (x - 192) + (y - 192) * (y - 192) < 186 * 186
+        }
         function inkLeft(img, x0, x1, y0, y1) {
             for (var x = x0; x < x1; x++)
                 for (var y = y0; y < y1; y++) {
                     var c = px(img, x, y)
-                    if (c[0] + c[1] + c[2] > 300)
+                    if (c[0] + c[1] + c[2] > 300 && inScreen(x, y))
                         return x
                 }
             return -1
@@ -1141,6 +1147,104 @@ Item {
                 var sine = (1 - Math.cos(Math.PI * early[i][0] / 540)) / 2
                 verify((early[i][1] - 0.88) / 0.12 > sine + 0.08, "fast out: " + early[i] + " (sine " + sine + ")")
             }
+        }
+
+        /* ---- N61-22: the glanceable ---------------------------------------- */
+
+        // the first row from y0 to y1 with a pixel brighter than mid grey between columns x0 and x1
+        function inkTop(img, x0, x1, y0, y1) {
+            for (var y = y0; y < y1; y++)
+                for (var x = x0; x < x1; x++) {
+                    var c = px(img, x, y)
+                    if (c[0] + c[1] + c[2] > 300 && inScreen(x, y))
+                        return y
+                }
+            return -1
+        }
+
+        // What it says: the notification's title (S09: contentTitle 'Retest one', not the text),
+        // the text when there is no title, a chat's newest message
+        function test_n61_22_title_of() {
+            compare(HU.titleOf(notif({ summary: "Retest one", body: "First test notification body" })), "Retest one")
+            compare(HU.titleOf(notif({ summary: "", body: "Battery low" })), "Battery low")
+            var msgs = JSON.stringify([{ s: "Sam", t: "older" }, { s: "Sam", t: "newest one" }])
+            compare(HU.titleOf(notif({ summary: "Sam", body: "x", hints: { "x-asteroid-messages": msgs } })), "newest one")
+        }
+
+        // S09 at 0.5 s / hsheet at 0.7 s: on black, the small icon bare and white, a 60 px box with
+        // its glyph's ink from (38, 84), the title start-aligned with its ink from x 39 and its
+        // capitals' top at y 158 (S09 measured the same way), one 24 sp line, no body; the app name
+        // along the bottom edge in bold with no tracking
+        function test_n61_22_glanceable() {
+            compare(HU.GLANCE.iconTopFraction, 0.219)
+            compare(HU.GLANCE.iconInkStartFraction, 0.099)
+            compare(HU.GLANCE.iconInkInset, 5)
+            compare(HU.GLANCE.sidePaddingFraction, 0.092)
+            var n = notif({ replacesId: 2201, appName: "Shell", summary: "Retest one", body: "First test notification body" })
+            var g = make("notifications/Glanceable.qml", { width: 384, height: 384, notification: n })
+            g.stop()
+            wait(100)
+            compare(g.titleItem.text, "Retest one")
+            compare(g.titleItem.horizontalAlignment, Text.AlignLeft)
+            compare(g.titleItem.effectiveHorizontalAlignment, Text.AlignLeft)
+            compare(g.titleItem.x, 35)
+            compare(g.titleItem.lineCount, 1)
+            compare(g.sidePadding, 35)
+            compare(g.iconTop, 79)
+            compare(g.iconItem.x, 33)
+            compare(g.iconItem.y, 79)
+            compare(g.iconItem.width, 60)
+            compare(g.iconItem.height, 60)
+            var discs = findAll(g.iconItem, function (it) { return it.radius !== undefined && it.color !== undefined })
+            compare(discs.length, 0, "no container")
+            var glyph = findAll(g.iconItem, function (it) { return it.name !== undefined && it.visible })
+            compare(glyph.length, 1, "a glyph")
+            compare(String(glyph[0].color), "#ffffff", "white")
+            compare(g.nameItem.text, "Shell")
+            compare(g.nameItem.role, "arcMedium")
+            compare(g.nameItem.pixelSize, 30)
+            compare(g.nameItem.edgeMargin, 8)
+            var letters = findAll(g.nameItem, function (it) { return it.along !== undefined && it.visible })
+            compare(letters.length, 5)
+            compare(letters[0].font.weight, Font.Bold)
+            compare(letters[0].font.letterSpacing, 0)
+            var shellLen = g.nameItem.naturalLength
+            n.appName = "Retest"
+            wait(50)
+            var retestLen = g.nameItem.naturalLength
+            console.log("N61-22 name: 'Shell' " + shellLen + " px (emulator 76), 'Retest' " + retestLen + " px (eos 99 before)")
+            verify(retestLen < 90, "'Retest' narrower than 90 px: " + retestLen)
+            n.appName = "Shell"
+            wait(50)
+            var img = shot(g, "n61-22-glance")
+            var it = inkTop(img, 30, 120, 70, 140)
+            var il = inkLeft(img, 30, 120, 70, 140)
+            var ct = inkTop(img, 30, 330, 140, 200)
+            var cl = inkLeft(img, 30, 330, 140, 200)
+            console.log("N61-22 render: icon ink from (" + il + ", " + it + "), title ink from x " + cl + ", cap top " + ct)
+            verify(Math.abs(ct - 158) <= 1, "the title's capitals' top at y 158: " + ct)
+            verify(Math.abs(cl - 39) <= 1, "the title's ink from x 39: " + cl)
+            // the mail glyph (ios-mail-outline): Material's 'mail', 80-880 x 160-800 of 960
+            verify(Math.abs(il - 38) <= 1, "the icon's ink from x 38: " + il)
+            verify(Math.abs(it - 89) <= 1, "the mail glyph's ink from y 89 (a full-height glyph's 84): " + it)
+            // no disc colour: black around the glyph inside its box
+            compare(px(img, 36, 82), [0, 0, 0])
+            compare(px(img, 64, 86), [0, 0, 0])
+            compare(px(img, 90, 136), [0, 0, 0])
+            // nothing under the one title line (no body)
+            compare(inkTop(img, 30, 354, 205, 330), -1, "no text under the title")
+        }
+
+        // An icon given as a picture file is drawn as it is (no white glyph)
+        function test_n61_22_file_icon() {
+            var n = notif({ replacesId: 2202, appName: "Shell", summary: "Retest one", icon: "/usr/share/icons/hicolor/x.png" })
+            var g = make("notifications/Glanceable.qml", { width: 384, height: 384, notification: n })
+            g.stop()
+            verify(g.iconIsFile)
+            var img = findAll(g.iconItem, function (it) { return it.fillMode !== undefined && it.visible })
+            compare(img.length, 1)
+            compare(String(img[0].source), "file:///usr/share/icons/hicolor/x.png")
+            compare(findAll(g.iconItem, function (it) { return it.name !== undefined && it.visible }).length, 0)
         }
 
         function test_d60_09_stream_empty() {
