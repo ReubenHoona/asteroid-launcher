@@ -20,7 +20,11 @@
 //  - D60-08: the empty stream's filled trophy (trophy_40px at 28 dp) and its 140 dp text box with
 //    7.3 % side padding (kvn.java);
 //  - D60-09: the stream's scroll indicator shows for 2 s once the tray is fully open and at rest,
-//    not while a page (a reply or a menu) is open over the list.
+//    not while a page (a reply or a menu) is open over the list;
+//  - N61-20: a stream card swipes both ways in the Wear OS 6 emulator's look (S34, S34-b, M10): the
+//    #343B4D pill on the side the card leaves, |offset| - 4 px wide; a cleared card's pill stays
+//    100 ms under its neighbours and fades in 100 ms while the cards under it move up over 282 ms
+//    on LinearOutSlowIn.
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -75,6 +79,31 @@ Item {
             property bool userRemovable: true
             property string category: ""
             function removeRequested() { }
+            function actionInvoked(name) { }
+        }
+    }
+
+    // a notification the stream clears: removeRequested() takes it out of the model (N61-20)
+    Component {
+        id: notifRemovableC
+        QtObject {
+            id: rn
+            property string appName: "Shell"
+            property int replacesId: 1
+            property string appIcon: ""
+            property string icon: ""
+            property string summary: ""
+            property string body: ""
+            property var hints: ({})
+            property var actions: []
+            property var timestamp: new Date()
+            property bool userRemovable: true
+            property string category: ""
+            property int removals: 0
+            function removeRequested() {
+                removals++
+                Lipstick.notificationModel.remove(rn)
+            }
             function actionInvoked(name) { }
         }
     }
@@ -861,6 +890,139 @@ Item {
             ind = indicator()
             verify(ind !== null && ind.shown, "the indicator once the page is gone")
             compare(ind.flickable, lv)
+        }
+
+        /* ---- N61-20: the stream card's swipe both ways ------------------- */
+
+        function removable(props) {
+            var n = notifRemovableC.createObject(top, props || {})
+            made.push(n)
+            return n
+        }
+        // the emulator's three test notifications, newest first (S07; invented text)
+        function fillThree(s) {
+            var model = Lipstick.notificationModel
+            model.add(removable({ replacesId: 2001, summary: "Retest one", body: "First test notification body" }))
+            model.add(removable({ replacesId: 2002, summary: "Retest two",
+                                  body: "Second body, long enough to wrap to two lines on the card" }))
+            model.add(removable({ replacesId: 2003, summary: "Retest three", body: "Third" }))
+            tryVerify(function () { return !s.modelEmpty && s.listView && s.listView.count === 3 }, 4000)
+            wait(300)
+        }
+        function swipeOf(row) {
+            var r = findAll(row, function (it) { return it._isSwipeToReveal === true })
+            return r.length ? r[0] : null
+        }
+        // a finger pressed at x0 and moved to x1 (px of the screen) at height y, held there
+        function dragTo(x0, x1, y) {
+            mousePress(top, x0, y)
+            for (var i = 1; i <= 12; i++) {
+                mouseMove(top, x0 + (x1 - x0) * i / 12, y)
+                wait(16)
+            }
+        }
+        function near(c, rgb, tol) {
+            return Math.abs(c[0] - rgb[0]) <= tol && Math.abs(c[1] - rgb[1]) <= tol && Math.abs(c[2] - rgb[2]) <= tol
+        }
+
+        // The card follows the finger both ways (S34: held about 160 px to the right, S34-b: to the
+        // left). The pill is on the side the card leaves, its outer edge on the card's rest edge,
+        // |offset| - 4 px wide (2 dp from the card), #343B4D, the X centred, no label yet
+        function test_n61_20_swipe_both_ways() {
+            var s = stream()
+            fillThree(s)
+            var row = s.rowItems[2003]
+            verify(row !== undefined, "the first card's row")
+            var sw = swipeOf(row)
+            verify(sw !== null, "its SwipeToReveal")
+            verify(sw.bidirectional, "both ways")
+            verify(sw.expressiveLook, "the emulator's pill")
+            var r0 = row.mapToItem(top, 0, 0)
+            compare(Math.round(r0.x), 20, "the card from x 20")
+            compare(Math.round(sw.width), 344)
+            var y = r0.y + row.height / 2
+            var cases = [{ x0: 200, x1: 360, off: 160, name: "right" }, { x0: 250, x1: 90, off: -160, name: "left" }]
+            for (var i = 0; i < cases.length; i++) {
+                var c = cases[i]
+                dragTo(c.x0, c.x1, y)
+                fuzzyCompare(sw.offset, c.off, 1, c.name + ": the card follows the finger")
+                compare(sw.side, c.off > 0 ? 1 : -1)
+                var pill = byName(sw, "swipeRevealPill")
+                verify(pill !== null && pill.visible, "the pill")
+                fuzzyCompare(pill.width, Math.abs(sw.offset) - 4, 0.5, "|offset| - 4")
+                fuzzyCompare(pill.height, sw.height - 4, 0.5, "the card's height less 4 px")
+                var p = pill.mapToItem(top, 0, 0)
+                if (c.off > 0)
+                    fuzzyCompare(p.x, 20, 0.5, "at the card's left rest edge")
+                else
+                    fuzzyCompare(p.x + pill.width, 364, 0.5, "at the card's right rest edge")
+                compare(String(pill.children[0].color), "#343b4d")
+                var img = shot(top, "n61-20-hold-" + c.name)
+                var py = Math.round(p.y + pill.height / 2)
+                verify(near(px(img, Math.round(p.x + 12), py), [0x34, 0x3b, 0x4d], 3),
+                       "#343B4D at the pill's end: " + px(img, Math.round(p.x + 12), py))
+                // the X glyph in the middle, light on the pill
+                var icon = byName(sw, "swipeRevealIcon")
+                compare(icon.opacity, 1)
+                var ic = icon.mapToItem(top, icon.width / 2, icon.height / 2)
+                fuzzyCompare(ic.x, p.x + pill.width / 2, 1, "the X centred")
+                compare(byName(sw, "swipeRevealLabel").visible, false, "no 'Clear' at 160 px")
+                mouseRelease(top, c.x1, y)
+                wait(50)
+                sw.reset()
+                wait(50)
+            }
+        }
+
+        // A full swipe clears the card once. Its row, the pill at the full width, stays drawn under
+        // its neighbours for 100 ms, then fades in 100 ms; the next card moves up to the list's top
+        // (84 px) over 282 ms on LinearOutSlowIn (M10); both ways
+        function test_n61_20_full_swipe() {
+            var s = stream()
+            fillThree(s)
+            var lv = s.listView
+            compare(s.removeHoldMs, 100)
+            compare(s.removeFadeMs, 100)
+            compare(s.displacedMs, 282)
+            compare(s.displacedEasing, [0, 0, 0.2, 1, 1, 1])
+            var dirs = [{ id: 2003, next: 2002, x0: 70, x1: 383 }, { id: 2002, next: 2001, x0: 320, x1: 2 }]
+            for (var k = 0; k < dirs.length; k++) {
+                var d = dirs[k]
+                var row = s.rowItems[d.id]
+                var sw = swipeOf(row)
+                var n = row.notification
+                var acts = 0
+                sw.primaryAction.connect(function () { acts++ })
+                var next = s.rowItems[d.next]
+                var y = row.mapToItem(top, 0, 0).y + row.height / 2
+                var h = row.height
+                var wrapper = row.parent.parent
+                // when the notification went, and when the row's fade began
+                var t0 = 0, tFade = 0
+                n.removalsChanged.connect(function () { if (!t0) t0 = Date.now() })
+                wrapper.opacityChanged.connect(function () { if (!tFade && wrapper.opacity < 1) tFade = Date.now() })
+                dragTo(d.x0, d.x1, y)
+                mouseRelease(top, d.x1, y)
+                tryVerify(function () { return acts > 0 }, 3000, "the card cleared")
+                compare(n.removals, 1, "dismissed once")
+                tryVerify(function () { return wrapper.z === -1 }, 1000, "the row under its neighbours")
+                verify(row.visible, "the pill still drawn")
+                fuzzyCompare(row.height, h, 0.5, "at its height")
+                var pill = byName(sw, "swipeRevealPill")
+                fuzzyCompare(pill.width, 340, 0.5, "the pill at the full width")
+                var o = wrapper.opacity
+                var img = shot(top, "n61-20-cleared-" + k)
+                tryVerify(function () { return tFade > 0 }, 1000, "then it fades")
+                var held = tFade - t0
+                verify(held >= 90, "held about 100 ms: " + held + " (opacity " + o + " at the start)")
+                tryVerify(function () { return Math.abs(next.mapToItem(lv, 0, 0).y - 84) < 1 && lv.count === 2 - k }, 3000,
+                          "the next card at the top")
+                var moved = Date.now() - t0
+                verify(moved >= 250, "moved up over about 282 ms: " + moved)
+                console.log("N61-20 full swipe " + k + ": held " + held + " ms, next card at the top after " + moved + " ms")
+                wait(400)
+                compare(acts, 1, "primaryAction once")
+            }
         }
 
         function test_d60_09_stream_empty() {

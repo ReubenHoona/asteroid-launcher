@@ -25,7 +25,7 @@ import org.asteroid.controls
  * The card does not take touches itself: the stream's row puts the tap
  * handler over the swipe-to-reveal (a handler there sees the press while
  * SwipeToReveal's own area keeps the swipe) and says pressed / pressPoint,
- * tapped() and longPressed() here. A swipe to the left is SwipeToReveal's.
+ * tapped() and longPressed() here. A swipe either way is SwipeToReveal's.
  *
  * Opened, the card's own surface holds the header, title, messages or body and
  * the picture; what follows (the input row, the replies, the app's actions,

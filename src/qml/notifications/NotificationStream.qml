@@ -18,7 +18,11 @@ import "desktop.js" as Desktop
  *    asteroid-btsyncd already makes one card per conversation);
  *  - a tap opens the card in place, inside the list, one at a time; a tap
  *    on the open card closes it. Opening scrolls first (preScroll);
- *  - a swipe to the left reveals "Clear" and "Settings" (SwipeToReveal);
+ *  - a swipe either way reveals "Clear" (and "Settings" for a phone app's card)
+ *    as the Wear OS 6 emulator draws it (S34, S34-b, M10): a blue-grey pill on
+ *    the side the card leaves (SwipeToReveal bidirectional, expressiveLook). A
+ *    full swipe clears the card: its pill stays 100 ms, then fades in 100 ms
+ *    while the cards under it slide up (282 ms, LinearOutSlowIn);
  *  - "Clear all" is an edge button that grows out of the bottom edge as the
  *    end of the list comes up, 70 dp; a tap slides every clearable card off
  *    to the left (300 ms) while the list goes back to the top (250 ms);
@@ -106,10 +110,13 @@ Item {
     property var rowItems: ({})
     // the notifications that came in after the first ones: their cards fade in
     property var freshIds: ({})
-    // item animations in ms (see the list)
+    // item animations in ms (see the list): a new card fades in; a cleared card's row (its pill)
+    // is held, then fades; the cards under it move up on LinearOutSlowIn (the emulator, M10)
     readonly property int addMs: 450
-    readonly property int removeMs: 50
-    readonly property int displacedMs: 70
+    readonly property int removeHoldMs: 100
+    readonly property int removeFadeMs: 100
+    readonly property int displacedMs: 282
+    readonly property var displacedEasing: [0, 0, 0.2, 1, 1, 1]
 
     function idOf(n) { return n ? n.replacesId : -1 }
 
@@ -730,17 +737,28 @@ Item {
                 // the list: the scroll gives way (listMoved)
                 onContentYChanged: stream.listMoved(lv)
 
-                // animateItem (kwf.java:106-114, 632-633): fade in on a spring of
-                // stiffness 200 (~0.45 s: the row's fadeIn), moves on 1.0 / 10000
-                // (~0.07 s), fade out on 10000 (near instant); none under reduce
-                // motion. No ListView.add transition: a view that has one keeps the
-                // positions it laid out while the cards still changed their height
-                // (the notification arrives after the row is made)
+                // A new card fades in on CP3A's animateItem spring (kwf.java:106-114, stiffness
+                // 200, ~0.45 s: the row's fadeIn). A cleared card as the Wear OS 6 emulator (M10):
+                // its row, by then only the pill at the full width, stays 100 ms under its
+                // neighbours, then fades in 100 ms, while the cards under it move up over 282 ms on
+                // LinearOutSlowIn (the next card 266 -> 84 px). None under reduce motion. No
+                // ListView.add transition: a view that has one keeps the positions it laid out
+                // while the cards still changed their height (the notification arrives after the
+                // row is made)
                 remove: Transition {
-                    NumberAnimation { property: "opacity"; to: 0; duration: Motion.duration(stream.removeMs) }
+                    SequentialAnimation {
+                        PropertyAction { property: "z"; value: -1 }
+                        PauseAnimation { duration: Motion.duration(stream.removeHoldMs) }
+                        NumberAnimation { property: "opacity"; to: 0; duration: Motion.duration(stream.removeFadeMs) }
+                    }
                 }
                 displaced: Transition {
-                    NumberAnimation { properties: "y"; duration: Motion.duration(stream.displacedMs); easing.type: Easing.OutCubic }
+                    NumberAnimation {
+                        properties: "y"
+                        duration: Motion.duration(stream.displacedMs)
+                        easing.type: Easing.BezierSpline
+                        easing.bezierCurve: stream.displacedEasing
+                    }
                 }
 
                 itemDelegate: Item {
@@ -757,7 +775,20 @@ Item {
 
                     width: parent ? parent.width : stream.cardWidth
                     height: swipe.height
-                    visible: notification !== null
+                    visible: notification !== null || cleared
+
+                    // Cleared by a full swipe: the card has left and the row is its pill. The
+                    // notification goes from byId before the row leaves the list, so the row stays
+                    // drawn at the height it had while its remove transition runs
+                    property bool cleared: false
+                    property real clearedHeight: 0
+                    function clear() {
+                        if (cleared)
+                            return
+                        clearedHeight = card.height
+                        cleared = true
+                        stream.dismiss([notification])
+                    }
 
                     // the stream finds a row by its notification's id (pre-scroll); the model
                     // role arrives after the row is made
@@ -789,11 +820,15 @@ Item {
                     SwipeToReveal {
                         id: swipe
                         width: row.width
-                        height: card.height
+                        height: row.cleared ? row.clearedHeight : card.height
+                        // either way, in the emulator's look (S34, S34-b): the #343B4D pill on the
+                        // side the card leaves, 2 dp from it, the X glyph, "Clear" near full width
+                        bidirectional: true
+                        expressiveLook: true
                         swipeEnabled: row.notification !== null && row.notification.userRemovable
                                       && !stream.touchExploration && !stream.clearing
                         hasSecondaryAction: stream.canBlock(row.notification)
-                        onPrimaryAction: stream.dismiss([row.notification])
+                        onPrimaryAction: row.clear()
                         onSecondaryAction: stream.openBlockingMenu(row.notification, null)
                         opacity: row.clearingNow ? 1 - stream.clearProgress : 1
                         transform: Translate { x: row.clearingNow ? -stream.clearProgress * stream.width : 0 }
