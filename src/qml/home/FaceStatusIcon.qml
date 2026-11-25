@@ -15,7 +15,8 @@ import "status.js" as Status
  * and brings it in and out; here only a change from one glyph to another: the old one gives way
  * (opacity and scale 1 -> 0) as the new one comes (0 -> 1) in ROW_MS, while the slot is shown and
  * `animated` (the display on, not ambient, animations on); otherwise at once. A slot going away keeps
- * its glyph while the row takes it out. Nothing runs when nothing changes. */
+ * its glyph while the row takes it out, and drops it once the slot is out (or at once when the slot was
+ * not shown yet). Nothing runs when nothing changes. */
 Item {
     id: tray
     objectName: "faceStatusIcon"
@@ -107,9 +108,18 @@ Item {
 
     function settle() {
         var next = slotKey
-        // nothing, or the slot goes: the glyph stays while the row takes the slot out
-        if (next === "" || next === _held)
+        if (next === _held)
             return
+        if (next === "") {
+            // the slot goes: the glyph stays while the row takes the slot out; with nothing of the slot
+            // drawn there is nothing to keep
+            if (!present) {
+                replace.stop()
+                _p = 1
+                _held = ""
+            }
+            return
+        }
         if (Status.transition(_held, next) === "replace" && animated && present) {
             _old = _held
             _held = next
@@ -126,6 +136,13 @@ Item {
     onAnimatedChanged: if (!animated) {
         replace.stop()
         _p = 1
+    }
+    // the row has taken the slot out: the glyph it kept for that goes too (a key with a glyph that is
+    // still wanted stays, the row brings it back)
+    onPresentChanged: if (!present) {
+        replace.stop()
+        _p = 1
+        _held = Status.iconSource(slotKey) !== "" ? slotKey : ""
     }
     Component.onCompleted: settle()
 

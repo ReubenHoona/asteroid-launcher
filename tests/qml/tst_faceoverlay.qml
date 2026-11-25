@@ -404,5 +404,55 @@ Item {
             wait(50)
             grab().save("/tmp/l1h-shots/face-0932-ambient-ongoing-unread.png")
         }
+
+        // ---- a slot shown and hidden in one turn: nothing is left drawn --------------------------------
+        // (the independent check of L1: a show() starts the fade with appear still 0, a hide() in the same
+        // turn must stop it; the band the same; the slot drops the glyph or entry it kept)
+        function test_10_on_and_off_in_one_turn() {
+            make({ interactive: true })
+            wait(50)
+            row.statusKey = "btOff"
+            row.statusKey = ""
+            row.dotWanted = true
+            row.dotWanted = false
+            row.ongoingEntry = top.stopwatch
+            row.ongoingEntry = ({})
+            wait(600)
+            compare(row.count, 0)
+            compare(row.statusIconSlot.appear, 0, "status slot")
+            compare(row.statusIconSlot.visible, false)
+            compare(row.dotSlot.appear, 0, "dot slot")
+            compare(row.ongoingSlot.appear, 0, "ongoing slot")
+            compare(row.band.fade, 0, "band")
+            compare(row.band.visible, false)
+            compare(row.animating, false)
+            compare(row.statusIcon.shownKey, "", "no glyph kept")
+            verify(!row.liveSpace.isSet(row.liveSpace.shown), "no entry kept")
+            // the same with one slot already up: the others come and go, it stays where it is
+            row.dotWanted = true
+            tryCompare(row, "animating", false, 2000)
+            row.statusKey = "airplane"
+            row.statusKey = ""
+            wait(600)
+            compare(row.count, 1)
+            compare(row.statusIconSlot.appear, 0, "status slot")
+            compare(row.dotSlot.appear, 1, "dot slot")
+            near(centre(row.dotSlot).x, 192, 0.01, "the dot alone in the middle")
+            near(row.band.sweep, Status.bandSweepDeg(1, 36, 42, 169), 1e-6, "band: one slot")
+            near(row.band.opacity, 0.7, 1e-9, "band shown")
+            // hidden and shown again in one turn: it stays shown
+            row.dotWanted = false
+            row.dotWanted = true
+            wait(600)
+            compare(row.dotSlot.appear, 1)
+            near(row.band.opacity, 0.7, 1e-9, "band shown")
+            // a fully shown status slot that goes keeps its glyph while it shrinks, then drops it
+            row.statusKey = "charging"
+            tryCompare(row, "animating", false, 2000)
+            row.statusKey = ""
+            compare(row.statusIcon.shownKey, "charging")
+            tryCompare(row.statusIconSlot, "appear", 0, 2000)
+            compare(row.statusIcon.shownKey, "")
+        }
     }
 }

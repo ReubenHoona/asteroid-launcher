@@ -91,13 +91,18 @@ Item {
                 appear = 1
                 return
             }
-            if (appear === 0 && !fade.running) {
-                // a new slot comes in at its place; only the others slide
+            if (appear === 0) {
+                // a new slot (nothing of it drawn yet, even if its fade has just started) comes in at
+                // its place; only the others slide
                 slide.stop()
                 angle = target
-            } else if (angle !== target) {
-                slide.to = target
-                slide.restart()
+            } else if ((slide.running ? slide.to : angle) !== target) {
+                // a new place (also when a slide still runs towards another one)
+                slide.stop()
+                if (angle !== target) {
+                    slide.to = target
+                    slide.start()
+                }
             }
             if (appear < 1 || fade.running) {
                 fade.to = 1
@@ -105,16 +110,16 @@ Item {
             }
         }
         function hide(anim) {
-            if (!anim) {
+            // not animated, or nothing of it drawn yet (shown and hidden in one turn: its fade in has
+            // started but not moved): gone at once, and a fade in that started must not run on
+            if (!anim || appear === 0) {
                 slide.stop(); fade.stop()
                 appear = 0
                 return
             }
             // it goes where it is
-            if (appear > 0) {
-                fade.to = 0
-                fade.restart()
-            }
+            fade.to = 0
+            fade.restart()
         }
         NumberAnimation {
             id: slide
@@ -177,19 +182,26 @@ Item {
                 return
             }
             if (n > 0) {
-                if (fade === 0 && !fadeAnim.running) {
-                    // the first slot: the band comes in at its length
+                if (fade === 0) {
+                    // the first slot (nothing of the band drawn yet): it comes in at its length
                     sweepAnim.stop()
                     sweep = to
-                } else if (sweep !== to) {
-                    sweepAnim.to = to
-                    sweepAnim.restart()
+                } else if ((sweepAnim.running ? sweepAnim.to : sweep) !== to) {
+                    // a new length (also when it still runs towards another one)
+                    sweepAnim.stop()
+                    if (sweep !== to) {
+                        sweepAnim.to = to
+                        sweepAnim.start()
+                    }
                 }
                 if (fade < 1 || fadeAnim.running) {
                     fadeAnim.to = 1
                     fadeAnim.restart()
                 }
-            } else if (fade > 0) {
+            } else if (fade === 0) {
+                // nothing of it drawn yet (a slot shown and hidden in one turn): it stays away
+                fadeAnim.stop()
+            } else {
                 // the last slot goes: the band goes with it, at its length
                 fadeAnim.to = 0
                 fadeAnim.restart()

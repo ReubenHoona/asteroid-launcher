@@ -56,9 +56,16 @@ Item {
     // ---- what is drawn follows the entry ----
     onEntryChanged: follow()
     function follow() {
-        // no entry: the row takes the slot out, the last icon stays drawn meanwhile
-        if (!isSet(entry))
+        // no entry: the row takes the slot out, the last icon stays drawn meanwhile (nothing to keep
+        // when nothing of the slot is drawn)
+        if (!isSet(entry)) {
+            if (!present) {
+                replace.stop()
+                _p = 1
+                shown = ({})
+            }
             return
+        }
         var swap = isSet(shown) && shown.key !== entry.key
         if (swap && animated && present) {
             old.entry = shown
@@ -77,6 +84,12 @@ Item {
     onAnimatedChanged: if (!animated) {
         replace.stop()
         _p = 1
+    }
+    // the row has taken the slot out: the entry it kept drawn for that goes too
+    onPresentChanged: if (!present && !isSet(entry)) {
+        replace.stop()
+        _p = 1
+        shown = ({})
     }
     Component.onCompleted: follow()
 
