@@ -10,7 +10,9 @@ import org.asteroid.controls
  * One card of the notification stream, as Wear OS CP3A draws it (stock
  * sysui kxr.java:1761-1857, cyj.java:1345-1420): a Material 3 card of the
  * large shape (26 dp), at least 64 dp tall, surfaceContainer; opened in
- * place it is surfaceContainerLow and shows the whole notification inside
+ * place it is surfaceContainerLow (as soon as it opens: the colour follows the
+ * open progress, so a card no taller open than closed changes too, as the Wear
+ * OS 6 emulator's, S08) and shows the whole notification inside
  * the list (no page): its height goes on a spring (stiffness 800, damping
  * ratio 0.8, kwm.java inline_stiffness / inline_damping) from the top
  * while the collapsed text fades out and the full text fades in. A
@@ -65,11 +67,13 @@ Item {
     readonly property real sidePad: Theme.dp(10)
     readonly property real vPad: Theme.dp(10)
     readonly property real pictureGap: Theme.dp(4)
-    // the open card's text items sit 7 dp from its edge, the header 10 dp (grw.java). Flat (S10-d):
-    // the header 12 dp, so that a card at x 20 has its 45 px disc at x 44-88; the text 7 dp, its
-    // ink from x 37 as the emulator's (Noto Sans starts its capitals about 3 px in)
-    readonly property real headerInset: flat ? Theme.dp(12) : sidePad
-    readonly property real textInset: Theme.dp(7)
+    // The open card in the stream (the Wear OS 6 emulator, S08): the header and the text 9 dp from
+    // its edge (disc at x 38 for a card at x 20, the emulator's at 37 for its card at 19; the body's
+    // ink from x 38 as the emulator's), was 10 dp and 7 dp (CP3A grw.java). Flat (S10-d): the header
+    // 12 dp, so that a card at x 20 has its 45 px disc at x 44-88; the text 7 dp, its ink from x 37
+    // as the emulator's (Noto Sans starts its capitals about 3 px in)
+    readonly property real headerInset: flat ? Theme.dp(12) : Theme.dp(9)
+    readonly property real textInset: flat ? Theme.dp(7) : Theme.dp(9)
     readonly property real headerIconSize: flat ? Theme.dp(22.5) : Theme.dp(24)
     readonly property real pictureInset: Theme.dp(4)
     readonly property real pictureHeight: Theme.dp(60)
@@ -90,14 +94,15 @@ Item {
 
     // the height shown now: the spring's (the card is as tall as this)
     property real shownHeight: 0
-    // 0 collapsed .. 1 open, from the height: what the surface colour mixes on
+    // 0 collapsed .. 1 open, from the height
     readonly property real expandProgress: {
         var span = Math.max(1, Math.max(collapsedHeight, fullHeight) - collapsedHeight)
         return Math.max(0, Math.min(1, (shownHeight - collapsedHeight) / span))
     }
     // 0 collapsed .. 1 open: the open state's own progress, on its own spring with the
     // height's numbers (800 / 0.8), started with it. What fades: the collapsed layer out,
-    // the full text and what hangs below in (openOpacity, held to 0 .. 1)
+    // the full text and what hangs below in (openOpacity, held to 0 .. 1); what the surface
+    // colour mixes on
     property real openP: 0
     readonly property real openOpacity: Math.max(0, Math.min(1, openP))
     readonly property bool animating: heightSpring.running || openSpring.running
@@ -207,7 +212,7 @@ Item {
         height: card.surfaceHeight
         radius: card.radius
         color: card.flat ? "transparent"
-                         : card.mix(Theme.color.surfaceContainer, Theme.color.surfaceContainerLow, card.expandProgress)
+                         : card.mix(Theme.color.surfaceContainer, Theme.color.surfaceContainerLow, card.openOpacity)
         clip: true
 
         Ripple {

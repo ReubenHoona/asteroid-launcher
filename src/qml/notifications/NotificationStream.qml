@@ -78,6 +78,9 @@ Item {
     // the empty state's column sits between 7.1 % and 16 % of the height
     readonly property real emptyTop: Math.round(0.071 * height)
     readonly property real emptyBottom: Math.round(0.16 * height)
+    // where a card that opens in place puts its top: 11.7 % of the height (45 px; the Wear OS 6
+    // emulator, S08), above the list's top margin, the card above edge-scaled over the gap
+    readonly property real openTop: Math.round(0.117 * height)
     // its text: a 140 dp box with 7.3 % of the screen as side padding (kwf.java:323, kvn.java:74)
     readonly property real emptyTextPadding: Math.round(0.073 * height)
     // CP3A's trophy_40px (res/drawable/trophy_40px.xml, 960 x 960 viewport): the Material
@@ -238,10 +241,12 @@ Item {
     /* ---- scrolling ------------------------------------------------------ */
 
     // Scroll the list in ms to where goalFn() says (a contentY, asked again at
-    // every step). The list is packed: a card is laid out at its scaled height,
-    // and the scale follows its place on the screen, so the cards under the ones
-    // that scroll into view move as they do. The goal is therefore asked live, and
-    // asked again at the end until the list is where it is told to be.
+    // every step). The list is packed (ScalingList, N61-04): every row keeps its
+    // natural height and place, and its picture is scaled and moved up to its
+    // neighbours by how near the edge it is drawn, so where a card is drawn
+    // (cardTopGoal) moves with the list and with the cards around it. The goal is
+    // therefore asked live, and asked again at the end until the list is where it
+    // is told to be.
     property real scrollProgress: 0
     property real scrollStart: 0
     property var scrollGoalFn: null
@@ -295,7 +300,9 @@ Item {
             scrollDone()
     }
     // the contentY that puts the card of notification nid at y in the list; pastEnd: not held to the
-    // list's end (its size has not caught up yet with a card that has just been told to open)
+    // list's end (its size has not caught up yet with a card that has just been told to open). y is
+    // where the card is drawn: the row sits in the list's transformed (packed) wrapper, so its mapped
+    // top is its picture's, which depends on where the list is (scrollDone asks again)
     function cardTopGoal(nid, y, pastEnd) {
         var lv = listView
         var row = rowItems[nid]
@@ -318,10 +325,11 @@ Item {
         var lv = stream.listView
         stream.scrollWritten = NaN
         for (var i = 0; lv && stream.scrollGoalFn && i < 4; i++) {
-            // lay the list out now, not at the next frame, before the goal is asked: the rows'
-            // scaled heights change with each move (a jump moves the list far in one step), and
-            // under reduce motion the card snapped to its new height in the call that started the
-            // scroll, which ended there too, so the list's end still had the card's old height
+            // lay the list out now, not at the next frame, before the goal is asked: under reduce
+            // motion the card snapped to its new height in the call that started the scroll, which
+            // ended there too, so the list's end still had the card's old height. The goal is asked
+            // again after each move: the drawn top it reads is packed for where the list was (a
+            // jump moves the list far in one step)
             lv.forceLayout()
             var g = stream.scrollGoalFn()
             if (Math.abs(g - lv.contentY) < 0.5)
@@ -410,8 +418,8 @@ Item {
      *  - opening a card whose bottom is in the upper half of the list: scroll
      *    so its top is at a quarter of the list's height;
      *  - opening a card (not the first on the screen) right under the one that
-     *    closes as this opens: scroll so its top is where the list starts (the
-     *    closing card above gives its height up);
+     *    closes as this opens: scroll so its top is at openTop (the closing card
+     *    above gives its height up);
      *  - closing a card whose top is more than two screen widths above the
      *    list: scroll back to it (200 ms).
      * The two opening cases jump there and the card opens at once (erl.i is
@@ -437,7 +445,7 @@ Item {
             // to where the list starts (the list keeps what is in view while the
             // card above, out of view, closes)
             if (i > 0 && expandedId === rows.get(i - 1).nid && i !== lv.indexAt(1, lv.contentY + 1))
-                want = lv.topMargin
+                want = stream.openTop
             return want
         }
         if (top < -2 * stream.width)
@@ -463,11 +471,12 @@ Item {
     }
 
     /* A card opened with no scroll before it (it opens downwards): the list then scrolls its top to
-     * where the list starts (kwa.java:105-144, "Expanding downward measured item"; motion E10).
-     * A conversation scrolls on a 300 ms FastOutSlowIn tween after 20 ms (autoscroll_duration,
-     * autoscroll_delay, kwm.java:7-8), any other card on the inline spring 1.0/800 (kwf.java:632).
-     * Stock's target is an offset of 0.16 of the screen height in one layout and 0 in the other
-     * (kwf.java:697) plus a conversation's own; the list's top margin stands for it here. */
+     * openTop (kwa.java:105-144, "Expanding downward measured item"; motion E10). A conversation
+     * scrolls on a 300 ms FastOutSlowIn tween after 20 ms (autoscroll_duration, autoscroll_delay,
+     * kwm.java:7-8), any other card on the inline spring 1.0/800 (kwf.java:632). The target is
+     * where the Wear OS 6 emulator puts an opened card's top (S08: y 45, 0.117 of the height),
+     * the card above edge-scaled over it; CP3A's was an offset of 0.16 of the screen height in one
+     * layout and 0 in the other (kwf.java:697). */
     function isConversation(n) {
         return !!n && !!n.hints && (n.hints["x-asteroid-messages"] !== undefined || conversationKey(n) !== "")
     }
@@ -476,12 +485,12 @@ Item {
         var row = rowItems[nid]
         if (!lv || !row)
             return
-        var goal = function () { return cardTopGoal(nid, lv.topMargin) }
+        var goal = function () { return cardTopGoal(nid, stream.openTop) }
         // nothing to scroll when the card's top is where the list starts already. Asked past the
         // list's end: the card has not grown yet (its height spring and the list's layout run from
         // the next frame), so the end still has its closed height, and at the end of the list goal()
         // would always say there is nothing to scroll. goal() keeps the end as the card grows.
-        if (Math.abs(cardTopGoal(nid, lv.topMargin, true) - lv.contentY) < 0.5)
+        if (Math.abs(cardTopGoal(nid, stream.openTop, true) - lv.contentY) < 0.5)
             return
         if (isConversation(row.notification))
             scrollGoal(goal, Motion.duration(300), undefined, Motion.easing.legacy, Motion.duration(20))

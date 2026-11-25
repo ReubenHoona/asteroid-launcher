@@ -30,7 +30,10 @@
 //    glanceable out in 80 ms, the view in over 85 ms growing 0.88 -> 1 on FastOutSlowIn in 540 ms;
 //  - N61-22: the glanceable as the emulator's S09: the small icon bare and white, its ink from
 //    (38, 84); the notification's title start-aligned, its ink from x 39 and its capitals' top at
-//    y 158; the app name along the edge in bold with no tracking.
+//    y 158; the app name along the edge in bold with no tracking;
+//  - N61-23: a stream card opened in place scrolls its drawn top to y 45 (0.117 h, S08), its
+//    surface #24262B on the open progress (also when it is no taller open), the header and the
+//    text 9 dp in (the body's ink from x 38 as the emulator's).
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -298,9 +301,10 @@ Item {
             fuzzyCompare(c.shownHeight, Math.max(128, full), 0.5)
         }
 
-        // A title that wraps in the collapsed card's 304 px but fits the open card's 316 px (the
-        // open text sits 7 dp from the edge, the collapsed 10 dp): the open card is one title line
-        // lower than the collapsed one, and is as tall as that, not held to the collapsed height
+        // A title that wraps in the collapsed card's 304 px but fits the open card's 308 px (the
+        // open text sits 9 dp from the edge since N61-23, the collapsed 10 dp): the open card is one
+        // title line lower than the collapsed one, and is as tall as that, not held to the collapsed
+        // height
         function test_d60_05_full_lower() {
             var probe = notif({ replacesId: 55, summary: "x", body: "On my way" })
             var c0 = make("NotificationCard.qml", { width: 344, notification: probe })
@@ -318,13 +322,20 @@ Item {
                     break
                 base = tm.text
             }
+            // between the two text widths: over 304 px, under 308 (a narrow window: several fills)
             var title = ""
-            for (var j = 1; j < 40 && title === ""; j++) {
-                tm.text = base + " " + "sliiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii".substring(0, j)
-                if (tm.advanceWidth > 306 && tm.advanceWidth < 314)
-                    title = tm.text
+            var fills = ["sliiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiiii", "sllllllllllllllllllllllllllllll",
+                         "tiiiiiiiiiiiiiiiiiiiiiiiiiiiiii", "fttttttttttttttttttttttttttttt",
+                         "rjjjjjjjjjjjjjjjjjjjjjjjjjjjjj", "a.....................", "e::::::::::::::::::::::",
+                         "c,,,,,,,,,,,,,,,,,,,,,,", "oiiiiiiiiiiiiiiiiiiiiiiiiiiiii", "nlllllllllllllllllllllllllll"]
+            for (var f = 0; f < fills.length && title === ""; f++) {
+                for (var j = 1; j < 40 && title === ""; j++) {
+                    tm.text = base + " " + fills[f].substring(0, j)
+                    if (tm.advanceWidth > 304.5 && tm.advanceWidth < 307.5)
+                        title = tm.text
+                }
             }
-            verify(title !== "", "a title between 306 and 314 px")
+            verify(title !== "", "a title between 304.5 and 307.5 px")
             console.log("D60-05 title '" + title + "' " + tm.advanceWidth + " px")
             var n = notif({ replacesId: 56, summary: title, body: "On my way" })
             var c = make("NotificationCard.qml", { width: 344, notification: n })
@@ -1245,6 +1256,85 @@ Item {
             compare(img.length, 1)
             compare(String(img[0].source), "file:///usr/share/icons/hicolor/x.png")
             compare(findAll(g.iconItem, function (it) { return it.name !== undefined && it.visible }).length, 0)
+        }
+
+        /* ---- N61-23: the opened stream card ---------------------------------- */
+
+        function cardOf(row) {
+            return findAll(row, function (it) { return it.expandProgress !== undefined })[0]
+        }
+
+        // S08: the second of three cards tapped opens in place and the list scrolls its top to y 45
+        // (0.117 of the height; its drawn top: the row is inside the list's packed wrapper), the card
+        // above edge-scaled over the gap; the surface #24262B; the header disc at (38, 65); the
+        // title and the body 9 dp in (the body's ink from x 38)
+        function test_n61_23_open_top() {
+            var s = stream()
+            fillThree(s)
+            compare(s.openTop, 45)
+            var lv = s.listView
+            var row = s.rowItems[2002]
+            var c = cardOf(row)
+            verify(c !== undefined, "the second card")
+            compare(String(byName(c, "cardSurface").color), "#2f3036", "closed: surfaceContainer")
+            s.toggleCard(2002)
+            tryVerify(function () { return isNaN(s.scrollWritten) && c.openP > 0.999 && !c.animating }, 8000,
+                      "opened and scrolled")
+            wait(200)
+            var t = row.mapToItem(s, 0, 0).y
+            console.log("N61-23 open: drawn top " + t + ", contentY " + lv.contentY)
+            fuzzyCompare(t, 45, 1, "the open card's drawn top at y 45")
+            compare(String(byName(c, "cardSurface").color), "#24262b", "open: surfaceContainerLow")
+            var ft = fullText(c)
+            var disc = byName(ft, "headerIcon")
+            var dp = disc.mapToItem(s, 0, 0)
+            fuzzyCompare(dp.x, 38, 1, "the disc 9 dp in")
+            fuzzyCompare(dp.y, 65, 1, "the disc 20 px under the top")
+            compare(disc.width, 48)
+            var title = labelWith(ft, "Retest two")
+            var body = labelWith(ft, "Second body, long enough to wrap to two lines on the card")
+            fuzzyCompare(title.mapToItem(s, 0, 0).x, 38, 1, "the title 9 dp in")
+            fuzzyCompare(body.mapToItem(s, 0, 0).x, 38, 1, "the body 9 dp in")
+            // the card above is drawn above it, edge-scaled
+            var above = s.rowItems[2003]
+            var ab = above.mapToItem(s, 0, above.height)
+            verify(ab.y <= 45, "the card above ends over the gap: " + ab.y)
+            var img = shot(s, "n61-23-open")
+            var ty = Math.round(title.mapToItem(s, 0, 0).y)
+            var tl = inkLeft(img, 30, 200, ty, ty + Math.round(title.height))
+            var by = Math.round(body.mapToItem(s, 0, 0).y)
+            var bl = inkLeft(img, 30, 200, by, by + Math.round(body.height))
+            console.log("N61-23 ink: title from x " + tl + " (S08 39), body from x " + bl + " (S08 38)")
+            // Noto Sans' R starts 3 px in, the emulator font's about 1 px: the title's ink 2 px right
+            verify(Math.abs(tl - 41) <= 1, "the title's ink from x 41: " + tl)
+            verify(Math.abs(bl - 38) <= 1, "the body's ink from x 38: " + bl)
+            // the surface's colour on the screen, between the disc and the edge
+            var sc = px(img, 28, Math.round(dp.y + 60))
+            verify(near(sc, [0x24, 0x26, 0x2b], 2), "#24262B on the screen: " + sc)
+        }
+
+        // Every opened card is #24262B, also one whose full layout is no taller than its collapsed
+        // one (the colour follows the open progress, not the height)
+        function test_n61_23_short_card_colour() {
+            var n = notif({ replacesId: 2302, summary: "Sam", body: "On my way" })
+            var c = make("NotificationCard.qml", { width: 344, notification: n })
+            wait(100)
+            compare(String(byName(c, "cardSurface").color), "#2f3036", "closed")
+            var collapsedH = c.collapsedHeight
+            var bg = byName(c, "cardSurface")
+            // the colour at each step of the open progress: surfaceContainer -> surfaceContainerLow
+            var steps = []
+            c.openPChanged.connect(function () { steps.push([c.openOpacity, bg.color.r * 255]) })
+            c.expanded = true
+            settle(c)
+            verify(c.surfaceFullHeight + c.actionsFullHeight <= collapsedH + 0.5, "no taller open")
+            compare(String(bg.color), "#24262b", "open")
+            verify(steps.length > 2, "steps of the open progress")
+            for (var i = 0; i < steps.length; i++)
+                fuzzyCompare(steps[i][1], 0x2f + (0x24 - 0x2f) * steps[i][0], 1, "the colour on the open progress at " + steps[i][0])
+            c.expanded = false
+            settle(c)
+            compare(String(byName(c, "cardSurface").color), "#2f3036", "closed again")
         }
 
         function test_d60_09_stream_empty() {
