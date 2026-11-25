@@ -1,0 +1,61 @@
+CONCENTRIC ON THE SENSOR HUB: ON-WATCH CHECK (before Concentric ships as the default face)
+=========================================================================================
+The host tests (tst_huboffload_dial, tst_concentric) prove the layout is made, holds for every
+minute and matches the AP's frame in the hub model (aod91 layoutmodel.py). What only the watch can
+show: that the real hub takes a layout this size and draws it. Concentric is the first face with a
+turning dial on the hub:
+
+                         Concentric (10:09, 12 h)     018-modular (on the hub since image 54)
+  messages               807                          489
+  sprites (bound glyph)  121                          5
+  typefaces (atlases)    5, 130 KB                    2, 114 KB
+  op lists 1 / 2 / 3     40.8 / 19.6 / 1.9 KB         1.1 / 1.2 / 0.1 KB (list 1 is mostly the RLE
+                                                      background: 26.7 KB for Concentric's ticks)
+
+The hub has taken bigger layouts: Ambient Lite overlays of 1364..1387 messages went OFFLOADED on the
+watch (journal, 2026-11). It has never had more than 5 bound sprites. Every dial sprite is drawn over
+black (the covers and the short ticks are background, cut out of the cells: huboffload.cpp buildDial),
+so the result does not depend on how the hub blends over colour.
+
+If any step fails: keep 018-modular as the default (leave out or revert the default face change of
+FaceLayer.qml, facepicker.js may stay), file the journal lines and the status line, and the AP keeps
+drawing Concentric's always-on screen (correct, one AP wake a minute) until the hub side is fixed.
+
+Not on USB (USB keeps the watch awake) and with always-on display on. Battery above 50 %.
+
+C1  The default (a fresh setup or after a factory reset)
+    dconf reset /desktop/asteroid/watchface (as the user), restart the launcher, or factory reset.
+    -> the home screen is Concentric; Settings > Watch face marks Concentric (needs the asteroid-settings
+       change of the same image); the face picker starts Concentric, Modular, Classic, ... Large last.
+
+C2  The layout is made and taken (let the screen time out, then within 10 s)
+    journalctl -b --since -2min | grep "hub offload"
+    -> hub offload: dial of 57 numeral slots (6 with cells of their own, 3 under the covers), 2 covers in
+       the background
+    -> hub offload: layout of 807 messages loaded (121 sprites, atlases 130 KB), valid until ...
+       (24 h: a few messages and KB more or less; the sprites and the dial line are the same)
+    -> no "hub offload: no layout" line
+    eos-display-offload ctl status
+    -> ok state=OFFLOADED ... select=0 ... failed=<the same as before the timeout>
+
+C3  No AP wake a minute (15 min, the watch left alone)
+    Note the time, leave the watch for 15 minutes, then
+    journalctl --since "<the time>" | grep -c "hub offload: layout of"     -> 0 (none rebuilt)
+    and the wake log of those 15 minutes (the wake review) has no wake each minute: only the
+    check-ins and the radios, as with Modular.
+
+C4  The hub's frame at a whole five minutes (the minute's numeral under the circle)
+    At xx:40 (any minute that is a multiple of 5), wake the screen (the AP takes the panel back, the
+    hub keeps its layout), and at once, still at xx:40:
+      eos-hubdisp fbread /run/hubfb.raw          (~/mainline/agents/aod/tools)
+      cp /run/user/<uid>/eos-hub-layout.bin /run/hub-layout.bin
+    Copy both to the server, then
+      python3 ~/mainline/agents/face-wt/harness/model_diff.py hub-layout.bin HH:40 hubfb.raw
+    -> "dial and the rest" within a few levels but for edges (the time's digits apart)
+      python3 ~/mainline/agents/face-wt/harness/topng.py hubfb.png hubfb.raw
+    and look at the hub's frame, hubfb.png: no "40" in or under the circle, the long tick at 3 o'clock only
+    right of the circle (cut by the black disk), 35 and 45 whole below and above it, the other
+    numerals and ticks as on the AP's screen. Once more at xx:42: "45" just above the circle with its
+    lower half cut off by it, "40" under the circle (nothing of it inside), as on the AP's screen.
+
+PASS: C1..C4 as listed. Then the default change may be published.

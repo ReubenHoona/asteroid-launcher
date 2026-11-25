@@ -178,6 +178,17 @@ add_executable(tst_hubflip tst_hubflip.cpp)
 target_include_directories(tst_hubflip PRIVATE ../src)
 target_link_libraries(tst_hubflip PRIVATE Qt6::Gui)
 
+# HubOffload::build for the Concentric face (src/watchfaces/027-concentric.qml): the minutes dial as sprites on 60 fixed
+# slots drawn over black only (the covers and the still short ticks in the background, cut out of the cells), the 12 h
+# hour with its leading zero (huboffload.cpp buildDial, fitDial, eosHubZeroPad). The real face file (it needs the
+# image's org.asteroid.controls for Motion) in software Qt Quick, the compositor stand-in:
+#   QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ./tst_huboffload_dial
+add_executable(tst_huboffload_dial tst_huboffload_dial.cpp ../src/huboffload.cpp ../src/huboffload.h ../src/eoslayout.c)
+set_target_properties(tst_huboffload_dial PROPERTIES AUTOMOC ON)
+target_include_directories(tst_huboffload_dial BEFORE PRIVATE stubs ../src)
+target_compile_definitions(tst_huboffload_dial PRIVATE SRC_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(tst_huboffload_dial PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)
+
 # HubOffload::build with the digit items under the compositor's 180 degree root turn (huboffload.cpp, eoslayout.c) in a window
 # of software Qt Quick, with a stand-in for the lipstick compositor that only takes the layout (tests/stubs/lipstickcompositor.h):
 #   QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ./tst_huboffload_flip
