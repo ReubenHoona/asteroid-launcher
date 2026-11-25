@@ -27,6 +27,8 @@
 // moving back) or on a fling of 500 dp/s on a 1.0/600 spring to x = W and the carousel is back
 // (iax.java:15-26), otherwise it springs back.
 //
+// N61-19: the fresh carousel leads with Concentric, the default face (FP.defaults), as the Wear OS 6 emulator.
+//
 // Shots go to /tmp/wo11-shots. Run by motion-wt/wo11/run.sh (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the picker staged as module LauncherQml at its resource paths).
 import QtQuick
@@ -819,6 +821,33 @@ Item {
             compare(FP.ADD_DISMISS_STIFFNESS, 600, "FP stiffness")
             compare(FP.ADD_DISMISS_DAMPING, 1.0, "FP damping")
             compare(FP.ADD_DISMISS_MIN_CHANGE, 0.5, "FP minimum change")
+        }
+
+        // ---- N61-19: Concentric is the fresh watch's face and leads the carousel ---------------------------------
+        // S15 / X-face-after-reset: Concentric, Utility, Classic, ..., Big Time last (ours: Modular for Utility,
+        // Large for Big Time); its Add new entry is its name and its 10:09 picture.
+        function test_n61_19_concentric_first() {
+            var stems = ["000-default-digital", "010-analog-aviator", "018-modular", "019-list", "020-stacked",
+                         "021-classic", "022-large", "023-bold-numerals", "024-step-ring", "027-concentric"]
+            var installed = stems.map(function (st) { return top.face(st) })
+            var names = FP.defaults(installed, top.face("027-concentric")).map(function (e) { return FP.plainName(e.file) })
+            compare(names[0], "concentric")
+            compare(names[1], "modular")
+            compare(names[2], "classic")
+            compare(names[3], "bold-numerals")
+            compare(names[names.length - 1], "large")
+            compare(names.length, 9, "the default faces only, the face on the watch among them")
+            // a watch whose face is not a default keeps it, at the end of the fresh carousel
+            names = FP.defaults(installed, top.face("024-step-ring")).map(function (e) { return FP.plainName(e.file) })
+            compare(names[0], "concentric")
+            compare(names[names.length - 1], "step-ring")
+            // the Add new entry: the name and the shipped 10:09 picture
+            compare(FP.displayName(top.face("027-concentric")), "Concentric")
+            var img = Qt.createQmlObject("import QtQuick; Image { source: Qt.resolvedUrl('previews182/027-concentric.png') }", top)
+            tryCompare(img, "status", Image.Ready, 5000)
+            compare(img.implicitWidth, 182)
+            compare(img.implicitHeight, 182)
+            img.destroy()
         }
     }
 }
