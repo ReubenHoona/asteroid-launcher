@@ -42,8 +42,6 @@ Item {
 
     /* the display is on; the lock's view goes with it */
     property bool displayOn: true
-    /* the watch face is what shows (not an app, not an overlay) */
-    property bool onFace: false
     /* the launcher turns its screen over 180 degrees for a crown on the left
      * (none does today): the crown is on the right again then */
     property bool displayRotated: false

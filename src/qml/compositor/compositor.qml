@@ -372,7 +372,6 @@ Item {
         id: touchLock
         z: arbiter.layers.touchLock
         displayOn: comp ? !comp.displayIsOff : true
-        onFace: comp ? comp.homeActive && !arbiter.interrupting && !arbiter.powerMenuShown : true
         onEngaged: {
             arbiter.closePowerMenu()
             if (comp.appActive)
