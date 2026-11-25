@@ -24,7 +24,10 @@
 //  - N61-20: a stream card swipes both ways in the Wear OS 6 emulator's look (S34, S34-b, M10): the
 //    #343B4D pill on the side the card leaves, |offset| - 4 px wide; a cleared card's pill stays
 //    100 ms under its neighbours and fades in 100 ms while the cards under it move up over 282 ms
-//    on LinearOutSlowIn.
+//    on LinearOutSlowIn;
+//  - N61-21: the heads-up's full view flat on black as the emulator's S10-d (no card surface, a
+//    45 px header disc at (44, 84), the text ink from x 37), and the emulator's morph (M09): the
+//    glanceable out in 80 ms, the view in over 85 ms growing 0.88 -> 1 on FastOutSlowIn in 540 ms.
 // Shots go to /tmp/wo02-shots. Run by motion-wt/wo02/run.sh (qmltestrunner under qemu-aarch64 on
 // the image rootfs; the controls cross-built from qml-asteroid).
 import QtQuick
@@ -32,6 +35,7 @@ import QtQuick.Shapes
 import QtTest
 import org.asteroid.controls
 import org.nemomobile.lipstick
+import "st/qml/notifications/headsup.js" as HU
 
 Item {
     id: top
@@ -415,12 +419,12 @@ Item {
             compare(s.scale, 1)
             verify(s.visible)
             tryVerify(function () { return p.detailScale === 1 && p.detailOpacity === 1 }, 3000, "morph over")
-            // the morph's first frames of the full view: 0.85, the glanceable gone
+            // the morph's first frames of the full view: 0.88 (N61-21), the glanceable gone
             p.glanceOpacity = 0
-            p.detailScale = 0.85
+            p.detailScale = HU.MORPH.detailScaleFrom
             wait(100)
             var img = shot(top, "d60-06-morph")
-            // between the scaled view's disc (radius 163 px) and the screen's edge: black, not the face
+            // between the scaled view's disc (radius 169 px) and the screen's edge: black, not the face
             compare(px(img, 192, 12), [0, 0, 0], "top ring")
             compare(px(img, 12, 192), [0, 0, 0], "left ring")
             compare(px(img, 372, 192), [0, 0, 0], "right ring")
@@ -1022,6 +1026,120 @@ Item {
                 console.log("N61-20 full swipe " + k + ": held " + held + " ms, next card at the top after " + moved + " ms")
                 wait(400)
                 compare(acts, 1, "primaryAction once")
+            }
+        }
+
+        /* ---- N61-21: the flat full view and the emulator's morph ----------- */
+
+        function fullText(card) {
+            return findAll(fullLoader(card), function (it) { return it.compact === false && it.headerInset !== undefined })[0]
+        }
+        // the first column from x0 to x1 with a pixel brighter than mid grey between rows y0 and y1
+        function inkLeft(img, x0, x1, y0, y1) {
+            for (var x = x0; x < x1; x++)
+                for (var y = y0; y < y1; y++) {
+                    var c = px(img, x, y)
+                    if (c[0] + c[1] + c[2] > 300)
+                        return x
+                }
+            return -1
+        }
+        function labelWith(root, text) {
+            var r = findAll(root, function (it) { return it.text === text && it.font !== undefined && it.visible })
+            return r.length ? r[0] : null
+        }
+
+        // S10-d settled: no card surface, the header disc 45 px at x 44-88, y 84-128, the app
+        // name after it, the title and body from x 37; the card's text sizes
+        function test_n61_21_flat_detail() {
+            var n = notif({ replacesId: 2101, appName: "Shell", summary: "Retest one", body: "First test notification body" })
+            var d = make("notifications/HeadsUpDetail.qml", { width: 384, height: 384, notification: n })
+            tryVerify(function () { return d.card !== null && fullLoader(d.card).item !== null }, 3000, "the open card")
+            wait(200)
+            var c = d.card
+            verify(c.flat, "flat")
+            var bg = byName(c, "cardSurface")
+            compare(bg.color.a, 0, "no surface")
+            var rip = findAll(bg, function (it) { return it.pressX !== undefined && it.pressed !== undefined })
+            verify(rip.length === 1 && !rip[0].visible, "no ripple")
+            fuzzyCompare(c.y, 64, 0.5, "the card at the top padding less its 10 dp")
+            var ft = fullText(c)
+            verify(ft !== undefined, "the full text")
+            var disc = byName(ft, "headerIcon")
+            var dp = disc.mapToItem(d, 0, 0)
+            fuzzyCompare(dp.x, 44, 1)
+            fuzzyCompare(dp.y, 84, 1)
+            fuzzyCompare(disc.width, 45, 0.5)
+            fuzzyCompare(disc.height, 45, 0.5)
+            var app = labelWith(ft, "Shell")
+            fuzzyCompare(app.mapToItem(d, 0, 0).x, 101, 1, "the app name 6 dp after the disc")
+            var title = labelWith(ft, "Retest one")
+            var body = labelWith(ft, "First test notification body")
+            // the labels 7 dp in: their ink from x 37 (checked on the render below)
+            fuzzyCompare(title.mapToItem(d, 0, 0).x, 34, 1, "the title 7 dp in")
+            fuzzyCompare(body.mapToItem(d, 0, 0).x, 34, 1, "the body 7 dp in")
+            compare(title.font.pixelSize, 32, "the card's title size")
+            compare(String(title.color), "#d4c7ff")
+            compare(String(body.color), "#cecdd4")
+            var img = shot(top, "n61-21-flat")
+            // around the text: black, none of the card colours (#2F3036, #24262B)
+            var pts = [[30, 150], [350, 150], [30, 220], [352, 200], [192, 76], [60, 136]]
+            for (var i = 0; i < pts.length; i++)
+                compare(px(img, pts[i][0], pts[i][1]), [0, 0, 0], "black at " + pts[i])
+            // the disc is drawn there (accent primary)
+            var on = px(img, 46, 106)
+            verify(on[0] > 150 && on[2] > 150, "the disc's colour at its left: " + on)
+            // the title's and the body's ink start at x 37 +- 1 (S10-d: 37 and 36)
+            var ty = Math.round(title.mapToItem(d, 0, 0).y)
+            var tl = inkLeft(img, 30, 300, ty, ty + Math.round(title.height))
+            verify(tl >= 36 && tl <= 38, "the title's ink from x 37: " + tl)
+            var by = Math.round(body.mapToItem(d, 0, 0).y)
+            var bl = inkLeft(img, 30, 300, by, by + 36)
+            verify(bl >= 35 && bl <= 38, "the body's ink from x 36-37: " + bl)
+        }
+
+        // The morph's numbers (M09) and the first frame of the full view at 0.88
+        function test_n61_21_morph() {
+            compare(HU.MORPH.glanceFadeMs, 80)
+            compare(HU.MORPH.glanceScaleTo, 1.15)
+            compare(HU.MORPH.detailFadeMs, 85)
+            compare(HU.MORPH.detailScaleFrom, 0.88)
+            compare(HU.MORPH.detailScaleMs, 540)
+            compare(HU.MORPH.detailScaleEasing, [0.4, 0, 0.2, 1, 1, 1])
+            var p = preview()
+            var n = notif({ replacesId: 2102, appName: "Shell", summary: "Retest one", body: "First test notification body" })
+            notificationPreviewPresenter.kind = 1
+            notificationPreviewPresenter.notification = n
+            tryCompare(p, "mode", "glance", 3000)
+            var first = -1, t0 = 0, tIn = 0, tEnd = 0, mid = []
+            p.modeChanged.connect(function () {
+                if (p.mode === "full" && first < 0) {
+                    first = p.detailScale
+                    tIn = Date.now()
+                }
+            })
+            p.detailScaleChanged.connect(function () {
+                if (tIn > 0 && p.detailScale < 1)
+                    mid.push([Date.now() - tIn, p.detailScale])
+                if (tIn > 0 && p.detailScale === 1 && tEnd === 0)
+                    tEnd = Date.now()
+            })
+            t0 = Date.now()
+            p.toFull()
+            tryVerify(function () { return tEnd > 0 && p.detailOpacity === 1 }, 4000, "the morph over")
+            fuzzyCompare(first, 0.88, 0.001, "the full view's first frame at 0.88")
+            var glanceMs = tIn - t0
+            var scaleMs = tEnd - tIn
+            console.log("N61-21 morph: glanceable out " + glanceMs + " ms, view scale " + scaleMs + " ms, samples " + JSON.stringify(mid.slice(0, 6)))
+            verify(glanceMs >= 70, "the glanceable out in about 80 ms: " + glanceMs)
+            verify(scaleMs >= 500, "the view grows over about 540 ms: " + scaleMs)
+            // FastOutSlowIn, not CP3A's InOutSine: from 30 % to 55 % of the time the view is well
+            // ahead of the sine (at half the time 77 % of the way, the sine 50 %)
+            var early = mid.filter(function (m) { return m[0] > 0.3 * 540 && m[0] < 0.55 * 540 })
+            verify(early.length > 0, "samples in the middle of the morph")
+            for (var i = 0; i < early.length; i++) {
+                var sine = (1 - Math.cos(Math.PI * early[i][0] / 540)) / 2
+                verify((early[i][1] - 0.88) / 0.12 > sine + 0.08, "fast out: " + early[i] + " (sine " + sine + ")")
             }
         }
 

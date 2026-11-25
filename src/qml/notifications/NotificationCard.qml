@@ -27,6 +27,10 @@ import org.asteroid.controls
  * SwipeToReveal's own area keeps the swipe) and says pressed / pressPoint,
  * tapped() and longPressed() here. A swipe either way is SwipeToReveal's.
  *
+ * Flat (the heads-up's full view, as the Wear OS 6 emulator draws it, S10-d): no
+ * surface and no ripple, the header, title and body straight on the black, a
+ * 45 px header disc, the header 12 dp and the text 7 dp from the card's edge.
+ *
  * Opened, the card's own surface holds the header, title, messages or body and
  * the picture; what follows (the input row, the replies, the app's actions,
  * Open on phone: NotificationActions) hangs below it on the list's black, as
@@ -51,6 +55,8 @@ Item {
     // the stream's phone-action transport and the stack that takes the keyboard layers
     property QtObject remote: null
     property var layerHost: null
+    // no surface: the heads-up's full view (see above)
+    property bool flat: false
 
     // the finger that pressed the card is still down (after a long press too)
     readonly property bool held: pressed
@@ -59,8 +65,12 @@ Item {
     readonly property real sidePad: Theme.dp(10)
     readonly property real vPad: Theme.dp(10)
     readonly property real pictureGap: Theme.dp(4)
-    // the open card's text items sit 7 dp from its edge, the header 10 dp (grw.java)
+    // the open card's text items sit 7 dp from its edge, the header 10 dp (grw.java). Flat (S10-d):
+    // the header 12 dp, so that a card at x 20 has its 45 px disc at x 44-88; the text 7 dp, its
+    // ink from x 37 as the emulator's (Noto Sans starts its capitals about 3 px in)
+    readonly property real headerInset: flat ? Theme.dp(12) : sidePad
     readonly property real textInset: Theme.dp(7)
+    readonly property real headerIconSize: flat ? Theme.dp(22.5) : Theme.dp(24)
     readonly property real pictureInset: Theme.dp(4)
     readonly property real pictureHeight: Theme.dp(60)
     readonly property real pictureRadius: Theme.dp(22)
@@ -192,13 +202,16 @@ Item {
 
     Rectangle {
         id: bg
+        objectName: "cardSurface"
         width: parent.width
         height: card.surfaceHeight
         radius: card.radius
-        color: card.mix(Theme.color.surfaceContainer, Theme.color.surfaceContainerLow, card.expandProgress)
+        color: card.flat ? "transparent"
+                         : card.mix(Theme.color.surfaceContainer, Theme.color.surfaceContainerLow, card.expandProgress)
         clip: true
 
         Ripple {
+            visible: !card.flat
             anchors.fill: parent
             radius: bg.radius
             color: Theme.color.onSurface
@@ -262,8 +275,9 @@ Item {
                         id: fullText
                         width: parent.width
                         compact: false
-                        headerInset: card.sidePad
+                        headerInset: card.headerInset
                         textInset: card.textInset
+                        iconSize: card.headerIconSize
                         notification: card.notification
                         timestamp: card.timestamp
                     }

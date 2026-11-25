@@ -60,14 +60,19 @@ var ENTRY = {
 }
 
 // ---- glanceable -> full view -> face (heads-up-alerts-02, -07) ----
+// The Wear OS 6 emulator (M09, the same at 1x and 10x): the glanceable fades out in about 80 ms,
+// then the full view fades in over about 85 ms while it grows from 0.88 to 1 about the screen's
+// centre on FastOutSlowIn over about 540 ms. The glanceable's growth (1.15) was not measured and
+// stays CP3A's. The fades and the crown's close keep CP3A's curve, the ObjectAnimator default
+// AccelerateDecelerate (cos((t + 1) pi) / 2 + 0.5), which is Easing.InOutSine (motion E6, E7)
 var MORPH = {
-    glanceFadeMs: 100,
+    glanceFadeMs: 80,
     glanceScaleTo: 1.15,
-    detailFadeMs: 100,
-    detailScaleFrom: 0.85,
-    detailScaleMs: 500,
-    // the curve of all of these is the ObjectAnimator default, AccelerateDecelerate
-    // (cos((t + 1) pi) / 2 + 0.5), which is Easing.InOutSine (motion E6, E7)
+    detailFadeMs: 85,
+    detailScaleFrom: 0.88,
+    detailScaleMs: 540,
+    // FastOutSlowIn
+    detailScaleEasing: [0.4, 0, 0.2, 1, 1, 1],
     // a crown press: alpha and scale to 0 in 300 ms
     crownCloseMs: 300
 }

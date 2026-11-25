@@ -43,9 +43,10 @@ import "headsup.js" as HU
  *  - kind 1, the face is the current panel: the glanceable (Glanceable.qml),
  *    the whole round screen. 1000 ms later (1500 ms with Show new
  *    notifications = Immediately) it turns into the full notification view
- *    (HeadsUpDetail.qml): it fades out growing to 1.15 in 100 ms, then the view
- *    fades in over 100 ms scaling 0.85 -> 1 over 500 ms. A tap on the
- *    glanceable goes there at once. There is no auto-dismiss: it stays until
+ *    (HeadsUpDetail.qml): it fades out growing to 1.15 in 80 ms, then the view
+ *    fades in over 85 ms growing from 0.88 to 1 on FastOutSlowIn over 540 ms
+ *    (the Wear OS 6 emulator, M09). A tap on the glanceable goes there at
+ *    once. There is no auto-dismiss: it stays until
  *    the display leaves ON (the presenter brings it back if the display is on
  *    again within 10 s) or the user closes it, with the crown (all of it, its
  *    black backdrop too, alpha and scale to 0 in 300 ms from 1, a morph going
@@ -261,7 +262,8 @@ Item {
             NumberAnimation {
                 target: preview; property: "detailScale"; to: 1
                 duration: Motion.duration(HU.MORPH.detailScaleMs)
-                easing.type: Easing.InOutSine
+                easing.type: Easing.BezierSpline
+                easing.bezierCurve: HU.MORPH.detailScaleEasing
             }
         }
         ScriptAction { script: preview.morphEnded() }

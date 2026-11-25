@@ -20,11 +20,12 @@ Column {
     property string timestamp: ""
     property bool compact: false
     // Where the content sits in the card when it is open (the card gives the whole
-    // width): the header 10 dp from the card's edge, title, messages and body 7 dp
-    // (stock grw.java: the header row 10 dp padding, text items 7 dp); a collapsed
+    // width and its insets, NotificationCard headerInset / textInset); a collapsed
     // card keeps one padding for all, the card's (compact: both 0)
     property real headerInset: 0
     property real textInset: 0
+    // the header's icon disc: 24 dp (the flat full view's is 45 px)
+    property real iconSize: Theme.dp(24)
     // the pictures the conversation's bubbles show
     readonly property var bubblePictures: conversationView.visible ? conversationView.picturePaths : []
     // an open conversation: its title is centred and large (koi.java:104-118)
@@ -67,8 +68,8 @@ Column {
         return h !== undefined && h !== null && String(h) !== ""
     }
 
-    // The header (E08-E10, grw.java:7450-7712): a 24 dp circle in the app's
-    // accent with an 18 dp glyph in onPrimary, 6 dp, the app name (titleSmall,
+    // The header (E08-E10, grw.java:7450-7712): a 24 dp circle (iconSize) in the app's
+    // accent with a glyph 3/4 of it (18 dp) in onPrimary, 6 dp, the app name (titleSmall,
     // onSurfaceVariant, takes the free width), 6 dp, the time (bodyMedium,
     // onSurfaceVariant, at the end: "Now", "5m", "2h", "1d", no dot)
     Item {
@@ -80,13 +81,14 @@ Column {
 
         Rectangle {
             id: iconCircle
-            width: Theme.dp(24)
+            objectName: "headerIcon"
+            width: nt.iconSize
             height: width
             radius: width / 2
             color: nt.accentOf(nt.notification)
             Icon {
                 anchors.centerIn: parent
-                width: Theme.dp(18)
+                width: Math.round(nt.iconSize * 0.75)
                 height: width
                 name: nt.iconOf(nt.notification)
                 color: Theme.color.onPrimary

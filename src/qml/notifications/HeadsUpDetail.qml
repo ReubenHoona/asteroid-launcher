@@ -14,7 +14,9 @@ import "headsup.js" as HU
  * The full notification view that a heads-up opens (audit heads-up-alerts-02,
  * -04): the stream's open card (NotificationCard, expanded, with the reply row,
  * the smart replies, the app's actions and Open on phone) alone on a black
- * round screen, 21.88 % below the top as the stream's first card. The glanceable
+ * round screen, flat as the Wear OS 6 emulator draws it (S10-d: no card surface,
+ * the header, title and body on the black; the header's disc top at 21.88 % of
+ * the height, where the stream's first card starts). The glanceable
  * turns into it over the face; the bubble grows into it over an app. Closing it
  * (the crown, a swipe right) leaves the notification in the list and goes back
  * to what was under: the face, or the app.
@@ -177,8 +179,10 @@ Item {
 
                 NotificationCard {
                     id: openCard
+                    flat: true
                     x: detail.sideMargin
-                    y: detail.topPadding
+                    // the header at the stream's top padding (84 px): disc 44-88, 84-128 at 384 px
+                    y: detail.topPadding - openCard.vPad
                     width: scroller.width - 2 * detail.sideMargin
                     notification: detail.notification
                     // made open: no opening animation
