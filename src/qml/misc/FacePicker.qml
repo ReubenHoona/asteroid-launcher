@@ -11,7 +11,6 @@ import org.asteroid.controls
 import org.asteroid.utils
 import Nemo.Configuration
 import "facepicker.js" as FP
-import "compositor"
 
 /*
  * The watchface picker, as stock Wear OS (CP3A, SysUI managementui), opened
@@ -26,8 +25,10 @@ import "compositor"
  *
  * The picker covers the face from the first frame (nothing fades): the whole
  * carousel starts at scale 384 / 238 = 1.613, where the centre preview covers
- * the screen, and shrinks to 1 in 266 ms, the previews' centre coming to rest
- * at y 171 (the Wear OS 6 emulator, S15). Every preview, the face on the watch
+ * the screen, and settles as the Wear OS 6 emulator's (M11, N61-36) on two
+ * underdamped springs: the scale to 1 (zeta 0.67, k 627) and the previews'
+ * centre from the middle up to y 171 (zeta 0.53, k 700). Leaving without a
+ * change is a cut to the live face. Every preview, the face on the watch
  * included, is the face drawn at 10:09 (N61-35): an eos face's picture drawn
  * for the favourite by FacePreviewRenderer (its style and complications), an
  * upstream face's shipped picture (watchfaces-preview/384); there is no
@@ -54,11 +55,20 @@ Item {
     // the cached pictures (facePreviews, launcher C++, written by FacePreviewRenderer), or none
     readonly property var cache: typeof facePreviews !== "undefined" ? facePreviews : null
 
-    // 0: the face's size (scale 1.613) .. 1: the settled carousel
-    property real zoom: 0
-    // the away exit (K4) keeps zoom at 1 and fades the picker out: the face counts as shown from its
-    // first frame, as it does when the picker zooms back into it
-    readonly property real progress: closing && fadeOut ? Math.min(zoom, picker.opacity) : zoom
+    /* The open's two driven values (N61-36): the previews' scale, FP.openScale (the face's size) .. 1 (the
+     * carousel), on scaleSpring, and the y of their centre, the middle of the screen .. previewCy, on ySpring.
+     * Choosing a face drives them back (growAnim). */
+    property real previewScale: 1
+    property real previewY: 0
+    // 0: the face's size .. 1: the settled carousel (the scale spring's normalised value: above 1 while it
+    // overshoots)
+    readonly property real zoom: FP.openProgress(width, previewScale)
+    // the open came to the carousel's size: the carousel takes touches and the crown, the idle timer runs
+    property bool arrived: false
+    // for the home screen: 1 while the picker covers the face (from the open's first crossing of 1), 0 when
+    // gone; the grow into a chosen face takes it down with the scale
+    readonly property real progress: !shown ? 0 : arrived ? 1 : Math.max(0, Math.min(1, zoom))
+    onZoomChanged: if (shown && !closing && !arrived && zoom >= 1) arrived = true
     property bool shown: false
     property bool closing: false
     visible: shown
@@ -70,14 +80,13 @@ Item {
     readonly property real itemSize: FP.itemSize(width)
     readonly property real pitch: FP.pitch(width)
     readonly property real ringWidth: 4 * u
-    // the centre of the previews at rest: y 171 (the emulator's ring y 48-294, S15), and the pivot of the zoom:
-    // the point that brings the centre preview from the middle of the screen (the face) to it
+    // the centre of the previews at rest: y 171 (the emulator's ring y 48-294, S15)
     readonly property real previewCy: FP.previewCy(height)
-    readonly property real pivotY: FP.zoomPivotY(width, height)
     readonly property real chipY: height - 10 * u - 64 * u
     readonly property real arrowY: chipY - 26 * u
 
-    // names and delete buttons hide for 166 ms, then fade in over 100 ms
+    // the names, the chip and the arrows (and the delete buttons) hide for 100 ms after the cut, then fade in
+    // over 50 ms
     property real namesOpacity: 1
 
     // the wallpaper the faces are drawn over (MainScreen's), its snapshot taken at the open (the only grab: the
@@ -146,6 +155,7 @@ Item {
         rowInstant = true
         sync()
         rowInstant = false
+        ySpring.snapTo(previewCy)
     }
 
     function indexOfFid(id) {
@@ -176,12 +186,8 @@ Item {
         editing = false
         hideTimer.stop()
         addList.closeNow()
-        exitAnim.stop()
-        awayAnim.stop()
+        growAnim.stop()
         closing = false
-        picker.opacity = 1
-        awayScale = 1
-        revealRadius = 1
         rowInstant = true
         positionAt(store.currentId)
         bottomRow.applyRow()
@@ -189,10 +195,29 @@ Item {
         // the pictures are there already (drawn at 10:09, not at the open): the carousel shows at once, and the
         // wallpaper under them comes with its snapshot
         grabBackground()
-        zoom = 0
+        // the cut: the centre preview at the face's size, on the face; 30 ms later the two springs (Reduce
+        // animations: at rest at once)
+        arrived = false
+        scaleSpring.snapTo(FP.openScale(width))
+        ySpring.snapTo(height / 2)
         namesOpacity = 0
         shown = true
+        if (Motion.animationScale > 0)
+            openHold.restart()
+        else
+            startSprings()
         openAnim.restart()
+    }
+    function startSprings() {
+        scaleSpring.animateTo(1, 0)
+        ySpring.animateTo(previewCy, 0)
+    }
+    // the cut's frame stays 30 ms before the springs move (M11)
+    Timer {
+        id: openHold
+        objectName: "eosFaceOpenHold"
+        interval: Motion.duration(FP.OPEN_HOLD_MS)
+        onTriggered: picker.startSprings()
     }
     // the wallpaper under the pictures (an eos face is drawn over it): snapshotted now, shown when it comes
     function grabBackground() {
@@ -212,25 +237,40 @@ Item {
         })
     }
 
-    ParallelAnimation {
+    // the open: the scale 1.613 -> 1 (screen 1 -> 0.69, dipping to 0.66: 6 % overshoot, about 259 ms) and the
+    // centre 192 -> 171 (13-14 % overshoot, about 330 ms), Wear OS 6 emulator, motion M11
+    WearSpring {
+        id: scaleSpring
+        objectName: "eosFaceScaleSpring"
+        target: picker
+        property: "previewScale"
+        stiffness: FP.OPEN_SCALE_STIFFNESS
+        dampingRatio: FP.OPEN_SCALE_DAMPING
+        visibilityThreshold: FP.OPEN_SCALE_THRESHOLD
+        onFinished: if (picker.shown && !picker.closing) picker.arrived = true
+    }
+    WearSpring {
+        id: ySpring
+        objectName: "eosFaceYSpring"
+        target: picker
+        property: "previewY"
+        stiffness: FP.OPEN_Y_STIFFNESS
+        dampingRatio: FP.OPEN_Y_DAMPING
+        visibilityThreshold: FP.OPEN_Y_THRESHOLD
+    }
+    // the names, the chip and the arrows: hidden 100 ms after the cut, then 0 -> 1 in 50 ms (the emulator's
+    // M11 frames 100-126). Stock sets no interpolator on these ValueAnimators (only the scale set has one), so
+    // they run on the ValueAnimator default, AccelerateDecelerate, (cos((t + 1) pi) + 1) / 2 = InOutSine
+    // (ManagementView.java:580-587)
+    SequentialAnimation {
         id: openAnim
         objectName: "eosFaceOpenAnim"
+        PauseAnimation { objectName: "eosFaceNamesHidden"; duration: Motion.duration(FP.NAMES_HIDDEN_MS) }
         NumberAnimation {
-            target: picker; property: "zoom"; from: 0; to: 1
-            duration: Motion.duration(FP.OPEN_MS)
-            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
-        }
-        // the names: hidden 166 ms, then 0 -> 1 in 100 ms. Stock sets no interpolator on these two
-        // ValueAnimators (only the scale set has one), so they run on the ValueAnimator default,
-        // AccelerateDecelerate, (cos((t + 1) pi) + 1) / 2 = InOutSine (ManagementView.java:580-587)
-        SequentialAnimation {
-            PauseAnimation { objectName: "eosFaceNamesHidden"; duration: Motion.duration(FP.NAMES_HIDDEN_MS) }
-            NumberAnimation {
-                objectName: "eosFaceNamesFade"
-                target: picker; property: "namesOpacity"; to: 1
-                duration: Motion.duration(FP.NAMES_FADE_MS)
-                easing.type: Easing.InOutSine
-            }
+            objectName: "eosFaceNamesFade"
+            target: picker; property: "namesOpacity"; to: 1
+            duration: Motion.duration(FP.NAMES_FADE_MS)
+            easing.type: Easing.InOutSine
         }
         onFinished: {
             picker.namesOpacity = 1
@@ -238,77 +278,37 @@ Item {
         }
     }
 
-    // the exit: the carousel grows to 1.613 in 300 ms, the centre preview becomes the face, then the
-    // picker goes. `fade` when the centred preview is not the face on the watch (nothing to grow into):
-    // the picker goes away as stock's V() does (motion K4, awayAnim)
-    function exit(fade) {
-        openAnim.stop()
-        closing = true
-        fadeOut = fade
-        if (fade) {
-            revealAnim.restart()
-            awayAnim.restart()
-        } else {
-            exitAnim.restart()
-        }
-    }
-    property bool fadeOut: false
-
-    // the away exit (K4): scale and alpha of the whole picker, and its circular reveal (a fraction of the
-    // half width), masked only while it runs. The picker goes when the scale and alpha end (350 ms), as
-    // stock's view is GONE then (the exit animator's hzo listener, hzs.b); the 700 ms reveal is stopped
-    // there with it: from 300 ms on it is drawn at alpha 0
-    property real awayScale: 1
-    property real revealRadius: 1
-    scale: awayScale
-    layer.enabled: awayAnim.running
-    layer.effect: CircleMaskShader {
-        end: 0.25 * picker.revealRadius * picker.revealRadius
-        beginning: end - smoothness
-    }
+    // a face chosen: the carousel grows back to 1.613 in 300 ms on the centre preview, which becomes the face,
+    // then the picker goes (CP3A; not captured on the emulator)
     ParallelAnimation {
-        id: awayAnim
-        objectName: "eosFaceAwayAnim"
+        id: growAnim
+        objectName: "eosFaceGrowAnim"
         NumberAnimation {
-            target: picker; property: "awayScale"; to: FP.AWAY_SCALE
-            duration: Motion.duration(FP.AWAY_SCALE_MS)
-            easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_SCALE_CURVE
-        }
-        NumberAnimation {
-            target: picker; property: "opacity"; to: 0
-            duration: Motion.duration(FP.AWAY_ALPHA_MS)
-            easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_ALPHA_CURVE
-        }
-        onFinished: picker.finish()
-    }
-    NumberAnimation {
-        id: revealAnim
-        target: picker; property: "revealRadius"; to: FP.AWAY_REVEAL_TO
-        duration: Motion.duration(FP.AWAY_REVEAL_MS)
-        easing.type: Easing.BezierSpline; easing.bezierCurve: FP.AWAY_REVEAL_CURVE
-    }
-    ParallelAnimation {
-        id: exitAnim
-        objectName: "eosFaceExitAnim"
-        NumberAnimation {
-            target: picker; property: "zoom"; to: 0
+            target: picker; property: "previewScale"; to: FP.openScale(picker.width)
             duration: Motion.duration(FP.CLOSE_MS)
             easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
         }
         NumberAnimation {
-            target: picker; property: "opacity"; to: picker.fadeOut ? 0 : 1
-            duration: picker.fadeOut ? Motion.duration(FP.CLOSE_MS) : 0
+            target: picker; property: "previewY"; to: picker.height / 2
+            duration: Motion.duration(FP.CLOSE_MS)
+            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
         }
         onFinished: picker.finish()
     }
+    function stopMotion() {
+        openHold.stop()
+        openAnim.stop()
+        growAnim.stop()
+        scaleSpring.stop()
+        ySpring.stop()
+    }
     function finish() {
+        stopMotion()
         shown = false
         closing = false
-        zoom = 0
-        picker.opacity = 1
-        awayScale = 1
-        revealAnim.stop()
-        revealRadius = 1
+        arrived = false
+        scaleSpring.snapTo(1)
+        ySpring.snapTo(previewCy)
         backgroundResult = null
         backgroundUrl = ""
         addList.closeNow()
@@ -320,23 +320,23 @@ Item {
     }
 
     // gone at once (the display went off, an application came up)
-    function closeNow() {
-        openAnim.stop()
-        exitAnim.stop()
-        awayAnim.stop()
+        function closeNow() {
+        stopMotion()
         tapTimer.stop()
         flyAnim.stop()
         if (shown || closing)
             finish()
     }
 
-    // closed without a change (the side button, the crown on "Add new", the picker's own timeout over the add list)
+    // closed without a change (the side button, the crown on "Add new", the picker's own timeout over the add
+    // list): the Wear OS 6 emulator cuts to the live face (M11, BACK: 1-2 black frames at either animation
+    // speed), no zoom and no fade, the springs stopped where they are
     function dismiss() {
         if (!shown || closing)
             return
         tapTimer.stop()
-        addList.closeNow()
-        exit(!centredIsCurrent)
+        flyAnim.stop()
+        finish()
     }
     function close() { dismiss() }
 
@@ -347,7 +347,14 @@ Item {
         tapTimer.stop()
         Haptics.confirm()
         store.choose(id)
-        exit(false)
+        grow()
+    }
+    // the grow into the chosen face, from where the open's springs are
+    function grow() {
+        stopMotion()
+        closing = true
+        arrived = false
+        growAnim.restart()
     }
 
     // the crown button; false when the picker leaves it to the home screen (it then closes the picker)
@@ -383,7 +390,7 @@ Item {
         id: idleTimer
         objectName: "eosFaceIdle"
         interval: FP.IDLE_MS
-        running: picker.shown && !picker.closing && picker.zoom >= 1 && !picker.touching && picker.awake
+        running: picker.shown && !picker.closing && picker.arrived && !picker.touching && picker.awake
                  && !picker.editing && !flyAnim.running
         onTriggered: picker.idleExpired()
     }
@@ -480,13 +487,19 @@ Item {
         id: container
         objectName: "eosFaceContainer"
         anchors.fill: parent
-        transform: Scale {
-            id: zoomScale
-            origin.x: picker.width / 2
-            origin.y: picker.pivotY
-            xScale: FP.zoomScale(picker.width, picker.zoom)
-            yScale: xScale
-        }
+        // the previews' scale about their centre at rest, then that centre to previewY
+        transform: [
+            Scale {
+                id: zoomScale
+                origin.x: picker.width / 2
+                origin.y: picker.previewCy
+                xScale: picker.previewScale
+                yScale: xScale
+            },
+            Translate {
+                y: picker.previewY - picker.previewCy
+            }
+        ]
         readonly property real scaleNow: zoomScale.xScale
 
         ListView {
@@ -503,7 +516,7 @@ Item {
             // the two faces each side are kept ready (Qt makes an item once its start is inside the buffer)
             cacheBuffer: 2.5 * picker.pitch
             model: faceModel
-            interactive: picker.shown && picker.zoom >= 1 && !picker.closing && !addList.visible && !picker.editing
+            interactive: picker.shown && picker.arrived && !picker.closing && !addList.visible && !picker.editing
             onCurrentIndexChanged: picker.updateCentred()
             onMovementStarted: tapTimer.stop()
 
@@ -743,7 +756,7 @@ Item {
                         // a finger-sized target (52 dp tap target of stock)
                         width: Math.max(parent.width, 104 * picker.u)
                         height: width
-                        enabled: del.visible && picker.zoom >= 1
+                        enabled: del.visible && picker.arrived
                         onClicked: picker.deleteFace(cell.fid)
                     }
                 }
@@ -767,10 +780,12 @@ Item {
             id: bottomRow
             objectName: "eosFaceRow"
             anchors.fill: parent
-            // the row slides up from 15 % of the height after a face was added
+            // the row slides up from 15 % of the height after a face was added, fading in (addFade); at the open
+            // it shows with the names (N61-36: hidden 100 ms after the cut, in 50 ms later)
             property real shift: 0
+            property real addFade: 1
             y: shift
-            opacity: 1
+            opacity: addFade * picker.namesOpacity
 
             readonly property bool onFace: picker.centredFid !== "" && !picker.centredAdd
             readonly property bool leftOn: onFace && picker.centredIndex > 0
@@ -835,7 +850,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
-                    enabled: bottomRow.leftOn && picker.zoom >= 1
+                    enabled: bottomRow.leftOn && picker.arrived
                     onClicked: picker.moveCentred(-1)
                 }
             }
@@ -871,7 +886,7 @@ Item {
                 MouseArea {
                     id: chipArea
                     anchors.fill: parent
-                    enabled: bottomRow.onFace && picker.zoom >= 1
+                    enabled: bottomRow.onFace && picker.arrived
                     onClicked: picker.customize()
                 }
                 Rectangle {
@@ -910,7 +925,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
-                    enabled: bottomRow.rightOn && picker.zoom >= 1
+                    enabled: bottomRow.rightOn && picker.arrived
                     onClicked: picker.moveCentred(1)
                 }
             }
@@ -920,7 +935,7 @@ Item {
     // ---- taps, delete, move -------------------------------------------------------
     property string tapId: ""
     function tapItem(index) {
-        if (!shown || closing || zoom < 1 || index < 0 || index >= faceModel.count)
+        if (!shown || closing || !arrived || index < 0 || index >= faceModel.count)
             return
         var e = faceModel.get(index)
         if (e.isAdd) {
@@ -953,7 +968,6 @@ Item {
 
     // an arrow: the centred face swaps with its neighbour, saved at once; it lifts and settles
     function moveCentred(dir) {
-        // not while the picker goes: the away exit keeps zoom at 1, so the arrows stay enabled
         if (!shown || closing)
             return false
         var id = centredFid
@@ -994,7 +1008,7 @@ Item {
         flyer.height = flyer.width
         flyer.visible = true
         bottomRow.shift = FP.ADD_ROW_FROM * height
-        bottomRow.opacity = 0
+        bottomRow.addFade = 0
         addList.fadeOut(Motion.duration(FP.ADD_LIST_FADE_MS))
         flyAnim.restart()
     }
@@ -1125,14 +1139,14 @@ Item {
                     duration: Motion.duration(FP.ADD_ROW_MS)
                     easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
                 }
-                NumberAnimation { target: bottomRow; property: "opacity"; to: 1; duration: Motion.duration(FP.ADD_ROW_MS) }
+                NumberAnimation { target: bottomRow; property: "addFade"; to: 1; duration: Motion.duration(FP.ADD_ROW_MS) }
             }
         }
         onFinished: {
             flyer.visible = false
             picker.flyId = ""
             bottomRow.shift = 0
-            bottomRow.opacity = 1
+            bottomRow.addFade = 1
         }
     }
 

@@ -12,6 +12,10 @@
 // names white, their capitals 29 px under the ring.
 // N61-35 (S13-b, S15): the cards' centre at rest is y 171 as the face picker's (FP.previewCy): the ring's box
 // y 48-294, x 69-315.
+// N61-36 (M11, the same management view as the face picker): the open is a cut to the middle card at the tile's
+// size, held 30 ms, then the face picker's two springs (627 / 0.67 on the scale, 700 / 0.53 on the centre 192 -> 171); the
+// names, the delete buttons and the bottom row are hidden 100 ms, then in over 50 ms. The crown (back to the
+// watch face) and an end on the "Add new" card are a cut; an end on a tile grows into it.
 //
 // Shots go to /tmp/wo06-shots. Run as tst_tiles.qml (the tiles staged as module LauncherQml at their resource
 // paths; newlook-wt/l4h/run.sh tiles).
@@ -83,6 +87,7 @@ Item {
             var ed = createTemporaryObject(editorComp, top, { registry: registry })
             verify(ed)
             ed.open(list, at)
+            tryCompare(ed, "arrived", true, 3000)
             tryCompare(ed, "zoom", 1, 3000)
             tryCompare(ed, "namesOpacity", 1, 3000)
             return ed
@@ -227,6 +232,81 @@ Item {
             fuzzyCompare(br.x, 315, 1)
             fuzzyCompare(tl.y, 48, 1)
             fuzzyCompare(br.y, 294, 1)
+        }
+
+        // ---- N61-36
+
+        function test_n61_36_open() {
+            var ed = createTemporaryObject(editorComp, top, { registry: registry })
+            verify(ed)
+            var ss = findChild(ed, "eosTilesScaleSpring"), ys = findChild(ed, "eosTilesYSpring")
+            verify(ss && ys, "the two springs")
+            compare(ss.stiffness, 627)
+            compare(ss.dampingRatio, 0.67)
+            compare(ys.stiffness, 700)
+            compare(ys.dampingRatio, 0.53)
+            var open = findChild(ed, "eosTilesOpenAnim")
+            verify(open, "the names' animation")
+            compare(open.animations[0].duration, Motion.duration(100))
+            compare(open.animations[1].duration, Motion.duration(50))
+            compare(open.animations[1].easing.type, Easing.InOutSine)
+            var seen = { minS: 9, minY: 999 }
+            var onS = function () { seen.minS = Math.min(seen.minS, ed.previewScale) }
+            var onY = function () { seen.minY = Math.min(seen.minY, ed.previewY) }
+            ed.previewScaleChanged.connect(onS)
+            ed.previewYChanged.connect(onY)
+            ed.open(["timer", "alarm"], 0)
+            // the cut: the middle card at the tile's size on the middle, names and row hidden
+            fuzzyCompare(ed.previewScale, 384 / 238, 0.0001)
+            fuzzyCompare(ed.previewY, 192, 0.0001)
+            compare(ed.namesOpacity, 0)
+            compare(ed.bottomRow.opacity, 0)
+            verify(findChild(ed, "eosTilesOpenHold").running, "the cut held 30 ms")
+            tryVerify(function () { return ss.running && ys.running }, 2000, "then the springs")
+            tryCompare(ed, "arrived", true, 5000)
+            tryVerify(function () { return !ss.running && !ys.running }, 5000)
+            ed.previewScaleChanged.disconnect(onS)
+            ed.previewYChanged.disconnect(onY)
+            verify(seen.minS < 0.99 && seen.minS > 0.955, "the scale went under 1: " + seen.minS)
+            verify(seen.minY < 169.5 && seen.minY > 167.5, "the centre went past 171: " + seen.minY)
+            compare(ed.previewScale, 1)
+            compare(ed.previewY, 171)
+            tryCompare(ed, "namesOpacity", 1, 3000)
+            compare(ed.bottomRow.opacity, 1)
+        }
+
+        function test_n61_36_cut() {
+            var ed = openEditor(["timer", "alarm"], 1)
+            var cancelled = 0, ended = []
+            ed.cancelled.connect(function () { cancelled++ })
+            ed.finished.connect(function (i) { ended.push(i) })
+            // the crown: back on the face in the same frame
+            verify(ed.crownPressed())
+            compare(ed.visible, false, "a cut")
+            compare(ed.progress, 0)
+            compare(cancelled, 1)
+            verify(!findChild(ed, "eosTilesScaleSpring").running)
+            // the crown in the middle of the open: the same
+            ed.open(["timer", "alarm"], 0)
+            tryVerify(function () { return findChild(ed, "eosTilesScaleSpring").running }, 2000, "the open is running")
+            verify(ed.crownPressed())
+            compare(ed.visible, false, "a cut in the open")
+            verify(!findChild(ed, "eosTilesScaleSpring").running && !findChild(ed, "eosTilesYSpring").running)
+            // an end on a tile grows into it
+            ed.open(["timer", "alarm"], 1)
+            tryCompare(ed, "arrived", true, 3000)
+            ed.close()
+            verify(findChild(ed, "eosTilesExitAnim").running, "the grow into the tile")
+            compare(ed.visible, true)
+            compare(ended[ended.length - 1], 1)
+            tryCompare(ed, "visible", false, 3000)
+            // an end on "Add new" (every tile with settings): nothing to grow into, a cut
+            ed.open(["quickadd"], 1)
+            tryCompare(ed, "arrived", true, 3000)
+            compare(tileIds(ed), ["quickadd", ""])
+            compare(ed.onTile, false)
+            ed.close()
+            compare(ed.visible, false, "a cut on Add new")
         }
 
         // ---- N61-31

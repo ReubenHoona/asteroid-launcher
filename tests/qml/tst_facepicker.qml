@@ -20,8 +20,8 @@
 // filled carets in a 24 dp box in primary; pencil_icon.xml (iaf.java:277-283), the outlined pencil 20 x 18 dp
 // inset 2 / 3 dp in a 24 dp box, in onPrimary.
 // D60-31: the curved face name in onSurface #E8E7EE.
-// D60-32: the names hide for 166 ms and fade in over 100 ms on the ValueAnimator default, AccelerateDecelerate
-// (= InOutSine) (ManagementView.java:580-587).
+// D60-32: the names fade in on the ValueAnimator default, AccelerateDecelerate (= InOutSine)
+// (ManagementView.java:580-587); N61-36 takes the emulator's times: hidden 100 ms, in over 50 ms.
 // D60-33: the Add new list follows a swipe right as CP3A's SwipeDismissFrameLayout (gar.java:174-194,
 // gax.java:36-127): scale 1 - 0.3 p with the right edge pinned, dim min(0.3, p / 2); it goes past 0.33 W (not
 // moving back) or on a fling of 500 dp/s on a 1.0/600 spring to x = W and the carousel is back
@@ -35,6 +35,12 @@
 // x 69-315, y 48-294, the right neighbour's ring at x 347-350 (dimmed to #101012), the Add new disc x 132-252,
 // y 111-231. This overrides D60-28's live and cached snapshots; its ring, its fallback pictures (now the 384 px
 // set) and the wallpaper under the pictures stay.
+// N61-36 (M11): the open is a cut to the centre preview at the face's size, held 30 ms, then two underdamped
+// springs: the previews' scale 1.613 -> 1 (WearSpring 627 / 0.67: under 1 by 6 % of the travel, settled in about
+// 270 ms) and their centre 192 -> 171 (700 / 0.53: past 171 by 14 %, about 330 ms); the names, the chip and the
+// arrows are hidden 100 ms, then in over 50 ms. Leaving without a change (dismiss: the side button, the crown
+// on Add new, the idle timeout over the add list) is a cut: the picker is gone in the same frame, no zoom back,
+// no away exit; choosing a face still grows the carousel into it.
 //
 // Shots go to /tmp/wo11-shots. Run by newlook-wt/l6h/run.sh fp (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the picker staged as module LauncherQml at its resource paths, the repo's 384 px and 182 px pictures
@@ -243,9 +249,15 @@ Item {
         function openPicker() {
             picker.open()
             tryCompare(picker, "shown", true, 10000)
-            tryCompare(picker, "zoom", 1, 10000)
+            atRest()
             tryCompare(picker, "namesOpacity", 1, 5000)
             wait(50)
+        }
+        // the open's two springs at rest (zoom passes 1 on the overshoot before)
+        function atRest() {
+            var a = find(picker, "eosFaceScaleSpring"), b = find(picker, "eosFaceYSpring")
+            tryVerify(function () { return picker.arrived && !a.running && !b.running }, 10000, "the open at rest")
+            compare(picker.zoom, 1, "zoom 1 at rest")
         }
         // the row buttons come to rest (their transitions run up to 525 ms)
         function settleRow() {
@@ -280,7 +292,7 @@ Item {
             compare(picker.shown, true, "shown in the frame of the open: no wait for a snapshot")
             near(picker.zoom, 0, 0.001, "at the face's size")
             compare(liveFace.grabs, 0, "no grabToImage of the face on the watch")
-            tryCompare(picker, "zoom", 1, 10000)
+            atRest()
             tryCompare(picker, "namesOpacity", 1, 5000)
             wait(50)
             compare(liveFace.grabs, 0, "none during the open either")
@@ -822,18 +834,158 @@ Item {
             }
         }
 
-        // ---- D60-32 ----------------------------------------------------------------------------------------
-        function test_d60_32_names_fade() {
+        // ---- N61-36 ----------------------------------------------------------------------------------------
+        // the springs: their parameters, their closed form (WearSpring.sample and settleMs: no frame clock), and
+        // what a live open writes
+        function test_n61_36_springs() {
+            setup([["s1", "018-modular"], ["s2", "021-classic"]], "s1")
+            var ss = find(picker, "eosFaceScaleSpring"), ys = find(picker, "eosFaceYSpring")
+            verify(ss !== null && ys !== null, "the two springs")
+            compare(ss.stiffness, 627, "scale: k 627 (M11)")
+            compare(ss.dampingRatio, 0.67, "scale: zeta 0.67")
+            compare(ys.stiffness, 700, "centre: k 700")
+            compare(ys.dampingRatio, 0.53, "centre: zeta 0.53")
+            compare(FP.OPEN_SCALE_STIFFNESS, 627)
+            compare(FP.OPEN_Y_DAMPING, 0.53)
+            // settled (99 %): the emulator's 259 ms and 320-340 ms
+            var t1 = ss.settleMs(627, 0.67), t2 = ys.settleMs(700, 0.53)
+            verify(t1 > 240 && t1 < 300, "the scale settles in " + t1 + " ms")
+            verify(t2 > 300 && t2 < 360, "the centre settles in " + t2 + " ms")
+            // the overshoot: the scale under 1 by 6 % of its 0.613 travel (0.964; the emulator's screen 0.69 dipping
+            // to 0.66), the centre past 171 by 14 % of its 21 px (168.1)
+            var s0 = FP.openScale(384), minS = 9, minY = 999, atS = 0, atY = 0
+            for (var ms = 0; ms <= 600; ms++) {
+                var vs = ss.sample(627, 0.67, s0, 1, 0, ms), vy = ys.sample(700, 0.53, 192, 171, 0, ms)
+                if (vs < minS) { minS = vs; atS = ms }
+                if (vy < minY) { minY = vy; atY = ms }
+            }
+            verify(minS > 0.955 && minS < 0.97, "the scale dips to " + minS + " at " + atS + " ms")
+            verify(minY > 167.5 && minY < 169, "the centre rises to " + minY + " at " + atY + " ms")
+
+            // a live open
+            var seen = { minS: 9, minY: 999 }
+            var onS = function () { seen.minS = Math.min(seen.minS, picker.previewScale) }
+            var onY = function () { seen.minY = Math.min(seen.minY, picker.previewY) }
+            picker.previewScaleChanged.connect(onS)
+            picker.previewYChanged.connect(onY)
+            picker.open()
+            // the cut: the centre preview's picture is the screen
+            near(picker.previewScale, s0, 0.0001, "at the face's size")
+            near(picker.previewY, 192, 0.0001, "on the middle")
+            var pic = find(cellOf("s1"), "eosFacePicture")
+            var a = pic.mapToItem(picker, 0, 0), b = pic.mapToItem(picker, pic.width, pic.height)
+            near(a.x, 0, 1, "the picture covers the screen (left)")
+            near(b.x, 384, 1, "(right)")
+            near(a.y, 0, 1, "(top)")
+            near(b.y, 384, 1, "(bottom)")
+            var hold = find(picker, "eosFaceOpenHold")
+            compare(hold.interval, Motion.duration(30), "the cut's frame is held 30 ms (M11)")
+            compare(FP.OPEN_HOLD_MS, 30)
+            verify(hold.running && !ss.running && !ys.running, "held, the springs not yet started")
+            compare(picker.progress, 0, "the face still counts as shown")
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/n61-36-cut.png")
+            tryVerify(function () { return ss.running && ys.running }, 2000, "then both springs run")
+            tryCompare(picker, "arrived", true, 5000)
+            compare(picker.progress, 1, "covered")
+            tryVerify(function () { return !ss.running && !ys.running }, 5000, "both at rest")
+            picker.previewScaleChanged.disconnect(onS)
+            picker.previewYChanged.disconnect(onY)
+            verify(seen.minS < 0.99 && seen.minS > 0.955, "the scale went under 1: " + seen.minS)
+            verify(seen.minY < 169.5 && seen.minY > 167.5, "the centre went past 171: " + seen.minY)
+            compare(picker.previewScale, 1, "at rest: 1")
+            compare(picker.previewY, 171, "at rest: 171")
+            compare(picker.zoom, 1, "zoom 1")
+            compare(picker.progress, 1, "progress 1")
+        }
+
+        // the names, the chip and the arrows: hidden 100 ms after the cut, then in over 50 ms (InOutSine)
+        function test_n61_36_names() {
             setup([["f1", "018-modular"], ["f2", "021-classic"]], "f1")
             var open = find(picker, "eosFaceOpenAnim")
             verify(open !== null, "open animation")
             var hidden = findAnim(open, "eosFaceNamesHidden"), fade = findAnim(open, "eosFaceNamesFade")
             verify(hidden !== null && fade !== null, "names hidden and fade")
-            compare(hidden.duration, Motion.duration(166), "names hidden 166 ms")
-            compare(fade.duration, Motion.duration(100), "then 100 ms")
+            compare(hidden.duration, Motion.duration(100), "names hidden 100 ms")
+            compare(fade.duration, Motion.duration(50), "then 50 ms")
             compare(fade.easing.type, Easing.InOutSine, "AccelerateDecelerate: (1 - cos(pi t)) / 2")
+            compare(FP.NAMES_HIDDEN_MS, 100)
+            compare(FP.NAMES_FADE_MS, 50)
+            var row = find(picker, "eosFaceRow")
+            var t = { t0: 0, first: -1, full: -1 }
+            var on = function () {
+                var dt = Date.now() - t.t0
+                if (picker.namesOpacity > 0 && t.first < 0)
+                    t.first = dt
+                if (picker.namesOpacity >= 1 && t.full < 0)
+                    t.full = dt
+            }
+            picker.namesOpacityChanged.connect(on)
+            t.t0 = Date.now()
+            picker.open()
+            compare(picker.namesOpacity, 0, "hidden at the cut")
+            compare(row.opacity, 0, "the chip and the arrows too")
+            tryCompare(picker, "namesOpacity", 1, 5000)
+            picker.namesOpacityChanged.disconnect(on)
+            // 0 at 90 ms, 1 by 160 ms: by the animation's times (the test's frames under qemu come late, so the
+            // live times can only be later: the first change is never before 90 ms)
+            verify(hidden.duration > 90, "still hidden at 90 ms")
+            verify(hidden.duration + fade.duration <= 160, "in by 160 ms")
+            verify(t.first >= 90, "the names start at " + t.first + " ms")
+            console.log("N61-36 names: first change at " + t.first + " ms, full at " + t.full + " ms (test clock)")
+            compare(row.opacity, 1, "the chip and the arrows are in with them")
+            compare(find(cells()[0], "eosFaceName").opacity, 1, "the name")
+        }
+
+        // leaving without a change: a cut, in the same frame, from rest and from the middle of the open; a face
+        // chosen: the carousel grows into it
+        function test_n61_36_cut() {
+            setup([["c1", "018-modular"], ["c2", "021-classic"], ["c3", "022-large"]], "c2")
+            verify(find(picker, "eosFaceAwayAnim") === null, "no away exit")
+            verify(find(picker, "eosFaceExitAnim") === null, "no zoom back")
+            var ss = find(picker, "eosFaceScaleSpring"), ys = find(picker, "eosFaceYSpring")
+            var closed = 0
+            var onClosed = function () { closed++ }
+            picker.closed.connect(onClosed)
+            // at rest on the face on the watch
             openPicker()
-            compare(picker.namesOpacity, 1, "names in")
+            picker.dismiss()
+            compare(picker.shown, false, "gone in the same frame")
+            compare(picker.visible, false, "not drawn")
+            compare(picker.progress, 0, "the face is shown")
+            compare(closed, 1, "closed")
+            compare(store.currentId, "c2", "no change")
+            // on another face (stock's away exit before): the same cut
+            openPicker()
+            picker.positionAt("c3")
+            wait(Motion.duration(300))
+            picker.dismiss()
+            compare(picker.shown, false, "gone at once from another face")
+            compare(store.currentId, "c2", "no change")
+            // in the middle of the open: the springs stop where they are
+            picker.open()
+            tryVerify(function () { return ss.running && ys.running }, 2000, "the open is running")
+            picker.dismiss()
+            compare(picker.shown, false, "gone at once in the open")
+            verify(!ss.running && !ys.running, "the springs stopped")
+            compare(closed, 3, "closed each time")
+            // the crown on Add new: dismiss, the same cut
+            openPicker()
+            find(picker, "eosFaceList").currentIndex = store.entries.length
+            tryCompare(picker, "centredAdd", true, 2000)
+            verify(picker.crownPressed(), "the crown is the picker's")
+            compare(picker.shown, false, "the crown on Add new: a cut")
+            // a face chosen: the carousel grows back to the face's size (CP3A), then goes
+            openPicker()
+            picker.positionAt("c1")
+            wait(Motion.duration(300))
+            var grow = find(picker, "eosFaceGrowAnim")
+            picker.choose("c1")
+            compare(store.currentId, "c1", "c1 on the watch")
+            verify(grow.running, "the grow into the face")
+            compare(picker.shown, true, "still shown while it grows")
+            tryCompare(picker, "shown", false, 5000)
+            picker.closed.disconnect(onClosed)
         }
 
         // ---- D60-33 ----------------------------------------------------------------------------------------

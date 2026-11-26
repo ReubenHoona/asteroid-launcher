@@ -66,41 +66,40 @@ function pitch(w) { return itemSize(w) + 2 * (BORDER_DP + ITEM_PADDING_DP) * w /
 function openScale(w) { return w / itemSize(w) }
 // the centre of the previews at rest on a screen h px high: 171 on 384
 function previewCy(h) { return PREVIEW_CY_PX * h / 384 }
-// the y the zoom pivots on: the one point the open's scale brings the centre preview from the middle of the
-// screen (the face, at openScale) to previewCy (at 1): 136.7 on 384
-function zoomPivotY(w, h) {
-    var s = openScale(w)
-    return (previewCy(h) * s - h / 2) / (s - 1)
-}
 // the alpha of an item whose centre is distance px from the middle (ManagementView.java:499-508)
 function itemAlpha(distance, itemWidth) {
     return 1 - 0.5 * Math.min(1, Math.abs(distance) / itemWidth)
 }
-// the zoom scale between the face (0) and the settled carousel (1)
-function zoomScale(w, zoom) {
+// how far the open is, from the previews' scale: 0 at the face's size (openScale), 1 at the carousel's (above 1
+// while the scale spring overshoots)
+function openProgress(w, scale) {
     var s = openScale(w)
-    return s + (1 - s) * zoom
+    return (s - scale) / (s - 1)
 }
 
+/* The open (Wear OS 6 emulator, motion M11, N61-36): a cut from the face to its 10:09 preview at full size (the
+ * centre preview exactly covers the screen), held 30 ms (M11: the ring leaves the bezel about 30 ms after the cut;
+ * the springs below fit the frames with that start, RMS 6.5 px against 16 px without it), then two underdamped
+ * springs: the previews' scale 1.613 -> 1
+ * (screen 1 -> 0.69, dipping to 0.66: 6 % overshoot, settled in 259 ms) on zeta 0.67, k 627, and their centre
+ * from the screen's middle (192) up to PREVIEW_CY_PX on zeta 0.53, k 700 (13-14 % overshoot, 320-340 ms).
+ * The names, the chip and the arrows are hidden for 100 ms after the cut and full 50 ms later. Leaving without
+ * a change (back) is a cut to the live face, no zoom and no fade (1-2 black frames on the emulator). The tile
+ * editor is the same management view and moves the same way. */
+var OPEN_HOLD_MS = 30
+var OPEN_SCALE_STIFFNESS = 627
+var OPEN_SCALE_DAMPING = 0.67
+var OPEN_Y_STIFFNESS = 700
+var OPEN_Y_DAMPING = 0.53
+// the springs come to rest within these (the scale: 1/1000 of it; the centre: 0.1 px)
+var OPEN_SCALE_THRESHOLD = 0.001
+var OPEN_Y_THRESHOLD = 0.1
+
 // timing, ms (ManagementView.java:563-599, 740-787)
-var OPEN_MS = 266
+// a face put on (a tap, the crown, the idle timeout): the carousel grows back into it (CP3A, not captured)
 var CLOSE_MS = 300
-// closed without a change (motion K4; ManagementView.java:646-675 V(), animator/
-// sysui_common_activity_exit.xml, hzs.java): the picker shrinks to 0.25 (sysui_common_activity_away_scale)
-// in 350 ms on scale_interpolator (0.2, 0, 0.2, 1), fades out in 300 ms on fast_out_linear_in, and a
-// circular reveal takes its radius from 100 % to 25 % over 700 ms (twice the set) on FastOutLinearIn (hzs.b).
-// Its dim (sysui_common_activity_exit_dim, 350 ms) animates the alpha of managementui_black_dim
-// #00ff0000, a transparent colour: it draws nothing, so there is none here
-var AWAY_SCALE = 0.25
-var AWAY_SCALE_MS = 350
-var AWAY_SCALE_CURVE = [0.2, 0, 0.2, 1, 1, 1]
-var AWAY_ALPHA_MS = 300
-var AWAY_ALPHA_CURVE = [0.4, 0, 1, 1, 1, 1]
-var AWAY_REVEAL_TO = 0.25
-var AWAY_REVEAL_MS = 700
-var AWAY_REVEAL_CURVE = [0.4, 0, 1, 1, 1, 1]
-var NAMES_HIDDEN_MS = 166           // names and delete buttons hidden, then fade in
-var NAMES_FADE_MS = 100
+var NAMES_HIDDEN_MS = 100           // names, chip and arrows hidden after the cut, then fade in
+var NAMES_FADE_MS = 50
 var TAP_WAIT_MS = 200               // a tap on a side face: scroll to it, wait, apply
 var SCROLL_MS = 250                 // the carousel's own move
 var IDLE_MS = 15000                 // iaf.java:49-57

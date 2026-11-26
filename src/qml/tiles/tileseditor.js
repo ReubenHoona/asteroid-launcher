@@ -20,14 +20,8 @@ var MAX_TILES = 15
 /* the inactivity timeout: iaf.java:49-58, 15000 ms */
 var IDLE_MS = 15000
 
-/* cancel (the crown button; jif.java:196-209): the editor shrinks to 0.25
- * (sysui_common_activity_away_scale) in 350 ms on (0.2, 0, 0.2, 1) while it
- * fades out in 300 ms on fast_out_linear_in (0.4, 0, 1, 1) */
-var CANCEL_SCALE = 0.25
-var CANCEL_SCALE_MS = 350
-var CANCEL_SCALE_CURVE = [0.2, 0, 0.2, 1, 1, 1]
-var CANCEL_ALPHA_MS = 300
-var CANCEL_ALPHA_CURVE = [0.4, 0, 1, 1, 1, 1]
+/* cancel (the crown button; jif.java:196-209): back on the watch face, a cut (the Wear OS 6 emulator's
+ * management view leaves without a change at once, M11; N61-36), not CP3A's shrink to 0.25 and fade */
 
 /* a tap on a side card: it scrolls to the middle (the carousel's own 250 ms
  * move), the 200 ms start delay, then the zoom (iaf.java:249-262) */

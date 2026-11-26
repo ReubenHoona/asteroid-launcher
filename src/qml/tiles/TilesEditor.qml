@@ -20,8 +20,11 @@ import "tileseditor.js" as TE
  *
  * - Open: the whole editor starts at scale 384 / 238 = 1.613, where the
  *   middle card (a live copy of the tile) is exactly the tile, and settles
- *   to 1 in 266 ms (0.4, 0, 0.2, 1) with no fade; names and delete buttons
- *   stay hidden for 166 ms, then fade in over 100 ms (gap tiles-framework-08).
+ *   as the face picker's (the same management view; the Wear OS 6
+ *   emulator's M11, N61-36) on two underdamped springs: the scale to 1
+ *   (zeta 0.67, k 627) and the cards' centre from the middle up to y 171
+ *   (zeta 0.53, k 700), no fade; names, buttons and delete buttons stay
+ *   hidden for 100 ms, then fade in over 50 ms (gap tiles-framework-08).
  * - Cards: 238 px preview in a 4 px #202124 ring, 278 px apart, side cards
  *   fade by 1 - 0.5 x distance / width and are not scaled (-09); the tile's
  *   name curves along the top edge, 30 px, at most 90 degrees, in onSurface
@@ -43,8 +46,9 @@ import "tileseditor.js" as TE
  *   with settings (TE.needsAddCard).
  * - A tap on a card ends the editing on it, a side card first scrolls to
  *   the middle and waits 200 ms (-22). 15 s without a touch end it on the
- *   middle tile (-20). The crown cancels to the watch face (-21): the
- *   editor shrinks to 0.25 and fades.
+ *   middle tile (-20). The crown cancels to the watch face (-21): a cut, as
+ *   the emulator leaves the management view without a change (N61-36); so
+ *   does an end on the "Add new" card (no tile to grow into).
  * "registry" maps a tile id to { file, name, icon, configure }.
  */
 Item {
@@ -68,14 +72,21 @@ Item {
     readonly property bool adding: addList.visible
     readonly property int maxTiles: TE.MAX_TILES
 
-    // 0: the tile's size (scale 1.613) .. 1: the settled carousel
-    property real zoom: 0
-    readonly property real progress: zoom
+    /* The open's two driven values (N61-36, as the face picker): the cards' scale, FP.openScale (the tile's
+     * size) .. 1 (the carousel), on scaleSpring, and the y of their centre, the middle of the screen ..
+     * previewCy, on ySpring. The end on a tile drives them back (exitAnim). */
+    property real previewScale: 1
+    property real previewY: 0
+    Component.onCompleted: ySpring.snapTo(previewCy)
+    // 0: the tile's size .. 1: the settled carousel (above 1 while the scale spring overshoots)
+    readonly property real zoom: FP.openProgress(width, previewScale)
+    // the open came to the carousel's size: touches, arrows and the idle timer
+    property bool arrived: false
+    readonly property real progress: !visible ? 0 : arrived ? 1 : Math.max(0, Math.min(1, zoom))
+    onZoomChanged: if (visible && !closing && !arrived && zoom >= 1) arrived = true
     property bool closing: false
     property bool cancelling: false
-    // the middle card is not a tile (Add new): the close fades instead of growing
-    property bool fadeOut: false
-    // names and delete buttons hide for 166 ms, then fade in over 100 ms
+    // names, buttons and delete buttons hide for 100 ms after the cut, then fade in over 50 ms
     property real namesOpacity: 1
     property bool touching: false
 
@@ -83,10 +94,8 @@ Item {
     readonly property real itemSize: FP.itemSize(width)
     readonly property real pitch: FP.pitch(width)
     readonly property real ringWidth: 4 * u
-    // as the face picker: the cards' centre at rest is y 171 (the emulator's ring y 48-294, S13-b, S15;
-    // N61-35), and the zoom pivots on the point that brings the middle card from the screen's middle to it
+    // as the face picker: the cards' centre at rest is y 171 (the emulator's ring y 48-294, S13-b, S15)
     readonly property real previewCy: FP.previewCy(height)
-    readonly property real pivotY: FP.zoomPivotY(width, height)
 
     // the carousel's model: the tiles, then "Add new" while TE.needsAddCard (a
     // ListModel, so a removal, a move or an addition keeps the view where it is)
@@ -120,40 +129,64 @@ Item {
         dialog.close()
         closing = false
         cancelling = false
-        fadeOut = false
-        stage.opacity = 1
-        stage.scale = 1
         flyId = ""
         flyer.visible = false
         bottomRow.shift = 0
-        bottomRow.opacity = 1
+        bottomRow.addFade = 1
         carousel.currentIndex = Math.max(0, Math.min(at, cards.count - 1))
         carousel.positionViewAtIndex(carousel.currentIndex, ListView.Center)
-        zoom = 0
+        // the cut: the middle card at the tile's size, 30 ms later the two springs (Reduce animations: at rest at
+        // once)
+        arrived = false
+        scaleSpring.snapTo(FP.openScale(width))
+        ySpring.snapTo(height / 2)
         namesOpacity = 0
         visible = true
+        if (Motion.animationScale > 0)
+            openHold.restart()
+        else
+            startSprings()
         openAnim.restart()
+    }
+    function startSprings() {
+        scaleSpring.animateTo(1, 0)
+        ySpring.animateTo(previewCy, 0)
+    }
+    // the cut's frame stays 30 ms before the springs move (as the face picker, M11)
+    Timer {
+        id: openHold
+        objectName: "eosTilesOpenHold"
+        interval: Motion.duration(FP.OPEN_HOLD_MS)
+        onTriggered: editor.startSprings()
     }
 
     function stopAll() {
+        openHold.stop()
         openAnim.stop()
         exitAnim.stop()
-        cancelAnim.stop()
+        scaleSpring.stop()
+        ySpring.stop()
         flyAnim.stop()
         tapTimer.stop()
     }
 
     /* End the editing on the middle tile: the editor grows to 1.613 in 300 ms
      * (0.4, 0, 0.2, 1) into the tile; names and buttons fade out in 150 ms. On
-     * "Add new" there is no tile to grow into: it fades out. */
+     * "Add new" there is no tile to grow into: a cut, as a close without a
+     * change (N61-36). */
     function close() {
         if (!visible || closing)
             return
         tapTimer.stop()
-        openAnim.stop()
-        closing = true
-        fadeOut = !onTile
+        var tile = onTile
         finished(TE.endIndex(carousel.currentIndex, shown.length))
+        if (!tile) {
+            finish()
+            return
+        }
+        stopAll()
+        closing = true
+        arrived = false
         exitAnim.restart()
     }
 
@@ -167,17 +200,15 @@ Item {
         return true
     }
 
+    /* The crown: back on the watch face (jif.java:196-209) without a change, a cut to the face as the
+     * emulator's management view leaves on back (M11, N61-36), the springs stopped where they are. */
     function cancel() {
         if (!visible || cancelling)
             return
-        openAnim.stop()
-        exitAnim.stop()
-        flyAnim.stop()
-        tapTimer.stop()
-        closing = true
+        stopAll()
         cancelling = true
         cancelled()
-        cancelAnim.restart()
+        finish()
     }
 
     function finish() {
@@ -185,10 +216,9 @@ Item {
         visible = false
         closing = false
         cancelling = false
-        fadeOut = false
-        zoom = 0
-        stage.opacity = 1
-        stage.scale = 1
+        arrived = false
+        scaleSpring.snapTo(1)
+        ySpring.snapTo(previewCy)
         addList.closeNow()
         dialog.close()
         flyer.visible = false
@@ -261,50 +291,54 @@ Item {
     }
 
     // ---- the first frames ---------------------------------------------------
-    ParallelAnimation {
+    // the open, as the face picker's (FP.OPEN_*): the scale 1.613 -> 1 and the centre 192 -> 171
+    WearSpring {
+        id: scaleSpring
+        objectName: "eosTilesScaleSpring"
+        target: editor
+        property: "previewScale"
+        stiffness: FP.OPEN_SCALE_STIFFNESS
+        dampingRatio: FP.OPEN_SCALE_DAMPING
+        visibilityThreshold: FP.OPEN_SCALE_THRESHOLD
+        onFinished: if (editor.visible && !editor.closing) editor.arrived = true
+    }
+    WearSpring {
+        id: ySpring
+        objectName: "eosTilesYSpring"
+        target: editor
+        property: "previewY"
+        stiffness: FP.OPEN_Y_STIFFNESS
+        dampingRatio: FP.OPEN_Y_DAMPING
+        visibilityThreshold: FP.OPEN_Y_THRESHOLD
+    }
+    // names, buttons and delete buttons: hidden 100 ms, then in over 50 ms (InOutSine, as the face picker)
+    SequentialAnimation {
         id: openAnim
         objectName: "eosTilesOpenAnim"
+        PauseAnimation { objectName: "eosTilesNamesHidden"; duration: Motion.duration(FP.NAMES_HIDDEN_MS) }
         NumberAnimation {
-            target: editor; property: "zoom"; from: 0; to: 1
-            duration: Motion.duration(FP.OPEN_MS)
-            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
-        }
-        SequentialAnimation {
-            PauseAnimation { duration: Motion.duration(FP.NAMES_HIDDEN_MS) }
-            NumberAnimation { target: editor; property: "namesOpacity"; to: 1; duration: Motion.duration(FP.NAMES_FADE_MS) }
+            objectName: "eosTilesNamesFade"
+            target: editor; property: "namesOpacity"; to: 1
+            duration: Motion.duration(FP.NAMES_FADE_MS)
+            easing.type: Easing.InOutSine
         }
         onFinished: editor.namesOpacity = 1
     }
-    // the way to a tile: the zoom back to 1.613 in 300 ms, names out in 150 ms
+    // the way to a tile: the cards grow back to 1.613 in 300 ms on the middle one, names out in 150 ms
     ParallelAnimation {
         id: exitAnim
         objectName: "eosTilesExitAnim"
         NumberAnimation {
-            target: editor; property: "zoom"; to: 0
+            target: editor; property: "previewScale"; to: FP.openScale(editor.width)
+            duration: Motion.duration(FP.CLOSE_MS)
+            easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
+        }
+        NumberAnimation {
+            target: editor; property: "previewY"; to: editor.height / 2
             duration: Motion.duration(FP.CLOSE_MS)
             easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
         }
         NumberAnimation { target: editor; property: "namesOpacity"; to: 0; duration: Motion.duration(150) }
-        NumberAnimation {
-            target: stage; property: "opacity"; to: editor.fadeOut ? 0 : 1
-            duration: editor.fadeOut ? Motion.duration(FP.CLOSE_MS) : 0
-        }
-        onFinished: editor.finish()
-    }
-    // the crown: 1 -> 0.25 in 350 ms (0.2, 0, 0.2, 1), alpha 1 -> 0 in 300 ms (0.4, 0, 1, 1)
-    ParallelAnimation {
-        id: cancelAnim
-        objectName: "eosTilesCancelAnim"
-        NumberAnimation {
-            target: stage; property: "scale"; to: TE.CANCEL_SCALE
-            duration: Motion.duration(TE.CANCEL_SCALE_MS)
-            easing.type: Easing.BezierSpline; easing.bezierCurve: TE.CANCEL_SCALE_CURVE
-        }
-        NumberAnimation {
-            target: stage; property: "opacity"; to: 0
-            duration: Motion.duration(TE.CANCEL_ALPHA_MS)
-            easing.type: Easing.BezierSpline; easing.bezierCurve: TE.CANCEL_ALPHA_CURVE
-        }
         onFinished: editor.finish()
     }
 
@@ -313,12 +347,12 @@ Item {
         id: idleTimer
         objectName: "eosTilesIdle"
         interval: TE.IDLE_MS
-        running: editor.visible && !editor.closing && editor.zoom >= 1 && !editor.touching
+        running: editor.visible && !editor.closing && editor.arrived && !editor.touching
                  && editor.idleEnabled && !flyAnim.running
         onTriggered: if (TE.idleAction() === "close") editor.close()
     }
 
-    // everything the editor draws, shrunk by the cancel
+    // everything the editor draws
     Item {
         id: stage
         objectName: "eosTilesStage"
@@ -344,13 +378,19 @@ Item {
                 id: container
                 objectName: "eosTilesContainer"
                 anchors.fill: parent
-                transform: Scale {
-                    id: zoomScale
-                    origin.x: editor.width / 2
-                    origin.y: editor.pivotY
-                    xScale: FP.zoomScale(editor.width, editor.zoom)
-                    yScale: xScale
-                }
+                // the cards' scale about their centre at rest, then that centre to previewY
+                transform: [
+                    Scale {
+                        id: zoomScale
+                        origin.x: editor.width / 2
+                        origin.y: editor.previewCy
+                        xScale: editor.previewScale
+                        yScale: xScale
+                    },
+                    Translate {
+                        y: editor.previewY - editor.previewCy
+                    }
+                ]
                 readonly property real scaleNow: zoomScale.xScale
 
                 ListView {
@@ -366,7 +406,7 @@ Item {
                     // the two cards each side are kept ready
                     cacheBuffer: 2.5 * editor.pitch
                     model: cards
-                    interactive: editor.visible && editor.zoom >= 1 && !editor.closing && !addList.visible
+                    interactive: editor.visible && editor.arrived && !editor.closing && !addList.visible
                     onCurrentIndexChanged: if (editor.visible) Haptics.tick()
                     onMovementStarted: tapTimer.stop()
 
@@ -548,7 +588,7 @@ Item {
                                 // a finger-sized target (the 52 dp tap target of stock)
                                 width: Math.max(parent.width, TE.BUTTON_TAP * editor.u)
                                 height: width
-                                enabled: del.visible && del.opacity > 0 && editor.zoom >= 1 && !editor.closing
+                                enabled: del.visible && del.opacity > 0 && editor.arrived && !editor.closing
                                 onClicked: editor.remove(index)
                             }
                         }
@@ -569,9 +609,12 @@ Item {
                     id: bottomRow
                     objectName: "eosTilesRow"
                     anchors.fill: parent
-                    // the row slides up from 15 % of the height after a tile was added
+                    // the row slides up from 15 % of the height after a tile was added, fading in (addFade); at
+                    // the open it shows with the names (N61-36), and it stays while the editor grows into a tile
                     property real shift: 0
+                    property real addFade: 1
                     y: shift
+                    opacity: addFade * (editor.closing ? 1 : editor.namesOpacity)
 
                     readonly property var geo: TE.row(editor.width, editor.height, true, editor.arrowsOn)
 
@@ -613,7 +656,7 @@ Item {
                             // the two targets never overlap (the arrows are 94 px apart)
                             width: parent.width * 1.375
                             height: TE.BUTTON_TAP * editor.u
-                            enabled: editor.arrowsOn && editor.zoom >= 1 && !editor.closing
+                            enabled: editor.arrowsOn && editor.arrived && !editor.closing
                             onClicked: editor.moveCentred(-1)
                         }
                     }
@@ -651,7 +694,7 @@ Item {
                             id: addPillArea
                             objectName: "eosTilesAddPillArea"
                             anchors.fill: parent
-                            enabled: editor.addPillOn && editor.zoom >= 1 && !editor.closing
+                            enabled: editor.addPillOn && editor.arrived && !editor.closing
                             onClicked: {
                                 tapTimer.stop()
                                 editor.addTapped()
@@ -691,7 +734,7 @@ Item {
                             id: chipArea
                             objectName: "eosTilesChipArea"
                             anchors.fill: parent
-                            enabled: editor.centredConfigurable && editor.zoom >= 1 && !editor.closing
+                            enabled: editor.centredConfigurable && editor.arrived && !editor.closing
                             onClicked: editor.configureRequested(editor.centredId)
                         }
                         Rectangle {
@@ -737,7 +780,7 @@ Item {
                             anchors.centerIn: parent
                             width: parent.width * 1.375
                             height: TE.BUTTON_TAP * editor.u
-                            enabled: editor.arrowsOn && editor.zoom >= 1 && !editor.closing
+                            enabled: editor.arrowsOn && editor.arrived && !editor.closing
                             onClicked: editor.moveCentred(1)
                         }
                     }
@@ -810,7 +853,7 @@ Item {
 
     // ---- taps and the add flow ----------------------------------------------
     function tapItem(index) {
-        if (!visible || closing || zoom < 1 || index < 0 || index >= cards.count)
+        if (!visible || closing || !arrived || index < 0 || index >= cards.count)
             return
         if (cards.get(index).tileId === "") {
             tapTimer.stop()
@@ -878,7 +921,7 @@ Item {
         flyer.height = flyer.width
         flyer.visible = true
         bottomRow.shift = FP.ADD_ROW_FROM * height
-        bottomRow.opacity = 0
+        bottomRow.addFade = 0
         addList.fadeOut(Motion.duration(FP.ADD_LIST_FADE_MS))
         flyAnim.restart()
         return true
@@ -916,14 +959,14 @@ Item {
                     duration: Motion.duration(FP.ADD_ROW_MS)
                     easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
                 }
-                NumberAnimation { target: bottomRow; property: "opacity"; to: 1; duration: Motion.duration(FP.ADD_ROW_MS) }
+                NumberAnimation { target: bottomRow; property: "addFade"; to: 1; duration: Motion.duration(FP.ADD_ROW_MS) }
             }
         }
         onFinished: {
             flyer.visible = false
             editor.flyId = ""
             bottomRow.shift = 0
-            bottomRow.opacity = 1
+            bottomRow.addFade = 1
         }
     }
 }
