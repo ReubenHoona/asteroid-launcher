@@ -19,9 +19,12 @@ import "facepicker.js" as FP
  * face on the watch in the middle; a swipe or the crown moves through them;
  * a tap on a face, the crown button or 15 s without a touch puts the centred
  * face on and the picker grows back into it. Under the faces a pencil chip
- * (apply, then edit) and two arrows that move the face in the list; each face
- * has a delete button; "Add new" opens the list of every installed face
- * (FaceAddList). Numbers are stock's (facepicker.js), on the 384 px screen.
+ * (apply, then edit) and two arrows that move the face in the list; a
+ * favourite that is not on the watch is removed as on the Wear OS 6 emulator
+ * (N61-37): held, then flung up (a trash disc grows under it while it is
+ * dragged; a slow release puts it back); "Add new" opens the list of every
+ * installed face (FaceAddList). Numbers are stock's (facepicker.js), on the
+ * 384 px screen.
  *
  * The picker covers the face from the first frame (nothing fades): the whole
  * carousel starts at scale 384 / 238 = 1.613, where the centre preview covers
@@ -304,6 +307,7 @@ Item {
     }
     function finish() {
         stopMotion()
+        cancelHold()
         shown = false
         closing = false
         arrived = false
@@ -519,6 +523,14 @@ Item {
             interactive: picker.shown && picker.arrived && !picker.closing && !addList.visible && !picker.editing
             onCurrentIndexChanged: picker.updateCentred()
             onMovementStarted: tapTimer.stop()
+            // a favourite removed (N61-37): the next slides into its place (the emulator, n6137 j1-j3)
+            removeDisplaced: Transition {
+                NumberAnimation {
+                    property: "x"
+                    duration: Motion.duration(FP.SCROLL_MS)
+                    easing.type: Easing.BezierSpline; easing.bezierCurve: Motion.easing.legacy
+                }
+            }
 
             delegate: Item {
                 id: cell
@@ -538,6 +550,20 @@ Item {
                 property real nameLift: 1
                 readonly property bool flying: picker.flyId !== "" && picker.flyId === fid
                 function runLift() { liftAnim.restart() }
+                // N61-37: held and dragged up to be removed: how far (px), and the way back after a slow release
+                property real dragUp: 0
+                readonly property bool held: picker.holdId !== "" && picker.holdId === fid
+                readonly property var trash: FP.removeDisc(dragUp / picker.u)
+                function dropBack() { dropSpring.animateTo(0) }
+                WearSpring {
+                    id: dropSpring
+                    objectName: "eosFaceDropSpring"
+                    target: cell
+                    property: "dragUp"
+                    stiffness: FP.REMOVE_BACK_STIFFNESS
+                    dampingRatio: FP.REMOVE_BACK_DAMPING
+                    visibilityThreshold: 0.5
+                }
 
                 SequentialAnimation {
                     id: liftAnim
@@ -576,7 +602,39 @@ Item {
                     topMargin: Math.round(picker.height * FP.NAME_TOP_PERCENT / 100)
                     shadow: FP.NAME_SHADOW
                     color: Theme.color.onSurface
-                    opacity: picker.namesOpacity * cell.nameLift
+                    opacity: cell.held || cell.dragUp > 0 ? 0 : picker.namesOpacity * cell.nameLift
+                }
+
+                // N61-37: the trash disc under a favourite dragged up (the emulator's capture n6137: it grows and
+                // comes in with the drag, 58 px at 90 px, 97 px at 150 px), an outlined trash can in onSurface
+                Rectangle {
+                    id: trashDisc
+                    objectName: "eosFaceTrash"
+                    visible: cell.dragUp > 0 && opacity > 0
+                    width: cell.trash.size * picker.u
+                    height: width
+                    radius: width / 2
+                    x: (cell.width - width) / 2
+                    y: cell.trash.cy * picker.u - height / 2
+                    color: FP.REMOVE_DISC_COLOR
+                    opacity: cell.trash.alpha
+                    //% "Delete"
+                    Accessible.name: qsTrId("id-face-delete") + localeManager.changesObserver
+                    Shape {
+                        objectName: "eosFaceTrashGlyph"
+                        anchors.centerIn: parent
+                        width: FP.GLYPH_BOX_DP
+                        height: FP.GLYPH_BOX_DP
+                        scale: trashDisc.width * FP.REMOVE_GLYPH_BOX / FP.GLYPH_BOX_DP
+                        preferredRendererType: Shape.CurveRenderer
+                        ShapePath {
+                            fillColor: Theme.color.onSurface
+                            fillRule: ShapePath.OddEvenFill
+                            strokeColor: "transparent"
+                            strokeWidth: -1
+                            PathSvg { path: FP.GLYPH_TRASH }
+                        }
+                    }
                 }
 
                 /* the preview: the face's picture inside a ring of 4 px #202124 (managementui_border_color,
@@ -593,7 +651,7 @@ Item {
                     width: picker.itemSize + 2 * picker.ringWidth
                     height: width
                     x: (cell.width - width) / 2
-                    y: picker.previewCy - height / 2
+                    y: picker.previewCy - height / 2 - cell.dragUp
                     scale: cell.lift
                     visible: !cell.isAdd
 
@@ -719,45 +777,44 @@ Item {
                     }
                 }
 
-                // a tap: a face puts itself on (a side face scrolls to the middle first); Add new opens the list
+                // a tap: a face puts itself on (a side face scrolls to the middle first); Add new opens the list.
+                // N61-37: a hold (Android's 400 ms long press) on the middle favourite that is not on the watch
+                // lifts it: it follows the finger up and a fast fling up removes it; a hold on the face on the watch
+                // does not move it; a hold let go where it was puts the face on, as a tap does
                 MouseArea {
+                    id: tapArea
                     objectName: "eosFaceTap"
                     x: (cell.width - width) / 2
                     y: picker.previewCy - height / 2
                     width: picker.itemSize + 2 * picker.ringWidth
                     height: width
+                    pressAndHoldInterval: FP.LONG_PRESS_S * 1000
+                    // a held face keeps the finger: the carousel does not scroll under it
+                    preventStealing: cell.held
+                    property bool heldDown: false
+                    onPressed: heldDown = false
                     onClicked: picker.tapItem(index)
-                }
-
-                // delete: 32 dp round button at the preview's top-end corner, 4 dp in
-                Rectangle {
-                    id: del
-                    objectName: "eosFaceDelete"
-                    visible: !cell.isAdd && picker.count > 2
-                    width: 64 * picker.u
-                    height: width
-                    radius: width / 2
-                    x: preview.x + preview.width - 8 * picker.u - width
-                    y: preview.y + 8 * picker.u
-                    color: Theme.color.surfaceContainer
-                    opacity: picker.namesOpacity
-                    Accessible.role: Accessible.Button
-                    //% "Delete"
-                    Accessible.name: qsTrId("id-face-delete") + localeManager.changesObserver
-                    Icon {
-                        anchors.centerIn: parent
-                        name: "ios-trash-outline"
-                        color: Theme.color.onSurfaceVariant
-                        width: parent.width * 0.55
-                        height: width
+                    onPressAndHold: (mouse) => {
+                        heldDown = true
+                        picker.beginHold(cell, mapToItem(picker, mouse.x, mouse.y).y)
                     }
-                    MouseArea {
-                        anchors.centerIn: parent
-                        // a finger-sized target (52 dp tap target of stock)
-                        width: Math.max(parent.width, 104 * picker.u)
-                        height: width
-                        enabled: del.visible && picker.arrived
-                        onClicked: picker.deleteFace(cell.fid)
+                    onPositionChanged: (mouse) => {
+                        if (cell.held)
+                            picker.moveHold(mapToItem(picker, mouse.x, mouse.y).y)
+                    }
+                    onReleased: (mouse) => {
+                        if (!heldDown)
+                            return
+                        heldDown = false
+                        if (cell.held)
+                            picker.endHold(mapToItem(picker, mouse.x, mouse.y).y)
+                        else if (containsMouse)
+                            picker.tapItem(index)
+                    }
+                    onCanceled: {
+                        heldDown = false
+                        if (cell.held)
+                            picker.cancelHold()
                     }
                 }
 
@@ -964,6 +1021,67 @@ Item {
             return false
         tapTimer.stop()
         return store.remove(id)
+    }
+
+    /* N61-37: removing a favourite as the Wear OS 6 emulator does (no delete control at rest). A hold on the
+     * middle favourite that is not the face on the watch lifts it; it follows the finger up 1:1, its name hides
+     * and the trash disc grows under it; let go with a fling up (FP.removeCommits: 500 dp/s) it is removed at
+     * once (no question, no undo) and the next slides into its place; let go slowly it springs back. A hold
+     * let go where it was (within the touch slop) puts the face on, as a tap. */
+    property string holdId: ""
+    property Item holdCell: null
+    property real holdStartY: 0
+    property var holdSamples: []
+    function beginHold(c, y) {
+        if (!shown || closing || !arrived || !c || c.isAdd || !store || flyAnim.running || addList.visible)
+            return false
+        // the face on the watch cannot be moved; nor a face beside the middle
+        if (c.fid === "" || c.fid === store.currentId || c.fid !== centredFid)
+            return false
+        tapTimer.stop()
+        holdId = c.fid
+        holdCell = c
+        holdStartY = y
+        holdSamples = [{ t: Date.now(), y: y }]
+        Haptics.longPress()
+        return true
+    }
+    function moveHold(y) {
+        if (!holdCell)
+            return
+        var now = Date.now()
+        var s = holdSamples.filter(function (p) { return now - p.t <= FP.REMOVE_VELOCITY_MS })
+        s.push({ t: now, y: y })
+        holdSamples = s
+        holdCell.dragUp = Math.max(0, holdStartY - y)
+    }
+    function endHold(y) {
+        if (!holdCell)
+            return
+        moveHold(y)
+        var c = holdCell, id = holdId
+        var s = holdSamples, vy = 0
+        if (s.length >= 2 && s[s.length - 1].t > s[0].t)
+            vy = (s[s.length - 1].y - s[0].y) * 1000 / (s[s.length - 1].t - s[0].t)
+        holdId = ""
+        holdCell = null
+        holdSamples = []
+        if (FP.removeCommits(vy, 2 * u)) {
+            c.dragUp = 0
+            deleteFace(id)
+        } else if (c.dragUp <= FP.TOUCH_SLOP_DP * 2 * u) {
+            c.dragUp = 0
+            choose(id)
+        } else {
+            c.dropBack()
+        }
+    }
+    function cancelHold() {
+        if (holdCell)
+            holdCell.dropBack()
+        holdId = ""
+        holdCell = null
+        holdSamples = []
     }
 
     // an arrow: the centred face swaps with its neighbour, saved at once; it lifts and settles

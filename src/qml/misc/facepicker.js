@@ -156,6 +156,44 @@ var GLYPH_PENCIL = "M18.4088,1.9375L17.0588,0.5875C16.2788,-0.1925 15.0088,-0.19
                    + "V17.9975H5.1788L18.4088,4.7675C19.1988,3.9875 19.1988,2.7175 18.4088,1.9375Z"
                    + "M4.4088,16.0575L2.9988,15.9975V14.6375L12.8188,4.8175L14.2288,6.2275L4.4088,16.0575Z"
 
+/* Removing a favourite (N61-37; the Wear OS 6 emulator, capture n6137): there is no delete control at rest. A hold
+ * (the long press) on a favourite that is not the face on the watch, then a drag up: the preview follows the finger
+ * 1:1 (its ring's bottom 293 -> 203 at 90 px, -> 143 at 150 px), the curved name hides, and a trash disc grows
+ * and fades in under it: 58 px across at 90 px of drag, centre (192, 239), fill #020202, glyph #1E1E1E; 97 px
+ * at 150 px, centre (192, 225), fill #0D0D0D, glyph #8A8A8A. So the disc is 0.65 px per px of drag, its centre
+ * 260 - 0.233 x drag, its alpha 0 at 73 px and 1 at 201 px of drag (0.13 at 90, 0.6 at 150) over #161616 and
+ * an onSurface glyph; it stops growing there (131 px). A fast fling up removes the favourite at once (no
+ * question, no undo) and the next one slides into its place; a slow release, even 150 px up, springs back. The
+ * fling: config_viewMinFlingVelocity on a watch, 500 dp/s (the SwipeDismissFrameLayout's, ADD_DISMISS_FLING_DP),
+ * measured over the last 50 ms of the drag. The way back: the default spring (StiffnessMedium 1500, no bounce).
+ * The glyph is Material's outlined trash can (delete_outline: a lid and an open can, no lines) in a 24 dp box,
+ * 0.34 of the disc (ink 20 x 24 px on the 97 px disc). */
+var REMOVE_DISC_PER_PX = 0.65
+var REMOVE_DISC_Y0 = 260
+var REMOVE_DISC_DY = 0.233
+var REMOVE_FADE_FROM = 73
+var REMOVE_FADE_PX = 128
+var REMOVE_MAX_DRAG = 201
+var REMOVE_DISC_COLOR = "#161616"
+var REMOVE_GLYPH_BOX = 0.34
+var REMOVE_FLING_DP = 500
+var REMOVE_VELOCITY_MS = 50
+var REMOVE_BACK_STIFFNESS = 1500
+var REMOVE_BACK_DAMPING = 1.0
+var TOUCH_SLOP_DP = 8               // Android's touch slop: a hold let go within it is a long press, not a drag
+var GLYPH_TRASH = "M16,9v10H8V9h8m-1.5,-6h-5l-1,1H5v2h14V4h-3.5l-1,-1zM18,7H6v12c0,1.1 0.9,2 2,2h8c1.1,0 2,-0.9 2,-2V7z"
+
+// the trash disc for a drag of `drag` px up (px of the 384 px screen): { size, cy, alpha }
+function removeDisc(drag) {
+    var d = Math.max(0, Math.min(Number(drag) || 0, REMOVE_MAX_DRAG))
+    return { size: REMOVE_DISC_PER_PX * d, cy: REMOVE_DISC_Y0 - REMOVE_DISC_DY * d,
+             alpha: Math.max(0, Math.min(1, (d - REMOVE_FADE_FROM) / REMOVE_FADE_PX)) }
+}
+// whether a release moving at vy px/s (negative: up) removes the favourite, with dpPx px per dp
+function removeCommits(vy, dpPx) {
+    return -vy >= REMOVE_FLING_DP * dpPx
+}
+
 // the add list (face-interaction-18)
 var ADD_SCALE_FROM = 0.25           // sysui_common_activity_away_scale
 var ADD_SCALE_MS = 250

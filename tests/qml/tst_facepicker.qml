@@ -41,6 +41,11 @@
 // arrows are hidden 100 ms, then in over 50 ms. Leaving without a change (dismiss: the side button, the crown
 // on Add new, the idle timeout over the add list) is a cut: the picker is gone in the same frame, no zoom back,
 // no away exit; choosing a face still grows the carousel into it.
+// N61-37 (n6137, the emulator's own removal): no delete control at rest. A hold on the middle favourite that is not
+// on the watch lifts it; dragged up it follows the finger 1:1, its name hides and a trash disc grows under it
+// (58 px at (192, 239) after 90 px, 97 px at (192, 225) and alpha 0.6 after 150 px); a fling up (500 dp/s)
+// removes it at once and the next slides in; a slow release springs back; the face on the watch does not move;
+// a hold let go where it was puts the face on.
 //
 // Shots go to /tmp/wo11-shots. Run by newlook-wt/l6h/run.sh fp (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the picker staged as module LauncherQml at its resource paths, the repo's 384 px and 182 px pictures
@@ -520,8 +525,8 @@ Item {
         // the preview that flies in from Add new (picker.addFace, as FaceAddList's picked) is drawn as the
         // item it lands in: black inside the 4 px #202124 ring, the shipped picture on the wallpaper of the open
         // (not the old #202124 disc without the wallpaper), and it is round as stock's flyer (a bitmap of the
-        // list item's preview frame, ManagementView.java:289-380): it leaves what lies outside its ring, such as
-        // the delete button of the item, as it is. 009's picture (no background) shows through its dial.
+        // list item's preview frame, ManagementView.java:289-380): it leaves what lies outside its ring as it is.
+        // 009's picture (no background) shows through its dial.
         function test_d60_28_flyer() {
             var folder = Qt.resolvedUrl("previews384/").toString()
             if (!fileExists(folder + "009-analog-scientific-v2.png"))
@@ -599,8 +604,8 @@ Item {
             wait(100)
             var landed = grabImage(picker)
             landed.save("/tmp/wo11-shots/d60-28-flyer-landed.png")
-            // the picture inside the ring, in its upper left (away from the delete button and the arrows, which
-            // the flyer passes under the carousel's row): flying and landed alike
+            // the picture inside the ring, in its upper left (away from the arrows, which the flyer passes under the
+            // carousel's row): flying and landed alike
             var cy = Math.round(picker.previewCy), n = 0
             for (var gx = 30; gx <= 110; gx += 20)
                 for (var gy = 30; gy <= 80; gy += 10) {
@@ -618,19 +623,12 @@ Item {
             colourNear(flying, Math.round(73 + 138 * 238 / 182), Math.round(cy - 119 + 138 * 238 / 182), "#2050a0", 10,
                        "flying: the wallpaper through 009's dial")
             colourNear(flying, 192 + 121, cy, "#202124", 4, "flying: the ring")
-            // the delete button outside the ring: not covered by the flyer
-            var del = find(c, "eosFaceDelete")
-            verify(del.visible && del.opacity === 1, "the item's delete button")
-            var dc = del.mapToItem(picker, del.width / 2, del.height / 2)
-            var vx = dc.x - 192, vy = dc.y - picker.previewCy, vl = Math.sqrt(vx * vx + vy * vy)
-            var ox = Math.round(dc.x + vx / vl * (del.width / 2 - 6)), oy = Math.round(dc.y + vy / vl * (del.width / 2 - 6))
-            var outR = Math.sqrt((ox - 192) * (ox - 192) + (oy - picker.previewCy) * (oy - picker.previewCy))
-            verify(outR > 119 + 4 + 2, "the point " + ox + "," + oy + " lies outside the ring (" + outR + ")")
-            verify(Math.abs(ox - 192) < 119 && Math.abs(oy - picker.previewCy) < 119, "and inside the picture's square")
-            var dd = Math.abs(flying.red(ox, oy) - landed.red(ox, oy)) + Math.abs(flying.green(ox, oy) - landed.green(ox, oy))
-                     + Math.abs(flying.blue(ox, oy) - landed.blue(ox, oy))
-            verify(landed.red(ox, oy) + landed.green(ox, oy) + landed.blue(ox, oy) > 60, "the delete button is drawn there")
-            verify(dd <= 12, "the flyer leaves the delete button outside its ring as it is: " + dd)
+            // outside the ring, in the picture's square (its lower left corner): black flying and landed (the flyer is
+            // round, no corner of wallpaper; N61-37 took the delete button that was tested here)
+            var ox = 73 + 10, oy = Math.round(cy - 119 + 228)
+            verify(Math.sqrt((ox - 192) * (ox - 192) + (oy - cy) * (oy - cy)) > 119 + 4 + 2, "outside the ring")
+            colourNear(flying, ox, oy, "#000000", 6, "flying: no square corner")
+            colourNear(landed, ox, oy, "#000000", 6, "landed: no square corner")
         }
         // without the wallpaper (no background item): the flyer's picture on black, as the item draws it
         function test_d60_28_flyer_no_wallpaper() {
@@ -986,6 +984,132 @@ Item {
             compare(picker.shown, true, "still shown while it grows")
             tryCompare(picker, "shown", false, 5000)
             picker.closed.disconnect(onClosed)
+        }
+
+        // ---- N61-37 ----------------------------------------------------------------------------------------
+        // no delete control at rest; removal is the emulator's: a hold on a favourite that is not on the watch,
+        // then a fling up (n6137)
+        function holdAt(x, y) {
+            mousePress(picker, x, y)
+            wait(FP.LONG_PRESS_S * 1000 + 150)
+        }
+        function test_n61_37_no_button() {
+            setup([["d1", "018-modular"], ["d2", "021-classic"], ["d3", "022-large"]], "d1")
+            openPicker()
+            compare(find(picker, "eosFaceDelete"), null, "no delete button on any preview")
+            var c = cells()
+            for (var i = 0; i < c.length; i++) {
+                compare(find(c[i], "eosFaceDelete"), null, "none on " + c[i].fid)
+                compare(find(c[i], "eosFaceTrash").visible, false, "no trash disc at rest on " + c[i].fid)
+            }
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/n61-37-rest.png")
+            // where the corner button was (a 64 px disc at x 243-307, y 56-120): outside the ring black, inside it
+            // the picture (here the wallpaper), never the button's surfaceContainer
+            colourNear(img, 300, 70, "#000000", 6, "no disc at the preview's corner")
+            var sc = Qt.color(String(Theme.color.surfaceContainer))
+            verify(Math.abs(img.red(275, 88) - Math.round(sc.r * 255)) > 6 || Math.abs(img.blue(275, 88) - Math.round(sc.b * 255)) > 6,
+                   "no surfaceContainer disc at its centre")
+        }
+        function test_n61_37_fling_removes() {
+            setup([["d1", "018-modular"], ["d2", "021-classic"], ["d3", "022-large"]], "d1")
+            openPicker()
+            picker.positionAt("d2")
+            wait(Motion.duration(400))
+            compare(picker.centredFid, "d2")
+            var c = cellOf("d2")
+            holdAt(192, 171)
+            compare(picker.holdId, "d2", "held")
+            // 90 px up slowly: the preview follows 1:1, the name hides, the trash disc 58 px at (192, 239)
+            for (var i = 1; i <= 9; i++)
+                mouseMove(picker, 192, 171 - 10 * i, 40)
+            near(c.dragUp, 90, 0.5, "the preview follows the finger")
+            var ring = find(c, "eosFaceRing")
+            near(ring.mapToItem(picker, 0, ring.height).y, 294 - 90, 1, "the ring's bottom 293 -> 203 (n6137 d1)")
+            compare(find(c, "eosFaceName").opacity, 0, "the curved name is hidden")
+            var trash = find(c, "eosFaceTrash")
+            verify(trash.visible, "the trash disc")
+            near(trash.width, 58.5, 1, "58 px across at 90 px (d1)")
+            near(trash.mapToItem(picker, trash.width / 2, trash.height / 2).y, 239, 1, "centred at y 239")
+            near(trash.mapToItem(picker, trash.width / 2, 0).x, 192, 1, "and x 192")
+            near(trash.opacity, (90 - 73) / 128, 0.01, "coming in")
+            // 150 px: 97 px at (192, 225), alpha 0.6 (i1)
+            for (i = 1; i <= 6; i++)
+                mouseMove(picker, 192, 81 - 10 * i, 40)
+            near(c.dragUp, 150, 0.5, "150 px up")
+            near(trash.width, 97.5, 1, "97 px across at 150 px (i1)")
+            near(trash.mapToItem(picker, trash.width / 2, trash.height / 2).y, 225, 1, "centred at y 225")
+            near(trash.opacity, (150 - 73) / 128, 0.01, "alpha 0.6: #0D0D0D over black")
+            compare(String(trash.color), "#161616")
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/n61-37-drag150.png")
+            colourNear(img, 192 - 40, 225, "#0d0d0d", 3, "the disc's fill, as i1")
+            // a fling up (40 px steps, 5 ms apart): removed at once, the next slides into its place
+            for (i = 1; i <= 4; i++)
+                mouseMove(picker, 192, 21 - 40 * i, 5)
+            mouseRelease(picker, 192, 21 - 160, Qt.LeftButton, Qt.NoModifier, 5)
+            compare(store.entries.length, 2, "one favourite fewer")
+            compare(store.indexOf("d2"), -1, "d2 removed")
+            compare(store.currentId, "d1", "the face on the watch did not change")
+            compare(picker.holdId, "", "let go")
+            tryCompare(picker, "centredFid", "d3", 3000)
+            wait(Motion.duration(400))
+            grabImage(picker).save("/tmp/wo11-shots/n61-37-after.png")
+            compare(picker.shown, true, "the picker stays")
+        }
+        function test_n61_37_slow_release_and_rules() {
+            setup([["d1", "018-modular"], ["d2", "021-classic"], ["d3", "022-large"]], "d1")
+            openPicker()
+            picker.positionAt("d2")
+            wait(Motion.duration(400))
+            var c = cellOf("d2")
+            // a slow drag of 150 px, then let go: back, nothing removed (i2, i3)
+            holdAt(192, 171)
+            for (var i = 1; i <= 15; i++)
+                mouseMove(picker, 192, 171 - 10 * i, 40)
+            mouseRelease(picker, 192, 21, Qt.LeftButton, Qt.NoModifier, 200)
+            compare(store.entries.length, 3, "nothing removed")
+            tryCompare(c, "dragUp", 0, 3000)
+            compare(find(c, "eosFaceName").opacity, 1, "the name is back")
+            compare(picker.shown, true, "still in the picker")
+            // the face on the watch: a hold and a drag move nothing
+            picker.positionAt("d1")
+            wait(Motion.duration(400))
+            var c1 = cellOf("d1")
+            holdAt(192, 171)
+            compare(picker.holdId, "", "the face on the watch cannot be held")
+            mouseMove(picker, 192, 120, 40)
+            mouseMove(picker, 192, 80, 40)
+            compare(c1.dragUp, 0, "it does not move")
+            compare(find(c1, "eosFaceTrash").visible, false, "no trash disc")
+            mouseRelease(picker, 192, 80, Qt.LeftButton, Qt.NoModifier, 40)
+            compare(store.entries.length, 3, "nothing removed")
+            tryCompare(picker, "shown", false, 5000)
+            compare(store.currentId, "d1", "a hold let go is a long press: the face is put on (it already was)")
+            // a hold let go where it was on another face: it is put on (r6 'Applying theme')
+            picker.open()
+            atRest()
+            picker.positionAt("d3")
+            wait(Motion.duration(400))
+            holdAt(192, 171)
+            compare(picker.holdId, "d3", "held")
+            mouseRelease(picker, 192, 171, Qt.LeftButton, Qt.NoModifier, 40)
+            compare(store.currentId, "d3", "put on")
+            compare(store.entries.length, 3, "nothing removed")
+            tryCompare(picker, "shown", false, 5000)
+            // the rules
+            compare(FP.removeCommits(-1000, 2), true, "500 dp/s up")
+            compare(FP.removeCommits(-999, 2), false, "slower")
+            compare(FP.removeCommits(1500, 2), false, "down")
+            var d = FP.removeDisc(90)
+            near(d.size, 58.5, 0.01, "disc at 90")
+            near(d.cy, 239, 0.1, "centre at 90")
+            d = FP.removeDisc(150)
+            near(d.size, 97.5, 0.01, "disc at 150")
+            near(d.cy, 225, 0.1, "centre at 150")
+            near(FP.removeDisc(400).size, FP.removeDisc(201).size, 0.001, "it stops growing")
+            compare(FP.removeDisc(400).alpha, 1, "full")
+            compare(FP.removeDisc(60).alpha, 0, "not yet")
         }
 
         // ---- D60-33 ----------------------------------------------------------------------------------------
