@@ -88,6 +88,7 @@ set(QML_FILES
 	qml/misc/FaceAddList.qml
 	qml/misc/FaceFavourites.qml
 	qml/misc/FaceStyle.qml
+	qml/misc/FacePreviewRenderer.qml
 	qml/misc/CurvedTopText.qml
 	qml/misc/RoundMask.qml
 	qml/misc/facepicker.js
@@ -306,6 +307,7 @@ set_source_files_properties(qml/misc/FacePicker.qml                  PROPERTIES 
 set_source_files_properties(qml/misc/FaceAddList.qml              PROPERTIES QT_RESOURCE_ALIAS FaceAddList.qml)
 set_source_files_properties(qml/misc/FaceFavourites.qml           PROPERTIES QT_RESOURCE_ALIAS FaceFavourites.qml)
 set_source_files_properties(qml/misc/FaceStyle.qml                PROPERTIES QT_RESOURCE_ALIAS FaceStyle.qml)
+set_source_files_properties(qml/misc/FacePreviewRenderer.qml      PROPERTIES QT_RESOURCE_ALIAS FacePreviewRenderer.qml)
 set_source_files_properties(qml/misc/CurvedTopText.qml            PROPERTIES QT_RESOURCE_ALIAS CurvedTopText.qml)
 set_source_files_properties(qml/misc/RoundMask.qml                PROPERTIES QT_RESOURCE_ALIAS RoundMask.qml)
 set_source_files_properties(qml/misc/facepicker.js                PROPERTIES QT_RESOURCE_ALIAS facepicker.js)

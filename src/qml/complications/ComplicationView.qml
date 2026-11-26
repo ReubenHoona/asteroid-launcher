@@ -69,11 +69,17 @@ Item {
     }
     readonly property string source: slotItem ? sources.sourceOf(config.value, slotItem.slotId, slotItem.defaultSource || "empty")
                                               : "empty"
-    onSourceChanged: sources.register(view)
-    Component.onCompleted: sources.register(view)
+    // the face picker's picture of the face (eoskit EosFace.eosPreviewTime set, FacePreviewRenderer, N61-35): the
+    // source's preview data at that time (ComplicationSources.previewInfo), interactive, and no demand for its data
+    readonly property bool previewing: slotItem !== null && slotItem.owner !== undefined && slotItem.owner !== null
+                                       && slotItem.owner.previewing === true
+    readonly property date now: previewing ? slotItem.owner.eosPreviewTime : sources.now
+    readonly property bool ambient: !previewing && sources.ambient
+    onSourceChanged: if (!previewing) sources.register(view)
+    Component.onCompleted: if (!previewing) sources.register(view)
     Component.onDestruction: sources.unregister(view)
 
-    readonly property var info: sources.info(source)
+    readonly property var info: previewing ? sources.previewInfo(source, now) : sources.info(source)
     readonly property string shape: slotItem && slotItem.shape ? slotItem.shape : "circle"
     readonly property color tint: slotItem && slotItem.tint !== undefined ? slotItem.tint : "white"
     readonly property string family: slotItem && slotItem.fontFamily ? slotItem.fontFamily : "Noto Sans"
@@ -84,7 +90,7 @@ Item {
     readonly property string rest: info.lead !== "" && info.text.indexOf(info.lead) === 0 ? info.text.slice(info.lead.length + 1)
                                                                                             : info.text
 
-    visible: source !== "empty" && source !== "" && !sources.nightstand && (!sources.ambient || info.ambient)
+    visible: source !== "empty" && source !== "" && (previewing || !sources.nightstand) && (!ambient || info.ambient)
 
     // a line slot has a larger touch area than it shows (24 dp, 5 dp)
     MouseArea {
@@ -94,7 +100,7 @@ Item {
         anchors.rightMargin: view.lineShape ? -C.LINE.marginX : 0
         anchors.topMargin: view.lineShape ? -C.LINE.marginY : 0
         anchors.bottomMargin: view.lineShape ? -C.LINE.marginY : 0
-        enabled: !view.sources.ambient
+        enabled: !view.ambient
         onClicked: {
             view.sources.open(view.source, view)
         }
@@ -151,7 +157,7 @@ Item {
         Shape {
             objectName: "eosProgress"
             anchors.fill: parent
-            visible: bulb.ranged && bulb.progress > 0 && !view.sources.ambient
+            visible: bulb.ranged && bulb.progress > 0 && !view.ambient
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 fillColor: "transparent"
@@ -184,7 +190,7 @@ Item {
             return Math.max(0.5, sweep * elements[i].weight / elementsTotal - gapDegrees)
         }
         Repeater {
-            model: bulb.type === "weighted" && bulb.elementsTotal > 0 && !view.sources.ambient ? bulb.elements.length : 0
+            model: bulb.type === "weighted" && bulb.elementsTotal > 0 && !view.ambient ? bulb.elements.length : 0
             delegate: Shape {
                 objectName: "eosSegment"
                 anchors.fill: bulb
@@ -207,7 +213,7 @@ Item {
         // the end dot: white, 4 px black outline, at the progress end (not at 0)
         Rectangle {
             objectName: "eosDot"
-            visible: bulb.ranged && bulb.progress > 0 && !view.sources.ambient
+            visible: bulb.ranged && bulb.progress > 0 && !view.ambient
             width: C.DOT * bulb.u
             height: width
             radius: width / 2
@@ -221,7 +227,7 @@ Item {
         // an icon alone: a disc in the colour at alpha 30/255, the icon in the middle
         Rectangle {
             objectName: "eosDisc"
-            visible: bulb.iconOnly && !view.sources.ambient
+            visible: bulb.iconOnly && !view.ambient
             anchors.fill: parent
             radius: width / 2
             color: Qt.rgba(bulb.accent.r, bulb.accent.g, bulb.accent.b, C.DISC_ALPHA)
@@ -344,7 +350,7 @@ Item {
         }
         Shape {
             anchors.fill: parent
-            visible: view.info.progress >= 0 && !view.sources.ambient
+            visible: view.info.progress >= 0 && !view.ambient
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 fillColor: "transparent"
@@ -372,7 +378,7 @@ Item {
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
                 visible: view.isDate
-                text: view.sources.now.toLocaleString(Qt.locale(), "ddd").toUpperCase()
+                text: view.now.toLocaleString(Qt.locale(), "ddd").toUpperCase()
                 color: view.tint
                 renderType: Text.NativeRendering
                 font.family: view.family
@@ -384,7 +390,7 @@ Item {
                 width: Math.min(implicitWidth, circle.width * 0.8)
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
-                text: view.isDate ? view.sources.now.getDate() : view.info.short
+                text: view.isDate ? view.now.getDate() : view.info.short
                 color: view.tint
                 renderType: Text.NativeRendering
                 font.family: view.family
@@ -504,7 +510,7 @@ Item {
     Item {
         id: rimRing
         objectName: "eosRing"
-        visible: view.shape === "ring" && view.info.progress >= 0 && !view.sources.ambient
+        visible: view.shape === "ring" && view.info.progress >= 0 && !view.ambient
         readonly property Item faceItem: view.slotItem && view.slotItem.parent ? view.slotItem.parent : view
         readonly property real k: faceItem.width / 384
         readonly property real radius: (view.slotItem && view.slotItem.ringRadius !== undefined ? view.slotItem.ringRadius : 172) * k
@@ -629,7 +635,7 @@ Item {
         Shape {
             objectName: "eosArcProgress"
             anchors.fill: parent
-            visible: rim.ranged && rim.progress > 0 && !view.sources.ambient
+            visible: rim.ranged && rim.progress > 0 && !view.ambient
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 fillColor: "transparent"
@@ -646,7 +652,7 @@ Item {
         // the range dot: a 6 px white disc in a 10 px black one
         Rectangle {
             objectName: "eosArcDot"
-            visible: rim.ranged && rim.progress > 0 && !view.sources.ambient
+            visible: rim.ranged && rim.progress > 0 && !view.ambient
             width: 2 * C.ARC.dotRing * rim.k
             height: width
             radius: width / 2

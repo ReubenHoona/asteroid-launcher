@@ -10,6 +10,8 @@
 // tile; no "Add new" card at the carousel's end unless no card shows the pill; the tile's name in onSurface.
 // N61-31 (S14-d): the add list's header 'Add', no app icon over the previews, the first rings' tops at y 88, the
 // names white, their capitals 29 px under the ring.
+// N61-35 (S13-b, S15): the cards' centre at rest is y 171 as the face picker's (FP.previewCy): the ring's box
+// y 48-294, x 69-315.
 //
 // Shots go to /tmp/wo06-shots. Run as tst_tiles.qml (the tiles staged as module LauncherQml at their resource
 // paths; newlook-wt/l4h/run.sh tiles).
@@ -207,6 +209,24 @@ Item {
             compare(tileIds(ed), ["timer"])
             compare(ed.carousel.currentIndex, 0)
             compare(ed.centredId, "timer")
+        }
+
+        // ---- N61-35
+
+        function test_n61_35_centre() {
+            var ed = openEditor(["timer", "alarm"], 0)
+            fuzzyCompare(ed.previewCy, 171, 0.001)
+            var cards = findAll(ed.carousel, "eosTilesPreview")
+            var c = null
+            for (var i = 0; i < cards.length; i++)
+                if (Math.abs(cards[i].mapToItem(ed, cards[i].width / 2, 0).x - 192) < 1)
+                    c = cards[i]
+            verify(c, "the middle card")
+            var tl = c.mapToItem(ed, 0, 0), br = c.mapToItem(ed, c.width, c.height)
+            fuzzyCompare(tl.x, 69, 1)
+            fuzzyCompare(br.x, 315, 1)
+            fuzzyCompare(tl.y, 48, 1)
+            fuzzyCompare(br.y, 294, 1)
         }
 
         // ---- N61-31

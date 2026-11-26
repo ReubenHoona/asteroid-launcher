@@ -254,8 +254,8 @@ Item {
             d[k] = o[k]
         return d
     }
-    function dateInfo(kind) {
-        var d = sources.now
+    function dateInfo(kind, at) {
+        var d = at !== undefined ? at : sources.now
         var loc = Qt.locale()
         var wd = C.upper(d.toLocaleString(loc, "ddd"))
         var mon = C.upper(d.toLocaleString(loc, "MMM"))
@@ -304,6 +304,30 @@ Item {
         if (d.text === "--")
             d.icon = ""
         return d
+    }
+    /* A source's preview data (N61-35): what the face picker's 10:09 picture of a favourite shows in its slots
+     * (FacePreviewRenderer; ComplicationView with the face's eosPreviewTime). As the Wear OS 6 emulator's
+     * pictures (S15-b, Utility at 10:09 on Thursday 24 May): the date sources on the picture's day, the steps
+     * 5,275 and the heart rate 68; every other source as it is now. Nothing is read for it (no demand). */
+    function previewInfo(id, at) {
+        var p = C.split(id)
+        switch (p.kind) {
+        case "date":
+        case "daymonth":
+        case "datemonth":
+        case "weekday":
+            return dateInfo(p.kind, at)
+        case "steps": {
+            var goal = steps.goal > 0 ? steps.goal : 10000
+            var count = Number(5275).toLocaleString(Qt.locale(), "f", 0)
+            return base({ type: "ranged", text: count, short: count, title: qsTrId("id-tile-steps"), icon: "ios-walk",
+                          progress: Math.min(1, 5275 / goal) })
+        }
+        case "heartrate":
+            return base({ type: "ranged", text: "68", short: "68", title: qsTrId("id-tile-heart-rate"), icon: "ios-heart",
+                          progress: C.clamp01((68 - 40) / 160) })
+        }
+        return liveInfo(id)
     }
     function liveInfo(id) {
         var p = C.split(id)

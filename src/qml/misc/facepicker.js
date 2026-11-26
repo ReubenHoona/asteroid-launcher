@@ -47,7 +47,9 @@ function longPressAction(awakeAtDown, ambient, bedtime, firstRun) {
 var ITEM_FRACTION = 0.62            // preview 62 % of the width: 238 px (ManagementView.java:702-722)
 var ITEM_PADDING_DP = 8             // managementui_items_padding, each side
 var BORDER_DP = 2                   // managementui_items_border_width
-var OFFSET_Y_DP = 4                 // managementui_animation_offsety: the pivot is 4 dp above the centre
+// the previews' centre on the 384 px screen: the Wear OS 6 emulator's ring is x 69-314, y 48-293 (S15, its
+// pixel centre 170.5; the QML box 48-294), 21 px above the middle (N61-35)
+var PREVIEW_CY_PX = 171
 var NAME_TOP_PERCENT = 2.1          // managementui_top_margin
 var NAME_SWEEP = 90                 // managementui_max_sweep_degrees
 var NAME_SIZE_DP = 15               // managementui_title_non_scalable_font_size (not scaled)
@@ -62,6 +64,14 @@ function itemSize(w) { return Math.round(w * ITEM_FRACTION) }
 function pitch(w) { return itemSize(w) + 2 * (BORDER_DP + ITEM_PADDING_DP) * w / 192 }
 // the zoom the carousel starts at: the centre preview exactly covers the face: 384 / 238 = 1.613
 function openScale(w) { return w / itemSize(w) }
+// the centre of the previews at rest on a screen h px high: 171 on 384
+function previewCy(h) { return PREVIEW_CY_PX * h / 384 }
+// the y the zoom pivots on: the one point the open's scale brings the centre preview from the middle of the
+// screen (the face, at openScale) to previewCy (at 1): 136.7 on 384
+function zoomPivotY(w, h) {
+    var s = openScale(w)
+    return (previewCy(h) * s - h / 2) / (s - 1)
+}
 // the alpha of an item whose centre is distance px from the middle (ManagementView.java:499-508)
 function itemAlpha(distance, itemWidth) {
     return 1 - 0.5 * Math.min(1, Math.abs(distance) / itemWidth)
@@ -407,6 +417,29 @@ function move(entries, id, dir) {
     out[at] = out[at + dir]
     out[at + dir] = t
     return out
+}
+
+// ---- the 10:09 pictures of the carousel (N61-35) ------------------------------
+
+/* Every carousel item, the face on the watch included, is the face drawn at 10:09 on Thursday 24 May (the Wear OS 6
+ * emulator: S15, S15-b 'THU MAY 24 10:09'), never a snapshot of the face as it is now. An eos face (eoskit
+ * EosFace, which has eosPreviewTime) is drawn once per favourite with the favourite's own style and complications
+ * by FacePreviewRenderer, into the launcher's cache (FacePreviews) under renderKey(id); the upstream faces
+ * (000-017 of the system folder, which read wallClock directly) show their shipped picture
+ * (watchfaces-preview/384, the D60-28 GL renderer at 10:09). */
+var SYSTEM_FACES = "file:///usr/share/asteroid-launcher/watchfaces/"
+var FIRST_EOS_FACE = 18
+function previewTime() { return new Date(2018, 4, 24, 10, 9, 0) }
+// the cache file of a favourite's picture: "<id>-1009" (the files of the old live snapshots, "<id>", go at the
+// next keepOnly)
+function renderKey(id) { return id === "" ? "" : id + "-1009" }
+// an upstream face of the system folder (000-017): the launcher never draws it at 10:09, its shipped picture is it
+function upstreamFace(file) {
+    var f = String(file)
+    if (f.indexOf(SYSTEM_FACES) !== 0)
+        return false
+    var m = /^([0-9]+)-/.exec(f.slice(SYSTEM_FACES.length))
+    return m !== null && parseInt(m[1], 10) < FIRST_EOS_FACE
 }
 
 // ---- names (face-interaction-14, watchface-catalogue-11) --------------------

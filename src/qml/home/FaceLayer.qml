@@ -107,7 +107,7 @@ Item {
         onReloadRequested: desktop.watchfaceReloadRequested()
         onRemoved: (id) => {
             if (typeof facePreviews !== "undefined" && facePreviews)
-                facePreviews.remove(id)
+                facePreviews.remove(FP.renderKey(id))
         }
     }
 
@@ -121,12 +121,13 @@ Item {
         ambient: displayAmbient
     }
 
-    // the pictures of favourites that are gone (once, when the list is settled)
+    // the pictures of favourites that are gone (once, when the list is settled); the 10:09 pictures are
+    // FP.renderKey(id), so the live snapshots of the earlier picker (<id>.png) go as well
     Connections {
         target: favs
         function onReadyChanged() {
             if (favs.ready && typeof facePreviews !== "undefined" && facePreviews)
-                facePreviews.keepOnly(favs.entries.map(function (e) { return e.id }))
+                facePreviews.keepOnly(favs.entries.map(function (e) { return FP.renderKey(e.id) }))
         }
     }
 

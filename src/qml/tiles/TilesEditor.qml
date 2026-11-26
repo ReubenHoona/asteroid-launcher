@@ -83,10 +83,10 @@ Item {
     readonly property real itemSize: FP.itemSize(width)
     readonly property real pitch: FP.pitch(width)
     readonly property real ringWidth: 4 * u
-    // as the face picker: the zoom's pivot is 4 dp above the middle and the
-    // cards' centre is where the zoom lands it on the screen's middle
-    readonly property real pivotY: height / 2 - FP.OFFSET_Y_DP * 2 * u
-    readonly property real previewCy: pivotY + (height / 2 - pivotY) / FP.openScale(width)
+    // as the face picker: the cards' centre at rest is y 171 (the emulator's ring y 48-294, S13-b, S15;
+    // N61-35), and the zoom pivots on the point that brings the middle card from the screen's middle to it
+    readonly property real previewCy: FP.previewCy(height)
+    readonly property real pivotY: FP.zoomPivotY(width, height)
 
     // the carousel's model: the tiles, then "Add new" while TE.needsAddCard (a
     // ListModel, so a removal, a move or an addition keeps the view where it is)

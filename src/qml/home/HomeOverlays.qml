@@ -308,11 +308,26 @@ Item {
         z: 6
         store: faceLayer.favourites
         liveFace: desktop.centreItem ? desktop.centreItem.activeFace : null
-        // the wallpaper the face is drawn over: under the face's snapshots in the carousel
+        // the wallpaper the face is drawn over: under the 10:09 pictures in the carousel
         background: desktop.wallpaperItem
         sources: complications
         awake: desktop.displayAwake && !displayAmbient
+        previewVersion: facePreviewRenderer.version
         onEditRequested: faceEditorItem.open()
+    }
+    /* the 10:09 picture of each favourite of an eos face (N61-35), drawn when the favourite is new or has none yet
+     * and when the editor closes on it (its style or complications may have changed); never at the picker's open */
+    FacePreviewRenderer {
+        id: facePreviewRenderer
+        cache: typeof facePreviews !== "undefined" ? facePreviews : null
+        store: faceLayer.favourites
+        sources: complications
+        active: desktop.displayAwake && !displayAmbient
+    }
+    Connections {
+        target: faceLayer.favourites
+        function onEntriesChanged() { if (faceLayer.favourites.ready) Qt.callLater(facePreviewRenderer.renderMissing) }
+        function onReadyChanged() { if (faceLayer.favourites.ready) Qt.callLater(facePreviewRenderer.renderMissing) }
     }
     // the face editor (W3-launcher-face-editor): over the picker, which hides 500 ms after it opens
     FaceEditor {
@@ -322,8 +337,12 @@ Item {
         face: desktop.centreItem ? desktop.centreItem.activeFace : null
         sources: complications
         awake: desktop.displayAwake && !displayAmbient
-        // leaving the editor shows the face (the picker is closed too, if it is still there)
-        onClosed: facePickerItem.closeNow()
+        // leaving the editor shows the face (the picker is closed too, if it is still there); the favourite's
+        // picture is drawn again with what was chosen
+        onClosed: {
+            facePickerItem.closeNow()
+            facePreviewRenderer.render(faceLayer.favourites.currentId)
+        }
     }
     // stock: Recents, the assistant or an application coming up closes the picker without applying
     // (face-interaction-33, ked.java:340-347)

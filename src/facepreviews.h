@@ -13,11 +13,13 @@
 
 /*
  * The cached previews of the watch face picker (W2-launcher-face-picker,
- * face-interaction-19): one PNG per favourite, ~/.cache/asteroid-launcher/
- * face-previews/<id>.png, written from QML (QQuickItemGrabResult.saveToFile)
- * when the picker opens, which cannot make a directory. This class makes it
- * and names the files; it reads nothing and runs nothing in the
- * background. Context property `facePreviews` of the launcher.
+ * face-interaction-19): one PNG per favourite of an eos face,
+ * ~/.cache/asteroid-launcher/face-previews/<id>-1009.png, the face drawn at
+ * 10:09 with the favourite's style (N61-35), written from QML
+ * (FacePreviewRenderer, QQuickItemGrabResult.saveToFile) when a favourite is
+ * added or edited, which cannot make a directory. This class makes it and
+ * names the files; it reads nothing and runs nothing in the background.
+ * Context property `facePreviews` of the launcher.
  */
 class FacePreviews : public QObject
 {

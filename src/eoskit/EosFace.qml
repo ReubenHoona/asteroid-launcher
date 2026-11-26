@@ -20,6 +20,9 @@ import "facekit.js" as Kit
  *  - The time (watchface-catalogue-26): "h:mm" in 12 h, "HH:mm" in 24 h, no
  *    AM/PM, no leading zero in 12 h (hourStr, minuteStr); it follows
  *    use12H and wallClock of the home screen.
+ *  - The face picker's picture (N61-35): with `eosPreviewTime` set (a Date)
+ *    the face shows that time, interactive, instead of the wall clock: the
+ *    launcher draws each favourite once at 10:09 (FacePreviewRenderer).
  *  - The always-on look (watchface-catalogue-25, ambient-aod-21): the face owns
  *    it (`ambientOwnStyle`: the launcher does not dim the whole panel), a
  *    thinner time weight and dimmer colours through `blend`, which runs 0 to 1
@@ -46,10 +49,15 @@ Item {
     // the face's colour for the system theme (face-interaction-31)
     readonly property string seedColor: String(accent)
 
+    // the time of a picture (a Date), or null: the wall clock
+    property var eosPreviewTime: null
+    readonly property bool previewing: eosPreviewTime !== null && eosPreviewTime !== undefined
+
     // ---- the clock of the home screen ----
-    readonly property bool ambient: typeof displayAmbient !== "undefined" && displayAmbient === true
+    readonly property bool ambient: !previewing && typeof displayAmbient !== "undefined" && displayAmbient === true
     readonly property bool use12: typeof use12H !== "undefined" && use12H !== null && use12H.value === true
-    readonly property date now: typeof wallClock !== "undefined" && wallClock !== null ? wallClock.time : new Date(2026, 0, 1, 10, 8, 0)
+    readonly property date now: previewing ? eosPreviewTime
+                                : typeof wallClock !== "undefined" && wallClock !== null ? wallClock.time : new Date(2026, 0, 1, 10, 8, 0)
     readonly property int hour24: now.getHours()
     readonly property int minute: now.getMinutes()
     readonly property int second: now.getSeconds()

@@ -28,14 +28,26 @@
 // (iax.java:15-26), otherwise it springs back.
 //
 // N61-19: the fresh carousel leads with Concentric, the default face (FP.defaults), as the Wear OS 6 emulator.
+// N61-35 (S15, S15-b, S15-c, M11's first frame): every preview, the face on the watch included, is the face at
+// 10:09 on Thursday 24 May: an eos face's picture drawn for the favourite by FacePreviewRenderer (its style; the
+// file FP.renderKey(id) of the cache), else the shipped 384 px picture. No snapshot of the live face is taken and
+// the picker does not wait: it shows in the frame of the open. The previews' centre is y 171: the ring's box
+// x 69-315, y 48-294, the right neighbour's ring at x 347-350 (dimmed to #101012), the Add new disc x 132-252,
+// y 111-231. This overrides D60-28's live and cached snapshots; its ring, its fallback pictures (now the 384 px
+// set) and the wallpaper under the pictures stay.
 //
-// Shots go to /tmp/wo11-shots. Run by motion-wt/wo11/run.sh (qmltestrunner under qemu-aarch64 on the image
-// rootfs; the picker staged as module LauncherQml at its resource paths).
+// Shots go to /tmp/wo11-shots. Run by newlook-wt/l6h/run.sh fp (qmltestrunner under qemu-aarch64 on the image
+// rootfs; the picker staged as module LauncherQml at its resource paths, the repo's 384 px and 182 px pictures
+// as previews384/ and previews182/, the stand-in face stage/watchfaces/990-stub-1009.qml with src/eoskit as
+// stage/eoskit, and in /tmp/wo11-prev the fixtures r1-1009.png (a picture of r1, transparent as the watch's GL
+// grabs are: the white block at x 172-212, y 100-140) and r2.png (a live snapshot of the earlier picker's
+// cache, which must not show)).
 import QtQuick
 import QtQuick.Shapes
 import QtTest
 import org.asteroid.controls
 import LauncherQml
+import LauncherTest
 import "LauncherQml/facepicker.js" as FP
 
 Item {
@@ -44,6 +56,8 @@ Item {
 
     // the launcher's context properties (lipstick localemanager.cpp)
     QtObject { id: localeManager; property string changesObserver: "" }
+    // MainScreen's clock, as the faces see it: 07:29 (M11's live face), not the pictures' 10:09
+    property var wallClock: ({ time: new Date(2026, 10, 26, 7, 29, 0) })
 
     // the cached previews (the launcher's FacePreviews, C++): files in /tmp/wo11-prev
     QtObject {
@@ -122,10 +136,18 @@ Item {
             anchors.fill: parent
             // the face: a white block (the digits), nothing under it (an eos face is drawn over the wallpaper)
             Rectangle { x: 172; y: 100; width: 40; height: 40; color: "#ffffff" }
+            // N61-35: no snapshot of the face on the watch: every grab of it is counted (and refused)
+            property int grabs: 0
+            function grabToImage(callback, size) {
+                grabs++
+                return false
+            }
         }
     }
 
     Component { id: pickerC; FacePicker { } }
+    Component { id: rendererC; FacePreviewRenderer { } }
+    readonly property string stubFace: Qt.resolvedUrl("stage/watchfaces/990-stub-1009.qml").toString()
 
     TestCase {
         id: tc
@@ -214,6 +236,8 @@ Item {
             picker = pickerC.createObject(top, { store: store, liveFace: liveFace, awake: true })
             if ("background" in picker)
                 picker.background = wallpaper
+            // the repo's 384 px pictures, when the runner stages them (else nothing loads: the placeholder)
+            picker.pictureFolder = Qt.resolvedUrl("previews384/").toString()
             picker.sync()
         }
         function openPicker() {
@@ -234,94 +258,193 @@ Item {
                 picker = null
                 wait(30)
             }
+            if (renderer) {
+                renderer.destroy()
+                renderer = null
+            }
         }
+        property var renderer: null
 
-        // ---- D60-28 ----------------------------------------------------------------------------------------
-        // r1 has a cached snapshot with a transparent background (/tmp/wo11-prev/r1.png from the runner: 384 px,
-        // the white block of liveFace), as the watch's GL grabs are. The software renderer of this test makes
-        // its own grabs opaque (black where the item is empty), so the live snapshot hides what is under it here:
-        // its layering is checked on the items, the pixels under a snapshot on r1.
-        function test_d60_28_previews() {
+        // ---- N61-35 ----------------------------------------------------------------------------------------
+        // r1 has its picture in the cache (/tmp/wo11-prev/r1-1009.png from the runner: 384 px, transparent, the
+        // white block); r2, the face on the watch, has none, only an old live snapshot (r2.png), which must not
+        // show: it is the shipped 10:09 picture. The software renderer's own grabs are opaque (black where the item
+        // is empty), the watch's GL grabs are not: the layering of the wallpaper is checked on r1.
+        function test_n61_35_previews() {
             setup([["r1", "018-modular"], ["r2", "021-classic"], ["r3", "022-large"]], "r2")
-            openPicker()
+            near(picker.previewCy, 171, 0.001, "the previews' centre: y 171 at 384 px (S15)")
+            near(FP.previewCy(384), 171, 0.001, "FP.previewCy")
+            // the open: at once, in this frame, with no grab of the face on the watch
+            liveFace.grabs = 0
+            picker.open()
+            compare(picker.shown, true, "shown in the frame of the open: no wait for a snapshot")
+            near(picker.zoom, 0, 0.001, "at the face's size")
+            compare(liveFace.grabs, 0, "no grabToImage of the face on the watch")
+            tryCompare(picker, "zoom", 1, 10000)
+            tryCompare(picker, "namesOpacity", 1, 5000)
+            wait(50)
+            compare(liveFace.grabs, 0, "none during the open either")
+            compare("liveUrl" in picker, false, "no live snapshot")
+            compare("opening" in picker, false, "no wait for grabs")
+
             var c = cellOf("r2")
             var ring = find(c, "eosFaceRing")
-            verify(ring !== null, "ring")
-            compare(String(ring.color), "#000000", "inside the ring is black, not filled grey")
+            compare(String(ring.color), "#000000", "inside the ring is black")
             near(ring.border.width, 2 * dp, 0.01, "the ring is managementui_items_border_width 2 dp")
             compare(String(ring.border.color), "#202124", "managementui_border_color")
-            near(ring.width, 238 + 8, 0.5, "outer 246 px")
-            // the face on the watch: its snapshot over the wallpaper of the open, no shipped picture
-            var shot = find(c, "eosFaceShot"), shipped = find(c, "eosFaceShipped"), bg = find(c, "eosFaceBackground")
-            verify(shot.ready, "the snapshot of the face on the watch")
-            compare(String(shot.source), picker.liveUrl, "taken at the open")
-            compare(shipped.opacity, 0, "the shipped picture is not drawn under the snapshot")
-            verify(bg !== null && bg.visible, "the wallpaper under the live snapshot")
-            verify(picker.backgroundUrl !== "", "the wallpaper was snapshotted at the open")
-            compare(String(bg.source), picker.backgroundUrl, "that snapshot")
+            var tl = ring.mapToItem(picker, 0, 0), br = ring.mapToItem(picker, ring.width, ring.height)
+            near(tl.x, 69, 1, "ring box left (S15 x 69)")
+            near(br.x, 315, 1, "ring box right (S15 x 314, box 315)")
+            near(tl.y, 48, 1, "ring box top (S15 y 48)")
+            near(br.y, 294, 1, "ring box bottom (S15 y 293, box 294)")
+            // the face on the watch: its shipped 10:09 picture (no picture of its own yet), not a snapshot
+            var rendered = find(c, "eosFaceRender"), shipped = find(c, "eosFaceShipped"), bg = find(c, "eosFaceBackground")
+            compare(String(rendered.source), "", "no picture of r2's own; the old live snapshot r2.png is not used")
+            verify(String(shipped.source).indexOf("previews384/021-classic.png") >= 0, "the 384 px picture: " + shipped.source)
+            compare(shipped.sourceSize.width, 384, "read at 384 px")
+            compare(shipped.asynchronous, false, "the face on the watch loads at once (the open's first frame)")
+            // the wallpaper under it, when its snapshot (the one grab of the open) is there
+            tryVerify(function () { return picker.backgroundUrl !== "" }, 5000, "the wallpaper snapshot")
+            if (shipped.status === Image.Ready)
+                tryVerify(function () { return bg.visible }, 5000, "the wallpaper under the picture")
             near(bg.width, 238 * 1.1, 0.6, "the wallpaper at the preview's scale (110 % of the face)")
-            near(bg.height, 238 * 1.1, 0.6, "both ways")
             near(bg.x, (238 - 238 * 1.1) / 2, 0.6, "centred as on the screen")
-            near(bg.y, (238 - 238 * 1.1) / 2, 0.6, "centred as on the screen")
-            var kids = find(c, "eosFacePreview").children
-            var under = -1, over = -1
-            for (var k = 0; k < kids.length; k++) {
-                if (kids[k].objectName === "eosFacePicture")
-                    under = k
-                if (kids[k] === shot)
-                    over = k
-            }
-            verify(under >= 0 && over > under, "the wallpaper is drawn under the snapshot")
-            var img = grabImage(picker)
-            img.save("/tmp/wo11-shots/d60-28-open.png")
-            var cy = Math.round(picker.previewCy)
-            colourNear(img, 192, 144, "#ffffff", 8, "the face's block")
-            colourNear(img, 192 + 121, cy, "#202124", 4, "the 4 px ring")
-            colourNear(img, 192 + 127, cy, "#000000", 4, "outside the ring")
 
-            // a face with no snapshot yet: the shipped picture (the face on nothing, as a snapshot) on the same
-            // wallpaper, its square corners masked round; one picture
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/n61-35-rest.png")
+            colourNear(img, 192 + 121, 171, "#202124", 4, "the 4 px ring at the right")
+            colourNear(img, 192 - 121, 171, "#202124", 4, "the ring at the left")
+            colourNear(img, 192, 292, "#202124", 4, "the ring at the bottom (y 290-293)")
+            colourNear(img, 192, 296, "#000000", 4, "black under the ring")
+            colourNear(img, 348, 171, "#101012", 4, "the right neighbour's ring at x 347-350, dimmed to 50 %")
+            colourNear(img, 345, 171, "#000000", 4, "black left of it")
+
+            // the Add new disc on the same centre (S15-c: x 132-251, y 111-230, the QML box 132-252 x 111-231)
+            var faces = find(picker, "eosFaceList")
+            faces.currentIndex = store.entries.length
+            tryCompare(picker, "centredAdd", true, 2000)
+            wait(Motion.duration(400))
+            var addCells = cells().filter(function (x) { return x.isAdd })
+            compare(addCells.length, 1, "one Add new item")
+            var plus = find(addCells[0], "eosFaceAdd")
+            var pt = plus.mapToItem(picker, 0, 0), pb = plus.mapToItem(picker, plus.width, plus.height)
+            near(pt.x, 132, 1, "Add new disc left")
+            near(pb.x, 252, 1, "Add new disc right")
+            near(pt.y, 111, 1, "Add new disc top")
+            near(pb.y, 231, 1, "Add new disc bottom")
+            var tap = find(addCells[0], "eosFaceTap")
+            near(tap.mapToItem(picker, 0, tap.height / 2).y, 171, 1, "its tap area on the same centre")
+            img = grabImage(picker)
+            img.save("/tmp/wo11-shots/n61-35-add.png")
+            colourNear(img, 192, 115, String(Theme.color.primary), 6, "the disc's top")
+            colourNear(img, 192, 108, "#000000", 6, "black above it")
+
+            // r3: the shipped picture, no picture of its own
             var c3 = cellOf("r3")
             verify(c3 !== null, "r3 is made (cache buffer)")
-            compare(find(c3, "eosFaceShot").ready, false, "no snapshot of r3")
+            compare(String(find(c3, "eosFaceRender").source), "", "no picture of r3's own")
             compare(find(c3, "eosFaceShipped").opacity, 1, "the shipped picture of r3")
-            var bg3 = find(c3, "eosFaceBackground")
-            verify(bg3.visible, "the wallpaper under a shipped picture")
-            compare(String(bg3.source), picker.backgroundUrl, "the wallpaper of the open")
-            near(bg3.width, 238 * 1.1, 0.6, "at the preview's scale")
-            verify(find(c3, "eosFaceMask").visible, "the corners masked round")
-            picker.positionAt("r3")
-            wait(100)
-            img = grabImage(picker)
-            img.save("/tmp/wo11-shots/d60-28-shipped.png")
-            colourNear(img, 192 - 112, cy + 20, "#2050a0", 8, "the wallpaper inside the ring of a shipped picture")
-            colourNear(img, 192 - 121, cy, "#202124", 4, "its ring")
-            colourNear(img, 192 - 112, cy - 112, "#000000", 4, "black at the picture's corner, outside the round")
 
-            // a face with a cached snapshot (transparent, as on the watch): that snapshot on the wallpaper, once
+            // r1: its own picture (the file of the cache), on the wallpaper, once
             picker.positionAt("r1")
-            wait(100)
+            wait(Motion.duration(400))
             c = cellOf("r1")
-            verify(find(c, "eosFaceShot").ready, "the cached snapshot of r1")
+            rendered = find(c, "eosFaceRender")
+            verify(rendered.ready, "r1's own picture")
+            verify(String(rendered.source).indexOf("/tmp/wo11-prev/r1-1009.png") >= 0, "the cache's r1-1009: " + rendered.source)
             compare(find(c, "eosFaceShipped").opacity, 0, "no shipped picture under it")
-            verify(find(c, "eosFaceBackground").visible, "the wallpaper under the cached snapshot")
+            verify(find(c, "eosFaceBackground").visible, "the wallpaper under it")
+            verify(find(c, "eosFaceMask").visible, "the corners masked round")
             img = grabImage(picker)
-            img.save("/tmp/wo11-shots/d60-28-cached.png")
-            colourNear(img, 192, 144, "#ffffff", 8, "the cached face's block")
-            colourNear(img, 130, 230, "#2050a0", 8, "the wallpaper under the cached snapshot")
-            colourNear(img, 91, 188, "#e04020", 12, "the wallpaper's mark where the screen has it")
-            colourNear(img, 153, 152, "#2050a0", 12, "no digits of the shipped 018 picture (ink there)")
-            colourNear(img, 192 + 121, cy, "#202124", 4, "the ring")
-
-            // the face on the watch was saved for the next time when the picker opened
-            tryVerify(function () { return facePreviews.exists("r2") }, 10000, "r2 cached")
-            // the wallpaper's snapshot goes with the picker
+            img.save("/tmp/wo11-shots/n61-35-render.png")
+            // the picture's block (x 172-212, y 100-140 of 384) at the preview's scale (238 / 384, from x 73, y 52)
+            var k = 238 / 384
+            colourNear(img, Math.round(73 + 192 * k), Math.round(52 + 120 * k), "#ffffff", 8, "r1's picture")
+            colourNear(img, 130, 230, "#2050a0", 8, "the wallpaper under r1's picture")
+            colourNear(img, Math.round(73 + 30 * k), Math.round(52 + 190 * k), "#e04020", 12,
+                       "the wallpaper's mark where the screen has it")
+            // a new picture of a favourite (previewVersion): read again
+            var before = String(rendered.source)
+            picker.previewVersion++
+            verify(String(rendered.source) !== before, "the source changes with previewVersion")
+            tryVerify(function () { return rendered.ready }, 5000, "and loads")
             picker.closeNow()
-            compare(picker.backgroundUrl, "", "let go at the close")
+            compare(picker.backgroundUrl, "", "the wallpaper's snapshot is let go at the close")
+            compare(liveFace.grabs, 0, "never a grab of the face on the watch")
         }
 
-        // the repo's fallback pictures (src/watchfaces-preview/182), when the runner stages them next to this
-        // file as previews182/ (wo11/run.sh): 016 (redrawn on GL, 10:09, English) is a 75 % black disc with the
+        // the picture of an eos face's favourite: the stand-in face drawn at 10:09 on Thursday 24 May with the
+        // favourite's style (Color: Watermelon), never at the wall clock's 07:29; written to the cache as
+        // c1-1009.png and shown by the picker as the face on the watch
+        function test_n61_35_render() {
+            Backend.confSet("/org/asteroidos/watchface/style/c1", JSON.stringify({ color: "watermelon" }))
+            store.entries = [{ id: "c1", file: top.stubFace }, { id: "c3", file: top.face("000-default-digital") }]
+            store.currentId = "c1"
+            renderer = rendererC.createObject(top, { cache: facePreviews, store: store })
+            verify(renderer !== null, "the renderer")
+            compare(FP.upstreamFace(top.face("000-default-digital")), true, "000 reads wallClock: its shipped picture")
+            compare(FP.upstreamFace(top.face("017-contemporary-digital-rings")), true, "017 too")
+            compare(FP.upstreamFace(top.face("018-modular")), false, "018 is an eos face")
+            compare(FP.upstreamFace(top.face("027-concentric")), false, "027 is an eos face")
+            compare(FP.renderKey("c1"), "c1-1009", "the cache file of c1's picture")
+            compare(renderer.render("c3"), false, "an upstream face is not drawn")
+            var loader = find(renderer, "eosFaceRenderLoader")
+            verify(loader !== null, "the hidden instance's loader")
+            var seen = null
+            var spy = function () {
+                if (loader.item && seen === null)
+                    seen = { h: loader.item.hour24, m: loader.item.minute, d: loader.item.now.getDate(),
+                             wd: loader.item.now.getDay(), ambient: loader.item.ambient }
+            }
+            loader.itemChanged.connect(spy)
+            compare(renderer.renderMissing(), 1, "c1 has no picture yet: drawn; c3 is an upstream face")
+            tryVerify(function () { return seen !== null }, 5000, "the instance was made")
+            loader.itemChanged.disconnect(spy)
+            compare(seen.h, 10, "drawn at 10:09 (hour), not at the wall clock's 07:29")
+            compare(seen.m, 9, "minute 09")
+            compare(seen.d, 24, "on the 24th")
+            compare(seen.wd, 4, "a Thursday")
+            compare(seen.ambient, false, "interactive")
+            tryCompare(renderer, "version", 1, 10000)
+            tryCompare(renderer, "busy", false, 5000)
+            verify(facePreviews.exists("c1-1009"), "written to the cache as c1-1009")
+            compare(loader.item, null, "the instance is gone")
+            compare(renderer.renderMissing(), 0, "nothing left to draw")
+
+            // the picker shows it as the face on the watch
+            picker = pickerC.createObject(top, { store: store, liveFace: liveFace, awake: true, background: wallpaper })
+            picker.pictureFolder = Qt.resolvedUrl("previews384/").toString()
+            picker.previewVersion = renderer.version
+            picker.sync()
+            liveFace.grabs = 0
+            openPicker()
+            compare(liveFace.grabs, 0, "no grab of the face on the watch")
+            var r = find(cellOf("c1"), "eosFaceRender")
+            verify(r.ready, "the picture of c1")
+            verify(String(r.source).indexOf("c1-1009.png") >= 0, String(r.source))
+            wait(100)
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/n61-35-stub.png")
+            // the block of 10:09 (x 72-88, y 160-176 of 384) at the preview's scale, in Watermelon; nothing where
+            // 07:29 would put it (x 232-248, y 112-128)
+            var k = 238 / 384
+            colourNear(img, Math.round(73 + 80 * k), Math.round(52 + 168 * k), "#ff7b78", 12, "10:09's block in Watermelon")
+            var x0 = Math.round(73 + 240 * k), y0 = Math.round(52 + 120 * k)
+            verify(img.red(x0, y0) < 120, "no block at 07:29's place: " + img.red(x0, y0))
+            // a new style: the picture is drawn again (the editor closed)
+            Backend.confSet("/org/asteroidos/watchface/style/c1", JSON.stringify({ color: "cloud" }))
+            verify(renderer.render("c1"), "drawn again")
+            tryCompare(renderer, "version", 2, 10000)
+            picker.previewVersion = renderer.version
+            tryVerify(function () { return r.ready }, 5000, "read again")
+            wait(100)
+            img = grabImage(picker)
+            colourNear(img, Math.round(73 + 80 * k), Math.round(52 + 168 * k), "#e4e4e4", 12, "now in Cloud")
+        }
+
+        // the repo's fallback pictures, now the 384 px set the carousel shows (src/watchfaces-preview/384, the
+        // D60-28 GL renderer, N61-35), when the runner stages them next to this file as previews384/: 016 (10:09,
+        // English) is a 75 % black disc with the
         // time cut out of it, a face drawn over the wallpaper (016-masked-spartan.qml): on the picker it shows
         // the wallpaper through its digits, not black on black. 009 (redrawn on GL) has no background either
         // (its dial is drawn on nothing, 009-analog-scientific-v2.qml): the wallpaper shows between its marks,
@@ -337,23 +460,23 @@ Item {
             return x.responseText.length > 0
         }
         function test_d60_28_fallbacks() {
-            var folder = Qt.resolvedUrl("previews182/").toString()
+            var folder = Qt.resolvedUrl("previews384/").toString()
             if (!fileExists(folder + "016-masked-spartan.png"))
-                skip("the repo's previews are not staged as previews182/ next to the test")
+                skip("the repo's previews are not staged as previews384/ next to the test")
             setup([["m1", "021-classic"], ["m2", "016-masked-spartan"], ["m3", "008-numerals-duo-synth-neon-green"],
                    ["m4", "009-analog-scientific-v2"]], "m1")
-            picker.previewFolder = folder
+            picker.pictureFolder = folder
             openPicker()
             picker.positionAt("m2")
             var c = cellOf("m2")
             tryVerify(function () { return find(c, "eosFaceShipped").ready }, 5000, "016's picture")
-            compare(find(c, "eosFaceShot").ready, false, "no snapshot of m2")
+            compare(find(c, "eosFaceRender").ready, false, "no picture of m2's own")
             verify(find(c, "eosFaceBackground").visible, "016 on the wallpaper")
             wait(150)
             var img = grabImage(picker)
             img.save("/tmp/wo11-shots/d60-28-016.png")
-            // the 182 px picture is drawn 238 px wide from x 73; two points of it: (111, 129) inside a digit,
-            // (86, 46) on the disc
+            // the picture is drawn 238 px wide from x 73; two points of it, in units of its 182 px size: (111, 129)
+            // inside a digit, (86, 46) on the disc (234, 272 and 181, 97 of the 384 px file)
             var cy = Math.round(picker.previewCy), k = 238 / 182
             colourNear(img, Math.round(73 + 111 * k), Math.round(cy - 119 + 129 * k), "#2050a0", 10,
                        "the wallpaper through a digit of 016")
@@ -365,12 +488,12 @@ Item {
             tryVerify(function () { return find(c, "eosFaceShipped").ready }, 5000, "008's picture")
             wait(150)
             grabImage(picker).save("/tmp/wo11-shots/d60-28-008.png")
-            // 009: the wallpaper through its dial, at two points of the 182 px picture where it draws nothing
+            // 009: the wallpaper through its dial, at two points (182 px units) where the picture draws nothing
             // ((138, 138) between 4 and 5, (58, 131) between 7 and 8)
             picker.positionAt("m4")
             c = cellOf("m4")
             tryVerify(function () { return find(c, "eosFaceShipped").ready }, 5000, "009's picture")
-            compare(find(c, "eosFaceShot").ready, false, "no snapshot of m4")
+            compare(find(c, "eosFaceRender").ready, false, "no picture of m4's own")
             verify(find(c, "eosFaceBackground").visible, "009 on the wallpaper")
             wait(150)
             img = grabImage(picker)
@@ -388,11 +511,11 @@ Item {
         // list item's preview frame, ManagementView.java:289-380): it leaves what lies outside its ring, such as
         // the delete button of the item, as it is. 009's picture (no background) shows through its dial.
         function test_d60_28_flyer() {
-            var folder = Qt.resolvedUrl("previews182/").toString()
+            var folder = Qt.resolvedUrl("previews384/").toString()
             if (!fileExists(folder + "009-analog-scientific-v2.png"))
-                skip("the repo's previews are not staged as previews182/ next to the test")
+                skip("the repo's previews are not staged as previews384/ next to the test")
             setup([["f1", "021-classic"], ["f2", "018-modular"], ["f3", "022-large"]], "f1")
-            picker.previewFolder = folder
+            picker.pictureFolder = folder
             openPicker()
             var flyer = find(picker, "eosFaceFlyer"), anim = find(picker, "eosFaceFlyAnim")
             verify(flyer !== null && anim !== null, "flyer and its animation")
@@ -499,12 +622,12 @@ Item {
         }
         // without the wallpaper (no background item): the flyer's picture on black, as the item draws it
         function test_d60_28_flyer_no_wallpaper() {
-            var folder = Qt.resolvedUrl("previews182/").toString()
+            var folder = Qt.resolvedUrl("previews384/").toString()
             if (!fileExists(folder + "009-analog-scientific-v2.png"))
-                skip("the repo's previews are not staged as previews182/ next to the test")
+                skip("the repo's previews are not staged as previews384/ next to the test")
             setup([["g1", "021-classic"], ["g2", "018-modular"]], "g1")
             picker.background = null
-            picker.previewFolder = folder
+            picker.pictureFolder = folder
             openPicker()
             compare(picker.backgroundUrl, "", "no wallpaper snapshot")
             var flyer = find(picker, "eosFaceFlyer"), anim = find(picker, "eosFaceFlyAnim")
@@ -848,6 +971,16 @@ Item {
             compare(img.implicitWidth, 182)
             compare(img.implicitHeight, 182)
             img.destroy()
+            // and in the carousel's 384 px set (N61-35), as every face: the upstream ones and the eos ones
+            var set384 = ["000-default-digital", "001-words-worte-palabras-mots", "017-contemporary-digital-rings",
+                          "018-modular", "026-photo", "027-concentric"]
+            for (var j = 0; j < set384.length; j++) {
+                img = Qt.createQmlObject("import QtQuick; Image { source: Qt.resolvedUrl('previews384/" + set384[j] + ".png') }", top)
+                tryCompare(img, "status", Image.Ready, 5000)
+                compare(img.implicitWidth, 384, set384[j])
+                compare(img.implicitHeight, 384, set384[j])
+                img.destroy()
+            }
         }
     }
 }
