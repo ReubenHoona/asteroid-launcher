@@ -235,12 +235,19 @@ Item {
             var top = brightness(img, 192, 60), mid = brightness(img, 192, 192), lo = brightness(img, 192, 325)
             verify(Math.abs(top - mid) < 0.02 && Math.abs(lo - mid) < 0.02, "even: " + [top, mid, lo])
             verify(mid <= 1 - a0 + 0.03, name + " frame 0: " + mid)
+            // about 50 ms on: a grab holds the event loop and the fade's clock starts at its first tick
+            // after it, so the frame is taken once the fade has moved; the face between the dim and full
             var left = 50 - (Date.now() - t0)
             if (left > 0)
                 wait(left)
+            for (var k = 0; k < 40 && grid.trayCloseDim > a0 - 0.05; k++)
+                wait(5)
+            var dm = grid.trayCloseDim
+            verify(dm < a0 - 0.05 && dm > 0, name + ": the fade moves: " + dm)
             img = grabImage(screen)
             img.save("/tmp/qs-shots/grid-" + name + "-cut-50.png")
-            verify(brightness(img, 192, 192) >= 1 - a0 - 0.03, name + " frame 50")
+            var bm = brightness(img, 192, 192)
+            verify(bm > 1 - a0 + 0.02 && bm < 0.99, name + " mid-fade frame: " + bm + " at the dim " + dm)
             wait(250)
             img = grabImage(screen)
             img.save("/tmp/qs-shots/grid-" + name + "-cut-end.png")
