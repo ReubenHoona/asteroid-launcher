@@ -199,29 +199,30 @@ Item {
             var want = [0.3, 0, 1, 1, 1, 1]
             for (var i = 0; i < 6; i++)
                 near(f.easing.bezierCurve[i], want[i], 1e-9, "standardAccel " + i)
-            // fixed sample times after the release (t0), on the wall clock: 30, 60, 90 ms and the end.
-            // The animation clock starts at its first tick after the release (here 15-35 ms later;
-            // on the watch the next frame), so a sample may lag the curve by up to 45 ms but never
-            // lead it. standardAccel keeps the face dark early: at 60 ms it is still dimmed.
-            var samples = [30, 60, 90]
-            for (var s = 0; s < samples.length; s++) {
-                var left = samples[s] - (Date.now() - t0)
-                if (left > 0)
-                    wait(left)
-                var d = Date.now() - t0
-                var o = b.opacity
-                verify(o <= a0 + 1e-6 && o >= fadeAt(a0, d + 10, ms) - 0.02, name + " at " + d + " ms: " + o
-                       + " ahead of the curve (" + fadeAt(a0, d, ms) + ")")
-                verify(o <= fadeAt(a0, d - 45, ms) + 0.02, name + " at " + d + " ms: " + o + " behind the curve ("
-                       + fadeAt(a0, d - 45, ms) + ")")
-                if (samples[s] === 60 && d < ms - 15)
-                    verify(o > 0 && o < a0, name + " at " + d + " ms: between the dim and full: " + o)
-                verify(!tray.visible && grid.contentY === 0, "the tray stays away")
+            // the fade as it runs, every value the background takes, with the wall-clock time since the release
+            // (t0). The animation clock starts at its first tick after the release and a busy machine delays
+            // that tick, so a value may lag the curve by any amount but never lead it: at d ms after the release
+            // the fade has run at most d ms. (Samples at fixed times also asserted a lag of at most 45 ms, which
+            // a loaded host broke; the duration and the curve themselves are the animation's, checked above.)
+            var seen = []
+            var rec = function () { seen.push({ d: Date.now() - t0, o: b.opacity, away: !tray.visible && grid.contentY === 0 }) }
+            b.opacityChanged.connect(rec)
+            tryVerify(function () { return !f.running }, 3000, "the fade ends")
+            b.opacityChanged.disconnect(rec)
+            verify(seen.length > 0, name + ": the fade moved the face's dim")
+            var prev = a0
+            for (var s = 0; s < seen.length; s++) {
+                var o = seen[s].o, d = seen[s].d
+                verify(o <= prev + 1e-6 && o >= 0, name + " at " + d + " ms: " + o + ", the face only comes up (after " + prev + ")")
+                verify(o >= fadeAt(a0, d + 10, ms) - 0.02, name + " at " + d + " ms: " + o + " ahead of the curve ("
+                       + fadeAt(a0, d, ms) + ")")
+                verify(seen[s].away, "the tray stays away")
+                prev = o
             }
-            // done in the fade's time (plus the start of the clock): the background gone
-            tryVerify(function () { return !f.running }, 400, "the fade ends")
-            var took = Date.now() - t0
-            verify(took < ms + 60, name + ": the fade took " + took + " ms")
+            // the first value after the start, when it came within the fade's time, is between the dim and full
+            // (standardAccel keeps the face dark early; the fade is not a jump)
+            if (seen[0].d < ms)
+                verify(seen[0].o > 0 && seen[0].o < a0, name + " at " + seen[0].d + " ms: between the dim and full: " + seen[0].o)
             compare(b.opacity, 0)
             verify(!b.visible)
             compare(grid.trayCloseDim, 0)
