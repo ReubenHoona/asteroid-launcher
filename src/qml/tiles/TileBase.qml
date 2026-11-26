@@ -23,6 +23,15 @@ import "../pager.js" as Pager
  * 26 % side margins, 5.2 % under it, 6 dp above it), above that. The title
  * is white (onBackground), never the tile's accent (tiles-individual-02, -04).
  *
+ * "expressive": the Wear OS 6 look of the Clock and Contacts tiles (the
+ * emulator's Timer S13, Next Alarm S14, Favorite contacts S14-c): no icon
+ * slot and no title unless one is set (then titleMedium, 16 sp, its capitals
+ * from 72 px), the content from 26 dp (52 px), no edge button and no bottom
+ * text but a compact pill (pillText: 32 dp tall, 12 dp above the bottom, as
+ * wide as its labelSmall label plus 12 dp each side and at least 52 dp,
+ * 48 dp touch), 10 dp under the content. The app icon is not permanent over
+ * it: it fades when the pager stops (m3Layout false). N61-26
+ *
  * Stock's tile has no catch-all click: each card or button is its own
  * clickable (TileCard, tiles-individual-32) and a tap on empty black does
  * nothing. backgroundTap keeps the old tap-anywhere clicked() and its ripple
@@ -90,10 +99,18 @@ Item {
     // (protolayout.renderer arp.java:19-26, auw.java:466-481), keeps sysui's icon at 1 (hxq.java:25-34,
     // jme.java:36-49). CP3A's own tiles all carry it (deskclock Timer and Alarm, cno.java:367-374;
     // contacts Favorites, aha.java:1366-1376; Fitbit, Calendar, Weather, Maps, Assistant), so true here;
-    // a tile with a layout of its own sets false and its icon fades when the pager stops (Quick Add)
-    property bool m3Layout: true
+    // a tile with a layout of its own sets false and its icon fades when the pager stops (Quick Add). The
+    // emulator's expressive tiles show the icon only while the pager moves (M08): false for them
+    property bool m3Layout: !expressive
+    // the Wear OS 6 layout (see above) and its bottom pill
+    property bool expressive: false
+    property string pillText: ""
+    property color pillColor: Theme.color.primary
+    property color pillContentColor: Theme.color.onPrimary
+    readonly property alias pill: pillButton
 
     signal chipClicked()
+    signal pillClicked()
     signal clicked()
 
     // the layout, in dp (PrimaryLayout.kt HEADER_*, PrimaryLayoutMargins DEFAULT,
@@ -117,6 +134,14 @@ Item {
     readonly property real bottomTextSide: width * 0.26
     readonly property real bottomTextBottom: Math.round(height * 0.052)
     readonly property real bottomTextGap: Theme.dp(6)
+    // the expressive layout, px at 384 (S13: circles from y 52, pill y 296-359; S14-c: the title's ink y 71-94,
+    // which Noto Sans' capitals from 72 px draw at 70-94)
+    readonly property real expressiveTop: Theme.dp(26)
+    readonly property real expressiveTitleCap: Theme.dp(36)
+    readonly property real pillHeight: Theme.dp(32)
+    readonly property real pillBottom: Theme.dp(12)
+    readonly property real pillBodyGap: Theme.dp(10)
+    readonly property bool hasPill: expressive && pillText !== ""
 
     Rectangle {
         anchors.fill: parent
@@ -147,25 +172,29 @@ Item {
     Label {
         id: titleLabel
         x: tile.titleSideMargin
-        y: tile.titleTop
+        // expressive: titleMedium with its capitals from 72 px (S14-c 'Favorites' ink 71-94)
+        y: tile.expressive ? tile.expressiveTitleCap - (baselineOffset + titleCap.tightBoundingRect.y) : tile.titleTop
         width: tile.width - 2 * tile.titleSideMargin
         horizontalAlignment: Text.AlignHCenter
         elide: Text.ElideRight
         text: tile.title
         // no title (stock's is optional: the idle Timer, the Assistant): no line, the content moves up
-        height: text === "" ? 0 : Theme.type.titleSmall.lineHeight
+        height: text === "" ? 0 : Theme.type[role].lineHeight
         color: tile.titleColor
         maximumLineCount: 1
-        role: "titleSmall"
+        role: tile.expressive ? "titleMedium" : "titleSmall"
     }
+    TextMetrics { id: titleCap; font: titleLabel.font; text: "H" }
 
     Item {
         id: body
         anchors {
-            top: titleLabel.bottom
-            topMargin: tile.titleGap
+            top: tile.expressive ? parent.top : titleLabel.bottom
+            topMargin: !tile.expressive ? tile.titleGap
+                       : tile.title === "" ? tile.expressiveTop : titleLabel.y + titleLabel.height + tile.titleGap
             bottom: parent.bottom
-            bottomMargin: chip.visible ? Theme.size.edgeButtonBottomGap + tile.edgeHeight + tile.edgeBodyGap
+            bottomMargin: tile.expressive ? (tile.hasPill ? tile.pillBottom + tile.pillHeight + tile.pillBodyGap : tile.noBottomMargin)
+                        : chip.visible ? Theme.size.edgeButtonBottomGap + tile.edgeHeight + tile.edgeBodyGap
                                        : tile.hasBottomText ? tile.bottomTextBottom + bottomSlot.height + tile.bottomTextGap
                                                             : tile.noBottomMargin
             left: parent.left
@@ -178,10 +207,10 @@ Item {
     // the bottom text slot, 26 % side margins: CP3A's two lines (the M3 layout's label over its bottom
     // slot, as in the Fitbit and Weather tile previews), the label and under it the value with its icon,
     // each line centred and no wider than the slot. The value stays whole and a label too long ends in an
-    // ellipsis (so does a value that alone is wider than the slot). D60-21
+    // ellipsis (so does a value that alone is wider than the slot). D60-21. An expressive tile has none
     Column {
         id: bottomSlot
-        visible: tile.hasBottomText && !chip.visible
+        visible: tile.hasBottomText && !chip.visible && !tile.expressive
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottom: parent.bottom
         anchors.bottomMargin: tile.bottomTextBottom
@@ -229,11 +258,11 @@ Item {
         }
     }
 
-    // Wear OS's edge button: hugs the round edge under the content
+    // Wear OS's edge button: hugs the round edge under the content (not on an expressive tile)
     EdgeButton {
         id: chip
         objectName: "tileChip"
-        visible: tile.chipText !== "" || tile.chipIcon !== ""
+        visible: !tile.expressive && (tile.chipText !== "" || tile.chipIcon !== "")
         anchors.horizontalCenter: parent.horizontalCenter
         width: tile.edgeWidth
         preferredHeight: tile.edgeHeight
@@ -244,5 +273,20 @@ Item {
         onClicked: {
             tile.chipClicked()
         }
+    }
+
+    // the expressive tiles' compact pill (S13 'New', S14-c 'Refresh'): the 64 px container 24 px above the
+    // bottom, centred, its 96 px touch area round it
+    CompactButton {
+        id: pillButton
+        objectName: "tilePill"
+        visible: tile.hasPill
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: tile.height - tile.pillBottom - tile.pillHeight - (height - tile.pillHeight) / 2
+        text: tile.pillText
+        labelRole: "labelSmall"
+        containerColor: tile.pillColor
+        contentColor: tile.pillContentColor
+        onClicked: tile.pillClicked()
     }
 }

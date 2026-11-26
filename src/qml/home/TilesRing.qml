@@ -235,8 +235,9 @@ Item {
         permanent: tilesRing.pagePermanent(grid.currentHorizontalPos)
     }
     /* The page's icon stays on (stock "permanent icon", jme.java:36-49): the empty page, and a tile
-     * whose layout is an M3 primary layout (TileBase.m3Layout, all but Quick Add; stock reads the M3_PL
-     * metadata tag). Over Quick Add it fades when the pager stops (D60-22) */
+     * whose layout is an M3 primary layout (TileBase.m3Layout; stock reads the M3_PL metadata tag). Over
+     * Quick Add (D60-22) and the Wear OS 6 expressive tiles, Timer, Alarm and Favorites (m3Layout false:
+     * the emulator shows their icon only while the pager moves, M08; N61-26) it fades when the pager stops */
     function pagePermanent(page) {
         if (builtTiles.length === 0)
             return true

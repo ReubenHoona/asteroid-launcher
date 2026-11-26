@@ -15,8 +15,13 @@
 // the pager stops, 0 after a 500 ms pause and a 150 ms linear tween; back to 1 50 ms after the pager moves
 // (100 ms tween).
 //
-// Shots go to /tmp/wo06-shots. Run by motion-wt/wo06/run.sh (qmltestrunner under qemu-aarch64 on the image
-// rootfs; the tiles staged as module LauncherQml at their resource paths).
+// N61-26: the Wear OS 6 emulator's expressive tile frame (S13, S14, S14-c): TileBase.expressive (no icon slot,
+// content from 52 px, a compact pill 104 x 64 px at y 296 for 'New', no edge button, no bottom text, the app
+// icon fading: m3Layout false) and CircleGrid (52 dp circles 8 dp apart, two over three), measured on the
+// grabbed pixels where the emulator gave a pixel value.
+//
+// Shots go to /tmp/wo06-shots. Run by a qmltestrunner harness under qemu-aarch64 on the image rootfs with the
+// tiles staged as module LauncherQml at their resource paths (motion-wt/wo06/run.sh; newlook-wt/l4h/run.sh tiles).
 import QtQuick
 import QtTest
 import org.asteroid.controls
@@ -33,7 +38,24 @@ Item {
     Rectangle { anchors.fill: parent; color: "black" }
 
     Component { id: baseComp; TileBase { width: 384; height: 384 } }
+    Component { id: expressiveComp; TileBase { width: 384; height: 384; expressive: true } }
     Component { id: indicatorComp; TilesIndicator { count: 1; position: 1 } }
+    // a CircleGrid in an expressive tile's body (x 20-363, y 52-275)
+    Component {
+        id: gridComp
+        Item {
+            id: gridHost
+            width: 384; height: 384
+            property alias grid: circles
+            property int n: 5
+            CircleGrid {
+                id: circles
+                x: 20; y: 52; width: 344; height: 224
+                model: gridHost.n
+                delegate: TileCard { containerColor: "#182B2F" }
+            }
+        }
+    }
     Loader { id: stepsLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/StepsTile.qml") }
     Loader { id: quickAddLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/QuickAddTile.qml") }
 
@@ -77,6 +99,36 @@ Item {
             stepsLoader.active = false
             quickAddLoader.active = false
         }
+
+        // a grabbed pixel against an "#RRGGBB" colour, each channel within tol
+        function near(img, x, y, rgb, tol, msg) {
+            var c = img.pixel(x, y)
+            var want = Qt.color(rgb)
+            var ok = Math.abs(c.r - want.r) * 255 <= tol && Math.abs(c.g - want.g) * 255 <= tol && Math.abs(c.b - want.b) * 255 <= tol
+            verify(ok, (msg || "") + " pixel " + x + "," + y + " is " + c + ", not " + rgb)
+        }
+        // the first and last rows in x0..x1 (every 2nd column) and y0..y1 with a pixel brighter than `level` (0..1)
+        function inkRows(img, x0, x1, y0, y1, level) {
+            var first = -1, last = -1
+            for (var y = y0; y <= y1; y++) {
+                for (var x = x0; x <= x1; x += 2) {
+                    var c = img.pixel(x, y)
+                    if (Math.max(c.r, c.g, c.b) > level) {
+                        if (first < 0)
+                            first = y
+                        last = y
+                        break
+                    }
+                }
+            }
+            return { first: first, last: last }
+        }
+        // where an item's middle is in the tile
+        function centre(tile, it) {
+            return it.mapToItem(tile, it.width / 2, it.height / 2)
+        }
+        // the five circle centres of S13 and the S14-d preview, px
+        readonly property var fiveCentres: [[132, 104], [252, 104], [72, 224], [192, 224], [312, 224]]
 
         // ---- D60-21: the bottom text
 
@@ -268,6 +320,118 @@ Item {
             // and a permanent one sets it to 1 (jme.java:40-45)
             ind.permanent = true
             compare(ind.shownAlpha, 1)
+        }
+
+        // ---- N61-26: the expressive frame and CircleGrid
+
+        function test_n61_26_expressive_frame() {
+            var t = createTemporaryObject(expressiveComp, top, { pillText: "New", chipText: "Open",
+                                                                  bottomLabel: "Daily Goal", bottomValue: "10,000" })
+            verify(t)
+            waitForRendering(t)
+            shot(t, "n61-26-frame")
+            // the icon fades (D60-22's permanent icon is the CP3A tiles'), no edge button, no bottom text
+            compare(t.m3Layout, false)
+            verify(!t.chip.visible)
+            verify(!t.bottomText.visible)
+            // the pill: 64 px at y 296, 104 px wide for 'New' (52 dp at least), centred; 48 dp touch; 13 sp label
+            verify(t.pill.visible)
+            var c = t.pill.container.mapToItem(t, 0, 0)
+            // Noto Sans' 'New' is 2 px wider than the emulator's Google Sans: 106 px
+            fuzzyCompare(c.x, 140, 2)
+            fuzzyCompare(c.y, 296, 1)
+            fuzzyCompare(t.pill.container.width, 104, 2)
+            compare(t.pill.container.height, 64)
+            compare(t.pill.height, 96)
+            compare(t.pill.label.font.pixelSize, 26)
+            compare(t.pill.text, "New")
+            // no title: the content from 52 px to 20 px above the pill, 5.2 % sides
+            compare(t.titleItem.height, 0)
+            compare(t.body.y, 52)
+            compare(t.body.y + t.body.height, 276)
+            fuzzyCompare(t.body.x, 384 * 0.052, 0.01)
+            // the pill's colour (primary by default) where the label is not
+            var img = grabImage(t)
+            near(img, 148, 327, String(Theme.color.primary), 3, "pill")
+            // a longer label widens it: the label plus 12 dp each side
+            t.pillText = "Contacts"
+            waitForRendering(t)
+            fuzzyCompare(t.pill.container.width, t.pill.label.implicitWidth + 48, 1)
+            fuzzyCompare(t.pill.container.mapToItem(t, 0, 0).x + t.pill.container.width / 2, 192, 1)
+            // without a pill no touch area is left and the content ends 19.6 % above the bottom
+            t.pillText = ""
+            verify(!t.pill.visible)
+            fuzzyCompare(t.body.y + t.body.height, 384 - Math.round(384 * 0.196), 0.5)
+            // a tap on the pill is pillClicked
+            t.pillText = "New"
+            var clicks = 0
+            t.pillClicked.connect(function () { clicks++ })
+            mouseClick(t, 192, 327)
+            compare(clicks, 1)
+        }
+
+        function test_n61_26_expressive_title() {
+            var t = createTemporaryObject(expressiveComp, top, { title: "Favorites", pillText: "Refresh" })
+            verify(t)
+            waitForRendering(t)
+            // titleMedium 16 sp, white, its ink from 71 px (S14-c: 'Favorites' ink y 71-94)
+            compare(t.titleItem.font.pixelSize, 32)
+            compare(String(t.titleItem.color), String(Theme.color.onBackground))
+            var img = grabImage(t)
+            var rows = inkRows(img, 120, 264, 40, 120, 0.5)
+            fuzzyCompare(rows.first, 71, 1.5)
+            // the content starts under it
+            verify(t.body.y >= t.titleItem.y + t.titleItem.height)
+        }
+
+        function test_n61_26_circle_grid() {
+            var item = createTemporaryObject(gridComp, top, {})
+            verify(item)
+            var g = item.grid
+            waitForRendering(item)
+            shot(item, "n61-26-grid5")
+            // five: two over three, 104 px, 16 px apart both ways
+            compare(g.count, 5)
+            for (var i = 0; i < 5; i++) {
+                var cell = g.itemAt(i)
+                compare(cell.width, 104)
+                compare(cell.height, 104)
+                // a TileCard: round (its radius half the side)
+                compare(cell.radius, 52)
+                var p = centre(item, cell)
+                fuzzyCompare(p.x, fiveCentres[i][0], 1)
+                fuzzyCompare(p.y, fiveCentres[i][1], 1)
+            }
+            var img = grabImage(item)
+            near(img, 132, 104, "#182B2F", 3, "circle 0")
+            near(img, 312, 224, "#182B2F", 3, "circle 4")
+            // the gap between two circles is black
+            near(img, 192, 104, "#000000", 3, "gap")
+            // four: two over two
+            item.n = 4
+            waitForRendering(item)
+            var four = [[132, 104], [252, 104], [132, 224], [252, 224]]
+            for (var j = 0; j < 4; j++) {
+                var q = centre(item, g.itemAt(j))
+                fuzzyCompare(q.x, four[j][0], 1)
+                fuzzyCompare(q.y, four[j][1], 1)
+            }
+            // three or fewer: one row in the middle of the body
+            item.n = 3
+            waitForRendering(item)
+            for (var k = 0; k < 3; k++) {
+                var r = centre(item, g.itemAt(k))
+                fuzzyCompare(r.x, [72, 192, 312][k], 1)
+                fuzzyCompare(r.y, 164, 1)
+            }
+            item.n = 1
+            waitForRendering(item)
+            fuzzyCompare(centre(item, g.itemAt(0)).x, 192, 1)
+            // more than five: the first five, a sixth is not drawn
+            item.n = 6
+            waitForRendering(item)
+            verify(g.itemAt(4).visible)
+            verify(!g.itemAt(5).visible)
         }
     }
 }
