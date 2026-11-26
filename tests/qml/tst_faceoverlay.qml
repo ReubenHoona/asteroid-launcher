@@ -55,6 +55,9 @@ Item {
         when: windowShown
 
         function near(a, b, eps, msg) { verify(Math.abs(a - b) <= eps, (msg || "") + ": " + a + " vs " + b) }
+        // a slot is out once its appear is exactly 0: tryCompare matches numbers within 1e-5, so a wait for
+        // "appear 0" could end on the fade's last frame, with the slot still present and its glyph held
+        function slotOut(s) { tryVerify(function () { return s.appear === 0 }, 2000, (s.objectName || "the slot") + " out") }
         function findAll(item, name, out) {
             out = out || []
             if (!item)
@@ -287,7 +290,7 @@ Item {
             // the ongoing entry goes: it shrinks where it is, the dot slides back
             row.ongoingEntry = ({})
             near(centre(row.ongoingSlot).x, 174, 0.5, "it goes where it is")
-            tryCompare(row.ongoingSlot, "appear", 0, 2000)
+            slotOut(row.ongoingSlot)
             tryCompare(row, "animating", false, 2000)
             near(centre(row.dotSlot).x, 192, 0.5, "the dot back in the middle")
             // a change while the display goes always-on: the final look at once
@@ -325,7 +328,7 @@ Item {
             // the slot goes: the glyph stays while it shrinks
             row.statusKey = ""
             compare(icon.shownKey, "airplane")
-            tryCompare(row.statusIconSlot, "appear", 0, 2000)
+            slotOut(row.statusIconSlot)
             compare(row.statusIconSlot.visible, false)
         }
 
@@ -454,7 +457,7 @@ Item {
             tryCompare(row, "animating", false, 2000)
             row.statusKey = ""
             compare(row.statusIcon.shownKey, "charging")
-            tryCompare(row.statusIconSlot, "appear", 0, 2000)
+            slotOut(row.statusIconSlot)
             compare(row.statusIcon.shownKey, "")
         }
 

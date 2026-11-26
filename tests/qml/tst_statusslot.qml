@@ -108,6 +108,9 @@ Item {
         property var row: null
 
         function near(a, b, eps, msg) { verify(Math.abs(a - b) <= eps, (msg || "") + ": " + a + " vs " + b) }
+        // a slot is out once its appear is exactly 0: tryCompare matches numbers within 1e-5, so a wait for
+        // "appear 0" could end on the fade's last frame, with the slot still present and its glyph held
+        function slotOut(s) { tryVerify(function () { return s.appear === 0 }, 2000, (s.objectName || "the slot") + " out") }
         function findIn(item, name) {
             if (!item)
                 return null
@@ -192,7 +195,7 @@ Item {
             var c = centre(row.statusIconSlot)
             near(c.x, 192, 0.01, "alone in the middle"); near(c.y, 361, 0.01, "at the bottom")
             ongoingRegistry.touchLocked = false
-            tryCompare(row.statusIconSlot, "appear", 0, 2000)
+            slotOut(row.statusIconSlot)
             compare(slot.ambientIconsKey, "")
             compare(slot.statusIcon.shownKey, "")
             // a status type the same way (Bedtime), and the priority: touch lock first
@@ -229,13 +232,13 @@ Item {
             // the setting off hides it
             Backend.confSet("/org/asteroidos/notifications/unread-dot", false)
             verify(!slot.notificationIndicator.dotWanted)
-            tryCompare(row.dotSlot, "appear", 0, 2000)
+            slotOut(row.dotSlot)
             Backend.confSet("/org/asteroidos/notifications/unread-dot", true)
             tryCompare(row.dotSlot, "appear", 1, 2000)
             // the stream looked at: read, the dot goes
             slot.notificationIndicator.markAllRead()
             compare(slot.notificationIndicator.unreadCount, 0)
-            tryCompare(row.dotSlot, "appear", 0, 2000)
+            slotOut(row.dotSlot)
             compare(row.band.visible, false)
         }
 
@@ -266,7 +269,7 @@ Item {
             compare(row.slots, ["ongoing", "status"])
             // the entry goes
             ongoingRegistry.top = ({})
-            tryCompare(row.ongoingSlot, "appear", 0, 2000)
+            slotOut(row.ongoingSlot)
             compare(slot.ambientIconsKey, "s:bedtime")
             verify(!slot.liveSpace.isSet(slot.liveSpace.shown))
         }
