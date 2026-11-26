@@ -443,7 +443,8 @@ Item {
      * edge swipe and goes on the same commit rule */
     property bool anywhereActive: false
     property real anywhereValue: 0
-    readonly property Item _topWindowItem: comp.topmostWindow ? comp.topmostWindow.window : null
+    // (comp is null while the compositor goes)
+    readonly property Item _topWindowItem: comp && comp.topmostWindow ? comp.topmostWindow.window : null
     // The swipe ends with its window: once the window that would send
     // backSwipeFinished is no longer in front (the application closed or
     // crashed, delayTimer closed it with the display off, another came to

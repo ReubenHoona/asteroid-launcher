@@ -116,8 +116,9 @@ QtObject {
     property var clock: function () { return Date.now() }
 
     // the process of the window the keys go to: the alert (a firing alarm),
-    // else the application in front
-    readonly property real frontPid: comp.alertShown && comp.alertWindow.window ? comp.alertWindow.window.processId
+    // else the application in front (none while the compositor goes: comp is null then)
+    readonly property real frontPid: !comp ? 0
+                                     : comp.alertShown && comp.alertWindow && comp.alertWindow.window ? comp.alertWindow.window.processId
                                      : comp.topmostWindow && comp.topmostWindow.window ? comp.topmostWindow.window.processId : 0
     property Binding frontPidToClaims: Binding {
         target: typeof keyClaims !== "undefined" ? keyClaims : null

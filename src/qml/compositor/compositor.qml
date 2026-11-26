@@ -59,6 +59,10 @@ Item {
     id: root
     width: Dims.w(100)
     height: Dims.h(100)
+    // a right-to-left language: the launcher's layouts (anchors, rows, lists) mirror, as qml-asteroid's
+    // Application does for the apps (locale-formats-05); the faces place their items themselves and stay
+    LayoutMirroring.enabled: Theme.rtl
+    LayoutMirroring.childrenInherit: true
     /* The wrist and crown setting (W3-launcher-wrist, wrist-orientation-04): with the crown on the left
      * (modes 1 and 3) the whole picture is turned by 180 degrees about the display centre (this root is
      * the display, so the pivot is (192, 192)), as stock's freezeRotation(ROTATION_180): at once, no
@@ -133,7 +137,8 @@ Item {
     function previousApp() { return comp.previousApp() }
     function recents() { return comp.recents() }
     function closeHidden(windowId) { comp.closeHidden(windowId) }
-    readonly property bool alertShown: comp.alertShown
+    // (comp is null while the compositor goes)
+    readonly property bool alertShown: comp ? comp.alertShown : false
     // the heads-up (W2-launcher-heads-up): its view is up (the crown and the edge swipe are
     // its); what the home screen tells it
     readonly property bool headsUpShown: arbiter.headsUpShown

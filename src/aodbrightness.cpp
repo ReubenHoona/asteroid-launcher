@@ -11,25 +11,23 @@
 
 #include "modescore.h"
 
-static const char KEY[] = "/org/asteroidos/settings/always-on-brightness";
 static const char EXTRA_DIM_KEY[] = "/org/asteroidos/modes/extra-dim";
+// the image's step (eos-panel.conf aod_max_level=8, DBV 24 of 255)
+static const int DEFAULT_STEP = 8;
 // (the burn-in mask's x2 is the display offload daemon's: BurnInMask.qml has the
 // compositor send it "mask 1", CR-46; the dconf aod-mask-boost is retired)
 static const char PARAM[] = "/sys/module/panel_boe_wf012fbm/parameters/aod_max_level";
 
 AodBrightness::AodBrightness(QObject *parent) : QObject(parent),
-    m_level(new MDConfItem(QLatin1String(KEY), this)),
     m_extraDim(new MDConfItem(QLatin1String(EXTRA_DIM_KEY), this))
 {
-    connect(m_level, &MDConfItem::valueChanged, this, &AodBrightness::apply);
     connect(m_extraDim, &MDConfItem::valueChanged, this, &AodBrightness::apply);
     apply();
 }
 
 void AodBrightness::apply()
 {
-    const QString level = m_level->value(QStringLiteral("medium")).toString();
-    int step = level == QLatin1String("low") ? 6 : level == QLatin1String("high") ? 12 : 8;
+    int step = DEFAULT_STEP;
     if (m_extraDim->value(false).toBool())
         step = qMin(step, int(ModesCore::ExtraDimAodStep));
     QFile param(QString::fromLatin1(PARAM));
@@ -47,5 +45,5 @@ void AodBrightness::apply()
         m_warned = true;
         return;
     }
-    qDebug() << "AodBrightness:" << level << (m_extraDim->value(false).toBool() ? "(extra dim)" : "") << "= panel AOD step" << step;
+    qDebug() << "AodBrightness:" << (m_extraDim->value(false).toBool() ? "extra dim" : "default") << "= panel AOD step" << step;
 }
