@@ -762,6 +762,123 @@ Item {
             volume.volume = 70
         }
 
+        // the share of an item's box on the screen that is ink: well above the dark fills (#2E2F35, #1C1D21)
+        function inkOf(img, item) {
+            var a = item.mapToItem(root, 0, 0), b = item.mapToItem(root, item.width, item.height)
+            var ink = 0, n = 0
+            for (var y = Math.round(a.y); y < b.y; y += 2)
+                for (var x = Math.round(a.x); x < b.x; x += 2) {
+                    var q = img.pixel(x, y)
+                    n++
+                    if (Math.max(q.r, q.g, q.b) > 0.45)
+                        ink++
+                }
+            return n > 0 ? ink / n : 0
+        }
+
+        function test_17_top_with_the_watch_state() {
+            // The watch (image 63) showed two empty pills at the top of quick settings where the emulator's S12
+            // has the Find my phone circle. Its state: Touch lock built (11 tiles: a top row of two, Touch lock
+            // and Find my phone, D60-15), the phone connected, Wi-Fi off, no alarm.
+            root.touchLock = lock
+            Backend.wifiPowered = false
+            Backend.wifiConnected = false
+            start(); panel().tapDebounce = 0
+            var p = panel(), l = list()
+            var ids = ["touchLockToggle", "findPhoneButton"]
+            compare(JSON.stringify(p.rowIds[0]), JSON.stringify(ids))
+            compare(l.contentHeight - l.height, 218, "the list's range")
+            compare(l.contentY, 218, "open at the end")
+            // the status pill is at the bottom of the list (CP3A's place), with the phone alone, drawn
+            var st = find(p, "statusTray")
+            compare(JSON.stringify(st.icons), '["phone"]')
+            wait(150)
+            var img = grabImage(screen)
+            var ph = inkOf(img, find(st, "statusIcon-phone"))
+            verify(ph > 0.1, "the pill's phone glyph drawn: " + ph)
+            // The watch's frame (C-qs-top) was not the top: t62.sh turned the crown 12 counts, 30 ms apart
+            // (positive turns back), from the open list, and that stops 90 px up from the end (128 of 218 on the
+            // build host, as on the watch, whose indicator thumb is half way down its track).
+            for (var w = 0; w < 12; w++) {
+                mouseWheel(root, 192, 192, 0, 120)
+                wait(30)
+            }
+            wait(1200)
+            verify(l.contentY > 60 && l.contentY < 218, "12 counts stop short of the top: " + l.contentY)
+            // There the top row's inner edge is at y 46, 0.24 of the transition area, short of the content zone
+            // (0.25 to 0.5): CP3A draws the buttons as 48 x 33 px pills without their glyphs (content alpha 0,
+            // lag.java:126) at container alpha 0.6, #2E2F35 showing as #1C1C20 on black. The watch: pills at
+            // x 141-188 and 196-243, y 14-46, #1C1C20.
+            l.contentY = 218 - 90
+            wait(150)
+            var row = find(p, "qsRow0")
+            var m = QS.morph(row.y - l.contentY, row.height, l.height)
+            verify(m.atTop && m.content === 0 && m.container > 0.5 && m.container < 0.7, JSON.stringify(m))
+            img = grabImage(screen)
+            var lefts = [141, 196]
+            for (var i = 0; i < 2; i++) {
+                var r = shapeRect(ids[i])
+                near(r.x0, lefts[i], 2, ids[i] + " pill left")
+                near(r.w, 48, 2, ids[i] + " pill width")
+                near(r.h, 33, 2, ids[i] + " pill height")
+                near(r.y1, 46, 1.5, ids[i] + " pill bottom")
+                compare(tile(ids[i]).contentAlpha, 0)
+                var c = img.pixel(Math.round((r.x0 + r.x1) / 2), Math.round((r.y0 + r.y1) / 2))
+                verify(Math.abs(c.r * 255 - 0x1C) <= 3 && Math.abs(c.g * 255 - 0x1C) <= 3 && Math.abs(c.b * 255 - 0x20) <= 3,
+                       ids[i] + " pill on the screen " + c)
+            }
+            shot("qs-17a-watch-frame")
+            // the crown turned on: the list reaches its top
+            for (var k = 0; k < 120 && l.contentY > 0; k++) {
+                mouseWheel(root, 192, 192, 0, 120)
+                wait(20)
+            }
+            tryCompare(l, "contentY", 0, 3000)
+            wait(400)
+            compare(l.contentY, 0, "the crown reaches the top")
+            // the top: Touch lock and Find my phone, two whole circles (row top 70: 40 + the two-button
+            // spacer 30), their glyphs drawn; S12 has Find my phone alone (the emulator has no Touch lock)
+            compare(row.y - l.contentY, 70)
+            img = grabImage(screen)
+            for (i = 0; i < 2; i++) {
+                var s = slot(ids[i]), t = tile(ids[i])
+                verify(s.scale > 0.98, ids[i] + " whole: " + s.scale)
+                near(t.contentAlpha, 1, 0.01, ids[i] + " content")
+                near(t.containerAlpha, 1, 0.01, ids[i] + " container")
+                var ink = litShare(img, t, t.iconSize)
+                verify(ink > 0.1 && ink < 0.8, ids[i] + " glyph drawn: " + ink)
+            }
+            verify(tile("findPhoneButton").enabled, "the phone is connected")
+            shot("qs-17b-top-watch-state")
+            // the pill's other glyphs draw too: Wi-Fi connected and an alarm set (icons of the set), then the
+            // phone away and Bluetooth off (the eos-status files)
+            Backend.wifiPowered = true
+            Backend.wifiConnected = true
+            Backend.nextAlarmMs = Date.now() + 3600000
+            start(); panel().tapDebounce = 0
+            st = find(panel(), "statusTray")
+            compare(JSON.stringify(st.icons), '["phone","wifi","alarm"]')
+            wait(150)
+            img = grabImage(screen)
+            for (i = 0; i < st.icons.length; i++) {
+                ink = inkOf(img, find(st, "statusIcon-" + st.icons[i]))
+                verify(ink > 0.1, st.icons[i] + " drawn: " + ink)
+            }
+            shot("qs-17c-pill-phone-wifi-alarm")
+            Backend.btPowered = false
+            Backend.replies["org.asteroidos.btsyncd.Phone.Connected"] = false
+            start(); panel().tapDebounce = 0
+            st = find(panel(), "statusTray")
+            compare(JSON.stringify(st.icons), '["phoneOff","btOff","wifi","alarm"]')
+            wait(150)
+            img = grabImage(screen)
+            for (i = 0; i < st.icons.length; i++) {
+                ink = inkOf(img, find(st, "statusIcon-" + st.icons[i]))
+                verify(ink > 0.1, st.icons[i] + " drawn: " + ink)
+            }
+            shot("qs-17d-pill-four")
+        }
+
         // ---- the button -------------------------------------------------------------
 
         function test_20_button_look() {
