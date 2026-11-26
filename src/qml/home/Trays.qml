@@ -59,10 +59,12 @@ Item {
         defaultValue: "wear"
     }
 
+    // the app list's view (Settings > App view); unset: the grid, as Wear OS 6 opens All apps
+    // (emulator S04-b; N61-15: the layer's default and Settings say the same)
     ConfigurationValue {
         id: appLauncherSource
         key: "/desktop/asteroid/applauncher"
-        defaultValue: "file:///usr/share/asteroid-launcher/applauncher/000-default-horizontal.qml"
+        defaultValue: "file:///usr/share/asteroid-launcher/applauncher/007-wear-grid.qml"
     }
 
     // a language change reloads the app launcher

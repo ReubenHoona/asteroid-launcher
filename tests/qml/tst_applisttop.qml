@@ -7,7 +7,9 @@
 //    still 0.2 of the height and ends there;
 //  - N61-33: the "Grid view" / "List view" edge button: the label (ink y 270-291) above the view's glyph (list:
 //    three bars, box 36 x 26 from y 312; grid: 3 x 3 dots, box 32 x 32 from y 309), in onPrimary #383F51;
-//    "All apps" one centred line with no glyph (cap top y 297, the control's own, 3 px under the emulator's).
+//    "All apps" one centred line with no glyph (cap top y 297, the control's own, 3 px under the emulator's);
+//  - N61-15: with the key unset the app list is the grid (Trays.qml's fallback), the list and the grid name the
+//    emulator's glyphs.
 // Staged as the qrc lays it out (st/qml, st/applauncher). Run by newlook-wt/l5h/run.sh (MODE=st).
 import QtQuick
 import QtTest
@@ -263,6 +265,27 @@ Item {
             verify(Math.abs(r[0].y0 - 294) <= 3, "All apps cap top " + r[0].y0)
             verify(Math.abs((r[0].x0 + r[0].x1) / 2 - 191.5) <= 3, "centred: " + r[0].x0 + "-" + r[0].x1)
             compare(r.length, 1, "no glyph under All apps")
+        }
+
+        // ---- N61-15 and the glyph names ----
+
+        function test_08_views_and_default() {
+            var xhr = new XMLHttpRequest()
+            xhr.open("GET", Qt.resolvedUrl("st/qml/home/Trays.qml"), false)
+            xhr.send()
+            var t = xhr.responseText
+            // (staged, the path is the stage's own)
+            verify(new RegExp('defaultValue: "file://[^"]*/applauncher/007-wear-grid\\.qml"').test(t),
+                   "the app list falls back to the grid")
+            verify(t.indexOf("000-default-horizontal.qml") < 0, "not the AsteroidOS launcher")
+            var g = new XMLHttpRequest()
+            g.open("GET", Qt.resolvedUrl("st/applauncher/006-wear-list.qml"), false)
+            g.send()
+            verify(g.responseText.indexOf('edgeIcon: "eos-view-grid"') >= 0, "the list's button shows the grid glyph")
+            var h = new XMLHttpRequest()
+            h.open("GET", Qt.resolvedUrl("st/applauncher/007-wear-grid.qml"), false)
+            h.send()
+            verify(h.responseText.indexOf('edgeIcon: "eos-view-list"') >= 0, "the grid's button shows the list glyph")
         }
     }
 }
