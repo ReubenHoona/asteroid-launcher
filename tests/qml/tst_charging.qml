@@ -337,24 +337,28 @@ TestCase {
         var r = Charging.plugChange({ plugged: true, was: false, theater: false, bedtime: false, displayOff: true })
         verify(r.show && r.wake && r.intro)
         verify(!r.linger && !r.hide)
-        verify(r.feedback)                  // the plug-in vibration (ngfd charging_started)
+        verify(r.sound)                     // the plug-in sound (ngfd eos_charging_sound)
+        verify(r.feedback === undefined)    // no plug-in vibration (FP-C1: stock plays none)
         r = Charging.plugChange({ plugged: true, was: false, theater: false, bedtime: false, displayOff: false })
-        verify(r.show && r.wake && r.intro && r.feedback)
-        // Do Not Disturb: the screen as usual, no vibration
+        verify(r.show && r.wake && r.intro && r.sound)
+        // Do Not Disturb: the screen as usual, no sound
         r = Charging.plugChange({ plugged: true, was: false, theater: false, bedtime: false, dnd: true, displayOff: false })
-        verify(r.show && r.wake && r.intro && !r.feedback)
-        // Theater: no wake; the intro only if the display is on anyway
+        verify(r.show && r.wake && r.intro && !r.sound)
+        // Theater: no wake; the intro only if the display is on anyway; no sound
         r = Charging.plugChange({ plugged: true, was: false, theater: true, bedtime: false, displayOff: true })
-        verify(r.show && !r.wake && !r.intro && !r.feedback)
+        verify(r.show && !r.wake && !r.intro && !r.sound)
         r = Charging.plugChange({ plugged: true, was: false, theater: true, bedtime: false, displayOff: false })
-        verify(r.show && !r.wake && r.intro && !r.feedback)
-        // Bedtime: the screen stays dark
+        verify(r.show && !r.wake && r.intro && !r.sound)
+        // Bedtime: the screen stays dark, no sound
         r = Charging.plugChange({ plugged: true, was: false, theater: false, bedtime: true, displayOff: true })
-        verify(r.show && !r.wake && !r.intro)
+        verify(r.show && !r.wake && !r.intro && !r.sound)
+        r = Charging.plugChange({ plugged: true, was: false, theater: false, bedtime: true, displayOff: false })
+        verify(r.show && !r.wake && r.intro && !r.sound)
     }
     function test_unplug() {
         var r = Charging.plugChange({ plugged: false, was: true, theater: false, bedtime: false, displayOff: true })
         verify(r.wake && r.linger && !r.show && !r.hide && !r.intro)
+        verify(!r.sound)                    // the unplug plays nothing
         r = Charging.plugChange({ plugged: false, was: true, theater: true, bedtime: false, displayOff: true })
         verify(!r.wake && !r.linger && r.hide)
         r = Charging.plugChange({ plugged: false, was: true, theater: true, bedtime: false, displayOff: false })
@@ -365,7 +369,7 @@ TestCase {
         compare(Charging.FADE_STIFFNESS, 260)
         // no change, no action
         r = Charging.plugChange({ plugged: true, was: true })
-        verify(!r.show && !r.wake && !r.linger && !r.hide)
+        verify(!r.show && !r.wake && !r.linger && !r.hide && !r.sound)
         verify(Charging.wakesOnPlug(false, false))
         verify(!Charging.wakesOnPlug(true, false))
         verify(!Charging.wakesOnPlug(false, true))

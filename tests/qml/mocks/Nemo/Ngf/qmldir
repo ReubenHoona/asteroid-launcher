@@ -1,2 +1,3 @@
 module Nemo.Ngf
 NonGraphicalFeedback 1.0 NonGraphicalFeedback.qml
+NgfProperty 1.0 NgfProperty.qml

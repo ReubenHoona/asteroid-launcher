@@ -305,9 +305,8 @@ Item {
     ChargingController {
         id: charging
         displayOff: comp ? comp.displayIsOff : false
-        // the plug-in vibration (ngfd charging_started, hardware class = the Using crown switch, as
-        // stock); it came with lipstick's 'Charging' banner, which is gone
-        onPlugFeedback: Haptics.playAs("charging_started", Haptics.Crown)
+        // the plug-in sound is the controller's own (ngfd eos_charging_sound); there is no plug-in
+        // vibration, as stock (FP-C1)
     }
     ChargingScreen {
         id: chargingScreen

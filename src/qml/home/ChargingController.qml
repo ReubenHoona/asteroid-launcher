@@ -33,6 +33,7 @@ import QtQuick
 import Nemo.Configuration
 import Nemo.Mce
 import Nemo.DBus
+import Nemo.Ngf
 import "../charging/charging.js" as Charging
 
 /* The charger (W2-launcher-charging): when the charging screen is up, the wake on plug and
@@ -45,6 +46,9 @@ import "../charging/charging.js" as Charging
  *  - plug-in (charging-battery-02): the screen is up and the display is asked to come on
  *    (mce req_display_state_on: it then follows the normal screen timeout), except in
  *    Theater and Bedtime (the screen stays dark); the intro plays when the display is on.
+ *    The plug-in sound (ngfd eos_charging_sound, audio only) plays once when the plug-in
+ *    wakes the screen, with Settings > Sound > Charging sounds on and Do Not Disturb off; no
+ *    plug-in vibration (stock plays none).
  *    mce's own 3 s tklock exception for the charger is set to 0 in 62eos-battery.conf.
  *  - unplug (charging-battery-03): the display is asked to come on the same way; the screen
  *    stays 1000 ms and fades away (the slow effects spring), at once if the display is dark.
@@ -73,12 +77,21 @@ Item {
     readonly property bool bedtime: typeof modes !== "undefined" && modes !== null && modes.bedtime === true
     readonly property bool dnd: typeof modes !== "undefined" && modes !== null && modes.doNotDisturb === true
 
-    // the plug-in vibration: compositor.qml plays ngfd's charging_started (Haptics, which keeps the
-    // vibration and Using crown switches)
-    signal plugFeedback()
+    // the plug-in sound (FP-C1), as stock's charging screen (SysUI ChargingComposeActivity, imd.java)
+    // plays raw/customized_charging_started once on a plug-in, on the system stream (the ring stream
+    // on this watch): ngfd's eos_charging_sound (meta-eos64 charging_started.ini: the Ring volume,
+    // muted with ring and notifications, no haptic), audio only. No plug-in vibration: stock plays
+    // none (Wear Settings' BootReceiver turns the framework's charging_sounds_enabled off at every
+    // boot, so PowerManager's Notifier plays neither its charging vibration nor its sound)
+    NonGraphicalFeedback {
+        id: plugSound
+        objectName: "eosChargingSound"
+        event: "eos_charging_sound"
+        properties: [ NgfProperty { name: "media.audio"; value: true } ]
+    }
 
-    // Settings > Sound > Charging sounds (CR-32, /org/asteroidos/sound/charging, default on): off, the plug-in feedback
-    // (ngfd charging_started) is not played
+    // Settings > Sound > Charging sounds (CR-32, /org/asteroidos/sound/charging, default on; stock
+    // wear_charging_sounds_enabled): off, the plug-in sound is not played
     ConfigurationValue {
         id: chargingSoundKey
         key: "/org/asteroidos/sound/charging"
@@ -153,8 +166,8 @@ Item {
         update()
         if (r.wake)
             wakeDisplay()
-        if (r.feedback && chargingSoundOn)
-            plugFeedback()
+        if (r.sound && chargingSoundOn)
+            plugSound.play()
     }
 
     // 1000 ms after the unplug the screen finishes (it fades away)

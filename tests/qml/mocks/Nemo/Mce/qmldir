@@ -2,3 +2,5 @@ module Nemo.Mce
 MceBatteryLevel 1.0 MceBatteryLevel.qml
 MceBatteryState 1.0 MceBatteryState.qml
 MceChargerType 1.0 MceChargerType.qml
+MceChargerState 1.0 MceChargerState.qml
+MceBatteryStatus 1.0 MceBatteryStatus.qml

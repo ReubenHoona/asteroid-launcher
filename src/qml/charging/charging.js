@@ -299,16 +299,18 @@ function wakesOnPlug(theater, bedtime) {
 }
 
 /* What a change of the charger does. s: { plugged (now), was (before), theater, bedtime, dnd,
- * displayOff }. Answer: { show, wake, intro, linger, hide, feedback }
+ * displayOff }. Answer: { show, wake, intro, linger, hide, sound }
  *   plug-in:  the screen is up; wake the display (normal timers) unless Theater/Bedtime;
- *             the intro plays when the display is on (or comes on); the plug-in vibration (ngfd
- *             charging_started, which lipstick's 'Charging' banner used to carry) unless Do Not
- *             Disturb, Bedtime or Theater is on (gap charging-battery-11)
+ *             the intro plays when the display is on (or comes on); the plug-in sound (ngfd
+ *             eos_charging_sound, as stock's charging screen plays customized_charging_started
+ *             once) when the plug-in wakes the screen and Do Not Disturb is off (gap
+ *             charging-battery-11; FP-C1). No plug-in vibration: stock plays none (Wear
+ *             Settings turns the framework's charging feedback off at every boot)
  *   unplug:   wake the same way; the screen stays UNPLUG_HOLD_MS, then fades away; with the
  *             display dark it goes at once
  *   no change: nothing */
 function plugChange(s) {
-    var r = { show: false, wake: false, intro: false, linger: false, hide: false, feedback: false }
+    var r = { show: false, wake: false, intro: false, linger: false, hide: false, sound: false }
     if (s.plugged === s.was)
         return r
     var wake = wakesOnPlug(s.theater, s.bedtime)
@@ -316,7 +318,7 @@ function plugChange(s) {
         r.show = true
         r.wake = wake
         r.intro = wake || s.displayOff !== true
-        r.feedback = wake && s.dnd !== true
+        r.sound = wake && s.dnd !== true
         return r
     }
     r.wake = wake
