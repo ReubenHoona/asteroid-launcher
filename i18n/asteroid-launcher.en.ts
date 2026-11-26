@@ -2605,5 +2605,21 @@ for %1 seconds to</translation>
         <source>Some system functions may not work</source>
         <translation>Some system functions may not work</translation>
     </message>
+    <message id="id-whatsnew-splash">
+        <source>Your watch just got better!</source>
+        <translation>Your watch just got better!</translation>
+    </message>
+    <message id="id-whatsnew-next">
+        <source>Next</source>
+        <translation>Next</translation>
+    </message>
+    <message id="id-whatsnew-done">
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message id="id-whatsnew-back">
+        <source>Back</source>
+        <translation>Back</translation>
+    </message>
 </context>
 </TS>
