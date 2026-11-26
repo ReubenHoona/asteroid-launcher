@@ -205,8 +205,9 @@ Item {
             yes()
             verify(modes.bedtime)
             verify(t.checked)
-            // D60-17: CP3A's bed (qs.js GLYPH_BED) in both states
-            compare(t.glyph.indexOf("M80-200"), 0)
+            // N61-25: the emulator's crescent moon (ms-bedtime-fill, S11) in both states
+            compare(t.icon, "ms-bedtime-fill")
+            compare(t.glyph, "")
             compare(Backend.confGet("/org/asteroidos/modes/ask/bedtime"), undefined)
             // the always-on tile: greyed out, shown off
             var aod = tile("aodToggle")
@@ -238,7 +239,7 @@ Item {
             shot("quickpanel-04-theater-dialog-dont-show")
             yes()
             verify(modes.theater)
-            // D60-17: CP3A's clapperboard (qs.js GLYPH_CLAPPER) in both states
+            // the clapperboard (qs.js GLYPH_CLAPPER; CP3A and the emulator's S11) in both states
             compare(t.glyph.indexOf("m160-800"), 0)
             compare(Backend.confGet("/org/asteroidos/modes/ask/theater"), false)
             tap(t)
@@ -314,8 +315,8 @@ Item {
         // the Flashlight tile, in the panel by default as stock's, opens the Flashlight app
         function test_08_flashlight_tile() {
             var t = tile("flashlightButton")
-            // D60-17: CP3A's filled torch (qs.js GLYPH_TORCH)
-            compare(t.glyph.indexOf("M240-760"), 0)
+            // N61-25: the emulator's filled torch struck while the light is off (qs.js GLYPH_TORCH_OFF, S12)
+            compare(t.glyph.indexOf("M320-160v-368L84-764"), 0)
             verify(!t.checkable)
             shot("quickpanel-08-flashlight-tile")
             tap(t)

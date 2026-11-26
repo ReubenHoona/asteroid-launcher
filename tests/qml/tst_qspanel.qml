@@ -778,12 +778,30 @@ Item {
             compare(tile("brightnessButton").iconSize, 52)
         }
 
-        function test_22b_glyphs_as_cp3a() {
-            // D60-17: CP3A's glyphs (kxx.java:223-287), the same in both states: Bedtime a bed with a
-            // sleeper, Theater a clapperboard, Flashlight a filled torch (path glyphs), DND a filled disc
-            // with a bar, Find my phone a phone with waves (icons of the set); sizes 26, 26, 27, 26, 32 dp
-            var cases = [["bedtimeToggle", "glyph", QS.GLYPH_BED, 52], ["cinemaToggle", "glyph", QS.GLYPH_CLAPPER, 52],
-                         ["flashlightButton", "glyph", QS.GLYPH_TORCH, 54], ["dndToggle", "icon", "ms-do_not_disturb_on-fill", 52],
+        // the share of a tile's icon box (size px, centred on the button) that is lit
+        function litShare(img, t, size) {
+            var c = centre(t), lit = 0, n = 0
+            for (var y = 0; y < size; y += 2)
+                for (var x = 0; x < size; x += 2) {
+                    var p = img.pixel(Math.round(c.x - size / 2 + x), Math.round(c.y - size / 2 + y))
+                    n++
+                    if (p.r > 0.6 && p.g > 0.6 && p.b > 0.6)
+                        lit++
+                }
+            return lit / n
+        }
+
+        function test_22b_glyphs_as_the_emulator() {
+            // N61-25: the Wear OS 6 emulator's quick settings (S11, S12) draws Material Symbols Rounded FILLED
+            // glyphs: Bedtime a crescent moon, Settings a filled gear, Brightness a filled sun with 8 short
+            // rays, Airplane an airplane, DND a disc with a bar, Find my phone a phone with waves (icons of
+            // the set); Theater a clapperboard, Flashlight a torch struck while off, Notifications and ring
+            // a bell struck while muted (path glyphs, qs.js). Sizes unchanged: 26 dp, Flashlight 27, Find
+            // my phone 32. (D60-17's bed and its one torch for both states are gone.)
+            var cases = [["bedtimeToggle", "icon", "ms-bedtime-fill", 52], ["dndToggle", "icon", "ms-do_not_disturb_on-fill", 52],
+                         ["cinemaToggle", "glyph", QS.GLYPH_CLAPPER, 52], ["settingsButton", "icon", "ms-settings-fill", 52],
+                         ["soundToggle", "glyph", QS.GLYPH_BELL, 52], ["airplaneToggle", "icon", "ms-airplanemode_active", 52],
+                         ["flashlightButton", "glyph", QS.GLYPH_TORCH_OFF, 54], ["brightnessButton", "icon", "ms-sunny-fill", 52],
                          ["findPhoneButton", "icon", "ms-vibration", 64]]
             for (var i = 0; i < cases.length; i++) {
                 var t = tile(cases[i][0])
@@ -792,17 +810,54 @@ Item {
                 var g = find(t, "qsGlyph")
                 compare(g.visible, cases[i][1] === "glyph", cases[i][0] + " path glyph")
                 if (cases[i][1] === "glyph") {
-                    compare(t.icon, "")
+                    compare(t.icon, "", cases[i][0] + " no icon")
                     compare(g.width, cases[i][3]); compare(g.height, cases[i][3])
+                } else {
+                    compare(t.glyph, "", cases[i][0] + " no path glyph")
                 }
             }
-            compare(QS.GLYPH_BED.indexOf("M80-200"), 0)
+            // the path data: Material Symbols Rounded fill 1 (movie, flashlight_on, flashlight_off,
+            // notifications, notifications_off at google/material-design-icons 10ecc14)
             compare(QS.GLYPH_CLAPPER.indexOf("m160-800"), 0)
             compare(QS.GLYPH_TORCH.indexOf("M240-760"), 0)
-            // the same glyph when on
+            compare(QS.GLYPH_TORCH_OFF.indexOf("M320-160v-368L84-764"), 0)
+            compare(QS.GLYPH_BELL.indexOf("M200-200q-17"), 0)
+            compare(QS.GLYPH_BELL_OFF.indexOf("M646-200H200"), 0)
+            compare(QS.torchGlyph(true), QS.GLYPH_TORCH); compare(QS.torchGlyph(false), QS.GLYPH_TORCH_OFF)
+            compare(QS.bellGlyph(false), QS.GLYPH_BELL); compare(QS.bellGlyph(true), QS.GLYPH_BELL_OFF)
+            // the Flashlight glyph follows checked: struck while the light is off (S12), the torch while on
+            var fl = tile("flashlightButton")
+            verify(!fl.checked, "the light is off under quick settings")
+            fl.checked = true
+            compare(fl.glyph, QS.GLYPH_TORCH)
+            fl.checked = false
+            compare(fl.glyph, QS.GLYPH_TORCH_OFF)
+            // the bell follows the mute state: muted by a tap, struck (S11); unmuted, the bell again
+            var s = tile("soundToggle")
+            verify(s.checked)
+            tap(s)
+            verify(!s.checked)
+            compare(volume.volume, 0)
+            compare(s.glyph, QS.GLYPH_BELL_OFF)
+            wait(200)
+            tap(s)
+            verify(s.checked)
+            compare(s.glyph, QS.GLYPH_BELL)
+            // muted by the level kept for unmuting, or at volume 0: struck too
+            Backend.confSet("/desktop/asteroid/pre-mute-level", 60)
+            wait(60)
+            compare(tile("soundToggle").glyph, QS.GLYPH_BELL_OFF)
+            Backend.confSet("/desktop/asteroid/pre-mute-level", 0)
+            volume.volume = 0
+            wait(60)
+            compare(tile("soundToggle").glyph, QS.GLYPH_BELL_OFF)
+            volume.volume = 70
+            wait(60)
+            compare(tile("soundToggle").glyph, QS.GLYPH_BELL)
+            // the same glyph when on (Bedtime, Theater, DND)
             modes.bedtime = true; modes.theater = true
             wait(60)
-            compare(tile("bedtimeToggle").glyph, QS.GLYPH_BED)
+            compare(tile("bedtimeToggle").icon, "ms-bedtime-fill")
             compare(tile("cinemaToggle").glyph, QS.GLYPH_CLAPPER)
             Backend.confSet("/org/asteroidos/notifications/do-not-disturb", true)
             wait(60)
@@ -811,25 +866,29 @@ Item {
             modes.bedtime = false; modes.theater = false
             Backend.confSet("/org/asteroidos/notifications/do-not-disturb", false)
             wait(60)
-            // drawn: the glyph's box holds the content colour (the bed fills a good part of its 26 dp box)
-            var bt = tile("bedtimeToggle")
-            show(bt)
+            // drawn: the path glyph's box sits on the button (the Shape's own Translate moves its origin
+            // down by its height: the box starts at -height), and each glyph fills a part of its box
+            var bl = tile("soundToggle")
+            show(bl)
             wait(150)
-            var gb = find(bt, "qsGlyph")
-            // (the Shape's own Translate moves its origin down by its height: the box starts at -height)
+            var gb = find(bl, "qsGlyph")
             var o = gb.mapToItem(root, 0, -gb.height)
-            near(o.x, centre(bt).x - 26, 1, "glyph box x"); near(o.y, centre(bt).y - 26, 1, "glyph box y")
+            near(o.x, centre(bl).x - 26, 1, "glyph box x"); near(o.y, centre(bl).y - 26, 1, "glyph box y")
             var img = grabImage(screen)
-            var lit = 0, n = 0
-            for (var y = 0; y < 52; y += 2)
-                for (var x = 0; x < 52; x += 2) {
-                    var p = img.pixel(Math.round(o.x + x), Math.round(o.y + y))
-                    n++
-                    if (p.r > 0.6 && p.g > 0.6 && p.b > 0.6)
-                        lit++
-                }
-            verify(lit / n > 0.15 && lit / n < 0.8, "bed glyph drawn: " + lit + " of " + n)
+            var bell = litShare(img, bl, 52), moon = litShare(img, tile("bedtimeToggle"), 52)
+            var gear = litShare(img, tile("settingsButton"), 52)
+            verify(bell > 0.15 && bell < 0.8, "bell drawn: " + bell)
+            verify(moon > 0.15 && moon < 0.8, "moon drawn: " + moon)
+            verify(gear > 0.15 && gear < 0.8, "gear drawn: " + gear)
             shot("qs-08-glyphs")
+            // the top of the list (S12): the struck torch and the filled sun drawn
+            list().contentY = 0
+            wait(150)
+            img = grabImage(screen)
+            var torch = litShare(img, tile("flashlightButton"), 54), sun = litShare(img, tile("brightnessButton"), 52)
+            verify(torch > 0.15 && torch < 0.8, "struck torch drawn: " + torch)
+            verify(sun > 0.15 && sun < 0.8, "sun drawn: " + sun)
+            shot("qs-08b-glyphs-top")
         }
 
         function test_23_tap_debounce_and_long_press() {

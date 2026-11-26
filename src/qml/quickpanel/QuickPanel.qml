@@ -747,7 +747,8 @@ Item {
         id: settingsButtonComponent
         QuickPanelToggle {
             objectName: "settingsButton"
-            icon: "ios-settings"
+            // the emulator's filled gear (S11)
+            icon: QS.ICON_SETTINGS
             //% "Settings"
             label: qsTrId("id-qs-settings")
             onActivated: appLauncher.launchApp("asteroid-settings")
@@ -764,10 +765,8 @@ Item {
             //% "Notifications and ring"
             label: qsTrId("id-qs-sound")
 
-            icon: preMuteLevel.value > 0 || volume === 0 ? "ios-sound-indicator-mute" :
-                  volume > 70 ? "ios-sound-indicator-high" :
-                  volume > 30 ? "ios-sound-indicator-mid" :
-                  volume > 0 ? "ios-sound-indicator-low" : "ios-sound-indicator-off"
+            // the emulator's bell, struck while muted (S11: notifications / notifications_off, fill 1)
+            glyph: QS.bellGlyph(!checked)
 
             // checked reflects mute state only: volume at 0% while unmuted
             // is silent but not muted and should not deactivate the toggle
@@ -804,8 +803,8 @@ Item {
         id: bedtimeToggleComponent
         QuickPanelToggle {
             objectName: "bedtimeToggle"
-            // CP3A's bed with a sleeper in both states (compose_btn_bedtime, kxx.java:264)
-            glyph: QS.GLYPH_BED
+            // the emulator's crescent moon in both states (S11: bedtime, fill 1)
+            icon: QS.ICON_BEDTIME
             checkable: true
             checked: rootitem.modesReady && modes.bedtime
             //% "Bedtime mode"
@@ -959,14 +958,14 @@ Item {
     }
 
     // Flashlight: opens the Flashlight app, as the stock quick settings'
-    // Flashlight button starts FlashlightActivity (STOCK-FLASHLIGHT.md); its
-    // icon is the stock tile's (quantum_gm_ic_flashlight_on)
+    // Flashlight button starts FlashlightActivity (STOCK-FLASHLIGHT.md)
     Component {
         id: flashlightButtonComponent
         QuickPanelToggle {
             objectName: "flashlightButton"
-            // CP3A's filled torch (compose_btn_flashlight, kxx.java:223)
-            glyph: QS.GLYPH_TORCH
+            // the emulator's filled torch, struck while the light is off (S12: flashlight_off,
+            // fill 1); the light is never on under quick settings (the app covers it)
+            glyph: QS.torchGlyph(checked)
             iconSize: Theme.dp(27)
             //% "Flashlight"
             label: qsTrId("id-qs-flashlight")
@@ -983,7 +982,8 @@ Item {
         id: brightnessButtonComponent
         QuickPanelToggle {
             objectName: "brightnessButton"
-            icon: "ios-sunny"
+            // the emulator's filled sun with 8 short rays (S12)
+            icon: QS.ICON_BRIGHTNESS
             //% "Brightness"
             label: qsTrId("id-brightness")
             onActivated: rootitem.openSettings("brightness")

@@ -219,20 +219,37 @@ function visibleTiles(list, available) {
 
 /* ---- the glyphs ---------------------------------------------------------- */
 
-/* CP3A draws Bedtime, Theater and Flashlight with filled glyphs, the same in
- * both states (kxx.java:223, :264, :287: compose_btn_bedtime, a bed with a
- * sleeper; compose_btn_theater, a clapperboard; compose_btn_flashlight, a
- * torch). The image's icon set has no filled match, so these are Material
- * Symbols Rounded glyphs (Google, Apache License 2.0; google/material-design-
- * icons 10ecc14, symbols/web/<name>/materialsymbolsrounded/<name>_fill1_24px.svg),
- * path data in their 960 box with y from -960 to 0: hotel, movie, flashlight_on.
- * The licence text is COPYING.Apache-2.0. */
-var GLYPH_BED = "M80-200q-17 0-28.5-11.5T40-240v-520q0-17 11.5-28.5T80-800q17 0 28.5 11.5T120-760v360h320v-240q0-33 23.5-56.5T520-720h240q66 0 113 47t47 113v320q0 17-11.5 28.5T880-200q-17 0-28.5-11.5T840-240v-80H120v80q0 17-11.5 28.5T80-200Zm200-240q-50 0-85-35t-35-85q0-50 35-85t85-35q50 0 85 35t35 85q0 50-35 85t-85 35Z"
+/* The Wear OS 6 emulator's quick settings (S11, S12) draws every button with a
+ * Material Symbols Rounded FILLED glyph in onSurface: Bedtime a crescent moon
+ * (bedtime), Do Not Disturb a disc with a bar (do_not_disturb_on), Theater a
+ * clapperboard (movie), Settings a filled gear (settings), Notifications and
+ * ring a bell, struck when muted (notifications, notifications_off), Airplane
+ * an airplane (airplanemode_active), Flashlight a filled torch, struck while
+ * it is off (flashlight_on, flashlight_off), Brightness a filled sun with 8
+ * short rays (sunny), Find my phone a phone with waves (vibration). The icon
+ * set has the moon, gear and sun as ms-bedtime-fill, ms-settings-fill and
+ * ms-sunny-fill; the image's set has no clapperboard, torch or bell in FILL 1,
+ * so these are path data here: Material Symbols Rounded glyphs (Google, Apache
+ * License 2.0; google/material-design-icons 10ecc14, symbols/web/<name>/
+ * materialsymbolsrounded/<name>_fill1_24px.svg), in their 960 box with y from
+ * -960 to 0: movie, flashlight_on, flashlight_off, notifications,
+ * notifications_off. The licence text is COPYING.Apache-2.0. */
+var ICON_BEDTIME = "ms-bedtime-fill"
+var ICON_SETTINGS = "ms-settings-fill"
+var ICON_BRIGHTNESS = "ms-sunny-fill"
 var GLYPH_CLAPPER = "m160-800 65 130q7 14 20 22t28 8q30 0 46-25.5t2-52.5l-41-82h80l65 130q7 14 20 22t28 8q30 0 46-25.5t2-52.5l-41-82h80l65 130q7 14 20 22t28 8q30 0 46-25.5t2-52.5l-41-82h120q33 0 56.5 23.5T880-720v480q0 33-23.5 56.5T800-160H160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800Z"
 var GLYPH_TORCH = "M240-760v-40q0-33 23.5-56.5T320-880h320q33 0 56.5 23.5T720-800v40H240Zm240 420q25 0 42.5-17.5T540-400q0-25-17.5-42.5T480-460q-25 0-42.5 17.5T420-400q0 25 17.5 42.5T480-340ZM320-160v-360l-67-100q-7-10-10-21t-3-23v-16h480v16q0 12-3 23t-10 21l-67 100v360q0 33-23.5 56.5T560-80H400q-33 0-56.5-23.5T320-160Z"
-/* Do Not Disturb (compose_btn_dnd, kxx.java:276: a disc with a bar) and Find my
- * phone (compose_btn_phone, kxx.java:247: a phone with waves on both sides) are
- * in the icon set: Material Symbols do_not_disturb_on (fill 1) and vibration */
+var GLYPH_TORCH_OFF = "M320-160v-368L84-764q-11-11-11-28t11-28q11-11 28-11t28 11l680 680q11 11 11 28t-11 28q-11 11-28 11t-28-11L640-208v48q0 33-23.5 56.5T560-80H400q-33 0-56.5-23.5T320-160Zm27-600q-16 0-30.5-6T291-783l-21-21q-20-20-4-48t54-28h320q33 0 56.5 23.5T720-800q0 17-11.5 28.5T680-760H347Zm224 257L445-629q-14-14-6.5-32.5T466-680h213q24 0 33 20t-5 40l-74 111q-11 16-29.5 18T571-503Z"
+var GLYPH_BELL = "M200-200q-17 0-28.5-11.5T160-240q0-17 11.5-28.5T200-280h40v-280q0-83 50-147.5T420-792v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-820v28q80 20 130 84.5T720-560v280h40q17 0 28.5 11.5T800-240q0 17-11.5 28.5T760-200H200ZM480-80q-33 0-56.5-23.5T400-160h160q0 33-23.5 56.5T480-80Z"
+var GLYPH_BELL_OFF = "M646-200H200q-17 0-28.5-11.5T160-240q0-17 11.5-28.5T200-280h40v-280q0-33 8.5-65t25.5-61l126 126H288L84-764q-11-11-11-28t11-28q11-11 28-11t28 11l680 680q11 11 11.5 27.5T820-84q-11 11-28 11t-28-11L646-200Zm74-251q0 12-7 22t-18 15q-11 5-23 2.5T652-422L367-707q-7-7-10-15t-3-17q0-11 5.5-21.5T375-776q11-5 22-9t23-7v-28q0-25 17.5-42.5T480-880q25 0 42.5 17.5T540-820v28q80 20 130 85t50 147v109ZM480-80q-30 0-53.5-16.5T403-141q0-8 6.5-13.5T424-160h112q8 0 14.5 5.5T557-141q0 28-23.5 44.5T480-80Z"
+/* the Flashlight button's glyph: the torch while the light is on, struck while it is off (S12) */
+function torchGlyph(on) { return on ? GLYPH_TORCH : GLYPH_TORCH_OFF }
+/* the Notifications and ring button's glyph: the bell, struck while muted (S11) */
+function bellGlyph(muted) { return muted ? GLYPH_BELL_OFF : GLYPH_BELL }
+/* Do Not Disturb (a disc with a bar) and Find my phone (a phone with waves on
+ * both sides) are in the icon set: Material Symbols do_not_disturb_on (fill 1)
+ * and vibration (CP3A compose_btn_dnd, kxx.java:276, and compose_btn_phone,
+ * kxx.java:247, look the same) */
 var ICON_DND = "ms-do_not_disturb_on-fill"
 var ICON_FIND_PHONE = "ms-vibration"
 
