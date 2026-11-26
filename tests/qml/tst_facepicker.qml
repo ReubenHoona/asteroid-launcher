@@ -394,9 +394,13 @@ Item {
         // favourite's style (Color: Watermelon), never at the wall clock's 07:29; written to the cache as
         // c1-1009.png and shown by the picker as the face on the watch
         function test_n61_35_render() {
-            Backend.confSet("/org/asteroidos/watchface/style/c1", JSON.stringify({ color: "watermelon" }))
-            store.entries = [{ id: "c1", file: top.stubFace }, { id: "c3", file: top.face("000-default-digital") }]
-            store.currentId = "c1"
+            // the favourite drawn here has an id of this run only: the cache folder /tmp/wo11-prev is the same
+            // for every run, so a picture another run left there (or wrote at the same time) can never stand
+            // in for the one this test draws (renderMissing() would find it and draw nothing)
+            var c1 = "c" + Date.now()
+            Backend.confSet("/org/asteroidos/watchface/style/" + c1, JSON.stringify({ color: "watermelon" }))
+            store.entries = [{ id: c1, file: top.stubFace }, { id: "c3", file: top.face("000-default-digital") }]
+            store.currentId = c1
             renderer = rendererC.createObject(top, { cache: facePreviews, store: store })
             verify(renderer !== null, "the renderer")
             compare(FP.upstreamFace(top.face("000-default-digital")), true, "000 reads wallClock: its shipped picture")
@@ -424,7 +428,7 @@ Item {
             compare(seen.ambient, false, "interactive")
             tryCompare(renderer, "version", 1, 10000)
             tryCompare(renderer, "busy", false, 5000)
-            verify(facePreviews.exists("c1-1009"), "written to the cache as c1-1009")
+            verify(facePreviews.exists(c1 + "-1009"), "written to the cache as <id>-1009")
             compare(loader.item, null, "the instance is gone")
             compare(renderer.renderMissing(), 0, "nothing left to draw")
 
@@ -436,9 +440,9 @@ Item {
             liveFace.grabs = 0
             openPicker()
             compare(liveFace.grabs, 0, "no grab of the face on the watch")
-            var r = find(cellOf("c1"), "eosFaceRender")
+            var r = find(cellOf(c1), "eosFaceRender")
             verify(r.ready, "the picture of c1")
-            verify(String(r.source).indexOf("c1-1009.png") >= 0, String(r.source))
+            verify(String(r.source).indexOf(c1 + "-1009.png") >= 0, String(r.source))
             wait(100)
             var img = grabImage(picker)
             img.save("/tmp/wo11-shots/n61-35-stub.png")
@@ -449,8 +453,8 @@ Item {
             var x0 = Math.round(73 + 240 * k), y0 = Math.round(52 + 120 * k)
             verify(img.red(x0, y0) < 120, "no block at 07:29's place: " + img.red(x0, y0))
             // a new style: the picture is drawn again (the editor closed)
-            Backend.confSet("/org/asteroidos/watchface/style/c1", JSON.stringify({ color: "cloud" }))
-            verify(renderer.render("c1"), "drawn again")
+            Backend.confSet("/org/asteroidos/watchface/style/" + c1, JSON.stringify({ color: "cloud" }))
+            verify(renderer.render(c1), "drawn again")
             tryCompare(renderer, "version", 2, 10000)
             picker.previewVersion = renderer.version
             tryVerify(function () { return r.ready }, 5000, "read again")
