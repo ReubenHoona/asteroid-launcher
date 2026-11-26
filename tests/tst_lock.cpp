@@ -247,8 +247,13 @@ int main(int argc, char **argv)
         const QString p3 = dir.path() + QStringLiteral("/helper/lock.json");
         const QString svcName = QStringLiteral("org.asteroidos.LockHelperTest");
         QProcess helper;
-        helper.setProgram(QCoreApplication::applicationFilePath());
-        helper.setArguments({ QStringLiteral("--helper"), p3 });
+        // a cross build run under qemu-user cannot start its own binary as a child (the host has no
+        // binfmt entry for it): TST_EMULATOR, as CMake's CROSSCOMPILING_EMULATOR ("qemu-aarch64 -L
+        // <root>"), starts the helper through the emulator; unset, the helper starts directly
+        const QStringList emulator = QString::fromLocal8Bit(qgetenv("TST_EMULATOR")).split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        const QStringList helperArgs = { QCoreApplication::applicationFilePath(), QStringLiteral("--helper"), p3 };
+        helper.setProgram(emulator.isEmpty() ? helperArgs.first() : emulator.first());
+        helper.setArguments(emulator.isEmpty() ? helperArgs.mid(1) : emulator.mid(1) + helperArgs);
         helper.start();
         CHECK(waitForService(svcName, true));
         {
