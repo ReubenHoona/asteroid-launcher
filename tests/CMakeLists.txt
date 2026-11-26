@@ -14,6 +14,17 @@ target_link_libraries(tst_modes PRIVATE Qt6::Core Qt6::DBus PkgConfig::mlite6 Ti
 add_executable(tst_offloadpolicy tst_offloadpolicy.cpp)
 target_include_directories(tst_offloadpolicy PRIVATE ../lipstick/src/compositor)
 
+# The requests to the display offload daemon (lipstick/src/compositor/eosoffloadclient.h, CR-46: boost, mask,
+# brightness, ttb) against a fake daemon on a socket of its own: plain C++ and POSIX threads
+find_package(Threads REQUIRED)
+add_executable(tst_offloadclient tst_offloadclient.cpp)
+target_include_directories(tst_offloadclient PRIVATE ../lipstick/src/compositor)
+target_link_libraries(tst_offloadclient PRIVATE Threads::Threads)
+
+# An application's keyboard and the crown (lipstick/src/compositor/eoskeyboardopen.h, CR-45), plain C++
+add_executable(tst_keyboardopen tst_keyboardopen.cpp)
+target_include_directories(tst_keyboardopen PRIVATE ../lipstick/src/compositor)
+
 # The battery notices of the notification server (lipstick/src/notifications/eosbatterypolicy.h) and a lint of
 # batterynotifier.cpp (no keepalive wake-up): plain C++
 add_executable(tst_batterypolicy tst_batterypolicy.cpp)

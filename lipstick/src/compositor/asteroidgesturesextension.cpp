@@ -23,7 +23,8 @@ void AsteroidGesturesManager::initialize()
 {
     QWaylandCompositorExtensionTemplate::initialize();
     auto *compositor = static_cast<QWaylandCompositor *>(extensionContainer());
-    init(compositor->display(), 2);
+    // version 3: set_keyboard_open and close_keyboard (CR-45)
+    init(compositor->display(), 3);
 }
 
 void AsteroidGesturesManager::zasteroid_gestures_manager_v1_destroy(Resource *resource)
@@ -51,6 +52,9 @@ void AsteroidGestureSurface::zasteroid_gesture_surface_v1_destroy_resource(Resou
 {
     applyToWindow(false);
     applyBackFromAnywhere(false);
+    // "Destroying the object resets it": the keyboard counts as closed
+    if (LipstickCompositorWindow *w = window())
+        w->keyboardSurfaceGone(this);
     delete this;
 }
 
@@ -69,6 +73,38 @@ void AsteroidGestureSurface::zasteroid_gesture_surface_v1_set_back_from_anywhere
     Resource *, uint32_t enabled)
 {
     applyBackFromAnywhere(enabled != 0);
+}
+
+/* The client shows (1) or hid (0) its full screen keyboard (gestures
+ * protocol version 3, CR-45): the window keeps EOS_KEYBOARD_OPEN and the
+ * crown closes the keyboard first (LipstickCompositorWindow::closeKeyboard,
+ * eoskeyboardopen.h) */
+void AsteroidGestureSurface::zasteroid_gesture_surface_v1_set_keyboard_open(
+    Resource *, uint32_t open)
+{
+    if (LipstickCompositorWindow *w = window())
+        w->setKeyboardOpen(open != 0, this);
+}
+
+bool AsteroidGestureSurface::sendCloseKeyboard()
+{
+    Resource *r = resource();
+    if (!r || r->version() < 3)
+        return false;
+    send_close_keyboard(r->handle);
+    return true;
+}
+
+LipstickCompositorWindow *AsteroidGestureSurface::window() const
+{
+    if (!m_surface)
+        return nullptr;
+    const auto views = m_surface->views();
+    for (QWaylandView *view : views) {
+        if (auto *window = qobject_cast<LipstickCompositorWindow *>(view->renderObject()))
+            return window;
+    }
+    return nullptr;
 }
 
 void AsteroidGestureSurface::applyBackFromAnywhere(bool enabled)

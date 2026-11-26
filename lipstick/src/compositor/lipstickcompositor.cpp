@@ -482,6 +482,13 @@ void LipstickCompositor::initialize()
     QDBusMessage message = QDBusMessage::createMethodCall(MCE_SERVICE, MCE_REQUEST_PATH, MCE_REQUEST_IF, MCE_DISPLAY_LPM_SET_SUPPORTED);
     message.setArguments(QVariantList() << ambientSupported());
     QDBusConnection::systemBus().asyncCall(message);
+
+    // eos display offload (CR-46): an earlier launcher may have left the
+    // daemon a mask or tilt-to-bright; Adaptive brightness comes with mce's
+    // config signal (no polling)
+    m_offloadPosts.reset();
+    systemBus.connect(MCE_SERVICE, MCE_SIGNAL_PATH, MCE_SIGNAL_IF, MCE_CONFIG_CHANGE_SIG,
+                      this, SLOT(onMceConfigChanged(QDBusObjectPath, QDBusVariant)));
 }
 
 void LipstickCompositor::windowDestroyed(LipstickCompositorWindow *item)
@@ -857,27 +864,40 @@ void LipstickCompositor::scheduleAmbientUpdate()
 
 QByteArray LipstickCompositor::offloadRequest(const QByteArray &request, int timeoutSec)
 {
-    struct sockaddr_un sa;
-    struct timeval tv = { timeoutSec, 0 };
-    char reply[512];
-    ssize_t n = -1;
-    int s = socket(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC, 0);
+    // no daemon (an empty reply): the AP keeps drawing the always-on display
+    const std::string reply = EosOffload::request(EosOffload::SOCKET_PATH, request.toStdString(), timeoutSec);
+    return QByteArray(reply.data(), qsizetype(reply.size()));
+}
 
-    if (s < 0)
-        return QByteArray();
-    memset(&sa, 0, sizeof(sa));
-    sa.sun_family = AF_UNIX;
-    strncpy(sa.sun_path, "/run/eos-display-offload/socket", sizeof(sa.sun_path) - 1);
-    setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
-    if (::connect(s, reinterpret_cast<struct sockaddr *>(&sa), sizeof(sa)) == 0 &&
-        ::send(s, request.constData(), request.size(), MSG_NOSIGNAL) == request.size())
-        n = ::recv(s, reply, sizeof(reply) - 1, 0);
-    ::close(s);
-    if (n <= 0) {
-        // no daemon: the AP keeps drawing the always-on display
-        return QByteArray();
-    }
-    return QByteArray(reply, n);
+void LipstickCompositor::offloadBoost()
+{
+    m_offloadPosts.boost(m_currentDisplayState != QMceDisplay::DisplayOff);
+}
+
+void LipstickCompositor::setOffloadMask(bool shown)
+{
+    m_offloadPosts.mask(shown);
+}
+
+void LipstickCompositor::setOffloadLockedSecure(bool lockedSecure)
+{
+    if (m_offloadLockedSecure == lockedSecure)
+        return;
+    m_offloadLockedSecure = lockedSecure;
+    offloadTtbUpdate();
+    emit offloadLockedSecureChanged();
+}
+
+void LipstickCompositor::offloadTtbUpdate()
+{
+    m_offloadPosts.ttb(m_offloadTtbAsk, m_offloadLockedSecure);
+}
+
+void LipstickCompositor::onMceConfigChanged(const QDBusObjectPath &key, const QDBusVariant &)
+{
+    // the hub's brightness config (adaptive or not) is sent again
+    if (EosOffload::adaptiveKey(key.path().toStdString()))
+        m_offloadPosts.brightness();
 }
 
 // why: "blank" (mce stopped the updates) or "ambient" (after an ambient
@@ -957,7 +977,7 @@ bool LipstickCompositor::offloadAmbientUpdateWanted() const
 }
 
 bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil,
-                                          qint64 moveAfter)
+                                          qint64 moveAfter, bool brightenOnTilt)
 {
     m_offloadValidUntil = validUntil;
     m_offloadMoveAfter = moveAfter;
@@ -965,6 +985,8 @@ bool LipstickCompositor::setOffloadLayout(const QString &path, qint64 validUntil
     const bool ok = offloadRequest("layout " + path.toLocal8Bit(), 15).startsWith("ok");
     // (a failed upload leaves the daemon without a layout)
     m_offloadLayout = ok ? OffloadLayoutSet : OffloadLayoutNone;
+    m_offloadTtbAsk = ok && brightenOnTilt;
+    offloadTtbUpdate();
     return ok;
 }
 
@@ -972,6 +994,8 @@ void LipstickCompositor::clearOffloadLayout()
 {
     offloadRequest("clear");
     m_offloadLayout = OffloadLayoutNone;
+    m_offloadTtbAsk = false;
+    offloadTtbUpdate();
     if (m_displayOffloaded) {
         m_displayOffloaded = false;
         emit displayOffloadedChanged();

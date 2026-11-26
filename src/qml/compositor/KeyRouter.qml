@@ -149,6 +149,7 @@ QtObject {
             assistantHold: assistantHold,
             splash: launchSplash.active,
             appActive: comp.appActive,
+            appKeyboardOpen: keyboardWindow() !== null,
             option: sideOption,
             shortcut: screenReaderShortcut,
             tiltToWake: tiltToWakeOn,
@@ -175,6 +176,13 @@ QtObject {
     property QtObject endCallSetting: ConfigurationValue {
         key: "/org/asteroidos/a11y/power-button-ends-call"
         defaultValue: false
+    }
+
+    // the window of the application in front while it shows its full screen
+    // keyboard (LipstickCompositorWindow.keyboardOpen, CR-45), else null
+    function keyboardWindow() {
+        var w = comp.appActive && comp.topmostWindow ? comp.topmostWindow.window : null
+        return w && w.keyboardOpen === true ? w : null
     }
 
     // the screen lock (lock/Keyguard.qml, a context id of compositor.qml)
@@ -375,6 +383,12 @@ QtObject {
             else if (homeLoader.item)
                 homeLoader.item.showWatchface()
             break
+        case "closeKeyboard":
+            // the app's keyboard closes and keeps what was typed; the next press goes Home. A client
+            // that left it open after the last press: Home now (LipstickCompositorWindow.closeKeyboard)
+            if (!keyboardWindow() || !keyboardWindow().closeKeyboard())
+                root.closeTopmost()
+            break
         case "leaveApp":
             root.closeTopmost()
             break
@@ -399,6 +413,12 @@ QtObject {
         if (KeyMap.crownIsSecond(crownCounter, clock()))
             return
         var wake = KeyMap.crownWake(context())
+        // the Home action of the wake closes the app's keyboard first
+        if (wake === "closeKeyboard") {
+            if (keyboardWindow() && keyboardWindow().closeKeyboard())
+                return
+            wake = "face"
+        }
         if (wake === "touchLockHint") {
             touchLock.showHint()
             return

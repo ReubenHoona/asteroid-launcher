@@ -22,6 +22,7 @@
 #include <signal.h>
 #include "lipstickcompositor.h"
 #include "lipstickcompositorwindow.h"
+#include "asteroidgesturesextension.h"
 #include "eosappkey.h"
 #include "eoswrist.h"
 #include <QFile>
@@ -114,7 +115,12 @@ qint16 LipstickCompositorWindow::windowFlags()
 
 QVariantMap LipstickCompositorWindow::windowProperties()
 {
-    return QVariantMap();
+    QVariantMap properties;
+    // the client's keyboard is open (CR-45): no heads-up over it
+    // (NotificationPreviewPresenter::windowSuppresses)
+    if (m_keyboard.open())
+        properties.insert(QStringLiteral("EOS_KEYBOARD_OPEN"), true);
+    return properties;
 }
 
 void LipstickCompositorWindow::setTitle(QString title)
@@ -315,6 +321,33 @@ void LipstickCompositorWindow::setBackFromAnywhere(bool enabled)
         return;
     m_backFromAnywhere = enabled;
     emit backFromAnywhereChanged();
+}
+
+void LipstickCompositorWindow::setKeyboardOpen(bool open, AsteroidGestureSurface *from)
+{
+    m_keyboardSurface = from;
+    if (m_keyboard.set(open))
+        emit keyboardOpenChanged();
+}
+
+void LipstickCompositorWindow::keyboardSurfaceGone(AsteroidGestureSurface *from)
+{
+    if (from != m_keyboardSurface)
+        return;
+    m_keyboardSurface = nullptr;
+    if (m_keyboard.surfaceGone())
+        emit keyboardOpenChanged();
+}
+
+/* Stock Wear OS (SHORT_PRESS_POWER_CLOSE_IME_OR_GO_HOME): the crown closes
+ * the input method first, the client keeps what was typed, the next press
+ * goes Home. The client answers with set_keyboard_open(0); one that does not
+ * lets the next press go Home (eoskeyboardopen.h). */
+bool LipstickCompositorWindow::closeKeyboard()
+{
+    if (m_keyboard.crown(m_keyboardSurface != nullptr) != EosKeyboard::CloseKeyboard)
+        return false;
+    return m_keyboardSurface->sendCloseKeyboard();
 }
 
 /* Wear OS goes back with a swipe right from anywhere at the root of an

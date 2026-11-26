@@ -147,6 +147,31 @@ Item {
                                     : (!closing && launching ? launchMotion.behindDim
                                        : (layerMode === "land" ? WM.land(w).homeDim : 0))
 
+    /* ---- the frame pacing boost ------------------------------------------
+     *
+     * At the start of each window transition (a launch, the splash's or a
+     * window's; the crown's close; a back swipe's commit) the display offload
+     * daemon holds the touch boost's CPU and GPU minimum frequencies for
+     * 500 ms (CR-46 boost; stock keeps the system UI's render thread top-app
+     * for a transition, motion-transitions-36). A transition a finger started
+     * has the touch boost already; one a key, a notification or a timeout
+     * started has none without this. The compositor sends it only with the
+     * display on and does not wait for the daemon. */
+    function boost() {
+        var c = typeof Lipstick !== "undefined" ? Lipstick.compositor : null
+        if (c && typeof c.offloadBoost === "function")
+            c.offloadBoost()
+    }
+    Connections {
+        target: launchMotion
+        function onInProgressChanged() { if (launchMotion.inProgress) transitions.boost() }
+    }
+    Connections {
+        target: revealMotion
+        function onInProgressChanged() { if (revealMotion.inProgress) transitions.boost() }
+    }
+    onCommittingChanged: if (committing) boost()
+
     /* ---- the launch ---------------------------------------------------- */
 
     AppOpen { id: launchMotion }

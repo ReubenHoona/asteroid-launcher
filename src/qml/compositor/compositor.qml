@@ -342,6 +342,13 @@ Item {
                 homeLoader.item.showWatchface()
         }
     }
+    // a secure lock keeps the sensor hub's tilt-to-bright off (CR-46 ttb)
+    Binding {
+        target: Lipstick.compositor
+        property: "offloadLockedSecure"
+        value: keyguard.locked && keyguard.secured
+        when: !!Lipstick.compositor && Lipstick.compositor.offloadLockedSecure !== undefined
+    }
     // locked, the face is all that shows (a panel moved by the crown goes back at once)
     Connections {
         target: homeLoader.item

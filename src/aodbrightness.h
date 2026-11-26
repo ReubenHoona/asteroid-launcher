@@ -35,7 +35,6 @@ private slots:
 private:
     MDConfItem *m_level;
     MDConfItem *m_extraDim;
-    MDConfItem *m_boost;
     bool m_warned = false;
 };
 

@@ -18,6 +18,9 @@
 
 #include <QWaylandQuickItem>
 #include <QWaylandBufferRef>
+#include "eoskeyboardopen.h"
+
+class AsteroidGestureSurface;
 
 class LipstickCompositorWindow : public QWaylandQuickItem
 {
@@ -39,6 +42,10 @@ class LipstickCompositorWindow : public QWaylandQuickItem
     /* The client allows a swipe right from anywhere to go back (it is at
      * its root page and the touch is not on content moving sideways) */
     Q_PROPERTY(bool backFromAnywhere READ backFromAnywhere NOTIFY backFromAnywhereChanged)
+    /* The client's full screen keyboard is open (gestures protocol version
+     * 3, set_keyboard_open; eoskeyboardopen.h): the crown closes it first,
+     * and the window property EOS_KEYBOARD_OPEN keeps heads-ups away */
+    Q_PROPERTY(bool keyboardOpen READ keyboardOpen NOTIFY keyboardOpenChanged)
 
     Q_PROPERTY(bool focusOnTouch READ focusOnTouch WRITE setFocusOnTouch NOTIFY focusOnTouchChanged)
 
@@ -73,6 +80,15 @@ public:
     void setOverridesSystemGestures(bool enabled);
     bool backFromAnywhere() const { return m_backFromAnywhere; }
     void setBackFromAnywhere(bool enabled);
+    bool keyboardOpen() const { return m_keyboard.open(); }
+    // set_keyboard_open from the client's gesture surface `from`
+    void setKeyboardOpen(bool open, AsteroidGestureSurface *from);
+    // that gesture surface went away: the keyboard counts as closed
+    void keyboardSurfaceGone(AsteroidGestureSurface *from);
+    /* A crown press with this window in front (KeyRouter.qml): true when it
+     * sent close_keyboard (the press does nothing else), false when the
+     * press goes on Home (no keyboard, or the last close went unanswered) */
+    Q_INVOKABLE bool closeKeyboard();
 
     QVariantMap windowProperties();
 
@@ -95,6 +111,7 @@ signals:
     void windowFlagsChanged();
     void overridesSystemGesturesChanged();
     void backFromAnywhereChanged();
+    void keyboardOpenChanged();
     /* A swipe right from anywhere was taken from the client (it got a
      * touch cancel): value is how far the finger went right, in px;
      * velocity at the end in px/s */
@@ -133,6 +150,9 @@ private:
     bool m_focusOnTouch : 1;
     bool m_overridesSystemGestures : 1;
     bool m_backFromAnywhere = false;
+    EosKeyboard::State m_keyboard;
+    // the gesture surface that said the keyboard is open (close_keyboard goes there)
+    AsteroidGestureSurface *m_keyboardSurface = nullptr;
     bool m_backTracking = false;
     // the crown's wheel delta not sent yet: QWaylandPointer sends delta / 12 as an
     // integer, so the hi-res steps of a slow turn (5 per sensor count) became 0

@@ -38,6 +38,10 @@ public:
                            QWaylandSurface *surface);
     ~AsteroidGestureSurface() override;
 
+    // close_keyboard to the client (version 3): the crown was pressed while
+    // its keyboard is open; false when the client cannot get it
+    bool sendCloseKeyboard();
+
 protected:
     void zasteroid_gesture_surface_v1_destroy_resource(Resource *resource) override;
     void zasteroid_gesture_surface_v1_destroy(Resource *resource) override;
@@ -45,10 +49,13 @@ protected:
         Resource *resource, uint32_t enabled) override;
     void zasteroid_gesture_surface_v1_set_back_from_anywhere(
         Resource *resource, uint32_t enabled) override;
+    void zasteroid_gesture_surface_v1_set_keyboard_open(
+        Resource *resource, uint32_t open) override;
 
 private:
     void applyToWindow(bool enabled);
     void applyBackFromAnywhere(bool enabled);
+    LipstickCompositorWindow *window() const;
 
     QPointer<QWaylandSurface> m_surface;
 };

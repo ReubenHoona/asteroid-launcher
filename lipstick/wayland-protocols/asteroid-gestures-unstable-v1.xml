@@ -32,7 +32,7 @@
     The compositor is free to honor or ignore these hints.
   </description>
 
-  <interface name="zasteroid_gestures_manager_v1" version="2">
+  <interface name="zasteroid_gestures_manager_v1" version="3">
     <description summary="gesture policy manager">
       The global entry point. A client binds it and uses it to obtain
       per-surface gesture objects.
@@ -52,7 +52,7 @@
     </request>
   </interface>
 
-  <interface name="zasteroid_gesture_surface_v1" version="2">
+  <interface name="zasteroid_gesture_surface_v1" version="3">
     <description summary="per-surface gesture policy">
       Created by zasteroid_gestures_manager_v1.get_gesture_surface. The
       lifetime of this object is independent of the underlying wl_surface;
@@ -90,5 +90,29 @@
       </description>
       <arg name="enabled" type="uint"/>
     </request>
+
+    <request name="set_keyboard_open" since="3">
+      <description summary="the client shows its full screen keyboard">
+        When open is non-zero the client shows a full screen keyboard over
+        its window. As Wear OS does (config_shortPressOnPowerBehavior 5,
+        SHORT_PRESS_POWER_CLOSE_IME_OR_GO_HOME), the compositor then answers
+        a short press of the crown by sending close_keyboard instead of
+        going Home; the next press, with the keyboard closed (the client
+        sends zero), goes Home.
+
+        The default state for a newly created gesture surface is "closed".
+        Destroying the object resets it.
+      </description>
+      <arg name="open" type="uint"/>
+    </request>
+
+    <event name="close_keyboard" since="3">
+      <description summary="close the keyboard">
+        The compositor asks the client to close its full screen keyboard
+        (the crown was pressed while set_keyboard_open was non-zero). The
+        client keeps what was typed, as the input method of Wear OS does, and
+        sends set_keyboard_open with zero once the keyboard is closed.
+      </description>
+    </event>
   </interface>
 </protocol>

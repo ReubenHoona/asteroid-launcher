@@ -47,6 +47,9 @@ Item {
         property int screenOrientation: 1
         property bool displayAmbient: false
         property bool displayDimmed: false
+        // LipstickCompositor.offloadBoost (CR-46): the window transitions that asked for it
+        property int boosts: 0
+        function offloadBoost() { boosts++ }
         signal displayOff()
         signal displayOn()
         signal displayAboutToBeOn()
@@ -389,6 +392,43 @@ Item {
             tryCompare(recents, "_mode", "", 3000)
             compare(recents.faceDim, 0)
             recents.closeNow()
+        }
+
+        // CR-46: each window transition asks the compositor for the display offload daemon's frame pacing
+        // boost once, at its start (the compositor sends "boost 500" with the display on only)
+        function test_09_window_transitions_ask_the_boost() {
+            lipstickComp.boosts = 0
+            // a back swipe: the finger's drag has the touch boost, the commit asks
+            comp.appActive = true
+            comp.topmostWindow = winA
+            wt.beginBack()
+            wt.feedBack(240, false)
+            wait(100)
+            compare(lipstickComp.boosts, 0, "nothing while the finger drags")
+            wt.endBack(true)
+            compare(lipstickComp.boosts, 1, "the commit")
+            tryVerify(function () { return wt.landing }, 1000, "the landing after the commit")
+            wt.settleAll()
+            // a swipe let go before the rule springs back: no window transition
+            comp.appActive = true
+            comp.topmostWindow = winA
+            wt.beginBack()
+            wt.feedBack(30, false)
+            wait(100)
+            wt.endBack(false)
+            tryCompare(wt, "layerMode", "", 2000)
+            compare(lipstickComp.boosts, 1, "a cancelled swipe")
+            // the crown's close (WatchfaceReveal)
+            comp.appActive = true
+            comp.topmostWindow = winA
+            wt.closeTopmost()
+            tryCompare(lipstickComp, "boosts", 2, 500, "the crown's close")
+            tryCompare(wt, "closing", false, 3000)
+            // a launch (AppOpen, the springs of the splash or the window)
+            wt.launch.start()
+            tryCompare(lipstickComp, "boosts", 3, 500, "the launch")
+            tryCompare(wt.launch, "inProgress", false, 3000)
+            compare(lipstickComp.boosts, 3, "once per transition")
         }
     }
 }

@@ -30,6 +30,9 @@
 #include <MDConfItem>
 #include "eosfreezer.h"
 #include "eosanr.h"
+#include "eosoffloadclient.h"
+#include <QDBusObjectPath>
+#include <QDBusVariant>
 #include <qmcedisplay.h>
 
 #include <timed-qt6/interface>
@@ -65,6 +68,9 @@ class LipstickCompositor : public QWaylandQuickCompositor
     // eos: a mode keeps the always-on screen off (MainScreen binds the modes
     // engine's alwaysOnBlocked): the hub does not draw it either
     Q_PROPERTY(bool offloadBlocked READ offloadBlocked WRITE setOffloadBlocked NOTIFY offloadBlockedChanged)
+    // eos: the screen is locked with a secure lock (compositor.qml binds the
+    // keyguard): the hub's tilt-to-bright stays off (CR-46 ttb)
+    Q_PROPERTY(bool offloadLockedSecure READ offloadLockedSecure WRITE setOffloadLockedSecure NOTIFY offloadLockedSecureChanged)
 
 public:
     LipstickCompositor();
@@ -153,8 +159,10 @@ public:
     // validUntil: when the layout's background expires (lipstick wakes the AP
     // then); moveAfter: when the burn-in protection may move the face (the
     // layout is then dropped at a display off and the AP sends the moved one)
+    // brightenOnTilt: the layout asks the hub to brighten the always-on
+    // screen when the wrist tilts (stock brighten_on_tilt; CR-46 ttb)
     Q_INVOKABLE bool setOffloadLayout(const QString &path, qint64 validUntil = 0,
-                                      qint64 moveAfter = 0);
+                                      qint64 moveAfter = 0, bool brightenOnTilt = false);
     // whether an ambient update is wanted: not while the hub draws a current
     // layout (eosoffloadpolicy.h)
     Q_INVOKABLE bool offloadAmbientUpdateWanted() const;
@@ -163,6 +171,16 @@ public:
     void setOffloadBlocked(bool blocked);
     // the daemon's status line ("ok state=... layout=0|1 ..."), empty without a daemon
     Q_INVOKABLE QString offloadStatus() { return QString::fromLocal8Bit(offloadRequest("status")); }
+    // A window transition starts (WindowTransitions.qml): the daemon holds the
+    // touch boost's CPU and GPU minimum frequencies for 500 ms (CR-46 boost;
+    // stock keeps the system UI's render thread top-app for a transition).
+    // With the display on only; it does not wait for the daemon's answer.
+    Q_INVOKABLE void offloadBoost();
+    // The burn-in image mask shows or not (BurnInMask.qml): the daemon
+    // doubles the always-on levels while it shows (CR-46 mask, ambient-aod-07)
+    Q_INVOKABLE void setOffloadMask(bool shown);
+    bool offloadLockedSecure() const { return m_offloadLockedSecure; }
+    void setOffloadLockedSecure(bool lockedSecure);
     LipstickCompositorWindow *createView(QWaylandSurface *surf);
 
     QQuickWindow *quickWindow() { return m_window; }
@@ -209,6 +227,7 @@ signals:
     void ambientEnabledChanged();
     void displayOffloadedChanged();
     void offloadBlockedChanged();
+    void offloadLockedSecureChanged();
 
     void completedChanged();
 
@@ -229,6 +248,8 @@ private slots:
     void initialize();
     void onAnrPong(uint serial);
     void onAnrTimeout();
+    // mce's config_change_ind: Adaptive brightness switched (CR-46 brightness)
+    void onMceConfigChanged(const QDBusObjectPath &key, const QDBusVariant &value);
 
     void onToplevelCreated(QWaylandXdgToplevel * topLevel, QWaylandXdgSurface * shellSurface);
 
@@ -254,6 +275,8 @@ private:
     void offloadSuspend(const char *why);
     void offloadResume(const char *why);
     void offloadRelease(const char *why);
+    // tilt-to-bright for the daemon: the layout asks and no secure lock is on
+    void offloadTtbUpdate();
 
     static LipstickCompositor *m_instance;
 
@@ -303,6 +326,12 @@ private:
     // it is not (resume)
     bool m_offloadDisplayReady = false;
     bool m_offloadBlocked = false;
+    // the requests that do not wait for the daemon (boost, mask, brightness,
+    // ttb), sent only when they change what the daemon holds
+    EosOffload::Requests m_offloadPosts {
+        [](const std::string &request) { return EosOffload::post(EosOffload::SOCKET_PATH, request); } };
+    bool m_offloadTtbAsk = false;
+    bool m_offloadLockedSecure = false;
 };
 
 #endif // LIPSTICKCOMPOSITOR_H

@@ -4,7 +4,6 @@
  */
 
 import QtQuick
-import Nemo.Configuration
 import org.nemomobile.lipstick
 import org.asteroid.utils
 import "../home/ambient.js" as Ambient
@@ -17,8 +16,10 @@ import "../home/ambient.js" as Ambient
  * after the AP-drawn always-on screen began, so only the minute updates carry
  * it, is not drawn while the sensor hub draws the screen (the hub's own
  * checkerboard, SmartDMA, is its counterpart), is gone with the display on,
- * and the always-on brightness is doubled while it shows
- * (/org/asteroidos/launcher/aod-mask-boost, AodBrightness).
+ * and the always-on brightness is doubled while it shows (the compositor
+ * sends the display offload daemon "mask 1", and "mask 0" when it goes:
+ * LipstickCompositor.setOffloadMask, CR-46; the compositor's start puts back
+ * what a launcher that died with the mask up left).
  *
  * Nothing runs on its own: it follows the ambient signals of the compositor,
  * and the two tile pictures are 2x2 px images. Instantiated once in
@@ -42,15 +43,12 @@ Item {
     visible: shown
     enabled: false
 
-    ConfigurationValue {
-        id: boost
-        key: "/org/asteroidos/launcher/aod-mask-boost"
-        defaultValue: false
-    }
     // x2 brightness only while the mask shows
-    onShownChanged: boost.value = shown
-    // a launcher that died with the mask up left the brightness doubled
-    Component.onCompleted: if (boost.value === true) boost.value = false
+    onShownChanged: {
+        var c = Lipstick.compositor
+        if (c && typeof c.setOffloadMask === "function")
+            c.setOffloadMask(shown)
+    }
 
     Image {
         objectName: "eosBurnInTile"
@@ -70,8 +68,6 @@ Item {
     function minuteNow() { return Math.floor(nowMs() / 60000) }
     function leave() {
         began = false
-        if (boost.value !== false)
-            boost.value = false
     }
 
     Connections {

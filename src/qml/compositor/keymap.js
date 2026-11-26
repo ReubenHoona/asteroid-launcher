@@ -137,6 +137,8 @@ function sideHold(c) {
 
 /* Crown press. c:
  *   setup, callRinging
+ *   appKeyboardOpen  the application in front shows its full screen keyboard
+ *                    (gestures protocol version 3, set_keyboard_open; CR-45)
  *   assistantShown   the assistant is open
  *   splash           the launch splash is up
  *   claimCrown       the front window claimed the crown (an app such as
@@ -154,7 +156,8 @@ function sideHold(c) {
  *   keyguardLocked, bouncerShown   the screen lock is on, its bouncer is up (W3-launcher-a11y-security)
  *   endCallOnPower, callInProgress  Settings > Accessibility > Power button ends call is on, a call is going on
  * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall, endCall, showBouncer, hideBouncer,
- * closeHeadsUp, closeSystemDialog, closeCharging, closeAssistant, claim, hideAlert, hideCall, leaveApp, home. */
+ * closeHeadsUp, closeSystemDialog, closeCharging, closeAssistant, claim, hideAlert, hideCall, closeKeyboard,
+ * leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
         return "none"
@@ -210,6 +213,10 @@ function crownPress(c) {
         return "hideAlert"
     if (c.callShown)
         return "hideCall"
+    // the app's keyboard closes first, the next press goes Home (stock
+    // config_shortPressOnPowerBehavior 5, SHORT_PRESS_POWER_CLOSE_IME_OR_GO_HOME)
+    if (c.appActive && c.appKeyboardOpen === true)
+        return "closeKeyboard"
     if (c.appActive)
         return "leaveApp"
     return "home"
@@ -219,7 +226,8 @@ function crownPress(c) {
  * actions_single_off sends asteroid-crown-wake after it unblanked): stock
  * runs the Home action too, but only if tilt-to-wake and touch-to-wake are
  * both on (KeyGestureUtils.java:83-103, PowerKeyRule.java:130-160). From a
- * fully dark screen the press only wakes. */
+ * fully dark screen the press only wakes. The Home action closes an app's
+ * keyboard first (closeKeyboard); else the answer is face. */
 function crownWake(c) {
     if (c.setup)
         return "none"
@@ -235,6 +243,8 @@ function crownWake(c) {
         return "none"
     if (c.callRinging || c.callShown || c.assistantShown || c.claimCrown)
         return "none"
+    if (c.appActive && c.appKeyboardOpen === true)
+        return "closeKeyboard"
     return "face"
 }
 
