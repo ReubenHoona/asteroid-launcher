@@ -939,7 +939,8 @@ Item {
             var r = findAll(row, function (it) { return it._isSwipeToReveal === true })
             return r.length ? r[0] : null
         }
-        // a finger pressed at x0 and moved to x1 (px of the screen) at height y, held there
+        // a finger pressed at x0 and moved to x1 (px of the screen) at height y in 12 steps 16 ms apart
+        // (about 200 ms: the emulator's M10 swipe), still down
         function dragTo(x0, x1, y) {
             mousePress(top, x0, y)
             for (var i = 1; i <= 12; i++) {
@@ -952,8 +953,11 @@ Item {
         }
 
         // The card follows the finger both ways (S34: held about 160 px to the right, S34-b: to the
-        // left). The pill is on the side the card leaves, its outer edge on the card's rest edge,
-        // |offset| - 4 px wide (2 dp from the card), #343B4D, the X centred, no label yet
+        // left), from 29 dp (58 px) after the press, then 1:1 (qml-asteroid SwipeToReveal dragLag, N61-09).
+        // The pill is on the side the card leaves, its outer edge on the card's rest edge,
+        // |offset| - 4 px wide (2 dp from the card), #343B4D, the X centred, no label yet. Let go after
+        // the finger stopped (no speed: stock's release rule takes the nearest anchor), the card
+        // stays at the partial reveal (64 dp x 344 / 384 = 114.7 px), not cleared
         function test_n61_20_swipe_both_ways() {
             var s = stream()
             fillThree(s)
@@ -967,7 +971,18 @@ Item {
             compare(Math.round(r0.x), 20, "the card from x 20")
             compare(Math.round(sw.width), 344)
             var y = r0.y + row.height / 2
-            var cases = [{ x0: 200, x1: 360, off: 160, name: "right" }, { x0: 250, x1: 90, off: -160, name: "left" }]
+            // the lag: a finger 40 px out has not moved the card yet
+            compare(sw.dragLag, 58)
+            dragTo(200, 240, y)
+            compare(sw.offset, 0, "within the lag the card stays")
+            mouseRelease(top, 240, y)
+            wait(100)
+            sw.reset()
+            wait(50)
+            var acts = 0
+            sw.primaryAction.connect(function () { acts++ })
+            // the card 160 px out: the finger 160 + 58 px
+            var cases = [{ x0: 150, x1: 368, off: 160, name: "right" }, { x0: 300, x1: 82, off: -160, name: "left" }]
             for (var i = 0; i < cases.length; i++) {
                 var c = cases[i]
                 dragTo(c.x0, c.x1, y)
@@ -993,16 +1008,25 @@ Item {
                 var ic = icon.mapToItem(top, icon.width / 2, icon.height / 2)
                 fuzzyCompare(ic.x, p.x + pill.width / 2, 1, "the X centred")
                 compare(byName(sw, "swipeRevealLabel").visible, false, "no 'Clear' at 160 px")
+                // held still, then let go: no speed, the nearest anchor (the partial reveal)
+                wait(120)
                 mouseRelease(top, c.x1, y)
-                wait(50)
+                var partial = (c.off > 0 ? 1 : -1) * sw.revealingOffset
+                fuzzyCompare(sw.revealingOffset, 114.67, 0.1, "64 dp of the 192 dp screen, for the 344 px card")
+                tryVerify(function () { return Math.abs(sw.offset - partial) < 1 }, 3000,
+                          c.name + ": at the partial reveal: " + sw.offset)
+                compare(sw.state_, "revealing")
+                compare(acts, 0, "not cleared")
                 sw.reset()
                 wait(50)
             }
         }
 
-        // A full swipe clears the card once. Its row, the pill at the full width, stays drawn under
-        // its neighbours for 100 ms, then fades in 100 ms; the next card moves up to the list's top
-        // (84 px) over 282 ms on LinearOutSlowIn (M10); both ways
+        // A full swipe clears the card once: the emulator's M10 fling (80 -> 340 px in 200 ms, about
+        // 650 dp/s), let go while the finger moves, goes to the next anchor in its direction (stock's
+        // release rule, 200-800 dp/s: the full reveal from about 200 px out). Its row, the pill at the
+        // full width, stays drawn under its neighbours for 100 ms, then fades in 100 ms; the next card
+        // moves up to the list's top (84 px) over 282 ms on LinearOutSlowIn (M10); both ways
         function test_n61_20_full_swipe() {
             var s = stream()
             fillThree(s)
@@ -1011,7 +1035,7 @@ Item {
             compare(s.removeFadeMs, 100)
             compare(s.displacedMs, 282)
             compare(s.displacedEasing, [0, 0, 0.2, 1, 1, 1])
-            var dirs = [{ id: 2003, next: 2002, x0: 70, x1: 383 }, { id: 2002, next: 2001, x0: 320, x1: 2 }]
+            var dirs = [{ id: 2003, next: 2002, x0: 70, x1: 330 }, { id: 2002, next: 2001, x0: 320, x1: 60 }]
             for (var k = 0; k < dirs.length; k++) {
                 var d = dirs[k]
                 var row = s.rowItems[d.id]
@@ -1028,6 +1052,8 @@ Item {
                 n.removalsChanged.connect(function () { if (!t0) t0 = Date.now() })
                 wrapper.opacityChanged.connect(function () { if (!tFade && wrapper.opacity < 1) tFade = Date.now() })
                 dragTo(d.x0, d.x1, y)
+                // let go at once: the card about 200 px out, the finger at its speed
+                verify(Math.abs(sw.offset) < sw.width * 0.75, "short of the full reveal at the release: " + sw.offset)
                 mouseRelease(top, d.x1, y)
                 tryVerify(function () { return acts > 0 }, 3000, "the card cleared")
                 compare(n.removals, 1, "dismissed once")
