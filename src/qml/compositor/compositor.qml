@@ -86,6 +86,12 @@ Item {
         wristAttach()
         Desktop.launchSplash = launchSplash
         Desktop.compositorRoot = root
+        /* Every list here is the system UI's (the app list, the grid, Recents, the stream, quick
+         * settings, the launcher's own pages): the scroll indicator in its style, a white thumb on a
+         * #4D4D4D track over 34 degrees (the Wear OS 6 emulator S05, S07, S11; N61-03). A view that
+         * is an M3 screen in stock keeps the app style with `property bool m3Indicator: true`
+         * (the tile picker, TileAddList). Applications are other processes: not touched. */
+        RotaryInput.systemIndicator = true
     }
 
     /* Bedtime's colour filter (NightLight.qml, modes-dnd-09): the whole scene

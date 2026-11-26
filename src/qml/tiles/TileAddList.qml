@@ -104,6 +104,9 @@ Item {
         GridView {
             id: grid
             objectName: "eosTileListGrid"
+            // the tile picker is an M3 screen in stock (the Wear OS 6 emulator S14-d: #C6C6C6 thumb,
+            // +-16 degrees): the app style of the scroll indicator, not the launcher's system style
+            property bool m3Indicator: true
             anchors.fill: parent
             topMargin: list.gridTop
             bottomMargin: list.bottomPadding

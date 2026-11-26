@@ -161,6 +161,8 @@ Item {
             grid.trayDragging = false
             grid.trayAnimation.running = false
             grid.rotaryExitEdge = 1
+            // the app style but where a test is about the launcher's (N61-03)
+            RotaryInput.systemIndicator = false
             alwaysOnDisplay.value = true
             start()
             // no tap debounce but where a test is about it
@@ -707,6 +709,57 @@ Item {
             verify(!p.openAtRest)
             grid.trayMode = true
             grid.currentVerticalPos = 0
+        }
+
+        // the grey level on the indicator's arc (radius 183) at deg degrees (0 = 3 o'clock, + = down)
+        function arcAt(img, deg) {
+            var a = deg * Math.PI / 180
+            return img.pixel(Math.round(192 + 183 * Math.cos(a)), Math.round(192 + 183 * Math.sin(a)))
+        }
+
+        function test_16b_system_indicator_as_the_emulator() {
+            // N61-03: the launcher sets RotaryInput.systemIndicator (compositor.qml), so quick settings' indicator
+            // is the system UI's, as the Wear OS 6 emulator's S11: a white thumb at the bottom end of a #4D4D4D
+            // track from -17 to +17 degrees at radius 183 (S11: thumb -6 to +17, the list at its end). Muted,
+            // as S11 (the struck bell); then the top of the list, as S12.
+            RotaryInput.systemIndicator = true
+            volume.volume = 0
+            wait(60)
+            var p = panel(), l = list()
+            var ind = indicator()
+            if (ind)
+                ind.shown = false
+            grid.currentVerticalPos = -1
+            wait(50)
+            verify(p.openAtRest)
+            ind = indicator()
+            verify(ind !== null && ind.shown, "the indicator shows")
+            compare(ind.flickable, l)
+            verify(ind.systemStyle)
+            colourIs(ind.thumbColor, "#FFFFFF", "thumb")
+            colourIs(ind.trackColor, "#4D4D4D", "track")
+            compare(ind.sweepDegrees, 34)
+            wait(500)
+            var img = grabImage(screen)
+            img.save(shots + "/qs-11-s11-system-indicator.png")
+            var t = arcAt(img, 14), k = arcAt(img, -14)
+            verify(t.r > 0.95 && t.g > 0.95 && t.b > 0.95, "white thumb at the bottom end: " + t)
+            near(k.r, 0x4D / 255, 0.03, "the track at the top end")
+            for (var d = 20; d <= 40; d += 4) {
+                var o = arcAt(img, d), o2 = arcAt(img, -d)
+                verify(o.r + o.g + o.b < 0.1 && o2.r + o2.g + o2.b < 0.1, "no ink outside +-17 degrees at " + d)
+            }
+            // the top of the list (S12): the thumb at the top end
+            l.contentY = 0
+            ind.flash()
+            wait(700)
+            img = grabImage(screen)
+            img.save(shots + "/qs-12-s12-system-indicator.png")
+            t = arcAt(img, -14)
+            verify(t.r > 0.95 && t.g > 0.95 && t.b > 0.95, "white thumb at the top end: " + t)
+            RotaryInput.systemIndicator = false
+            grid.currentVerticalPos = 0
+            volume.volume = 70
         }
 
         // ---- the button -------------------------------------------------------------
