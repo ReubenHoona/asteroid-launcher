@@ -23,7 +23,8 @@ import "WearEdge.js" as Edge
  *     apart (app-launcher-04); or a grid (columns: 3) of 48 dp icons 6 dp
  *     apart in rows of three (app-launcher-16);
  *   - the end: a Medium (70 dp) edge button 12 dp under the last row
- *     ("Grid view", "List view", "All apps"; app-launcher-15);
+ *     ("Grid view", "List view", "All apps"; app-launcher-15), the label
+ *     over the view's glyph (N61-33);
  *   - every row, the header and the grid rows take the launcher's edge
  *     transformation, packed (WearEdge.js layout, app-launcher-07); the
  *     header always the list's (LIST), as Wear OS 6 draws the grid's;
@@ -321,37 +322,78 @@ Item {
         flickable: view.contentHeight + view.topMargin + view.bottomMargin > view.height ? view : null
         preferredHeight: Theme.size.edgeButtonMedium
         // "All apps": up to 2 lines and no icon (the control's own label);
-        // "Grid view" and "List view": the label (shrinking to 10 sp), then a 24 dp icon
+        // "Grid view" and "List view": the label over the view's glyph
         text: root.edgeIcon === "" ? root.edgeText : ""
         visible: root.edgeText !== "" && shownHeight > 0.5
         onClicked: root.edgeClicked()
 
-        Row {
-            id: edgeRow
+        /* Wear OS 6 (emulator S05-b, S05-c; N61-33): one line of labelMedium in
+         * onPrimary, then the glyph centred in a 24 dp slot under it, the two
+         * centred together in the button, 1.5 dp above its middle: at full size
+         * the label's ink at y 269-291 and the glyph box's centre at y 325, as
+         * the emulator's (the control's own label, "All apps", sits 3 px lower
+         * than the emulator's: cap top y 297 against 294) */
+        Column {
+            id: edgeContent
             visible: root.edgeIcon !== ""
             anchors.centerIn: parent
-            spacing: Theme.space.s
+            anchors.verticalCenterOffset: -Theme.dp(1.5)
             opacity: 1 - edgeButton.shape.fade
-            layoutDirection: Theme.layoutDirection
 
             Label {
                 id: edgeLabel
-                anchors.verticalCenter: parent.verticalCenter
+                anchors.horizontalCenter: parent.horizontalCenter
                 text: root.edgeText
                 role: "labelMedium"
                 color: edgeButton.contentColor
+                horizontalAlignment: Text.AlignHCenter
                 maximumLineCount: 1
                 // shrinks to 10 sp when the button is narrow
                 fontSizeMode: Text.HorizontalFit
                 minimumPixelSize: Theme.sp(10)
-                width: Math.min(implicitWidth, Math.max(0, 2 * edgeButton.shape.contentHalfWidth - Theme.dp(24) - Theme.space.s))
+                width: Math.min(implicitWidth, Math.max(0, 2 * edgeButton.shape.contentHalfWidth))
             }
-            Icon {
-                anchors.verticalCenter: parent.verticalCenter
+            Item {
+                id: edgeGlyph
+                anchors.horizontalCenter: parent.horizontalCenter
                 width: Theme.size.iconSmall
                 height: width
-                name: root.edgeIcon
-                color: edgeButton.contentColor
+
+                // the emulator's "List view" glyph: three rounded bars 11, 18 and 11 dp wide,
+                // 2.5 dp high, 5.25 dp apart (box 18 x 13 dp)
+                Repeater {
+                    model: root.edgeIcon === "eos-view-list" ? [11, 18, 11] : []
+                    Rectangle {
+                        required property int index
+                        required property var modelData
+                        width: Theme.dp(modelData)
+                        height: Theme.dp(2.5)
+                        radius: height / 2
+                        x: (edgeGlyph.width - width) / 2
+                        y: (edgeGlyph.height - Theme.dp(13)) / 2 + index * Theme.dp(5.25)
+                        color: edgeButton.contentColor
+                    }
+                }
+                // the emulator's "Grid view" glyph: 3 x 3 dots of 4 dp at a 6 dp pitch (box 16 x 16 dp)
+                Repeater {
+                    model: root.edgeIcon === "eos-view-grid" ? 9 : 0
+                    Rectangle {
+                        required property int index
+                        width: Theme.dp(4)
+                        height: width
+                        radius: width / 2
+                        x: (edgeGlyph.width - Theme.dp(16)) / 2 + (index % 3) * Theme.dp(6)
+                        y: (edgeGlyph.height - Theme.dp(16)) / 2 + Math.floor(index / 3) * Theme.dp(6)
+                        color: edgeButton.contentColor
+                    }
+                }
+                // any other name: an icon of the set
+                Icon {
+                    visible: root.edgeIcon !== "eos-view-list" && root.edgeIcon !== "eos-view-grid"
+                    anchors.fill: parent
+                    name: visible ? root.edgeIcon : ""
+                    color: edgeButton.contentColor
+                }
             }
         }
     }

@@ -23,6 +23,6 @@ WearApps {
     headerText: qsTrId("id-apps-header") + localeManager.changesObserver
     //% "Grid view"
     edgeText: qsTrId("id-grid-view") + localeManager.changesObserver
-    edgeIcon: "ios-grid"
+    edgeIcon: "eos-view-grid"
     otherView: Qt.resolvedUrl("007-wear-grid.qml")
 }

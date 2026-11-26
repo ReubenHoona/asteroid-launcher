@@ -4,7 +4,10 @@
 //    transformation shrinks and packs against the first row: header cap top y 46 +- 3, first row top y 99 +- 2;
 //    the grid: a 51 px spacer, header cap top y 72 +- 3, first discs y 130 +- 2, its header on the list's
 //    transformation ("Apps" 78 px wide over the grid, 72 over the list, as the emulator); the intro slide is
-//    still 0.2 of the height and ends there.
+//    still 0.2 of the height and ends there;
+//  - N61-33: the "Grid view" / "List view" edge button: the label (ink y 270-291) above the view's glyph (list:
+//    three bars, box 36 x 26 from y 312; grid: 3 x 3 dots, box 32 x 32 from y 309), in onPrimary #383F51;
+//    "All apps" one centred line with no glyph (cap top y 297, the control's own, 3 px under the emulator's).
 // Staged as the qrc lays it out (st/qml, st/applauncher). Run by newlook-wt/l5h/run.sh (MODE=st).
 import QtQuick
 import QtTest
@@ -205,6 +208,61 @@ Item {
             tryCompare(l, "introShift", 0, 2000)
             fuzzyCompare(l.layout[1].y, 99, 0.01)
             compare(l.headerItem.y, y0)
+        }
+
+        // ---- N61-33 ----
+
+        function test_05_list_end_grid_view_label_over_dots() {
+            var l = list(1, 8, "Grid view", "eos-view-grid")
+            toEnd(l)
+            var img = grabImage(top)
+            img.save("/tmp/l5h-shots/applist-end.png")
+            var r = edgeInk(img)
+            // the label and the three rows of dots
+            verify(r.length === 2 || r.length === 4, "label and glyph: " + JSON.stringify(r))
+            // the label: ink y 270-292 (no descenders in "Grid view")
+            verify(Math.abs(r[0].y0 - 270) <= 2 && Math.abs(r[0].y1 - 291) <= 2, "label ink " + r[0].y0 + "-" + r[0].y1)
+            // the dots: 3 x 3 of 8 px at 12 px, box 32 x 32 (stock S05-c 32 x 32 at x 175-206, y 309-340)
+            var g = { x0: 1e9, x1: -1, y0: r[1].y0, y1: r[r.length - 1].y1 }
+            for (var i = 1; i < r.length; i++) { g.x0 = Math.min(g.x0, r[i].x0); g.x1 = Math.max(g.x1, r[i].x1) }
+            var gw = g.x1 - g.x0 + 1, gh = g.y1 - g.y0 + 1
+            verify(Math.abs(gw - 32) <= 2 && Math.abs(gh - 32) <= 2, "grid glyph " + gw + " x " + gh)
+            verify(Math.abs(g.y0 - 309) <= 2, "glyph top " + g.y0)
+            verify(Math.abs((g.x0 + g.x1) / 2 - 191) <= 1.5, "glyph centred: " + g.x0 + "-" + g.x1)
+            // the ink colour at a dot's centre
+            var c = img.pixel(g.x0 + 4, g.y0 + 4)
+            verify(near(c, "#383F51", 4), "glyph colour " + c)
+        }
+
+        function test_06_grid_end_list_view_label_over_bars() {
+            var l = list(3, 12, "List view", "eos-view-list")
+            toEnd(l)
+            var img = grabImage(top)
+            img.save("/tmp/l5h-shots/grid-end.png")
+            var r = edgeInk(img)
+            verify(r.length === 2 || r.length === 4, "label and glyph: " + JSON.stringify(r))
+            verify(Math.abs(r[0].y0 - 270) <= 2 && Math.abs(r[0].y1 - 291) <= 2, "label ink " + r[0].y0 + "-" + r[0].y1)
+            // the bars (one run, or three when a gap row shows between them): box 36 x 26 from y 312 (S05-b)
+            var g0 = r[1].y0, g1 = r[r.length - 1].y1, gx0 = 1e9, gx1 = -1
+            for (var i = 1; i < r.length; i++) { gx0 = Math.min(gx0, r[i].x0); gx1 = Math.max(gx1, r[i].x1) }
+            verify(Math.abs(gx1 - gx0 + 1 - 36) <= 2 && Math.abs(g1 - g0 + 1 - 26) <= 2, "list glyph " + (gx1 - gx0 + 1) + " x " + (g1 - g0 + 1))
+            verify(Math.abs(g0 - 312) <= 2, "glyph top " + g0)
+            var c = img.pixel(192, g0 + 2)
+            verify(near(c, "#383F51", 4), "glyph colour " + c)
+        }
+
+        function test_07_all_apps_one_line_no_glyph() {
+            var l = recents(3)
+            var v = l.view
+            v.contentY = Math.max(v.originY - v.topMargin, v.originY + v.contentHeight + v.bottomMargin - v.height)
+            wait(300)
+            var img = grabImage(top)
+            img.save("/tmp/l5h-shots/recents-end.png")
+            var r = edgeInk(img)
+            verify(r.length >= 1, "a label")
+            verify(Math.abs(r[0].y0 - 294) <= 3, "All apps cap top " + r[0].y0)
+            verify(Math.abs((r[0].x0 + r[0].x1) / 2 - 191.5) <= 3, "centred: " + r[0].x0 + "-" + r[0].x1)
+            compare(r.length, 1, "no glyph under All apps")
         }
     }
 }

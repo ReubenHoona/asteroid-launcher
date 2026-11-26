@@ -22,6 +22,6 @@ WearApps {
     headerText: qsTrId("id-apps-header") + localeManager.changesObserver
     //% "List view"
     edgeText: qsTrId("id-list-view") + localeManager.changesObserver
-    edgeIcon: "ios-list"
+    edgeIcon: "eos-view-list"
     otherView: Qt.resolvedUrl("006-wear-list.qml")
 }
