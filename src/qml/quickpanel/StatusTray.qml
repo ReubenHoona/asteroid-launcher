@@ -143,7 +143,8 @@ Item {
     }
 
     /* one status glyph: a Material/Ionicons glyph tinted in a colour of its own, or
-     * the eos-status SVG (a disc with its own colours: an Image, never tinted) */
+     * the eos-status SVG (an Image, never tinted): since N61-14 (eos layer) a bare
+     * white glyph with no disc of its own, as the Wear OS 6 emulator's status icons */
     component Glyph: Item {
         id: g
         property string kind: ""
