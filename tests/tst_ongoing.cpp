@@ -17,7 +17,9 @@
 #include <QDBusPendingCall>
 #include <QDBusPendingCallWatcher>
 #include <QEventLoop>
+#include <QDateTime>
 #include <QStringList>
+#include <QThread>
 #include <QTimer>
 #include <cstdio>
 
@@ -183,7 +185,9 @@ int main(int argc, char **argv)
         QVariantMap plain; plain["id"] = 3; plain["appName"] = "Messages"; plain["hints"] = QVariantMap();
         QVariantMap h; h["x-eos-ongoing"] = true; h["x-eos-ongoing-category"] = "alarm";
         h["x-eos-ongoing-static-icon"] = "ms-timer"; h["x-eos-ongoing-status"] = "%t";
-        h["x-eos-ongoing-when"] = qint64(1700000090000LL); h["x-eos-ongoing-countdown"] = true;
+        // a running timer ends in the future (one past its end is over: status-indicators-15)
+        const qint64 timerEnd = QDateTime::currentMSecsSinceEpoch() + 3600000;
+        h["x-eos-ongoing-when"] = timerEnd; h["x-eos-ongoing-countdown"] = true;
         h["x-eos-ongoing-app"] = "asteroid-timer.desktop";
         QVariantMap timer; timer["id"] = 4; timer["appName"] = "Timer"; timer["hints"] = h;
         QVariantMap h2; h2["x-eos-app"] = "asteroid-exercise"; h2["x-nemo-ongoing"] = "true";
@@ -203,7 +207,7 @@ int main(int argc, char **argv)
         }
         CHECK(te.value("app").toString() == "asteroid-timer" && te.value("title").toString() == "Timer");
         CHECK(te.value("category").toString() == "alarm" && te.value("staticIcon").toString() == "ms-timer");
-        CHECK(te.value("countdown").toBool() && te.value("when").toLongLong() == 1700000090000LL);
+        CHECK(te.value("countdown").toBool() && te.value("when").toLongLong() == timerEnd);
         CHECK(re.value("app").toString() == "asteroid-exercise" && re.value("paused").toBool() && re.value("frozen").toLongLong() == 61000);
         CHECK(re.value("category").toString() == "workout");
         // the same list again: no change; the workout gone: one change
@@ -309,6 +313,75 @@ int main(int argc, char **argv)
             spin(100);
         CHECK(reg.count() == before);
         CHECK(!reg.locationInUse());
+    }
+
+    {
+        // status-indicators-15: a countdown past its end (a timer that rang while its app was closed or
+        // frozen, which cannot update its notification) is over: never taken in, out at its end
+        using EosOngoing::Table;
+        Table t;
+        QVariantMap run = props("alarm", "asteroid-timer", "%t");
+        run["countdown"] = true; run["when"] = qint64(10000);
+        CHECK(!t.upsert("notifications", "n:1", run, 10000));     // at its end: not taken in
+        CHECK(t.count() == 0);
+        CHECK(t.upsert("notifications", "n:1", run, 9000));       // before it: an entry
+        CHECK(t.nextEnd(9000) == 10000 && t.nextEnd(10000) == 0);
+        CHECK(!t.dropEnded(9999) && t.count() == 1);
+        CHECK(t.dropEnded(10000) && t.count() == 0);
+        // the same notification synced again after its end: out, and not back
+        CHECK(t.upsert("notifications", "n:1", run, 9000));
+        CHECK(t.upsert("notifications", "n:1", run, 10001) && t.count() == 0);
+        CHECK(!t.upsert("notifications", "n:1", run, 10002) && t.count() == 0);
+        // paused (the time left frozen), counting up, or no end: never over
+        QVariantMap paused = run; paused["paused"] = true;
+        CHECK(t.upsert("notifications", "n:2", paused, 20000) && t.count() == 1);
+        QVariantMap up = run; up["countdown"] = false;
+        CHECK(t.upsert("notifications", "n:3", up, 20000) && t.count() == 2);
+        QVariantMap noEnd = run; noEnd.remove("when");
+        CHECK(t.upsert("notifications", "n:4", noEnd, 20000) && t.count() == 3);
+        CHECK(t.nextEnd(20000) == 0 && !t.dropEnded(20000) && t.count() == 3);
+        // the next end is the earliest of the running ones
+        QVariantMap r1 = run; r1["when"] = qint64(50000);
+        QVariantMap r2 = run; r2["when"] = qint64(40000);
+        t.upsert("local", "local:a", r1, 20000);
+        t.upsert("local", "local:b", r2, 20000);
+        CHECK(t.nextEnd(20000) == 40000 && t.nextEnd(40000) == 50000);
+        CHECK(t.dropEnded(45000) && !t.find("local:b") && t.find("local:a"));
+    }
+    {
+        // the registry takes a timer out at its end by itself (one single-shot timer), and
+        // checkEnded() (display on) takes out one whose end passed while no event was served
+        QDBusConnection own = QDBusConnection::connectToBus(QDBusConnection::SessionBus, QStringLiteral("ended"));
+        OngoingRegistry reg(nullptr, own);
+        int changedN = 0;
+        QObject::connect(&reg, &OngoingRegistry::entriesChanged, [&] { ++changedN; });
+        QVariantMap p = props("alarm", "asteroid-timer", "%t");
+        p["countdown"] = true; p["when"] = QDateTime::currentMSecsSinceEpoch() + 1500;
+        reg.publish("timer", p);
+        CHECK(reg.count() == 1 && changedN == 1);
+        spin(200);
+        CHECK(reg.count() == 1);
+        for (int i = 0; i < 60 && reg.count() != 0; ++i)
+            spin(50);
+        CHECK(reg.count() == 0 && changedN == 2);
+        // the end passes while nothing runs (the AP asleep): checkEnded()
+        p["when"] = QDateTime::currentMSecsSinceEpoch() + 300;
+        reg.publish("timer", p);
+        CHECK(reg.count() == 1);
+        reg.checkEnded();
+        CHECK(reg.count() == 1);
+        QThread::msleep(400);
+        reg.checkEnded();
+        CHECK(reg.count() == 0 && changedN == 4);
+        // a timer published after its end: nothing
+        p["when"] = QDateTime::currentMSecsSinceEpoch() - 1;
+        reg.publish("timer", p);
+        CHECK(reg.count() == 0 && changedN == 4);
+        // paused: stays
+        p["paused"] = true;
+        reg.publish("timer", p);
+        spin(100);
+        CHECK(reg.count() == 1);
     }
 
     printf("%d checks, %d failures\n", checks, failures);

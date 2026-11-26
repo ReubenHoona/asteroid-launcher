@@ -43,6 +43,18 @@ TileBase {
         defaultValue: 10000
     }
 
+    // Health opens on its steps page (CR-36, health-fitness-30): "steps@<ms>" before the start,
+    // as the heart rate tile and the steps complication ask for their pages
+    ConfigurationValue {
+        id: openRequest
+        key: "/org/asteroidos/health/ui/open"
+        defaultValue: ""
+    }
+    function openSteps() {
+        openRequest.value = "steps@" + Date.now()
+        desktop.launchByName("asteroid-health", tile)
+    }
+
     readonly property int steps: log.hasData ? log.lastValue : 0
     readonly property var standing: TC.goalState(steps, goal.value)
     readonly property string pillText: {
@@ -71,7 +83,7 @@ TileBase {
         contentColor: Theme.color.onSurface
         preview: tile.preview
         accessibleName: tile.title + ", " + countLabel.text + ", " + tile.pillText
-        onClicked: desktop.launchByName("asteroid-health", tile)
+        onClicked: tile.openSteps()
 
         Column {
             x: Theme.dp(16)

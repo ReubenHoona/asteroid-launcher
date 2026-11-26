@@ -185,6 +185,23 @@ Item {
             compare(t.bottomText.height, t.bottomLabelItem.height + t.bottomValueItem.height)
         }
 
+        // FP-L5 (health-fitness-30, CR-36): the card opens Health on its steps page, as the heart rate
+        // tile and the steps complication open theirs
+        function test_fp_l5_steps_route() {
+            stepsLoader.active = true
+            var t = stepsTile
+            verify(t)
+            desktop.launched = []
+            var before = Date.now()
+            mouseClick(findChild(t, "goalCard"))
+            compare(desktop.launched, ["asteroid-health"])
+            var v = String(Backend.conf["/org/asteroidos/health/ui/open"])
+            verify(v.indexOf("steps@") === 0, v)
+            var ms = Number(v.slice(v.lastIndexOf("@") + 1))
+            verify(ms >= before && ms <= Date.now(), v)
+            desktop.launched = []
+        }
+
         function test_d60_21_long_label() {
             var t = createTemporaryObject(baseComp, top, { bottomLabel: "Daily step goal for the whole week", bottomValue: "10,000" })
             verify(t)
@@ -466,6 +483,7 @@ Item {
 
         function cleanup() {
             AlarmsMock.alarms = []
+            AlarmsMock.creatable = false
             Lipstick.compositor = baseCompositor
             Backend.reset()
             desktop.launched = []
@@ -575,6 +593,36 @@ Item {
             compare(g.itemAt(2).accessibleName, "1:30 Hr:Min")
             // three in one row in the middle of the body
             fuzzyCompare(centre(t, g.itemAt(1)).y, 164, 1)
+        }
+
+        // ---- FP-L5 (alarms-timers-stopwatch-31): one timer at a time, the Timer app's rule
+
+        function test_fp_l5_timer_one_at_a_time() {
+            AlarmsMock.creatable = true
+            var t = createTemporaryObject(timerComp, top, {})
+            verify(t)
+            compare(t.mode, "idle")
+            // a circle starts the timer of its duration: one countdown, the running card
+            mouseClick(findChild(t, "timerGrid").itemAt(0))
+            compare(AlarmsMock.alarms.length, 1)
+            compare(AlarmsMock.alarms[0].countdown, true)
+            compare(AlarmsMock.alarms[0].minute, 5)
+            tryCompare(t, "mode", "running")
+            verify(!findChild(t, "timerGrid").visible)
+            // a second start (a tap the model had not shown the first timer to yet): nothing more
+            compare(t.start(600), false)
+            compare(AlarmsMock.alarms.length, 1)
+            // a paused timer is an active timer too
+            var now = Math.floor(Date.now() / 1000)
+            AlarmsMock.alarms = [AlarmsMock.make({ countdown: true, minute: 10, enabled: false, triggerTime: 0, elapsed: 120 })]
+            compare(t.start(300), false)
+            compare(t.mode, "paused")
+            compare(AlarmsMock.alarms.length, 1)
+            // a timer that rang is not: the next start makes the new one
+            AlarmsMock.alarms = [AlarmsMock.make({ countdown: true, minute: 5, enabled: true, triggerTime: now - 10 })]
+            verify(t.start(300))
+            compare(AlarmsMock.alarms.length, 2)
+            tryCompare(t, "mode", "running")
         }
 
         // ---- N61-28: the Alarm tile as the emulator's Next Alarm

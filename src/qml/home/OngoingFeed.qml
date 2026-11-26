@@ -110,6 +110,17 @@ Item {
     }
     Component.onCompleted: sync()
 
+    // a countdown that ended while the AP slept goes before the screen shows it: the registry's
+    // single-shot timer for its end does not count the suspend (status-indicators-15)
+    Connections {
+        target: typeof Lipstick !== "undefined" ? Lipstick.compositor : null
+        ignoreUnknownSignals: true
+        function onDisplayAboutToBeOn() {
+            if (feed.registry !== null && typeof feed.registry.checkEnded === "function")
+                feed.registry.checkEnded()
+        }
+    }
+
     // the chip on the face being tapped (StatusSlot sets it around activate()): the app grows out
     // of it (the origin launch, motion A2); else it opens from the centre
     property Item launchFrom: null

@@ -10,7 +10,9 @@
 #include <QDBusServiceWatcher>
 #include <QDateTime>
 #include <QDebug>
+#include <QTimer>
 #include <algorithm>
+#include <climits>
 
 namespace {
 const char ONGOING_IF[] = "org.asteroidos.launcher.Ongoing";
@@ -101,6 +103,9 @@ bool Table::upsert(const QString &source, const QString &key, const QVariantMap 
                    const QString &owner)
 {
     Entry e = fromProps(source, key, props, owner);
+    // a countdown past its end is over: not taken in, an entry it replaces goes
+    if (ended(e, now))
+        return mEntries.remove(key) > 0;
     auto it = mEntries.find(key);
     if (it == mEntries.end()) {
         e.posted = now;
@@ -151,6 +156,32 @@ bool Table::removeSource(const QString &source)
             did = true;
         }
     return did;
+}
+
+bool Table::ended(const Entry &e, qint64 now)
+{
+    return e.countdown && !e.paused && e.when > 0 && e.when <= now;
+}
+
+bool Table::dropEnded(qint64 now)
+{
+    bool did = false;
+    const QList<QString> keys = mEntries.keys();
+    for (const QString &k : keys)
+        if (ended(mEntries.value(k), now)) {
+            mEntries.remove(k);
+            did = true;
+        }
+    return did;
+}
+
+qint64 Table::nextEnd(qint64 now) const
+{
+    qint64 next = 0;
+    for (const Entry &e : mEntries)
+        if (e.countdown && !e.paused && e.when > now && (next == 0 || e.when < next))
+            next = e.when;
+    return next;
 }
 
 bool Table::touch(const QString &key, qint64 now)
@@ -224,8 +255,10 @@ QVariantMap Table::top(const QStringList &mutedApps) const
 } // namespace EosOngoing
 
 OngoingRegistry::OngoingRegistry(QObject *parent, const QDBusConnection &bus) :
-    QObject(parent), mBus(bus), mWatcher(new QDBusServiceWatcher(this))
+    QObject(parent), mBus(bus), mWatcher(new QDBusServiceWatcher(this)), mEndTimer(new QTimer(this))
 {
+    mEndTimer->setSingleShot(true);
+    connect(mEndTimer, &QTimer::timeout, this, &OngoingRegistry::endReached);
     mWatcher->setConnection(mBus);
     mWatcher->setWatchMode(QDBusServiceWatcher::WatchForUnregistration);
     connect(mWatcher, &QDBusServiceWatcher::serviceUnregistered, this, &OngoingRegistry::serviceGone);
@@ -236,8 +269,31 @@ OngoingRegistry::OngoingRegistry(QObject *parent, const QDBusConnection &bus) :
 
 void OngoingRegistry::changed(bool did)
 {
+    armEnd();
     if (did)
         emit entriesChanged();
+}
+
+void OngoingRegistry::armEnd()
+{
+    const qint64 now = QDateTime::currentMSecsSinceEpoch();
+    const qint64 next = mTable.nextEnd(now);
+    if (next == 0) {
+        mEndTimer->stop();
+        return;
+    }
+    // (a timer of days is armed again at its first expiry)
+    mEndTimer->start(int(std::min<qint64>(next - now + 1, INT_MAX)));
+}
+
+void OngoingRegistry::endReached()
+{
+    changed(mTable.dropEnded(QDateTime::currentMSecsSinceEpoch()));
+}
+
+void OngoingRegistry::checkEnded()
+{
+    changed(mTable.dropEnded(QDateTime::currentMSecsSinceEpoch()));
 }
 
 void OngoingRegistry::setMutedApps(const QStringList &apps)

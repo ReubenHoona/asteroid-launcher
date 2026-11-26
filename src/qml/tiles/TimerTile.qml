@@ -118,7 +118,13 @@ TileBase {
             info = ({ state: "expired", durationSec: 0, endMs: 0, frozenMs: 0 })
     }
 
+    // One timer at a time, the Timer app's rule (alarms-timers-stopwatch-31): the circles show only
+    // while none runs or is paused (stock's tile has no start then either). A timer the model had
+    // not shown yet when a circle was tapped is not doubled: the tile shows it instead.
     function start(seconds) {
+        findCountdown()
+        if (mode !== "idle")
+            return false
         var a = countdowns.createAlarm()
         if (!a)
             return false

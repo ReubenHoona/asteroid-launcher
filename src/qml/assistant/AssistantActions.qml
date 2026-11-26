@@ -17,6 +17,7 @@ import org.asteroid.utils
 import org.asteroid.settings
 import org.asteroid.launcher
 import "../desktop.js" as Desktop
+import "../tiles/clocklogic.js" as Clock
 
 /*
  * What the assistant does for an intent (asteroid-assistant's Result), the
@@ -254,9 +255,26 @@ Item {
         }
     }
 
-    function timerSet(seconds, label, done) {
+    function timerSet(seconds, label, done, replace) {
         if (!seconds || seconds <= 0)
             return run("timer.ask", {}, "", done)
+        // One timer at a time, the Timer app's rule (alarms-timers-stopwatch-31): with one running or
+        // paused the assistant asks what the app's dialog asks (DeskClock timer_alert_dialog_title and
+        // _message, "Replace active Timer?"); Yes deletes every countdown and starts this one, No leaves
+        // the active one as it is
+        if (!replace && activeCountdowns().length > 0)
+            return done(card("ios-timer-outline", "",
+                             loc("id-asst-timer-replace", "You already have an active timer. Are you sure you want to replace your current timer with a new one?"),
+                             [{ label: loc("id-asst-yes", "Yes"), icon: "", run: function (d) { timerSet(seconds, label, d, true) } },
+                              { label: loc("id-asst-no", "No"), icon: "",
+                                run: function (d) { d(card("ios-timer-outline", "", loc("id-asst-timer-kept", "OK, your timer stays as it is."))) } }],
+                             "#c58af9"))
+        if (replace) {
+            var old = []
+            forEachAlarm(countdowns, function (x) { old.push(x) })
+            for (var i = 0; i < old.length; i++)
+                old[i].deleteAlarm()
+        }
         // the same countdown alarm as the timer tile and asteroid-timer
         var a = countdowns.createAlarm()
         a.countdown = true
@@ -274,6 +292,17 @@ Item {
                   [chipOpen(loc("id-asst-open-timer", "Open Timer"), "asteroid-timer")], "#c58af9"))
     }
 
+    // the countdowns of an active timer: running or paused (clocklogic.js classify, the Timer app's)
+    function activeCountdowns() {
+        var list = []
+        var now = Date.now()
+        forEachAlarm(countdowns, function (a) {
+            var s = Clock.classify(a, now).state
+            if (s === "running" || s === "paused")
+                list.push(a)
+        })
+        return list
+    }
     function runningCountdowns() {
         var list = []
         forEachAlarm(countdowns, function (a) { if (a.enabled && a.triggerTime > Date.now() / 1000) list.push(a) })

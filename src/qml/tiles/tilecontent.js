@@ -24,6 +24,10 @@ var HR_HIGH = "#E46962"               // highest bpm label and dot (tiles-indivi
 var HR_LOW = "#2BC7F7"                // lowest
 var HR_ICON = "#FFBA2B"               // heart icon of 'Current bpm'
 var SLEEP_RING = "#E5C7FF"            // flex_lite_tile_sleep_preview.xml (health-fitness-32)
+// the Health category colour of steps (health-fitness-20: the Health app's activity palette;
+// flex_lite_tile_primarygoal_preview.xml, its ring and count). The Main goal data card keeps the
+// colours tile_primarygoal_preview.xml gives it (CARD, GREEN, GOAL_RING)
+var STEPS = "#80F7DD"
 var SLEEP_TRACK = "#2D3130"
 var EXERCISE_FIRST = "#6DD58C"        // tile_quickstart_preview.xml: the first button green, the rest blue
 var EXERCISE_OTHER = "#A8C7FA"

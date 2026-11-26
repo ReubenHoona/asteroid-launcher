@@ -18,6 +18,7 @@
 #include <QVariantMap>
 
 class QDBusServiceWatcher;
+class QTimer;
 
 /*
  * The ongoing activities of the watch (W2-launcher-status, audit
@@ -54,6 +55,13 @@ class QDBusServiceWatcher;
  * something the screen shows changes, not for an identical republish: the
  * sensor hub's layout is rebuilt once per change.
  *
+ * A countdown whose end has passed and that is not paused (a timer that rang
+ * while its app was closed or frozen, which cannot update its notification) is
+ * over: it is not taken in and goes at its end (status-indicators-15). One
+ * single-shot timer for the next end, no polling; checkEnded() (OngoingFeed.qml
+ * at display on) catches an end that passed while the AP slept, as the
+ * monotonic timer does not count a suspend.
+ *
  * Table is plain Qt Core, tested by tests/tst_ongoing.cpp together with the
  * bus object on a private bus.
  */
@@ -89,6 +97,12 @@ public:
     bool remove(const QString &key);
     bool removeSource(const QString &source);
     bool touch(const QString &key, qint64 now);
+    // a countdown, not paused, whose end (when, ms) is at or before now
+    static bool ended(const Entry &e, qint64 now);
+    // The ended entries go; true when any did
+    bool dropEnded(qint64 now);
+    // The end of the next running countdown after now (ms), 0 when none
+    qint64 nextEnd(qint64 now) const;
 
     QList<Entry> sorted() const;
     // As the QML sees them, in order: key, app, title, category, icon, staticIcon,
@@ -148,6 +162,9 @@ public:
     Q_INVOKABLE void activate(const QString &key);
     Q_INVOKABLE void setInUse(const QString &kind, bool active);
     Q_INVOKABLE bool inUse(const QString &kind) const;
+    // Drops the countdowns that ended (an end passed while the AP slept: the
+    // single-shot timer is late by the suspend); OngoingFeed.qml at display on
+    Q_INVOKABLE void checkEnded();
 
 public slots:
     Q_SCRIPTABLE void Publish(const QString &id, const QVariantMap &props);
@@ -165,13 +182,17 @@ signals:
 
 private slots:
     void serviceGone(const QString &service);
+    void endReached();
 
 private:
     void changed(bool did);
+    // the single-shot timer for the next countdown's end
+    void armEnd();
     void claim(const QString &service, const QString &kind, bool active);
 
     QDBusConnection mBus;
     QDBusServiceWatcher *mWatcher;
+    QTimer *mEndTimer;
     EosOngoing::Table mTable;
     QStringList mMuted;
     QHash<QString, QSet<QString>> mClaims; // bus name -> kinds ("local" for the QML)
