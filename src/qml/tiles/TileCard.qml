@@ -26,6 +26,8 @@ Item {
     id: card
 
     property color containerColor: Theme.color.primary
+    // a gradient over the container in place of its colour (the Next Alarm stadium, N61-28)
+    property Gradient gradient: null
     // the content's colour: the ripple's (stock draws it at 10 % in it)
     property color contentColor: Theme.color.onPrimary
     // stadium by default
@@ -60,6 +62,7 @@ Item {
         anchors.fill: parent
         radius: card.radius
         color: card.containerColor
+        gradient: card.gradient
 
         // the bounded ripple, in the content colour
         Ripple {

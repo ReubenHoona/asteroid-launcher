@@ -1921,9 +1921,37 @@ for %1 seconds to</translation>
         <source>Add alarm</source>
         <translation>Add alarm</translation>
     </message>
+    <message id="id-tile-no-alarms">
+        <source>No alarms</source>
+        <translation>No alarms</translation>
+    </message>
+    <message id="id-tile-set-new">
+        <source>Set new</source>
+        <translation>Set new</translation>
+    </message>
+    <message id="id-tile-alarm-togo-dh">
+        <source>%1d %2h</source>
+        <translation>%1d %2h</translation>
+    </message>
+    <message id="id-tile-alarm-togo-d">
+        <source>%1d</source>
+        <translation>%1d</translation>
+    </message>
+    <message id="id-tile-alarm-togo-hm">
+        <source>%1h %2m</source>
+        <translation>%1h %2m</translation>
+    </message>
+    <message id="id-tile-alarm-togo-h">
+        <source>%1h</source>
+        <translation>%1h</translation>
+    </message>
+    <message id="id-tile-alarm-togo-m">
+        <source>%1m</source>
+        <translation>%1m</translation>
+    </message>
     <message id="id-tile-set-alarm">
         <source>Set new alarm</source>
-        <translation>Set new alarm</translation>
+        <translation type="vanished">Set new alarm</translation>
     </message>
     <message id="id-tile-snoozed">
         <source>Snoozed</source>

@@ -20,6 +20,9 @@
 // icon fading: m3Layout false) and CircleGrid (52 dp circles 8 dp apart, two over three), measured on the
 // grabbed pixels where the emulator gave a pixel value.
 // N61-27: the Timer tile (S13): five #182B2F circles '05' ... '30' and the cyan pill 'New'.
+// N61-28: the Alarm tile as the Next Alarm (S14, the S14-d preview): 'No alarms' and the yellow 'Set new'
+// stadium; the time to go, the gradient stadium and the day, the minute tick only while awake. The alarms are
+// the Nemo.Alarms test double's.
 //
 // Shots go to /tmp/wo06-shots. Run by a qmltestrunner harness under qemu-aarch64 on the image rootfs with the
 // tiles staged as module LauncherQml at their resource paths (motion-wt/wo06/run.sh; newlook-wt/l4h/run.sh tiles).
@@ -42,6 +45,13 @@ Item {
         property var launched: []
         function openTilesEditor(addList) {}
         function launchByName(name, origin) { launched = launched.concat([name]) }
+    }
+    // the compositor of a watch showing the home screen, awake (TileBase.awake); the repo mock has no homeActive
+    QtObject {
+        id: awakeCompositor
+        property bool homeActive: true
+        property bool displayAmbient: false
+        property bool displayDimmed: false
     }
 
     Rectangle { anchors.fill: parent; color: "black" }
@@ -66,6 +76,7 @@ Item {
         }
     }
     Component { id: timerComp; TimerTile { width: 384; height: 384 } }
+    Component { id: alarmComp; AlarmTile { width: 384; height: 384 } }
     Loader { id: stepsLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/StepsTile.qml") }
     Loader { id: quickAddLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/QuickAddTile.qml") }
 
@@ -560,6 +571,137 @@ Item {
             compare(g.itemAt(2).accessibleName, "1:30 Hr:Min")
             // three in one row in the middle of the body
             fuzzyCompare(centre(t, g.itemAt(1)).y, 164, 1)
+        }
+
+        // ---- N61-28: the Alarm tile as the emulator's Next Alarm
+
+        function test_n61_28_alarm_none() {
+            var t = createTemporaryObject(alarmComp, top, {})
+            verify(t)
+            waitForRendering(t)
+            shot(t, "n61-28-none")
+            compare(t.mode, "none")
+            compare(t.title, "")
+            compare(t.m3Layout, false)
+            verify(!t.pill.visible)
+            verify(!t.chip.visible)
+            // 'No alarms' in #BDC1C6, labelMedium, its ink from y 78 (S14: 78-99)
+            var none = findChild(t, "alarmNone")
+            verify(none.visible)
+            compare(none.text, "No alarms")
+            compare(col(none.color), col("#BDC1C6"))
+            compare(none.font.pixelSize, 30)
+            var img = grabImage(t)
+            var r = inkRows(img, 110, 274, 50, 125, 0.4)
+            fuzzyCompare(r.first, 78, 1.5)
+            fuzzyCompare(r.last, 99, 1.5)
+            // one stadium 268 x 120 px at y 132 in #FDE293 with 'Set new' in #202124 (S14: x 58-325, y 132-251)
+            var card = findChild(t, "alarmNew")
+            verify(card.visible)
+            var p = card.mapToItem(t, 0, 0)
+            fuzzyCompare(p.x, 58, 1)
+            fuzzyCompare(p.y, 132, 1)
+            compare(card.width, 268)
+            compare(card.height, 120)
+            compare(card.radius, 60)
+            near(img, 80, 191, "#FDE293", 3, "stadium")
+            var label = findChild(card, "alarmNewText")
+            compare(label.text, "Set new")
+            compare(col(label.color), col("#202124"))
+            // it opens the alarm clock's picker
+            mouseClick(t, 192, 191)
+            compare(desktop.launched, ["asteroid-alarmclock"])
+            verify(String(Backend.conf["/org/asteroidos/alarmclock/open"]).indexOf("new@") === 0)
+        }
+
+        function test_n61_28_alarm_next() {
+            // one alarm on, 22 h 58 min ahead (S14-d's preview)
+            var now = new Date()
+            var at = new Date(now.getTime() + (22 * 60 + 58) * 60000)
+            AlarmsMock.alarms = [{ id: 7, hour: at.getHours(), minute: at.getMinutes(), second: 0, daysOfWeek: "",
+                                   enabled: true, countdown: false, triggerTime: 0, elapsed: 0 }]
+            var t = createTemporaryObject(alarmComp, top, {})
+            verify(t)
+            waitForRendering(t)
+            shot(t, "n61-28-next")
+            compare(t.mode, "next")
+            compare(t.m3Layout, false)
+            verify(!t.pill.visible)
+            verify(!findChild(t, "alarmNone").visible)
+            var img = grabImage(t)
+            // the time to go at the top, labelSmall, white (S14-d ink y 72-87)
+            var until = findChild(t, "alarmUntil")
+            compare(until.text, "22h 58m")
+            compare(until.font.pixelSize, 26)
+            var u = inkRows(img, 120, 264, 50, 110, 0.5)
+            fuzzyCompare(u.first, 71, 2)
+            // the stadium 268 x 100 px at y 138 with the horizontal gradient #FFF76D -> #FFEBAE
+            var card = findChild(t, "alarmCard")
+            var p = card.mapToItem(t, 0, 0)
+            fuzzyCompare(p.x, 58, 1)
+            fuzzyCompare(p.y, 138, 1)
+            compare(card.width, 268)
+            compare(card.height, 100)
+            verify(card.gradient !== null)
+            compare(card.gradient.orientation, Gradient.Horizontal)
+            near(img, 66, 188, "#FFF76D", 8, "gradient start")
+            near(img, 317, 188, "#FFEBAE", 8, "gradient end")
+            // the time in #202124, displaySmall, tabular, AM/PM small after it
+            var row = findChild(card, "alarmTimeRow")
+            compare(col(row.color), col("#202124"))
+            compare(row.timeLabel.font.pixelSize, 48)
+            fuzzyCompare(centre(t, row).x, 192, 1)
+            // the day under it in yellow (S14-d 'Tomorrow' ink y 290-305)
+            var day = findChild(t, "alarmDay")
+            var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+            var ringDay = new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime()
+            compare(day.text, ringDay === today ? "Today" : "Tomorrow")
+            compare(col(day.color), col("#FFFD66"))
+            var d = inkRows(img, 120, 264, 280, 320, 0.5)
+            fuzzyCompare(d.first, 290, 2)
+            // the time to go changes with ONE single shot a minute, only while the tile is awake
+            verify(!t.awake)
+            verify(!t.minuteTick.running)
+            Lipstick.compositor = awakeCompositor
+            verify(t.awake)
+            verify(t.minuteTick.running)
+            verify(t.minuteTick.interval > 0 && t.minuteTick.interval <= 60001, "interval " + t.minuteTick.interval)
+            compare(t.minuteTick.repeat, false)
+            // behind an app, or in ambient: no tick
+            awakeCompositor.homeActive = false
+            verify(!t.awake)
+            verify(!t.minuteTick.running)
+            awakeCompositor.homeActive = true
+            verify(t.minuteTick.running)
+            awakeCompositor.displayAmbient = true
+            verify(!t.minuteTick.running)
+            awakeCompositor.displayAmbient = false
+            // a tap on the stadium opens the alarm clock
+            mouseClick(t, 192, 188)
+            compare(desktop.launched, ["asteroid-alarmclock"])
+        }
+
+        function test_n61_28_alarm_snoozed() {
+            // snoozed: timed rings it again in 9 minutes, not at its own 7:00
+            var again = Math.floor(Date.now() / 1000) + 9 * 60
+            var own = new Date((again - 3600) * 1000)
+            AlarmsMock.alarms = [{ id: 3, hour: own.getHours(), minute: own.getMinutes(), second: 0, daysOfWeek: "",
+                                   enabled: true, countdown: false, triggerTime: again, elapsed: 0 }]
+            var t = createTemporaryObject(alarmComp, top, {})
+            verify(t)
+            waitForRendering(t)
+            compare(t.mode, "snoozed")
+            var card = findChild(t, "alarmSnoozed")
+            verify(card.visible)
+            compare(col(card.containerColor), col("#FDE293"))
+            // the pill 'Open' in the same yellow, no edge button
+            verify(t.pill.visible)
+            compare(t.pill.text, "Open")
+            compare(col(t.pillColor), col("#FDE293"))
+            verify(!t.chip.visible)
+            mouseClick(t, 192, 327)
+            compare(desktop.launched, ["asteroid-alarmclock"])
+            compare(String(Backend.conf["/org/asteroidos/alarmclock/open"]).indexOf("alarm:3@"), 0)
         }
     }
 }

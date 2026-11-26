@@ -10,9 +10,9 @@
  * alarm the tile shows and in which state (hnv.java:44, 63-104, 124-150),
  * the repeat text (goh.java:1620-1655), the saved timers (ibk.java) and the
  * label of a timer button (ibr.java:67-73); the Wear OS 6 look adds the
- * Timer tile's circle numbers (the emulator's S13; N61-27). Pure functions:
- * no timers, no D-Bus, no clock of their own (the caller says what time it
- * is).
+ * Next Alarm tile's time to go and day, and the Timer tile's circle numbers
+ * (the emulator's S13, S14, S14-d; N61-27, N61-28). Pure functions: no
+ * timers, no D-Bus, no clock of their own (the caller says what time it is).
  */
 
 // timed's day letters, Monday first (the order the alarm clock stores them in)
@@ -125,6 +125,37 @@ function pick(alarms, nowMs) {
 // a Date for an alarm's own hour:minute (the date is only a carrier)
 function clockDate(hour, minute) {
     return new Date(2000, 0, 1, hour, minute)
+}
+
+/* The time to go of the Next Alarm tile (S14-d '22h 58m'), in whole minutes
+ * rounded up, as days, hours and minutes: { d, h, m }. The caller writes it
+ * ('%1d %2h', '%1h %2m', '%1m', a zero part left out). */
+function untilParts(ms) {
+    var total = Math.ceil(Math.max(0, ms) / 60000)
+    return { d: Math.floor(total / 1440), h: Math.floor(total / 60) % 24, m: total % 60 }
+}
+
+/* Milliseconds until untilParts changes (the next whole minute of the time
+ * to go, the minute the clock turns for an alarm at a whole minute);
+ * Infinity when there is none. One single shot per minute while the tile
+ * shows, none otherwise. */
+function nextMinuteMs(remainingMs) {
+    if (!(remainingMs > 0))
+        return Infinity
+    var rem = remainingMs % 60000
+    return (rem === 0 ? 60000 : rem) + 1
+}
+
+/* The day line of the Next Alarm tile (S14-d 'Tomorrow'): "today" or
+ * "tomorrow" by the calendar day it rings on, else "week" (the caller writes
+ * the day's name). */
+function dayKind(atMs, nowMs) {
+    var now = new Date(nowMs)
+    var at = new Date(atMs)
+    var today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    var day = new Date(at.getFullYear(), at.getMonth(), at.getDate())
+    var days = Math.round((day.getTime() - today.getTime()) / 86400000)
+    return days <= 0 ? "today" : days === 1 ? "tomorrow" : "week"
 }
 
 /* ---- timers ---------------------------------------------------------- */

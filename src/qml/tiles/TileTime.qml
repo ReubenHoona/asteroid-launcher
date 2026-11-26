@@ -11,7 +11,8 @@ import org.asteroid.controls
  * (displayLarge, 80 px) weight 500 in tabular figures, and in 12 hour mode
  * the locale's AM/PM after them (before them where the locale writes it
  * first) in labelLarge, on the digits' baseline. parts is
- * TimeFormat.timeParts(): { time, marker, markerFirst }.
+ * TimeFormat.timeParts(): { time, marker, markerFirst }. The Next Alarm tile
+ * of Wear OS 6 draws it smaller (timeRole, markerRole; N61-28).
  */
 Item {
     id: tt
@@ -19,6 +20,8 @@ Item {
     property var parts: ({ time: "", marker: "", markerFirst: false })
     property color color: Theme.color.onSurface
     property real markerGap: Theme.dp(4)
+    property string timeRole: "displayLarge"
+    property string markerRole: "labelLarge"
     readonly property alias timeLabel: timeLabel
     readonly property alias markerLabel: markerLabel
     readonly property bool markerFirst: parts.markerFirst === true && parts.marker !== ""
@@ -32,7 +35,7 @@ Item {
         id: timeLabel
         x: tt.markerFirst ? markerLabel.width + tt.markerGap : 0
         text: tt.parts.time
-        role: "displayLarge"
+        role: tt.timeRole
         font.weight: Font.Medium
         font.features: Theme.tabularNumerals
         color: tt.color
@@ -45,7 +48,7 @@ Item {
         x: tt.markerFirst ? 0 : timeLabel.implicitWidth + tt.markerGap
         y: timeLabel.y + timeLabel.baselineOffset - baselineOffset
         text: tt.parts.marker
-        role: "labelLarge"
+        role: tt.markerRole
         color: tt.color
         elide: Text.ElideNone
     }

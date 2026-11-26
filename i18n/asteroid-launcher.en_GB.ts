@@ -2140,10 +2140,40 @@ Only selected people and apps can reach you.</translation>
         <source>Add alarm</source>
         <translation>Add alarm</translation>
     </message>
+    <message id="id-tile-set-new">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>Set new</source>
+        <translation>Set new</translation>
+    </message>
+    <message id="id-tile-alarm-togo-dh">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>%1d %2h</source>
+        <translation>%1d %2h</translation>
+    </message>
+    <message id="id-tile-alarm-togo-d">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>%1d</source>
+        <translation>%1d</translation>
+    </message>
+    <message id="id-tile-alarm-togo-hm">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>%1h %2m</source>
+        <translation>%1h %2m</translation>
+    </message>
+    <message id="id-tile-alarm-togo-h">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>%1h</source>
+        <translation>%1h</translation>
+    </message>
+    <message id="id-tile-alarm-togo-m">
+        <location filename="../src/qml/tiles/AlarmTile.qml"/>
+        <source>%1m</source>
+        <translation>%1m</translation>
+    </message>
     <message id="id-tile-set-alarm">
         <location filename="../src/qml/tiles/AlarmTile.qml"/>
         <source>Set new alarm</source>
-        <translation>Set new alarm</translation>
+        <translation type="vanished">Set new alarm</translation>
     </message>
     <message id="id-tile-snoozed">
         <location filename="../src/qml/tiles/AlarmTile.qml"/>
