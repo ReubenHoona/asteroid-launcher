@@ -198,7 +198,6 @@ Item {
     // widgets to add (the Quick Add tile)
     function openTilesEditor(addList) {
         tilesEditor.registry = availableRegistry()
-        tilesEditor.iconOf = appIcon
         tilesEditor.open(builtTiles, Math.max(0, grid.currentHorizontalPos - 1))
         if (addList === true)
             Qt.callLater(function () { tilesEditor.addTapped() })

@@ -55,13 +55,13 @@ var LIFT_CHIP = 26                  // managementui_rearrange_circular_settings 
 var LIST_COLUMNS = 2
 var LIST_PREVIEW = 160              // managementui_all_preview_size 80 dp
 var LIST_RING = 4                   // managementui_all_preview_border_width 2 dp
-var LIST_ICON = 32                  // managementui_all_attribution_icon_* 16 dp
-var LIST_NAME_TOP = 12              // managementui_all_title_padding_top 6 dp
+var LIST_ICON = 0                   // no app icon over the previews (the Wear OS 6 emulator's S14-d; CP3A 16 dp)
+var LIST_NAME_TOP = 22              // the name's capitals 29 px under the ring (S14-d; CP3A 6 dp)
 var LIST_NAME_BOTTOM = 32           // managementui_all_title_padding_bottom 16 dp
-var LIST_TITLE_TOP = 2.08           // managementui_all_list_title_top_margin %
+var LIST_TITLE_TOP = 1.3            // % of the height: the header 'Add' ink from y 12 (S14-d; CP3A 2.08 %)
 var LIST_BOTTOM = 0.3646            // managementui_all_list_bottom_padding_percent
 var LIST_RING_COLOR = "#404040"     // managementui_all_border_color (w2_cw_gray_25)
-var LIST_TOP = 64                   // the grid starts under the header (as the face list; inferred)
+var LIST_TOP = 88                   // the first rings' tops (S14-d: y 88, under the header 'Add')
 
 /* a move by `by` (+1 right, -1 left) of the tile at i among n: it wraps, the
  * first moved left becomes the last (jif.java:80-126). One tile: no move. */
@@ -160,8 +160,8 @@ function row(w, h, chip, arrows) {
     }
 }
 
-/* the cell of the add list for a screen of width w, px: icon, preview in its
- * ring, the name under it */
+/* the cell of the add list for a screen of width w, px: the preview in its
+ * ring, the name under it (icon: 0, no app icon since N61-31) */
 function cell(w, captionLine) {
     var u = w / 384
     var ring = LIST_PREVIEW * u + 2 * LIST_RING * u

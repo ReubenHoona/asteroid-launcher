@@ -2403,7 +2403,11 @@ for %1 seconds to</translation>
     </message>
     <message id="id-tiles-add-header">
         <source>Widgets</source>
-        <translation>Widgets</translation>
+        <translation type="vanished">Widgets</translation>
+    </message>
+    <message id="id-tiles-add-title">
+        <source>Add</source>
+        <translation>Add</translation>
     </message>
     <message id="id-tile-uv-low">
         <source>Low</source>

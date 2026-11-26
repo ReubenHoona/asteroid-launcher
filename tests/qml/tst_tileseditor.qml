@@ -8,6 +8,8 @@
 // always in the bottom row's slot (the Edit chip there for a tile with settings); the move arrows are 64 px
 // surfaceContainer discs at x 68 and 252, y 284, with the face picker's filled carets in primary, hidden with one
 // tile; no "Add new" card at the carousel's end unless no card shows the pill; the tile's name in onSurface.
+// N61-31 (S14-d): the add list's header 'Add', no app icon over the previews, the first rings' tops at y 88, the
+// names white, their capitals 29 px under the ring.
 //
 // Shots go to /tmp/wo06-shots. Run as tst_tiles.qml (the tiles staged as module LauncherQml at their resource
 // paths; newlook-wt/l4h/run.sh tiles).
@@ -205,6 +207,58 @@ Item {
             compare(tileIds(ed), ["timer"])
             compare(ed.carousel.currentIndex, 0)
             compare(ed.centredId, "timer")
+        }
+
+        // ---- N61-31
+
+        function test_n61_31_add_list() {
+            var ed = openEditor(["timer"], 0)
+            ed.addTapped()
+            var list = ed.addList
+            tryCompare(list, "visible", true, 3000)
+            wait(400)
+            waitForRendering(ed)
+            shot(ed, "n61-31-list")
+            // the header 'Add' (S14-d)
+            var title = findChild(list, "eosTileListTitle")
+            compare(title.text, "Add")
+            compare(String(title.color), String(Theme.color.onSurface))
+            // no app icon over the previews
+            compare(findAll(list.grid, "eosTileListIcon").length, 0)
+            compare(TE.LIST_ICON, 0)
+            // the first rings' tops at y 88 (S14-d), centred in their columns
+            var rings = findAll(list.grid, "eosTileListRing")
+            compare(rings.length, 3)
+            rings.sort(function (a, b) {
+                var pa = a.mapToItem(list, 0, 0), pb = b.mapToItem(list, 0, 0)
+                return pa.y - pb.y || pa.x - pb.x
+            })
+            var p0 = rings[0].mapToItem(list, 0, 0)
+            fuzzyCompare(p0.y, 88, 1)
+            compare(rings[0].width, 168)
+            compare(rings[0].border.width, 4)
+            compare(String(rings[0].border.color), String(Qt.color("#404040")))
+            fuzzyCompare(rings[1].mapToItem(list, 0, 0).y, 88, 1)
+            // the name: white, one line, its box 22 px under the ring (capitals 29 px under it, S14-d y 284)
+            var names = findAll(list.grid, "eosTileListName")
+            var n0 = null
+            for (var i = 0; i < names.length; i++)
+                if (Math.abs(names[i].mapToItem(list, 0, 0).x + names[i].width / 2 - (p0.x + rings[0].width / 2)) < 1
+                        && names[i].mapToItem(list, 0, 0).y < 300)
+                    n0 = names[i]
+            verify(n0)
+            compare(String(n0.color), String(Theme.color.onBackground))
+            compare(n0.maximumLineCount, 1)
+            fuzzyCompare(n0.mapToItem(list, 0, 0).y - (p0.y + rings[0].height), 22, 0.5)
+            var img = grabImage(ed)
+            var first = -1
+            for (var y = p0.y + rings[0].height + 4; y < p0.y + rings[0].height + 45 && first < 0; y++)
+                for (var x = p0.x + 10; x < p0.x + rings[0].width - 10; x += 2)
+                    if (img.pixel(x, y).r > 0.5) {
+                        first = y
+                        break
+                    }
+            fuzzyCompare(first - (p0.y + rings[0].height), 29, 2)
         }
     }
 }

@@ -53,9 +53,6 @@ Item {
     //% "Widget Management"
     Accessible.name: qsTrId("id-tiles-management")
     property var registry: ({})
-    // the app icon of a tile for the add list: function(id) -> icon name
-    // (TilesRing.appIcon); without it the registry's icon
-    property var iconOf: null
     // the inactivity timeout runs (stock does not run it with accessibility on)
     property bool idleEnabled: true
     signal changed(var tiles)
@@ -787,7 +784,6 @@ Item {
                 z: 1
                 registry: editor.registry
                 tiles: editor.hidden
-                iconOf: editor.iconOf
                 onPicked: (id, cx, cy, size) => editor.addTile(id, cx, cy, size)
             }
         }

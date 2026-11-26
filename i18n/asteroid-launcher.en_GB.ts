@@ -2261,7 +2261,12 @@ Only selected people and apps can reach you.</translation>
     </message>
     <message id="id-tiles-add-header">
         <source>Widgets</source>
-        <translation>Widgets</translation>
+        <translation type="vanished">Widgets</translation>
+    </message>
+    <message id="id-tiles-add-title">
+        <location filename="../src/qml/tiles/TileAddList.qml"/>
+        <source>Add</source>
+        <translation>Add</translation>
     </message>
     <message id="id-tiles-add-widgets">
         <source>Add widgets</source>

@@ -10,11 +10,12 @@ import "../facepicker.js" as FP
 import "tileseditor.js" as TE
 
 /*
- * The list of the tiles that are not in the carousel, as stock's "Widgets"
- * (SysUI managementui_all_items, AllItemsView): a header curved along the top,
- * then two columns of cells, each the app's icon (16 dp), the tile's live
- * preview as a 80 dp circle in a 2 dp ring, and its name (one line, 80 dp wide,
- * 6 dp under the preview). Opening: scale 0.25 to 1 in 250 ms (0.4, 0, 0.2, 1),
+ * The list of the tiles that are not in the carousel, as stock's (SysUI
+ * managementui_all_items, AllItemsView) in the Wear OS 6 emulator's look
+ * (S14-d; N61-31): the header "Add" curved along the top, then two columns of
+ * cells, each the tile's live preview as a 80 dp circle in a 2 dp #404040
+ * ring (the first rings' tops at 88 px) and its name under it (one line,
+ * 80 dp wide, white, its capitals 29 px under the ring); no app icon. Opening: scale 0.25 to 1 in 250 ms (0.4, 0, 0.2, 1),
  * alpha 0 to 1 in 75 ms, from a black disc, with a white #12ffffff flash held
  * 75 ms and faded over 750 ms (the same as the face picker's list). Back (a
  * swipe right) is the reverse. A tap on a cell emits picked(id, cx, cy,
@@ -29,8 +30,6 @@ Item {
     // id -> { file, name, icon }, and the ids to list
     property var registry: ({})
     property var tiles: []
-    // function(id) -> the app icon's name, or null for the registry's
-    property var iconOf: null
     readonly property real u: width / 384
 
     readonly property bool isOpen: visible && !leaving
@@ -45,7 +44,7 @@ Item {
     readonly property real captionSize: Theme.type.bodySmall.pixelSize
     readonly property real captionLine: captionSize * Theme.type.bodySmall.lineHeight / Theme.type.bodySmall.pixelSize
     readonly property var cellGeo: TE.cell(width, captionLine)
-    // the grid starts under the header (inferred, as the face list)
+    // the first rings' tops (S14-d: 88 px)
     readonly property real gridTop: TE.LIST_TOP * u
     readonly property real bottomPadding: TE.LIST_BOTTOM * height
 
@@ -123,16 +122,7 @@ Item {
                 readonly property string tileId: modelData
                 readonly property var entry: list.registry[modelData] || ({})
 
-                // the app's icon above the preview
-                Icon {
-                    objectName: "eosTileListIcon"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: 0
-                    width: list.cellGeo.icon
-                    height: width
-                    name: list.iconOf ? list.iconOf(cell.tileId) : (cell.entry.icon || "ios-help")
-                }
-                // the preview's ring and the tile
+                // the preview's ring and the tile (no app icon over it since N61-31)
                 Rectangle {
                     id: ring
                     objectName: "eosTileListRing"
@@ -197,7 +187,7 @@ Item {
                     elide: Text.ElideRight
                     maximumLineCount: 1
                     text: (cell.entry.name || cell.tileId) + localeManager.changesObserver
-                    color: Theme.color.onSurface
+                    color: Theme.color.onBackground
                     font.pixelSize: list.captionSize
                 }
                 MouseArea {
@@ -215,8 +205,8 @@ Item {
         CurvedTopText {
             objectName: "eosTileListTitle"
             anchors.fill: parent
-            //% "Widgets"
-            text: qsTrId("id-tiles-add-header") + localeManager.changesObserver
+            //% "Add"
+            text: qsTrId("id-tiles-add-title") + localeManager.changesObserver
             color: Theme.color.onSurface
             role: "arcMedium"
             pixelSize: Theme.dp(15)
