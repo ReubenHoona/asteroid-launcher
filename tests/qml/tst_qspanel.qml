@@ -1104,11 +1104,17 @@ Item {
             tap(t)
             compare(alert().title, "Turn on Bedtime mode?")
             compare(alert().text, "Wind down for sleep.\n\nOnly selected sources such as alarms will reach you. Turns off watch screen wake gestures, and reduces brightness.")
-            // the shared AlertDialog: the tile's icon, dismiss 120 px rounded square, confirm 126 x 108 pill
+            // the shared AlertDialog as qml-asteroid's Q4 has it (Wear OS 6, N61-11 and N61-12): the tile's icon,
+            // two round buttons 104 px wide 24 px apart; it fades in rising 10 % of the height in 200 ms and leaves
+            // rising 5 % more in 150 ms, with no zoom (the CP3A rounded square, pill and scale springs are gone)
             compare(alert().iconName, "ios-moon")
             compare(alert().buttons, "confirmDismiss")
-            compare(alert().dismissSize, 120); compare(alert().dismissRadius, 36)
-            compare(alert().confirmWidth, 126); compare(alert().confirmHeight, 108)
+            compare(alert().twoButtons, true)
+            compare(alert().dismissButton.width, 104); compare(alert().confirmButton.width, 104)
+            compare(alert().roundButtonGap, 24)
+            compare(alert().contentScale, 1)
+            compare(alert().enterRise, 0.10); compare(alert().exitRise, -0.05)
+            compare(alert().enterDuration, 200); compare(alert().exitDuration, 150)
             var cb = find(alert(), "modeDialogDontShow")
             verify(cb.visible, "the Don't show again row")
             compare(cb.text, "Don't show again")
