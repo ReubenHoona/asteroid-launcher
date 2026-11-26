@@ -1026,7 +1026,12 @@ Item {
         // 650 dp/s), let go while the finger moves, goes to the next anchor in its direction (stock's
         // release rule, 200-800 dp/s: the full reveal from about 200 px out). Its row, the pill at the
         // full width, stays drawn under its neighbours for 100 ms, then fades in 100 ms; the next card
-        // moves up to the list's top (84 px) over 282 ms on LinearOutSlowIn (M10); both ways
+        // moves up to the list's top (84 px) over 282 ms on LinearOutSlowIn (M10); both ways.
+        // The rule is checked on SwipeToReveal.anchorFor with M10's numbers. The gesture goes past the
+        // middle of the partial and the full reveal (255 px out), so it clears whether the release counts
+        // as a fling or as a stopped finger: the control reads the wall clock (a finger still for 40 ms
+        // is no fling), which a loaded host stretches; M10's 200 px release could then stop at the
+        // partial reveal
         function test_n61_20_full_swipe() {
             var s = stream()
             fillThree(s)
@@ -1035,7 +1040,12 @@ Item {
             compare(s.removeFadeMs, 100)
             compare(s.displacedMs, 282)
             compare(s.displacedEasing, [0, 0, 0.2, 1, 1, 1])
-            var dirs = [{ id: 2003, next: 2002, x0: 70, x1: 330 }, { id: 2002, next: 2001, x0: 320, x1: 60 }]
+            // M10: about 200 px out at 650 dp/s: the full reveal; the same place held still: the partial one
+            var sw0 = swipeOf(s.rowItems[2003])
+            compare(sw0.anchorFor(202, 1300), sw0.width, "M10's fling to the right: the full reveal")
+            compare(sw0.anchorFor(-202, -1300), -sw0.width, "and to the left")
+            compare(sw0.anchorFor(202, 0), sw0.revealingOffset, "held still there: the partial reveal")
+            var dirs = [{ id: 2003, next: 2002, x0: 70, x1: 383 }, { id: 2002, next: 2001, x0: 314, x1: 1 }]
             for (var k = 0; k < dirs.length; k++) {
                 var d = dirs[k]
                 var row = s.rowItems[d.id]
@@ -1052,8 +1062,9 @@ Item {
                 n.removalsChanged.connect(function () { if (!t0) t0 = Date.now() })
                 wrapper.opacityChanged.connect(function () { if (!tFade && wrapper.opacity < 1) tFade = Date.now() })
                 dragTo(d.x0, d.x1, y)
-                // let go at once: the card about 200 px out, the finger at its speed
+                // let go at once: the card 255 px out (past the middle of the two reveals), short of the full one
                 verify(Math.abs(sw.offset) < sw.width * 0.75, "short of the full reveal at the release: " + sw.offset)
+                verify(Math.abs(sw.offset) > (sw.revealingOffset + sw.width) / 2, "past the middle: " + sw.offset)
                 mouseRelease(top, d.x1, y)
                 tryVerify(function () { return acts > 0 }, 3000, "the card cleared")
                 compare(n.removals, 1, "dismissed once")
