@@ -9,6 +9,7 @@ import Nemo.KeepAlive
 import org.asteroid.controls
 import ".."
 import "faceeditor.js" as FE
+import "complications.js" as C
 
 /*
  * The watch face editor, as stock Wear OS's (SysUI watchfaceeditor, W3-launcher-
@@ -67,9 +68,13 @@ Item {
     readonly property int pageIndex: pager.currentIndex
     readonly property var pageKinds: pageSpecs.map(function (p) { return p.kind })
     readonly property bool choosing: chooser.shown
+    // the second page of a source that needs a choice first is up (world clock, countdown, app)
+    readonly property bool choosingValue: paramList.shown || datePage.shown
     readonly property bool listing: optionsList.shown
     readonly property Item pagerView: pager
     readonly property Item chooserSheet: chooser
+    readonly property Item paramSheet: paramList
+    readonly property Item dateSheet: datePage
     readonly property Item optionsSheet: optionsList
     readonly property Item dotsItem: pageDots
     readonly property Item faderItem: fader
@@ -79,7 +84,9 @@ Item {
 
     // what the crown steers: the open list, else the stepper of a list setting page; none on the
     // other pages (RotaryInput: a null target leaves the crown nothing to turn)
-    property Item rotaryTarget: chooser.shown ? chooser.list : (optionsList.shown ? optionsList.list
+    property Item rotaryTarget: paramList.shown ? paramList.list
+                                : datePage.shown ? (datePage.picker ? datePage.picker.rotaryTarget : null)
+                                : chooser.shown ? chooser.list : (optionsList.shown ? optionsList.list
                                 : (pager.currentItem ? pager.currentItem.stepper : null))
 
     // ---- the options of the favourite (applied at once: FaceLayer reads them) -------------
@@ -167,14 +174,54 @@ Item {
         if (chosenSlot && sources)
             config.value = sources.withSource(config.value, chosenSlot.slotId, source)
         chosenSlot = null
+        paramList.closeNow()
+        datePage.closeNow()
         chooser.closeNow()
         poke()
+    }
+    /* A row of the chooser. World clock, Countdown to date and App shortcut need a choice
+     * first (watchface-catalogue-20, -21): their second page opens over the chooser, on the
+     * slot's choice when it has one of that kind; its choice is the source stored. */
+    function pickSource(source) {
+        if (!sources || sources.parameterised.indexOf(source) < 0) {
+            chooseSource(source)
+            return
+        }
+        var cur = chosenSlot ? sourceOf(chosenSlot) : ""
+        var p = C.split(cur)
+        var mine = p.kind === source ? p.param : ""
+        poke()
+        if (source === "countdown") {
+            datePage.open(FE.countdownDay(mine, new Date()))
+            return
+        }
+        var rows = []
+        var at = 0
+        if (source === "worldclock") {
+            rows = FE.worldClockRows()
+            var off = mine !== "" ? C.offsetMinutes(mine) : null
+            at = FE.offsetIndex(off !== null ? off : -new Date().getTimezoneOffset())
+        } else {
+            var items = []
+            var m = sources.apps
+            for (var i = 0; m && i < m.itemCount; i++) {
+                var it = m.get(i)
+                items.push(it && it.object ? it.object : it)
+            }
+            rows = FE.appRows(items)
+            at = FE.rowIndex(rows, cur)
+        }
+        paramList.title = sources.name(source)
+        paramList.model = rows
+        paramList.open(at)
     }
 
     // ---- open, close, leave ---------------------------------------------------------------
     function open() {
         if (shown)
             return
+        paramList.closeNow()
+        datePage.closeNow()
         chooser.closeNow()
         optionsList.closeNow()
         chosenSlot = null
@@ -195,6 +242,8 @@ Item {
     }
     function closeNow() {
         idleTimer.stop()
+        paramList.closeNow()
+        datePage.closeNow()
         chooser.closeNow()
         optionsList.closeNow()
         chosenSlot = null
@@ -210,6 +259,14 @@ Item {
     }
     // a swipe right out of a list, or the way back from the chooser to the complications page
     function back() {
+        if (paramList.shown) {
+            paramList.back()
+            return true
+        }
+        if (datePage.shown) {
+            datePage.back()
+            return true
+        }
         if (chooser.shown) {
             chooser.back()
             return true
@@ -402,8 +459,21 @@ Item {
         appNames: editor.appNames
         //% "Complications"
         title: qsTrId("id-face-complications") + localeManager.changesObserver
-        onChosen: (source) => editor.chooseSource(source)
+        onChosen: (source) => editor.pickSource(source)
         onBackRequested: editor.chosenSlot = null
+        onPoked: editor.poke()
+    }
+    // the second pages: back goes to the chooser under them
+    EditorParamList {
+        id: paramList
+        objectName: "eosEditorParams"
+        onPicked: (value) => editor.chooseSource(value)
+        onPoked: editor.poke()
+    }
+    EditorDatePage {
+        id: datePage
+        objectName: "eosEditorDate"
+        onPicked: (value) => editor.chooseSource(value)
         onPoked: editor.poke()
     }
     // the app each source belongs to, the chooser's second line

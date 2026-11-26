@@ -13,7 +13,9 @@ import "faceeditor.js" as FE
  * data sources alphabetically by name, a chip each with the source's icon, its
  * name and a second line with the app that provides it. It opens scrolled to the
  * source in the slot; there is no check mark. Choosing a source goes back to the
- * complications page (the editor does that on `chosen`).
+ * complications page (the editor does that on `chosen`). World clock, Countdown to
+ * date and App shortcut are listed too: `chosen` gives their kind and the editor
+ * opens their second page (watchface-catalogue-20, -21).
  */
 EditorSheet {
     id: chooser
@@ -35,7 +37,7 @@ EditorSheet {
             order = []
             return
         }
-        order = FE.chooserOrder(sources.all, function (id) { return sources.name(id) })
+        order = FE.chooserOrder(sources.all.concat(sources.parameterised), function (id) { return sources.name(id) })
     }
     function openFor(source) {
         refresh()

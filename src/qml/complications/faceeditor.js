@@ -241,10 +241,93 @@ function chooserOrder(ids, nameOf) {
     return ids.indexOf("empty") >= 0 ? ["empty"].concat(rest) : rest
 }
 
-// where the chooser opens: scrolled to the source in the slot (the first row when it is not listed)
+// where the chooser opens: scrolled to the source in the slot (the first row when it is not listed);
+// a source with its choice ("worldclock:+0530") opens on its kind
 function chooserIndex(order, current) {
-    var i = order.indexOf(current)
+    var s = String(current)
+    var at = s.indexOf(":")
+    var i = order.indexOf(at < 0 ? s : s.slice(0, at))
     return i < 0 ? 0 : i
+}
+
+// ---- the sources that need a choice first (watchface-catalogue-20, -21) ----------------
+//
+// World clock, Countdown to date and App shortcut (ComplicationSources.parameterised) are in
+// the chooser with the others; a tap opens their second page, whose choice is the source
+// stored for the slot: "worldclock:<UTC offset>", "countdown:<YYYY-MM-DD>", "app:<desktop>".
+
+/* The World clock's time zones as UTC offsets in minutes, west to east: every offset in use
+ * (the tz database, summer times included). QML's JS has no zone database, so the slot keeps
+ * a fixed offset (no daylight saving change; complications.js inOffset). */
+var WORLD_OFFSETS = [-720, -660, -600, -570, -540, -480, -420, -360, -300, -240, -210, -180, -150, -120, -60,
+                     0, 60, 120, 180, 210, 240, 270, 300, 330, 345, 360, 390, 420, 480, 525, 540, 570, 600,
+                     630, 660, 720, 765, 780, 825, 840]
+
+function pad2(n) {
+    return (n < 10 ? "0" : "") + n
+}
+// minutes -> the source's parameter: "+0530", "-0800", "+0000"
+function offsetParam(minutes) {
+    var a = Math.abs(minutes)
+    return (minutes < 0 ? "-" : "+") + pad2(Math.floor(a / 60)) + pad2(a % 60)
+}
+// minutes -> the row's name: "UTC+05:30", "UTC-08:00", "UTC"
+function offsetLabel(minutes) {
+    if (minutes === 0)
+        return "UTC"
+    var a = Math.abs(minutes)
+    return "UTC" + (minutes < 0 ? "-" : "+") + pad2(Math.floor(a / 60)) + ":" + pad2(a % 60)
+}
+function worldClockRows() {
+    return WORLD_OFFSETS.map(function (m) {
+        return { value: "worldclock:" + offsetParam(m), title: offsetLabel(m), icon: "ios-globe-outline" }
+    })
+}
+// the row of the offset nearest to `minutes` (the slot's, else the watch's own)
+function offsetIndex(minutes) {
+    var best = 0
+    for (var i = 1; i < WORLD_OFFSETS.length; i++)
+        if (Math.abs(WORLD_OFFSETS[i] - minutes) < Math.abs(WORLD_OFFSETS[best] - minutes))
+            best = i
+    return best
+}
+
+// the day -> the source: "countdown:2026-12-25" (month 1-12)
+function countdownParam(year, month, day) {
+    return "countdown:" + year + "-" + pad2(month) + "-" + pad2(day)
+}
+// the day the date picker opens on: the slot's ("2026-12-25"), else `today`
+function countdownDay(param, today) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(param))
+    if (!m)
+        return today
+    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+}
+
+/* The App shortcut's apps: the launcher's apps (items with filePath, title, iconId), by name
+ * as the app list sorts them; the source names the desktop file: "app:asteroid-music" */
+function appId(filePath) {
+    var f = String(filePath).split("/").pop()
+    return f.slice(-8) === ".desktop" ? f.slice(0, -8) : f
+}
+function appRows(items) {
+    var rows = []
+    for (var i = 0; i < items.length; i++) {
+        var it = items[i]
+        if (!it || !it.filePath)
+            continue
+        rows.push({ value: "app:" + appId(it.filePath), title: String(it.title || appId(it.filePath)),
+                    icon: it.iconId ? String(it.iconId) : "ios-apps" })
+    }
+    rows.sort(function (a, b) { return a.title.localeCompare(b.title) })
+    return rows
+}
+// the row of the value (0 when it is not listed)
+function rowIndex(rows, value) {
+    for (var i = 0; i < rows.length; i++)
+        if (rows[i].value === value)
+            return i
+    return 0
 }
 
 // ---- the system theme follows the face (jbz.java:136-146, DynamicColorOverlayModule) ----

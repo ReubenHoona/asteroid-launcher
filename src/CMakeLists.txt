@@ -141,6 +141,8 @@ set(QML_FILES
 	qml/complications/EditorSheet.qml
 	qml/complications/EditorOptionsList.qml
 	qml/complications/EditorProviderList.qml
+	qml/complications/EditorParamList.qml
+	qml/complications/EditorDatePage.qml
 	qml/complications/EditorSlotsPage.qml
 	qml/complications/EditorBoolPage.qml
 	qml/complications/EditorDots.qml
@@ -360,6 +362,8 @@ set_source_files_properties(qml/complications/EditorListPage.qml PROPERTIES QT_R
 set_source_files_properties(qml/complications/EditorSheet.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSheet.qml)
 set_source_files_properties(qml/complications/EditorOptionsList.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorOptionsList.qml)
 set_source_files_properties(qml/complications/EditorProviderList.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorProviderList.qml)
+set_source_files_properties(qml/complications/EditorParamList.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorParamList.qml)
+set_source_files_properties(qml/complications/EditorDatePage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorDatePage.qml)
 set_source_files_properties(qml/complications/EditorSlotsPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSlotsPage.qml)
 set_source_files_properties(qml/complications/EditorBoolPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorBoolPage.qml)
 set_source_files_properties(qml/complications/EditorDots.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorDots.qml)
