@@ -15,10 +15,12 @@ import "compositor/windowmotion.js" as WM
  * to 0.70 under a 50 % dim) and goes as the crown in an app does (0.60, the
  * face growing from 0.5; W2-launcher-window-motion). A swipe right from
  * anywhere is the swipe back from an app's root (the list is an activity in
- * stock; motion B4): it shrinks to 0.70 with its right edge on the screen's,
- * the face grows 0.85 -> 0.93 under the dims, and past the back rule its left
- * edge springs off (1.0/600) while the face comes to 1; else it springs back
- * (1.0/1500). The crown button closes it too. A swipe right on
+ * stock; motion B4): it shrinks to 0.69 with its right edge on the screen's,
+ * the face grows 0.93 -> 0.97 under the dims, and past the back rule its left
+ * edge springs off (1.0/2000) while the face comes to full size, which is then
+ * held at the before-commit dim for 100 ms and steps to full brightness
+ * (Wear OS 6, M04; N61-34); else it springs back (1.0/1500). The crown
+ * button closes it too. A swipe right on
  * the watchface pulls it in under the finger (dragBy/release from the
  * panels grid), for watches whose crown press is not set up.
  *
@@ -39,15 +41,19 @@ Item {
     /* The swipe back (motion B4; CrossTaskBackAnimation.java:25-34,84-87,108-160,
      * windowmotion.js back() and commit(), as WindowTransitions does for an app):
      * "" none, "swipe" the finger (the smoothed progress), "cancel" the progress
-     * springing back, "commit" the left edge springing to the width */
+     * springing back, "commit" the left edge springing to the width, "land" the
+     * list gone and what is behind held at the commit's end (WM.land) for
+     * WM.BACK.landMs */
     property string _back: ""
     property real _commitLeft0: 0
     property real _commitHomeDim0: 0
     property real _commitAppDim0: 0
+    property real _commitHomeScale0: 1
     readonly property var _backPose: _back === "commit"
-        ? WM.commit(commitSpring.value, _commitLeft0, _commitHomeDim0, _commitAppDim0, width)
+        ? WM.commit(commitSpring.value, _commitLeft0, _commitHomeDim0, _commitAppDim0, width, _commitHomeScale0)
         : (_back === "swipe" ? WM.back(dismissArea.smoothedProgress, width)
-           : (_back === "cancel" ? WM.back(cancelSpring.value, width) : null))
+           : (_back === "cancel" ? WM.back(cancelSpring.value, width)
+              : (_back === "land" ? WM.land(width) : null)))
 
     /* The motion (motion-transitions-05, -06): "open" runs the app launch
      * springs (AppOpen), "close" the way back to the face (WatchfaceReveal);
@@ -269,6 +275,7 @@ Item {
                 drawer._commitLeft0 = b.appLeft
                 drawer._commitHomeDim0 = b.homeDim
                 drawer._commitAppDim0 = b.appDim
+                drawer._commitHomeScale0 = b.homeScale
                 commitSpring.snapTo(b.appLeft)
                 drawer._back = "commit"
                 commitSpring.animateTo(drawer.width)
@@ -416,13 +423,25 @@ Item {
         }
     }
 
-    // past it: the list's left edge springs to the width, the face comes to 1 (B4, WM.BACK.commit)
+    // past it: the list's left edge springs to the width, the face comes to 1 (B4, WM.BACK.commit),
+    // then is held at the before-commit dim for WM.BACK.landMs (not with Reduce animations)
     WearSpring {
         id: commitSpring
         stiffness: WM.BACK.commit.stiffness
         dampingRatio: WM.BACK.commit.dampingRatio
         stopAtFraction: WM.BACK.commit.stopAtFraction
         visibilityThreshold: WM.BACK.commit.visibleChange
-        onFinished: if (drawer._back === "commit") drawer.closeNow()
+        onFinished: if (drawer._back === "commit") {
+            drawer.closeNow()
+            if (Motion.animationScale > 0) {
+                drawer._back = "land"
+                landTimer.restart()
+            }
+        }
+    }
+    Timer {
+        id: landTimer
+        interval: WM.BACK.landMs
+        onTriggered: if (drawer._back === "land") drawer._back = ""
     }
 }

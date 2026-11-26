@@ -49,10 +49,12 @@ import "windowmotion.js" as WM
  *    face grows from 0.5 on stiffness 260 over black. `reveal`.
  *  - the swipe right (CrossTaskBackAnimation), from the edge
  *    (BorderGestureArea) or from anywhere (lipstick's backSwipe*): the app
- *    shrinks to 0.70 with its right edge on the screen's right edge, the face
- *    behind grows 0.85 -> 0.93, both dimmed; past the commit rule the app's
- *    left edge springs off the screen (stiffness 600); else the progress
- *    springs back (stiffness 1500).
+ *    shrinks to 0.69 with its right edge on the screen's right edge, the face
+ *    behind grows 0.93 -> 0.97, both dimmed; past the commit rule the app's
+ *    left edge springs off the screen (stiffness 2000, about 130 ms) while
+ *    the face comes to full size, then the face is held at the before-commit
+ *    dim for 100 ms (`landing`) and steps to full brightness (Wear OS 6, M04;
+ *    N61-34); else the progress springs back (stiffness 1500).
  *
  * What the compositor draws is read from the properties below (appScale,
  * appX, appAlpha, appDim for the application layer; homeScale, homeAlpha,
@@ -83,10 +85,13 @@ Item {
     // the crown in an app: the way back to the face
     property bool closing: false
     readonly property bool launching: launchMotion.inProgress
+    // the app went off by a back swipe: the face is held at the commit's end for
+    // WM.BACK.landMs, then steps to rest (N61-34)
+    property bool landing: false
 
-    // "": nothing moves; launch, home (the crown), swipe, commit
+    // "": nothing moves; launch, home (the crown), swipe, commit, land
     readonly property string layerMode: backActive ? (committing ? "commit" : "swipe")
-                                        : (closing ? "home" : (launching ? "launch" : ""))
+                                        : (closing ? "home" : (launching ? "launch" : (landing ? "land" : "")))
     // the window leaves under a finger or on its own (the circle mask is on)
     readonly property bool windowMoving: backActive || closing
 
@@ -121,8 +126,9 @@ Item {
     property real _commitLeft0: 0
     property real _commitHomeDim0: 0
     property real _commitAppDim0: 0
+    property real _commitHomeScale0: 1
     readonly property var _back: committing
-        ? WM.commit(commitSpring.value, _commitLeft0, _commitHomeDim0, _commitAppDim0, w)
+        ? WM.commit(commitSpring.value, _commitLeft0, _commitHomeDim0, _commitAppDim0, w, _commitHomeScale0)
         : WM.back(backSpring.value, w)
 
     // the application layer
@@ -138,7 +144,8 @@ Item {
                                       : (closing ? revealMotion.faceScale : (launching ? launchMotion.behindScale : 1))
     readonly property real homeAlpha: !backActive && closing ? revealMotion.faceAlpha : 1
     readonly property real homeDim: backActive ? _back.homeDim
-                                    : (!closing && launching ? launchMotion.behindDim : 0)
+                                    : (!closing && launching ? launchMotion.behindDim
+                                       : (layerMode === "land" ? WM.land(w).homeDim : 0))
 
     /* ---- the launch ---------------------------------------------------- */
 
@@ -155,6 +162,7 @@ Item {
     function openWindow(win, overSplash) {
         if (!win)
             return
+        _endLanding()
         var animate = !(comp && comp.displayIsOff)
         if (animate && !launchMotion.inProgress && !overSplash)
             launchMotion.start()
@@ -190,6 +198,7 @@ Item {
     function closeTopmost() {
         if (closing || backActive || !comp.topmostWindow)
             return
+        _endLanding()
         Desktop.desktop.aboutToClose = true
         closing = true
         revealMotion.start()
@@ -238,6 +247,7 @@ Item {
 
     // a finger went down on a back swipe
     function beginBack() {
+        _endLanding()
         commitSpring.stop()
         committing = false
         _releasing = false
@@ -282,6 +292,7 @@ Item {
             _commitLeft0 = b.appLeft
             _commitHomeDim0 = b.homeDim
             _commitAppDim0 = b.appDim
+            _commitHomeScale0 = b.homeScale
             committing = true
             backSpring.stop()
             commitSpring.snapTo(b.appLeft)
@@ -297,6 +308,24 @@ Item {
         // to the background, not closed (AppLifecycle.leaveApp)
         comp.leaveApp(comp.topmostWindow)
         _finishBack()
+        // the face stays at the commit's end a moment, then steps to rest (not
+        // with Reduce animations: the swipe ends at once; not with the display off)
+        if (Motion.animationScale > 0 && !(comp && comp.displayIsOff)) {
+            landing = true
+            landTimer.restart()
+        }
+    }
+
+    // the landing ends: the face at full size and brightness in one frame
+    function _endLanding() {
+        landTimer.stop()
+        landing = false
+    }
+
+    Timer {
+        id: landTimer
+        interval: WM.BACK.landMs
+        onTriggered: transitions.landing = false
     }
 
     // the swipe is over: the layers are as they were
@@ -334,6 +363,7 @@ Item {
                 _finishBack()
             }
         }
+        _endLanding()
     }
 
     Connections {

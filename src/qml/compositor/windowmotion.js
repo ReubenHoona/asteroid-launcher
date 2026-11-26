@@ -96,21 +96,31 @@ var EXIT = {
     bezier: [0.4, 0, 0.2, 1, 1, 1]
 }
 
-/* ---- the back swipe at the root of an app (motion-transitions-11) ---- */
+/* ---- the back swipe at the root of an app (motion-transitions-11) ----
+ * CP3A's CrossTaskBackAnimation with Wear OS 6's values (N61-34, emulator M04
+ * and its 1x run V04): the face behind sits nearly full size (0.93 -> 0.97
+ * under the finger), the app shrinks to 0.69 and flies off in about 130 ms; on
+ * the way the face comes to full size and brightens to 0.82, and it is held
+ * there for 100 ms after the app has gone before it steps to full brightness
+ * in one frame (landing). */
 var BACK = {
     // e = CubicBezier(0, 0.20, 0.80, 1.00)(p)
     bezier: [0, 0.20, 0.80, 1.00],
-    closingMin: 0.70,           // scale_front_min
-    openingMin: 0.85,           // scale_back_min
-    openingBeforeCommit: 0.93,  // scale_back_commit
+    closingMin: 0.69,           // scale_front_min (CP3A 0.70)
+    openingMin: 0.93,           // scale_back_min (CP3A 0.85)
+    openingBeforeCommit: 0.97,  // scale_back_commit (CP3A 0.93)
     dimBackMin: 0,              // dimming_back_min
-    dimBackBeforeCommit: 0.25,  // dimming_back_commit
+    dimBackBeforeCommit: 0.18,  // dimming_back_commit (CP3A 0.25)
     dimBackMax: 0.50,           // dimming_back_max
     dimFrontMin: 0,             // dimming_front_min
     dimFrontBeforeCommit: 0.25, // dimming_front_commit
     dimFrontMax: 0.30,          // dimming_front_max
-    // the commit: the app's left edge springs to the screen width
-    commit: { stiffness: 600, dampingRatio: 1.0, stopAtFraction: 0.98, visibleChange: 0.5 },
+    // the commit: the app's left edge springs to the screen width; Wear OS 6's
+    // is off the screen about 130 ms after the release (CP3A stiffness 600, ~240 ms)
+    commit: { stiffness: 2000, dampingRatio: 1.0, stopAtFraction: 0.98, visibleChange: 0.5 },
+    // then the face stays at the commit's end (full size, dimBackBeforeCommit)
+    // for landMs and steps to full brightness (no spring)
+    landMs: 100,
     // the cancel: the progress springs back
     cancel: { stiffness: 1500, dampingRatio: 1.0 },
     // the progress follows the finger smoothed by the same spring
@@ -228,17 +238,38 @@ function back(p, w) {
 
 /* The commit with the app's left edge at `left` px (springing from left0 to w):
  * the dims start from where the swipe left them (homeDim0, appDim0)
- * (CrossTaskDismissalAnimation.onDismissalAnimationProgressChanged$1). */
-function commit(left, left0, homeDim0, appDim0, w) {
+ * (CrossTaskDismissalAnimation.onDismissalAnimationProgressChanged$1), and so
+ * does the face's scale (homeScale0; none given: the before-commit scale).
+ * Wear OS 6 (V04): the face's hour digits grow from 0.982 to 0.997 of their
+ * size while the app flies off and its brightness from about 0.6 to 0.82-0.87,
+ * so the face goes to full size and to the before-commit dim (k: the way off,
+ * 0 -> 1). */
+function commit(left, left0, homeDim0, appDim0, w, homeScale0) {
     var c = clamp01(left / w)
     var c2 = clamp01(c - left0 / w)
+    var k = left0 < w ? clamp01((left - left0) / (w - left0)) : 1
     var s = Math.max(BACK.closingMin, Math.min(1 - c, 1))
+    var hs0 = homeScale0 === undefined ? BACK.openingBeforeCommit : homeScale0
     return {
         appScale: s,
         appLeft: left,
-        homeScale: lerp(BACK.openingBeforeCommit, 1, c),
-        homeDim: lerp(homeDim0, BACK.dimBackMin, c2),
+        homeScale: lerp(hs0, 1, k),
+        homeDim: lerp(homeDim0, BACK.dimBackBeforeCommit, k),
         appDim: lerp(appDim0, BACK.dimFrontMax, c2)
+    }
+}
+
+/* The landing after the commit: the app has gone, the face stays full size at
+ * the before-commit dim for BACK.landMs, then steps to 1 and 0 (V04: the face
+ * brightens in one frame 70-100 ms after the window has gone). w: the
+ * screen's width (the app's left edge is there). */
+function land(w) {
+    return {
+        appScale: BACK.closingMin,
+        appLeft: w,
+        homeScale: 1,
+        homeDim: BACK.dimBackBeforeCommit,
+        appDim: BACK.dimFrontMax
     }
 }
 
