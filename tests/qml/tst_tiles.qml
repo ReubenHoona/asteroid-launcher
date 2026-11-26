@@ -23,6 +23,9 @@
 // N61-28: the Alarm tile as the Next Alarm (S14, the S14-d preview): 'No alarms' and the yellow 'Set new'
 // stadium; the time to go, the gradient stadium and the day, the minute tick only while awake. The alarms are
 // the Nemo.Alarms test double's.
+// N61-29: the Favorites tile (S14-c, the S14-d preview): the title, the message on 41 px lines and 'Refresh';
+// five photos two over three and 'Contacts'. The contacts are the org.asteroid.contacts link's, with invented
+// names, in a preview (nothing is asked of a phone).
 //
 // Shots go to /tmp/wo06-shots. Run by a qmltestrunner harness under qemu-aarch64 on the image rootfs with the
 // tiles staged as module LauncherQml at their resource paths (motion-wt/wo06/run.sh; newlook-wt/l4h/run.sh tiles).
@@ -77,6 +80,7 @@ Item {
     }
     Component { id: timerComp; TimerTile { width: 384; height: 384 } }
     Component { id: alarmComp; AlarmTile { width: 384; height: 384 } }
+    Component { id: favoritesComp; FavoritesTile { width: 384; height: 384 } }
     Loader { id: stepsLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/StepsTile.qml") }
     Loader { id: quickAddLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/QuickAddTile.qml") }
 
@@ -702,6 +706,89 @@ Item {
             mouseClick(t, 192, 327)
             compare(desktop.launched, ["asteroid-alarmclock"])
             compare(String(Backend.conf["/org/asteroidos/alarmclock/open"]).indexOf("alarm:3@"), 0)
+        }
+
+        // ---- N61-29: the Favorites tile
+
+        function test_n61_29_favorites_trouble() {
+            // a picture (preview): nothing is asked of a phone
+            var t = createTemporaryObject(favoritesComp, top, { preview: true })
+            verify(t)
+            t.contactsLink.phase = "no-phone"
+            waitForRendering(t)
+            shot(t, "n61-29-trouble")
+            compare(t.mode, "trouble")
+            compare(t.m3Layout, false)
+            verify(!t.chip.visible)
+            // the title (S14-c: 'Favorites' ink y 71-94)
+            compare(t.title, "Favorites")
+            var img = grabImage(t)
+            var r = inkRows(img, 100, 284, 40, 110, 0.5)
+            fuzzyCompare(r.first, 71, 1.5)
+            fuzzyCompare(r.last, 94, 1.5)
+            // the message: white bodyLarge on 41 px lines, 80 % of the width, three lines from y 137
+            var m = findChild(t, "favoritesMessage")
+            compare(m.font.pixelSize, 32)
+            compare(m.lineHeight, 41)
+            compare(col(m.color), col("#FFFFFF"))
+            fuzzyCompare(m.width, 307, 1)
+            compare(m.lineCount, 3)
+            var lines = []
+            var inLine = false
+            for (var y = 120; y < 270; y++) {
+                var hit = false
+                for (var x = 40; x < 344; x += 2) {
+                    if (img.pixel(x, y).r > 0.5) {
+                        hit = true
+                        break
+                    }
+                }
+                if (hit && !inLine)
+                    lines.push(y)
+                inLine = hit
+            }
+            compare(lines.length, 3)
+            fuzzyCompare(lines[0], 137, 1.5)
+            fuzzyCompare(lines[1] - lines[0], 41, 1.5)
+            fuzzyCompare(lines[2] - lines[1], 41, 1.5)
+            // the pill 'Refresh' in #AECBFA at y 296-359 (S14-c: 145 x 64 at x 119-263)
+            compare(t.pill.text, "Refresh")
+            compare(col(t.pillColor), col("#AECBFA"))
+            compare(col(t.pillContentColor), col("#202124"))
+            var c = t.pill.container.mapToItem(t, 0, 0)
+            fuzzyCompare(c.y, 296, 1)
+            fuzzyCompare(t.pill.container.width, 145, 5)
+            near(img, c.x + 12, 327, "#AECBFA", 3, "pill")
+            // the empty list: 'Add'
+            t.contactsLink.phase = "ready"
+            compare(t.mode, "empty")
+            compare(t.pill.text, "Add")
+        }
+
+        function test_n61_29_favorites_grid() {
+            var t = createTemporaryObject(favoritesComp, top, { preview: true })
+            verify(t)
+            var names = ["Apple", "Birch", "Cedar", "Dune", "Ember", "Fern"]
+            t.contactsLink.contacts = names.map(function (n, i) { return { key: "k" + i, name: n, starred: true, photo: false } })
+            t.contactsLink.phase = "ready"
+            waitForRendering(t)
+            shot(t, "n61-29-grid")
+            compare(t.mode, "grid")
+            // no title, five photos two over three, the pill 'Contacts'
+            compare(t.title, "")
+            var g = findChild(t, "favoritesGrid")
+            compare(g.count, 5)
+            for (var i = 0; i < 5; i++) {
+                var cell = g.itemAt(i)
+                compare(cell.width, 104)
+                var p = centre(t, cell)
+                fuzzyCompare(p.x, fiveCentres[i][0], 1)
+                fuzzyCompare(p.y, fiveCentres[i][1], 1)
+                compare(cell.accessibleName, names[i])
+            }
+            compare(t.pill.text, "Contacts")
+            compare(col(t.pillColor), col("#AECBFA"))
+            fuzzyCompare(t.pill.container.mapToItem(t, 0, 0).y, 296, 1)
         }
     }
 }

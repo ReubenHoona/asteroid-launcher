@@ -2587,10 +2587,15 @@ Only selected people and apps can reach you.</translation>
         <source>Favorites</source>
         <translation>Favorites</translation>
     </message>
+    <message id="id-tile-contacts">
+        <location filename="../src/qml/tiles/FavoritesTile.qml"/>
+        <source>Contacts</source>
+        <translation>Contacts</translation>
+    </message>
     <message id="id-tile-see-all">
         <location filename="../src/qml/tiles/FavoritesTile.qml"/>
         <source>See all</source>
-        <translation>See all</translation>
+        <translation type="vanished">See all</translation>
     </message>
     <message id="id-tile-add">
         <location filename="../src/qml/tiles/FavoritesTile.qml"/>

@@ -1331,6 +1331,10 @@ Only selected people and apps can reach you.</translation>
         <source>Favorites</source>
         <translation>Favorites</translation>
     </message>
+    <message id="id-tile-contacts">
+        <source>Contacts</source>
+        <translation>Contacts</translation>
+    </message>
     <message id="id-tile-contact">
         <source>Contact</source>
         <translation>Contact</translation>
@@ -2279,7 +2283,7 @@ for %1 seconds to</translation>
     </message>
     <message id="id-tile-see-all">
         <source>See all</source>
-        <translation>See all</translation>
+        <translation type="vanished">See all</translation>
     </message>
     <message id="id-tile-add">
         <source>Add</source>
