@@ -4,6 +4,7 @@
  */
 
 import QtQuick
+import QtQuick.Shapes
 import org.asteroid.controls
 import ".."
 import "../facepicker.js" as FP
@@ -13,8 +14,8 @@ import "tileseditor.js" as TE
  * Edit the tiles as stock Wear OS does (CP3A SysUI managementui, the view the
  * watch face picker is made on, so numbers and motion match FacePicker),
  * opened by a long press on a tile: the tile shrinks into a carousel of the
- * tiles in their order with "Add new" last, the pressed one in the middle; a
- * swipe or the crown moves through them. Every change is kept at once:
+ * tiles in their order, the pressed one in the middle; a swipe or the crown
+ * moves through them. Every change is kept at once:
  * changed(tiles) (HomeOverlays writes dconf /org/asteroidos/ux/tiles).
  *
  * - Open: the whole editor starts at scale 384 / 238 = 1.613, where the
@@ -23,17 +24,23 @@ import "tileseditor.js" as TE
  *   stay hidden for 166 ms, then fade in over 100 ms (gap tiles-framework-08).
  * - Cards: 238 px preview in a 4 px #202124 ring, 278 px apart, side cards
  *   fade by 1 - 0.5 x distance / width and are not scaled (-09); the tile's
- *   name curves along the top edge, 30 px, at most 90 degrees (-10).
+ *   name curves along the top edge, 30 px, at most 90 degrees, in onSurface
+ *   (-10; the Wear OS 6 emulator's S13-b, as the face picker's D60-31).
  * - Remove: a 64 px round button (surfaceContainer, a 32 x 4 px minus) at the
  *   top-right of every card, hidden while the cards scroll; no swipe removal
- *   (-11). Under the cards two 64 px arrows move the middle tile left or
- *   right, wrapping round the ends, hidden with one tile (-12); between them
- *   a slot for an "Edit widget" chip, shown only for a tile whose registry
- *   entry has `configure` (-13).
- * - Add new: a 120 px primary circle with a 28 px plus (-14). It opens the
- *   add list (TileAddList, -18); an added tile goes last and is centred
- *   (-15) with its preview flying from its cell (-19). With no tile left to
- *   add, or 15 on the carousel, a one button dialog says so (-16, -17).
+ *   (-11). Under the cards two 64 px surfaceContainer discs with the filled
+ *   primary carets of the face picker (D60-30) move the middle tile left or
+ *   right, wrapping round the ends, hidden with one tile (-12); between them,
+ *   always laid out (x 140-243, y 310-373), the slot of the Add pill or, for
+ *   a tile whose registry entry has `configure`, the "Edit widget" chip (-13).
+ * - Add: the Add pill, a 104 x 64 px primary pill with a 28 px onPrimary
+ *   plus, always there under a tile (S13-b; N61-30). It opens the add list
+ *   (TileAddList, -18); an added tile goes last and is centred (-15) with
+ *   its preview flying from its cell (-19). With no tile left to add, or 15
+ *   on the carousel, a one button dialog says so (-16, -17). The carousel
+ *   ends in CP3A's "Add new" card (a 120 px primary circle with a 28 px
+ *   plus, -14) only while no card shows the pill: no tile, or every tile
+ *   with settings (TE.needsAddCard).
  * - A tap on a card ends the editing on it, a side card first scrolls to
  *   the middle and waits 200 ms (-22). 15 s without a touch end it on the
  *   middle tile (-20). The crown cancels to the watch face (-21): the
@@ -84,8 +91,8 @@ Item {
     readonly property real pivotY: height / 2 - FP.OFFSET_Y_DP * 2 * u
     readonly property real previewCy: pivotY + (height / 2 - pivotY) / FP.openScale(width)
 
-    // the carousel's model: the tiles, then "Add new" (a ListModel, so a
-    // removal, a move or an addition keeps the view where it is)
+    // the carousel's model: the tiles, then "Add new" while TE.needsAddCard (a
+    // ListModel, so a removal, a move or an addition keeps the view where it is)
     ListModel { id: cards }
     readonly property alias carousel: carousel
     readonly property alias addList: addList
@@ -97,6 +104,8 @@ Item {
     readonly property string centredId: onTile ? shown[centred] : ""
     readonly property bool centredConfigurable: onTile && registry[centredId] !== undefined && !!registry[centredId].configure
     readonly property bool arrowsOn: onTile && TE.arrowsVisible(shown.length)
+    // the bottom row's slot holds the Add pill under a tile without settings
+    readonly property bool addPillOn: onTile && !centredConfigurable
     // while the cards scroll: no delete buttons
     readonly property bool scrolling: carousel.moving || carousel.flicking
 
@@ -109,7 +118,7 @@ Item {
         cards.clear()
         for (var i = 0; i < shown.length; i++)
             cards.append({ tileId: shown[i] })
-        cards.append({ tileId: "" })
+        syncAddCard()
         addList.closeNow()
         dialog.close()
         closing = false
@@ -121,7 +130,7 @@ Item {
         flyer.visible = false
         bottomRow.shift = 0
         bottomRow.opacity = 1
-        carousel.currentIndex = Math.max(0, Math.min(at, shown.length))
+        carousel.currentIndex = Math.max(0, Math.min(at, cards.count - 1))
         carousel.positionViewAtIndex(carousel.currentIndex, ListView.Center)
         zoom = 0
         namesOpacity = 0
@@ -200,7 +209,25 @@ Item {
 
     function save(list) {
         shown = list
+        syncAddCard()
         changed(list.slice())
+    }
+
+    // which tiles have settings (their card shows the Edit chip in the pill's slot)
+    function configurableFlags(list) {
+        return list.map(function (id) { return registry[id] !== undefined && !!registry[id].configure })
+    }
+    // the "Add new" card at the carousel's end, there only while TE.needsAddCard
+    function syncAddCard() {
+        var has = cards.count > 0 && cards.get(cards.count - 1).tileId === ""
+        var want = TE.needsAddCard(configurableFlags(shown))
+        if (want && !has) {
+            cards.append({ tileId: "" })
+        } else if (!want && has) {
+            cards.remove(cards.count - 1)
+            if (carousel.currentIndex >= cards.count)
+                carousel.currentIndex = Math.max(0, cards.count - 1)
+        }
     }
 
     // an arrow: the middle tile swaps with its neighbour, the first moved
@@ -232,7 +259,7 @@ Item {
         s.splice(i, 1)
         cards.remove(i)
         save(s)
-        carousel.currentIndex = TE.indexAfterRemove(cur, i, s.length)
+        carousel.currentIndex = Math.min(TE.indexAfterRemove(cur, i, s.length), cards.count - 1)
         return true
     }
 
@@ -376,7 +403,7 @@ Item {
                             maxSweep: FP.NAME_SWEEP
                             topMargin: Math.round(editor.height * FP.NAME_TOP_PERCENT / 100)
                             shadow: FP.NAME_SHADOW
-                            color: Theme.color.onBackground
+                            color: Theme.color.onSurface
                             opacity: editor.namesOpacity
                         }
 
@@ -540,7 +567,7 @@ Item {
                     }
                 }
 
-                // the bottom row: arrow, the chip's slot, arrow
+                // the bottom row: arrow, the slot (Add pill or Edit chip), arrow
                 Item {
                     id: bottomRow
                     objectName: "eosTilesRow"
@@ -549,7 +576,7 @@ Item {
                     property real shift: 0
                     y: shift
 
-                    readonly property var geo: TE.row(editor.width, editor.height, editor.centredConfigurable, editor.arrowsOn)
+                    readonly property var geo: TE.row(editor.width, editor.height, true, editor.arrowsOn)
 
                     Rectangle {
                         id: leftArrow
@@ -568,12 +595,20 @@ Item {
                         Accessible.role: Accessible.Button
                         //% "Move widget left"
                         Accessible.name: qsTrId("id-tiles-move-left") + localeManager.changesObserver
-                        Icon {
+                        // the face picker's filled caret (CP3A quantum_gm_ic_arrow_left_vd_theme_24, D60-30)
+                        Shape {
+                            objectName: "eosTilesLeftGlyph"
                             anchors.centerIn: parent
-                            name: "ios-arrow-back"
-                            color: Theme.color.primary
-                            width: parent.width * 0.6
-                            height: width
+                            width: FP.GLYPH_BOX_DP
+                            height: FP.GLYPH_BOX_DP
+                            scale: 2 * editor.u
+                            preferredRendererType: Shape.CurveRenderer
+                            ShapePath {
+                                fillColor: Theme.color.primary
+                                strokeColor: "transparent"
+                                strokeWidth: -1
+                                PathSvg { path: FP.GLYPH_ARROW_LEFT }
+                            }
                         }
                         MouseArea {
                             objectName: "eosTilesLeftArea"
@@ -585,7 +620,54 @@ Item {
                             onClicked: editor.moveCentred(-1)
                         }
                     }
-                    // the chip's slot: always there, invisible unless the middle tile has settings
+                    // the Add pill (S13-b: #DBE2F9, x 140-243, y 310-373, a 28 px #383F51 plus): under every
+                    // tile without settings; a tap opens the add list as CP3A's "Add new" card did
+                    Rectangle {
+                        id: addPill
+                        objectName: "eosTilesAddPill"
+                        width: bottomRow.geo.chip.w
+                        height: bottomRow.geo.chip.h
+                        radius: height / 2
+                        x: bottomRow.geo.chip.x
+                        y: bottomRow.geo.chip.y
+                        opacity: editor.addPillOn ? 1 : 0
+                        visible: opacity > 0
+                        color: Theme.color.primary
+                        Behavior on opacity { NumberAnimation { duration: Motion.duration(FP.BUTTONS_FADE_MS) } }
+                        Accessible.role: Accessible.Button
+                        Accessible.name: qsTrId("id-tiles-add-widgets") + localeManager.changesObserver
+                        Rectangle {
+                            objectName: "eosTilesAddPillH"
+                            anchors.centerIn: parent
+                            width: TE.PLUS * editor.u
+                            height: TE.PLUS_BAR * editor.u
+                            color: Theme.color.onPrimary
+                        }
+                        Rectangle {
+                            objectName: "eosTilesAddPillV"
+                            anchors.centerIn: parent
+                            width: TE.PLUS_BAR * editor.u
+                            height: TE.PLUS * editor.u
+                            color: Theme.color.onPrimary
+                        }
+                        MouseArea {
+                            id: addPillArea
+                            objectName: "eosTilesAddPillArea"
+                            anchors.fill: parent
+                            enabled: editor.addPillOn && editor.zoom >= 1 && !editor.closing
+                            onClicked: {
+                                tapTimer.stop()
+                                editor.addTapped()
+                            }
+                        }
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            color: "#000000"
+                            opacity: addPillArea.pressed ? 0.25 : 0
+                        }
+                    }
+                    // the Edit chip in the same slot, for a tile with settings
                     Rectangle {
                         id: chip
                         objectName: "eosTilesChip"
@@ -639,12 +721,19 @@ Item {
                         Accessible.role: Accessible.Button
                         //% "Move widget right"
                         Accessible.name: qsTrId("id-tiles-move-right") + localeManager.changesObserver
-                        Icon {
+                        Shape {
+                            objectName: "eosTilesRightGlyph"
                             anchors.centerIn: parent
-                            name: "ios-arrow-forward"
-                            color: Theme.color.primary
-                            width: parent.width * 0.6
-                            height: width
+                            width: FP.GLYPH_BOX_DP
+                            height: FP.GLYPH_BOX_DP
+                            scale: 2 * editor.u
+                            preferredRendererType: Shape.CurveRenderer
+                            ShapePath {
+                                fillColor: Theme.color.primary
+                                strokeColor: "transparent"
+                                strokeWidth: -1
+                                PathSvg { path: FP.GLYPH_ARROW_RIGHT }
+                            }
                         }
                         MouseArea {
                             objectName: "eosTilesRightArea"

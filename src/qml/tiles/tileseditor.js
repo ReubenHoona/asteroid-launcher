@@ -81,7 +81,20 @@ function addIndex(n) {
     return n
 }
 
-/* what a tap on "Add new" does: nothing left to add ("none": "All widgets
+/* The carousel ends in an "Add new" card only while no card would show the
+ * Add pill of the bottom row: with no tile, or when every tile has settings
+ * (its card shows the Edit chip in that slot). The Wear OS 6 emulator's
+ * editor has no such card (S13-b). `configurable`: one flag per tile. */
+function needsAddCard(configurable) {
+    if (configurable.length === 0)
+        return true
+    for (var i = 0; i < configurable.length; i++)
+        if (!configurable[i])
+            return false
+    return true
+}
+
+/* what a tap on "Add new" (the Add pill) does: nothing left to add ("none": "All widgets
  * in use", jif.java:521-524), at the limit ("full": "Carousel is full",
  * jif.java:526-529), else "list" opens the add list. `hiddenCount` is the
  * number of tiles not in the carousel. */
@@ -126,10 +139,10 @@ function idleAction() {
     return "close"
 }
 
-/* The bottom row, px, for a screen of width w x h. `chip`: the middle tile has
- * an edit chip, which the arrows then make room for. The chip's slot is always
- * the middle one; without a tile that has settings it is invisible and the
- * arrows are 30 px apart. Returns the arrows' and the chip's x, y. */
+/* The bottom row, px, for a screen of width w x h. `chip`: the slot in the
+ * middle is laid out (the editor always does: it holds the Add pill, or the
+ * Edit chip of a tile with settings, S13-b), the arrows beside it; without it
+ * the arrows are 30 px apart. Returns the arrows' and the slot's x, y. */
 function row(w, h, chip, arrows) {
     var u = w / 384
     var b = BUTTON * u
