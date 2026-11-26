@@ -84,8 +84,11 @@ function clampVelocity(v) {
 
 /* The spring of a move to open or closed (ihu.b, the jadx fallback decode in
  * audit/motion-transitions/work/ihu.fallback.java):
- *   opening: damping 0.75, stiffness 500
- *   closing: damping 1.0,  stiffness 500, ends at 98 %
+ *   opening: damping 0.75, stiffness 500 (the Wear OS 6 emulator's open: M06
+ *     zeta 0.80 k 488, M07 zeta 0.77 k 527)
+ *   closing: damping 1.0,  stiffness 500, ends at 98 % (CP3A); only a close
+ *     another gesture asked for still takes it, every other close is a cut
+ *     (closeCuts below)
  *   a move another gesture asked for (REASON.gesture, the heads-up card's
  *   tap): stiffness 200, damping 0.8 opening, 1.0 closing */
 function spring(opening, reason) {
@@ -95,6 +98,29 @@ function spring(opening, reason) {
         dampingRatio: opening ? (gesture ? 0.8 : 0.75) : 1.0,
         stopAt: opening ? 1.0 : CLOSE_SKIP
     }
+}
+
+/* A committed close (the finger let go of a tray that goes back, the crown,
+ * a close without a finger) cuts the tray away in one frame, with no retract
+ * slide: the Wear OS 6 emulator (M06 and M07 close) lets the tray follow the
+ * finger for about 70-100 ms and then shows the face at once, dimmed (0.35
+ * after the stream, 0.18 after quick settings), which comes up to full in
+ * about 100 ms after the stream (98 ms at 10x, 85-100 ms at 1x) or 115 ms
+ * after quick settings (108 ms at 10x, about 115 ms at 1x), on standardAccel
+ * (0.3, 0, 1, 1). Here the dim at the cut is the tray's own background at
+ * that moment (backgroundAlpha), faded to nothing. A close another gesture
+ * asked for (REASON.gesture) keeps its spring. */
+var CLOSE_FADE_STREAM_MS = 100
+var CLOSE_FADE_QS_MS = 115
+var CLOSE_FADE_EASING = [0.3, 0, 1, 1]
+
+function closeCuts(reason) {
+    return reason !== REASON.gesture
+}
+
+/* the fade's length after the tray of a row: 1 the stream, -1 quick settings */
+function closeFadeMs(row) {
+    return row > 0 ? CLOSE_FADE_STREAM_MS : CLOSE_FADE_QS_MS
 }
 
 /* The opening direction of a tray as the sign of its coordinate on the

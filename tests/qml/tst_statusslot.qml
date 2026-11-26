@@ -32,7 +32,9 @@ Item {
         property int currentHorizontalPos: 0
         property int currentVerticalPos: 0
         property real normalizedHorOffset: 0
-        property real normalizedVerOffset: 0 }
+        property real normalizedVerOffset: 0
+        // the dim a tray leaves on the face after its close cut (N61-24), fading to 0
+        property real trayCloseDim: 0 }
     QtObject { id: desktop
         property bool wearLayout: true
         property bool displayAwake: true
@@ -138,7 +140,7 @@ Item {
             modes.bedtime = false; modes.theater = false; modes.batterySaver = false; modes.doNotDisturb = false
             modes.batteryLevel = 57; modes.autoSaverOn = false
             mceChargerType.type = MceChargerType.None
-            grid.normalizedHorOffset = 0; grid.normalizedVerOffset = 0
+            grid.normalizedHorOffset = 0; grid.normalizedVerOffset = 0; grid.trayCloseDim = 0
             grid.currentHorizontalPos = 0; grid.currentVerticalPos = 0
             ongoingRegistry.top = ({}); ongoingRegistry.published = ({}); ongoingRegistry.synced = []
             ongoingRegistry.activatedKeys = []; ongoingRegistry.touchLocked = false
@@ -285,6 +287,13 @@ Item {
             compare(part.opacity, 0)
             compare(part.visible, false)
             grid.normalizedVerOffset = 0
+            compare(part.opacity, 1)
+            // a tray's close cut (N61-24): the row comes up with the face from the tray's dim
+            grid.trayCloseDim = 0.6
+            near(part.opacity, 0.4, 1e-9, "under the dim of the cut")
+            grid.trayCloseDim = 1
+            compare(part.opacity, 0)
+            grid.trayCloseDim = 0
             compare(part.opacity, 1)
             // always-on: the row is static, changes at once
             desktop.displayAmbient = true

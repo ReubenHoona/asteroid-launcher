@@ -46,8 +46,10 @@ import "pager.js" as Pager
  *    30 dp past the tray's edge is caught up in 300 ms
  *  - release: |v| > 1000 px/s decides by direction, else a closed tray opens
  *    past 33 % and an open one stays open from 67 %
- *  - then a spring from the release speed (at most 2000 px/s): open
- *    0.75/500, close 1.0/500 ending at 98 %
+ *  - then, to open, a spring from the release speed (at most 2000 px/s),
+ *    0.75/500; a close is a cut: the tray is gone in one frame and its
+ *    background, the face's dim, fades out in 100 ms (the stream) or 115 ms
+ *    (quick settings) on standardAccel (the Wear OS 6 emulator's M06, M07)
  *  - its own black background: alpha 0 below 25 % out, opaque at 50 %
  *  - the crown on the face opens the stream (forward) or quick settings
  *    (backward) after 150 px of rotation (RotaryInput's rotaryExit); a list
@@ -592,8 +594,10 @@ GestureFilterArea {
             z: 1
             radius: width / 2
             color: "#000000"
-            visible: !!tray && tray.visible && panelsGrid.trayMode && opacity > 0
-            opacity: TrayRules.backgroundAlpha(panelsGrid.trayFraction(row))
+            // after a cut the tray is hidden at once and its background fades out on its own
+            readonly property real cutDim: row === panelsGrid._cutRow ? panelsGrid.trayCloseDim : 0
+            visible: !!tray && (tray.visible || cutDim > 0) && panelsGrid.trayMode && opacity > 0
+            opacity: Math.max(TrayRules.backgroundAlpha(panelsGrid.trayFraction(row)), cutDim)
         }
     }
     function attachTray(item, row) {
@@ -702,16 +706,61 @@ GestureFilterArea {
 
     /* Spring the tray of currentVerticalPos out (or the open one in when it
      * is 0) from the content's y at velocity (px/s, + = down; capped at
-     * 2000): open 0.75/500, close 1.0/500 ending at 98 %, a move asked for by
-     * a gesture 0.8/200 (TrayRules.spring) */
+     * 2000): open 0.75/500, a move asked for by a gesture 0.8/200 (1.0/200
+     * closing; TrayRules.spring). Any other close is a cut (cutTray). */
     function settleTray(reason, velocity) {
         var open = currentVerticalPos !== 0
+        if (!open && TrayRules.closeCuts(reason)) {
+            cutTray()
+            return
+        }
         var sp = TrayRules.spring(open, reason)
         traySpring.stiffness = sp.stiffness
         traySpring.dampingRatio = sp.dampingRatio
         traySpring.stopAtFraction = sp.stopAt
         traySpring.animateTo(open ? TrayRules.sign(currentVerticalPos) * panelHeight : 0,
                              TrayRules.clampVelocity(velocity))
+    }
+
+    /* -- the close cut (N61-24; the Wear OS 6 emulator's M06, M07 close) --
+     *
+     * The tray that is out goes in one frame: the content is back on the
+     * face and the tray hidden, with no retract slide. Its black background,
+     * which dims the face, stays and fades from what it was at the cut to
+     * nothing: 100 ms after the stream, 115 ms after quick settings, on
+     * standardAccel (0.3, 0, 1, 1). The face's overlay row reads trayCloseDim
+     * (it is drawn over the grid). A finger that takes a tray meanwhile
+     * finds it closed; the fade runs on under it. */
+    property real trayCloseDim: 0
+    property int _cutRow: 0
+    NumberAnimation {
+        id: closeFade
+        target: panelsGrid
+        property: "trayCloseDim"
+        to: 0
+        easing.type: Easing.BezierSpline
+        easing.bezierCurve: TrayRules.CLOSE_FADE_EASING.concat([1, 1])
+    }
+    // its settings and state, for the tests
+    readonly property QtObject trayCloseFade: closeFade
+
+    function cutTray() {
+        traySpring.stop()
+        var row = content.y > 0 ? -1 : content.y < 0 ? 1 : 0
+        if (row === 0)
+            return
+        var dim = TrayRules.backgroundAlpha(trayFraction(row))
+        closeFade.stop()
+        _cutRow = row
+        trayCloseDim = dim
+        contentY = 0
+        var rec = cellAt(0, row)
+        if (rec !== undefined && rec.item)
+            rec.item.visible = false
+        if (dim > 0) {
+            closeFade.duration = Motion.duration(TrayRules.closeFadeMs(row))
+            closeFade.restart()
+        }
     }
 
     /* -- opening and closing a tray without a finger -- */

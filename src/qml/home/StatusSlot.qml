@@ -94,14 +94,17 @@ Item {
         panelsGrid: grid
     }
 
-    // gone as the face is swiped away (the dot's rule: a panel over the face covers them)
+    // gone as the face is swiped away (the dot's rule: a panel over the face covers them); after
+    // a tray's close cut it comes up with the face from the tray's dim (PanelsGrid.trayCloseDim, N61-24)
     Item {
         id: overlayPart
         objectName: "overlayPart"
         anchors.fill: parent
         readonly property real offset: typeof grid !== "undefined" && grid
                                        ? Math.abs(grid.normalizedHorOffset) + Math.abs(grid.normalizedVerOffset) : 0
-        opacity: Math.max(0, 1 - 3 * offset)
+        readonly property real closeDim: typeof grid !== "undefined" && grid && grid.trayCloseDim !== undefined
+                                         ? grid.trayCloseDim : 0
+        opacity: Math.max(0, 1 - 3 * offset) * (1 - closeDim)
         visible: opacity > 0
 
         StatusSources { id: statusSources }
