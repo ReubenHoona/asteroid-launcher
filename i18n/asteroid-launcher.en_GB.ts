@@ -624,6 +624,11 @@
         <source>Timer</source>
         <translation>Timer</translation>
     </message>
+    <message id="id-tile-new">
+        <location filename="../src/qml/tiles/TimerTile.qml"/>
+        <source>New</source>
+        <translation>New</translation>
+    </message>
     <message id="id-tile-tomorrow">
         <source>Tomorrow</source>
         <translation>Tomorrow</translation>

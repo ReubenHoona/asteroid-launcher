@@ -755,6 +755,10 @@ Only selected people and apps can reach you.</translation>
         <source>Timer</source>
         <translation>Timer</translation>
     </message>
+    <message id="id-tile-new">
+        <source>New</source>
+        <translation>New</translation>
+    </message>
     <message id="id-comp-stopwatch">
         <source>Stopwatch</source>
         <translation>Stopwatch</translation>

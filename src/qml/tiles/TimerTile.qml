@@ -11,19 +11,21 @@ import "clocklogic.js" as Clock
 
 /*
  * The Timer tile, as stock Clock's (ezv.java:90-125, dwf.java:109-258,
- * ibk.java): start a timer in one tap, or the running one.
- *  - idle: no title (a screen under 225 dp has none), buttons for the
- *    user's saved timers, shortest first (dconf /org/asteroidos/timer/recents,
- *    the Timer app's list; 5, 10, 15, 30 min when it has none): fewer than
- *    four in one row, four as 2 x 2, five as 3 + 2 (2 + 3 when a label of
- *    the first three is wide). Each button is a filled stadium (primary /
- *    onPrimary) with the number over the unit ("Min", "Hr", "Sec"); a tap
- *    starts that timer. The green edge button "+" (Add timer) opens the
- *    Timer app's picker.
+ * ibk.java) in the Wear OS 6 look (the emulator's S13): start a timer in
+ * one tap, or the running one. An expressive tile (TileBase): no app icon
+ * at rest, it fades in only while the pager moves (M08).
+ *  - idle: no title, a circle for each of the user's saved timers, shortest
+ *    first (dconf /org/asteroidos/timer/recents, the Timer app's list; 5,
+ *    10, 15, 20, 30 min when it has none), as CircleGrid lays them out (two
+ *    over three). Each circle is #182B2F with the number alone in white
+ *    titleMedium ('05', '10', '1:30' for 90 min, '0:30' for 30 s; the unit
+ *    is for the screen reader); a tap starts that timer. The cyan pill
+ *    "New" (#78D9EC, #202124 label) opens the Timer app's picker.
  *  - running or paused: the title "Timer", MIN margins (3 %), one stadium
  *    data card with a ring of the time left (static while paused), the time
- *    left in tabular figures over the total, and the text edge button
- *    "Open". No Cancel on the tile, no next-alarm line.
+ *    left in tabular figures over the total, and the cyan pill "Open". No
+ *    Cancel on the tile, no next-alarm line.
+ * The colours are the Clock tiles' own, not the theme's. N61-27
  * The timer is a countdown alarm of timed, the same the Timer app sets, so
  * the alarm presenter rings it and the app shows it.
  *
@@ -39,15 +41,23 @@ TileBase {
     //% "Timer"
     title: tile.mode === "idle" ? "" : qsTrId("id-tile-timer") + localeManager.changesObserver
     backgroundTap: false
+    expressive: true
     sideMarginFraction: tile.mode === "idle" ? 0.052 : 0.03
-    chipColor: Theme.color.tertiary
-    chipContentColor: Theme.color.onTertiary
-    chipIcon: tile.mode === "idle" ? "ios-add" : ""
-    //% "Open"
-    chipText: tile.mode === "idle" ? "" : qsTrId("id-tile-open") + localeManager.changesObserver
-    onChipClicked: tile.openApp(tile.mode === "idle" ? "picker" : "")
+    pillColor: tile.cyan
+    pillContentColor: tile.ink
+    pillText: (tile.mode === "idle"
+               //% "New"
+               ? qsTrId("id-tile-new")
+               //% "Open"
+               : qsTrId("id-tile-open")) + localeManager.changesObserver
+    onPillClicked: tile.openApp(tile.mode === "idle" ? "picker" : "")
 
-    ConfigurationValue { id: recents; key: "/org/asteroidos/timer/recents"; defaultValue: ["300", "600", "900", "1800"] }
+    // the Clock tiles' colours (S13): circle, pill and its label
+    readonly property color circle: "#182B2F"
+    readonly property color cyan: "#78D9EC"
+    readonly property color ink: "#202124"
+
+    ConfigurationValue { id: recents; key: "/org/asteroidos/timer/recents"; defaultValue: Clock.recentsToStore(Clock.DEFAULT_RECENTS) }
     ConfigurationValue { id: lastDuration; key: "/org/asteroidos/timer/last-timer-duration"; defaultValue: 300 }
     ConfigurationValue { id: openRequest; key: "/org/asteroidos/timer/open"; defaultValue: "" }
 
@@ -70,7 +80,7 @@ TileBase {
     onAwakeChanged: if (awake) update()
     Component.onCompleted: findCountdown()
 
-    // the buttons: the saved durations (<= 5), each with its label
+    // the circles: the saved durations (<= 5); the units for the screen reader's name of each
     readonly property var units: ({
         //% "Hr"
         hour: qsTrId("id-tile-hr") + localeManager.changesObserver,
@@ -81,8 +91,6 @@ TileBase {
         sep: ":"
     })
     readonly property var durations: Clock.buttons(recents.value)
-    readonly property var rowCounts: Clock.rows(durations, units)
-    readonly property real gap: Theme.dp(4)
 
     function findCountdown() {
         var now = Date.now()
@@ -148,69 +156,36 @@ TileBase {
         }
     }
 
-    // ---- idle: the buttons ------------------------------------------------
-    Item {
+    // ---- idle: the circles ------------------------------------------------
+    CircleGrid {
         id: buttonGrid
         objectName: "timerGrid"
         visible: tile.mode === "idle"
         anchors.fill: parent
+        model: tile.durations
+        delegate: TileCard {
+            id: button
+            objectName: "timerButton" + index
+            readonly property int seconds: modelData
+            readonly property var parts: Clock.label(seconds, tile.units)
+            containerColor: tile.circle
+            contentColor: "#FFFFFF"
+            accessibleName: parts.number + " " + parts.unit
+            preview: tile.preview
+            onClicked: tile.start(seconds)
 
-        readonly property int rowCount: tile.rowCounts.length
-        // one row is a standard button high (52 dp); two fill the slot
-        readonly property real rowHeight: rowCount <= 1 ? Math.min(Theme.dp(52), height)
-                                                        : (height - (rowCount - 1) * tile.gap) / rowCount
-
-        Repeater {
-            model: tile.durations
-            delegate: TileCard {
-                id: button
-                objectName: "timerButton" + index
-                readonly property int seconds: modelData
-                readonly property var rowInfo: {
-                    var counts = tile.rowCounts
-                    var left = index
-                    for (var r = 0; r < counts.length; r++) {
-                        if (left < counts[r])
-                            return { row: r, col: left, n: counts[r] }
-                        left -= counts[r]
-                    }
-                    return { row: 0, col: 0, n: 1 }
-                }
-                readonly property var parts: Clock.label(seconds, tile.units)
-                width: (buttonGrid.width - (rowInfo.n - 1) * tile.gap) / rowInfo.n
-                height: buttonGrid.rowHeight
-                x: rowInfo.col * (width + tile.gap)
-                y: (buttonGrid.height - (buttonGrid.rowCount * buttonGrid.rowHeight + (buttonGrid.rowCount - 1) * tile.gap)) / 2
-                   + rowInfo.row * (buttonGrid.rowHeight + tile.gap)
-                containerColor: Theme.color.primary
-                contentColor: Theme.color.onPrimary
-                accessibleName: parts.number + " " + parts.unit
-                onClicked: tile.start(seconds)
-
-                Column {
-                    anchors.centerIn: parent
-                    width: parent.width - 2 * Theme.dp(4)
-                    Label {
-                        objectName: "timerNumber"
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: button.parts.number
-                        role: "displaySmall"
-                        font.weight: Font.Medium
-                        font.features: Theme.tabularNumerals
-                        color: Theme.color.onPrimary
-                        maximumLineCount: 1
-                    }
-                    Label {
-                        objectName: "timerUnit"
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: button.parts.unit
-                        role: "labelSmall"
-                        color: Theme.color.onPrimary
-                        maximumLineCount: 1
-                    }
-                }
+            // the number alone (S13: '05', 22 px digits)
+            Label {
+                objectName: "timerNumber"
+                anchors.centerIn: parent
+                width: parent.width - 2 * Theme.dp(4)
+                horizontalAlignment: Text.AlignHCenter
+                text: Clock.circleText(button.seconds)
+                role: "titleMedium"
+                font.weight: Font.Medium
+                font.features: Theme.tabularNumerals
+                color: "#FFFFFF"
+                maximumLineCount: 1
             }
         }
     }

@@ -1,0 +1,3 @@
+module Nemo.Alarms
+singleton AlarmsMock 1.0 AlarmsMock.qml
+AlarmsModel 1.0 AlarmsModel.qml

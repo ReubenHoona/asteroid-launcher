@@ -8,10 +8,11 @@
  * The rules of the Alarm and Timer tiles (W3-launcher-tiles-content-a), as
  * stock CP3A's Clock tiles (com.google.android.deskclock, decompiled): which
  * alarm the tile shows and in which state (hnv.java:44, 63-104, 124-150),
- * the repeat text (goh.java:1620-1655), the saved timers and how they are
- * laid out (ibk.java, ezv.java:96-115) and the label of a timer button
- * (ibr.java:67-73). Pure functions: no timers, no D-Bus, no clock of their
- * own (the caller says what time it is).
+ * the repeat text (goh.java:1620-1655), the saved timers (ibk.java) and the
+ * label of a timer button (ibr.java:67-73); the Wear OS 6 look adds the
+ * Timer tile's circle numbers (the emulator's S13; N61-27). Pure functions:
+ * no timers, no D-Bus, no clock of their own (the caller says what time it
+ * is).
  */
 
 // timed's day letters, Monday first (the order the alarm clock stores them in)
@@ -128,10 +129,11 @@ function clockDate(hour, minute) {
 
 /* ---- timers ---------------------------------------------------------- */
 
-// ibk.java:67 with ibj.java:24: the saved timers a screen under 225 dp starts
-// with when the user has none: 5, 10, 15, 30 min (the recents of the Timer
-// app, which also has 1 min, once the app has written its list)
-var DEFAULT_RECENTS = [300, 600, 900, 1800]
+// the saved timers the tile starts with when the user has none: 5, 10, 15,
+// 20, 30 min, the Wear OS 6 emulator's Timer tile out of the box (S13; CP3A,
+// ibk.java:67 with ibj.java:24, had 5, 10, 15, 30). The Timer app's own list
+// wins once the app has written it
+var DEFAULT_RECENTS = [300, 600, 900, 1200, 1800]
 // ezv.java:96-115 lays out at most five buttons
 var MAX_BUTTONS = 5
 // the Timer app's picker has hours 0-23 (asteroid-timer TimerLogic.js)
@@ -181,11 +183,11 @@ function buttons(saved) {
 }
 
 /* The label of a timer button (ibr.java:67-73, duration_separator ':'): the
- * number over the unit. Whole hours 'Hr', whole minutes 'Min', seconds
- * 'Sec'; a mixed duration writes the parts with ':' and joins the units the
- * same way. units: { hour: "Hr", minute: "Min", second: "Sec", sep: ":" }
- * Returns { number, unit, wide } (wide: the number is longer than 3
- * characters, which the layout counts). */
+ * number and the unit, the screen reader's name of a circle. Whole hours
+ * 'Hr', whole minutes 'Min', seconds 'Sec'; a mixed duration writes the
+ * parts with ':' and joins the units the same way.
+ * units: { hour: "Hr", minute: "Min", second: "Sec", sep: ":" }
+ * Returns { number, unit }. */
 function label(seconds, units) {
     var h = Math.floor(seconds / 3600)
     var m = Math.floor(seconds / 60) % 60
@@ -216,25 +218,23 @@ function label(seconds, units) {
         number = String(s)
         unit = units.second
     }
-    return { number: number, unit: unit, wide: number.length > 3 }
+    return { number: number, unit: unit }
 }
 
-/* How many buttons go in each row (ezv.java:96-115, ibr.e): fewer than four
- * in one row, four as 2 x 2, five as 3 + 2 (2 + 3 when one of the first
- * three has a wide label). durations: the buttons' seconds (<= 5);
- * units as for label(). */
-function rows(durations, units) {
-    var n = durations.length
-    if (n === 0)
-        return []
-    if (n < 4)
-        return [n]
-    if (n === 4)
-        return [2, 2]
-    for (var i = 0; i < 3; i++)
-        if (label(durations[i], units).wide)
-            return [2, 3]
-    return [3, 2]
+/* The number on a Timer tile circle (S13: '05', '10' ... '30', no unit):
+ * whole minutes under an hour zero-padded to two digits, minutes and
+ * seconds 'M:SS' (under a minute '0:30'), from an hour 'H:MM' ('H:MM:SS'
+ * with seconds). */
+function circleText(seconds) {
+    var h = Math.floor(seconds / 3600)
+    var m = Math.floor(seconds / 60) % 60
+    var s = seconds % 60
+    var p2 = function (n) { return (n < 10 ? "0" : "") + n }
+    if (h > 0)
+        return h + ":" + p2(m) + (s > 0 ? ":" + p2(s) : "")
+    if (s > 0)
+        return m + ":" + p2(s)
+    return p2(m)
 }
 
 /* ---- the running timer (what a Nemo countdown alarm is) ---------------- */

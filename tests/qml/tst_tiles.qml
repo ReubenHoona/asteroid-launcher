@@ -19,12 +19,16 @@
 // content from 52 px, a compact pill 104 x 64 px at y 296 for 'New', no edge button, no bottom text, the app
 // icon fading: m3Layout false) and CircleGrid (52 dp circles 8 dp apart, two over three), measured on the
 // grabbed pixels where the emulator gave a pixel value.
+// N61-27: the Timer tile (S13): five #182B2F circles '05' ... '30' and the cyan pill 'New'.
 //
 // Shots go to /tmp/wo06-shots. Run by a qmltestrunner harness under qemu-aarch64 on the image rootfs with the
 // tiles staged as module LauncherQml at their resource paths (motion-wt/wo06/run.sh; newlook-wt/l4h/run.sh tiles).
 import QtQuick
 import QtTest
 import org.asteroid.controls
+import org.nemomobile.lipstick
+import Nemo.Alarms
+import LauncherTest
 import LauncherQml
 
 Item {
@@ -33,7 +37,12 @@ Item {
 
     // the launcher's context properties (lipstick localemanager.cpp, MainScreen's desktop)
     QtObject { id: localeManager; property string changesObserver: "" }
-    QtObject { id: desktop; function openTilesEditor(addList) {} }
+    QtObject {
+        id: desktop
+        property var launched: []
+        function openTilesEditor(addList) {}
+        function launchByName(name, origin) { launched = launched.concat([name]) }
+    }
 
     Rectangle { anchors.fill: parent; color: "black" }
 
@@ -56,6 +65,7 @@ Item {
             }
         }
     }
+    Component { id: timerComp; TimerTile { width: 384; height: 384 } }
     Loader { id: stepsLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/StepsTile.qml") }
     Loader { id: quickAddLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/QuickAddTile.qml") }
 
@@ -432,6 +442,124 @@ Item {
             waitForRendering(item)
             verify(g.itemAt(4).visible)
             verify(!g.itemAt(5).visible)
+        }
+    }
+
+    TestCase {
+        name: "ExpressiveTiles"
+        when: windowShown
+
+        function cleanup() {
+            AlarmsMock.alarms = []
+            Lipstick.compositor = baseCompositor
+            Backend.reset()
+            desktop.launched = []
+        }
+        // the repo mock's compositor, put back after a test that sets the awake one
+        property QtObject baseCompositor: null
+        function initTestCase() {
+            baseCompositor = Lipstick.compositor
+        }
+        function shot(item, name) {
+            item.grabToImage(function (r) { r.saveToFile("/tmp/wo06-shots/" + name + ".png") })
+            wait(50)
+        }
+        function near(img, x, y, rgb, tol, msg) {
+            var c = img.pixel(x, y)
+            var want = Qt.color(rgb)
+            var ok = Math.abs(c.r - want.r) * 255 <= tol && Math.abs(c.g - want.g) * 255 <= tol && Math.abs(c.b - want.b) * 255 <= tol
+            verify(ok, (msg || "") + " pixel " + x + "," + y + " is " + c + ", not " + rgb)
+        }
+        // the first and last rows in x0..x1 (every 2nd column) and y0..y1 with a pixel brighter than `level` (0..1)
+        function inkRows(img, x0, x1, y0, y1, level) {
+            var first = -1, last = -1
+            for (var y = y0; y <= y1; y++) {
+                for (var x = x0; x <= x1; x += 2) {
+                    var c = img.pixel(x, y)
+                    if (Math.max(c.r, c.g, c.b) > level) {
+                        if (first < 0)
+                            first = y
+                        last = y
+                        break
+                    }
+                }
+            }
+            return { first: first, last: last }
+        }
+        function centre(tile, it) {
+            return it.mapToItem(tile, it.width / 2, it.height / 2)
+        }
+        function col(c) {
+            return String(Qt.color(c))
+        }
+        readonly property var fiveCentres: [[132, 104], [252, 104], [72, 224], [192, 224], [312, 224]]
+
+        // ---- N61-27: the Timer tile
+
+        function test_n61_27_timer_idle() {
+            var t = createTemporaryObject(timerComp, top, {})
+            verify(t)
+            waitForRendering(t)
+            shot(t, "n61-27-timer")
+            compare(t.mode, "idle")
+            compare(t.title, "")
+            // its app icon fades (D60-22's permanent icon no longer for the Timer tile)
+            compare(t.m3Layout, false)
+            verify(!t.chip.visible)
+            // the presets out of the box: 5, 10, 15, 20, 30 min, two over three
+            var g = findChild(t, "timerGrid")
+            compare(g.count, 5)
+            var texts = ["05", "10", "15", "20", "30"]
+            var img = grabImage(t)
+            for (var i = 0; i < 5; i++) {
+                var b = g.itemAt(i)
+                compare(b.width, 104)
+                var p = centre(t, b)
+                fuzzyCompare(p.x, fiveCentres[i][0], 1)
+                fuzzyCompare(p.y, fiveCentres[i][1], 1)
+                compare(col(b.containerColor), col("#182B2F"))
+                var num = findChild(b, "timerNumber")
+                compare(num.text, texts[i])
+                // titleMedium 16 sp, white: S13's 22 px digits
+                compare(num.font.pixelSize, 32)
+                compare(col(num.color), col("#FFFFFF"))
+                // the unit is the screen reader's
+                compare(b.accessibleName, String(5 * [1, 2, 3, 4, 6][i]) + " Min")
+                // the circle under the number (S13 #182B2F)
+                near(img, fiveCentres[i][0], fiveCentres[i][1] + 36, "#182B2F", 3, "circle " + i)
+            }
+            // the digits of '05' (S13: ink x 117-146, y 92-113)
+            var five = findChild(g.itemAt(0), "timerNumber")
+            var q = five.mapToItem(t, 0, 0)
+            fuzzyCompare(q.y + five.height / 2, 104, 2)
+            // the cyan pill 'New' with a dark label (S13: #78D9EC, x 140-243, y 296-359)
+            compare(t.pill.text, "New")
+            compare(col(t.pillColor), col("#78D9EC"))
+            compare(col(t.pillContentColor), col("#202124"))
+            var c = t.pill.container.mapToItem(t, 0, 0)
+            fuzzyCompare(c.y, 296, 1)
+            fuzzyCompare(c.x + t.pill.container.width / 2, 192, 1)
+            near(img, 148, 327, "#78D9EC", 3, "pill")
+            // the pill asks the Timer app for its picker
+            mouseClick(t, 192, 327)
+            compare(desktop.launched, ["asteroid-timer"])
+            verify(String(Backend.conf["/org/asteroidos/timer/open"]).indexOf("picker@") === 0)
+        }
+
+        function test_n61_27_timer_saved_list() {
+            // the Timer app's saved list wins over the presets
+            Backend.conf["/org/asteroidos/timer/recents"] = ["60", "90", "5400"]
+            var t = createTemporaryObject(timerComp, top, {})
+            verify(t)
+            waitForRendering(t)
+            var g = findChild(t, "timerGrid")
+            compare(g.count, 3)
+            compare(findChild(g.itemAt(0), "timerNumber").text, "01")
+            compare(findChild(g.itemAt(1), "timerNumber").text, "1:30")
+            compare(findChild(g.itemAt(2), "timerNumber").text, "1:30")
+            compare(g.itemAt(2).accessibleName, "1:30 Hr:Min")
+            // three in one row in the middle of the body
+            fuzzyCompare(centre(t, g.itemAt(1)).y, 164, 1)
         }
     }
 }
