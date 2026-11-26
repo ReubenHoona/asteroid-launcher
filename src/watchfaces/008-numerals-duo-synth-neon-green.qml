@@ -8,9 +8,7 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 import QtQuick
-import QtQuick.Shapes
 import Qt5Compat.GraphicalEffects
-import Nemo.Mce
 import org.asteroid.utils
 
 Item {

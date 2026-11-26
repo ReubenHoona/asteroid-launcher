@@ -2,10 +2,8 @@
 // SPDX-FileCopyrightText: 2021 Ed Beroset <github.com/beroset>
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-import Nemo.Mce
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 
 Item {
     property string currentColor: ""
@@ -34,66 +32,6 @@ Item {
         height: Math.min(parent.width, parent.height)
         width: height
         anchors.centerIn: parent
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Repeater {
-                id: segmentedArc
-
-                property real inputValue: batteryChargePercentage.percent / 100
-                property int segmentAmount: 50
-                property int start: 0
-                property int gap: 6
-                property int endFromStart: 360
-                property bool clockwise: true
-                property real arcStrokeWidth: 0.02
-                property real scalefactor: 0.48 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(0.318, 1, 0.051, 0.9)]
-
-                model: segmentAmount
-
-                Shape {
-                    id: segment
-
-                    visible: index === 0 ? true : (index / segmentedArc.segmentAmount) < segmentedArc.inputValue
-
-                    ShapePath {
-                        fillColor: "transparent"
-                        strokeColor: segmentedArc.colorArray[segmentedArc.chargecolor]
-                        strokeWidth: root.height * segmentedArc.arcStrokeWidth
-                        capStyle: ShapePath.FlatCap
-                        joinStyle: ShapePath.MiterJoin
-                        startX: root.width / 2
-                        startY: root.height * (0.5 - segmentedArc.scalefactor)
-
-                        PathAngleArc {
-                            centerX: root.width / 2
-                            centerY: root.height / 2
-                            radiusX: segmentedArc.scalefactor * root.width
-                            radiusY: segmentedArc.scalefactor * root.height
-                            startAngle: -90 + index * (sweepAngle + (segmentedArc.clockwise ? +segmentedArc.gap : -segmentedArc.gap)) + segmentedArc.start
-                            sweepAngle: segmentedArc.clockwise ? (segmentedArc.endFromStart / segmentedArc.segmentAmount) - segmentedArc.gap : -(segmentedArc.endFromStart / segmentedArc.segmentAmount) + segmentedArc.gap
-                            moveToStart: true
-                        }
-
-                    }
-
-                }
-
-            }
-
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
-        }
 
         Rectangle {
             id: circleBack

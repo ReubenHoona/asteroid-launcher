@@ -8,10 +8,8 @@
 // SPDX-FileCopyrightText: 2012 Arto Jalkanen <ajalkane@gmail.com>
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-import Nemo.Mce
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 
 Item {
     anchors.fill: parent
@@ -38,7 +36,7 @@ Item {
             id: scaleContent
 
             anchors.centerIn: parent
-            width: parent.width * (nightstandMode.active ? 0.8 : 1)
+            width: parent.width
             height: width
 
             Canvas {
@@ -49,7 +47,7 @@ Item {
 
                 anchors.fill: parent
                 renderStrategy: Canvas.Cooperative
-                visible: !displayAmbient && !nightstandMode.active
+                visible: !displayAmbient
                 onPaint: {
                     var ctx = getContext("2d");
                     var rot = (wallClock.time.getMinutes() - 15) * 6;
@@ -114,7 +112,7 @@ Item {
                 height: width
                 radius: width / 2
                 color: Qt.rgba(0.184, 0.184, 0.184, 0.95)
-                visible: !displayAmbient && !nightstandMode.active
+                visible: !displayAmbient
             }
 
             Text {
@@ -141,61 +139,6 @@ Item {
 
         }
 
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            layer {
-                enabled: true
-                samples: 4
-                smooth: true
-                textureSize: Qt.size(nightstandMode.width * 2, nightstandMode.height * 2)
-            }
-
-            Shape {
-                id: chargeArc
-
-                property real angle: batteryChargePercentage.percent * 360 / 100
-                property real arcStrokeWidth: 0.04
-                property real scalefactor: 0.49 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(0.318, 1, 0.051, 0.9)]
-
-                anchors.fill: parent
-
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: chargeArc.colorArray[chargeArc.chargecolor]
-                    strokeWidth: parent.height * chargeArc.arcStrokeWidth
-                    capStyle: ShapePath.FlatCap
-                    joinStyle: ShapePath.MiterJoin
-                    startX: chargeArc.width / 2
-                    startY: chargeArc.height * (0.5 - chargeArc.scalefactor)
-
-                    PathAngleArc {
-                        centerX: chargeArc.width / 2
-                        centerY: chargeArc.height / 2
-                        radiusX: chargeArc.scalefactor * chargeArc.width
-                        radiusY: chargeArc.scalefactor * chargeArc.height
-                        startAngle: -90
-                        sweepAngle: chargeArc.angle
-                        moveToStart: false
-                    }
-
-                }
-
-            }
-
-        }
-
-    }
-
-    MceBatteryLevel {
-        id: batteryChargePercentage
     }
 
     Connections {

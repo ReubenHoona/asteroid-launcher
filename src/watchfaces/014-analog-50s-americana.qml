@@ -9,10 +9,8 @@
 // SPDX-FileCopyrightText: 2012 Arto Jalkanen <ajalkane@gmail.com>
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
-import Nemo.Mce
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 
 Item {
     property real radian: 0.01745
@@ -46,76 +44,6 @@ Item {
             radius: width / 2
             color: Qt.rgba(1, 1, 1, 0.2)
             visible: !displayAmbient
-        }
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Shape {
-                id: chargeArc
-
-                property real angle: batteryChargePercentage.percent * 360 / 100
-                property real arcStrokeWidth: 0.04
-                property real scalefactor: 0.482 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(0.318, 1, 0.051, 0.9)]
-
-                anchors.fill: parent
-
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: chargeArc.colorArray[chargeArc.chargecolor]
-                    strokeWidth: parent.height * chargeArc.arcStrokeWidth
-                    capStyle: ShapePath.FlatCap
-                    joinStyle: ShapePath.MiterJoin
-                    startX: chargeArc.width / 2
-                    startY: chargeArc.height * (0.5 - chargeArc.scalefactor)
-
-                    PathAngleArc {
-                        centerX: chargeArc.width / 2
-                        centerY: chargeArc.height / 2
-                        radiusX: chargeArc.scalefactor * chargeArc.width
-                        radiusY: chargeArc.scalefactor * chargeArc.height
-                        startAngle: -90
-                        sweepAngle: chargeArc.angle
-                        moveToStart: false
-                    }
-
-                }
-
-            }
-
-            Text {
-                id: batteryPercent
-
-                renderType: Text.NativeRendering
-                visible: nightstandMode.active
-                color: chargeArc.colorArray[chargeArc.chargecolor]
-                style: Text.Outline
-                styleColor: "#80000000"
-                text: batteryChargePercentage.percent
-
-                anchors {
-                    centerIn: parent
-                    verticalCenterOffset: -parent.width * 0.17
-                }
-
-                font {
-                    pixelSize: parent.width * 0.14
-                    family: "Fyodor"
-                }
-
-            }
-
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
         }
 
         Canvas {

@@ -5,11 +5,9 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 import QtQuick
-import QtQuick.Shapes
 import Qt5Compat.GraphicalEffects
 import org.asteroid.controls
 import org.asteroid.utils
-import Nemo.Mce
 
 Item {
     anchors.fill: parent
@@ -26,7 +24,7 @@ Item {
 
             anchors.centerIn: parent
 
-            width: parent.width * (nightstandMode.active ? .8 : 1)
+            width: parent.width
             height: width
             layer.enabled: true
             layer.effect: DropShadow {
@@ -89,7 +87,6 @@ Item {
                     verticalCenter: parent.verticalCenter
                     verticalCenterOffset: -parent.height * .002
                 }
-                visible: !nightstandMode.active
                 color: "white"
                 renderType: Text.NativeRendering
                 font {
@@ -108,7 +105,6 @@ Item {
                     verticalCenter: parent.verticalCenter
                     verticalCenterOffset: parent.height * .006
                 }
-                visible: !nightstandMode.active
                 color: "white"
                 renderType: Text.NativeRendering
                 font {
@@ -127,7 +123,7 @@ Item {
                     verticalCenter: parent.verticalCenter
                     verticalCenterOffset: parent.height * .006
                 }
-                visible: use12H.value && !nightstandMode.active
+                visible: use12H.value
                 color: "white"
                 renderType: Text.NativeRendering
                 font {
@@ -146,7 +142,7 @@ Item {
                     verticalCenter: parent.verticalCenter
                     verticalCenterOffset: -parent.height * .002
                 }
-                visible: !use12H.value && !displayAmbient && !nightstandMode.active
+                visible: !use12H.value && !displayAmbient
                 color: "white"
                 renderType: Text.NativeRendering
                 font {
@@ -171,7 +167,6 @@ Item {
                 y: parent.height * .057
                 width: parent.width * .4
                 height: parent.height * .073
-                visible: !nightstandMode.active
             }
             Item {
                 objectName: "eosComplication"
@@ -184,64 +179,7 @@ Item {
                 y: parent.height * .844
                 width: parent.width * .46
                 height: parent.height * .073
-                visible: !nightstandMode.active
             }
-        }
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Repeater {
-                id: segmentedArc
-
-                property real inputValue: batteryChargePercentage.percent / 100
-                property int segmentAmount: 48
-                property int start: 0
-                property int gap: 6
-                property int endFromStart: 360
-                property bool clockwise: true
-                property real arcStrokeWidth: .05
-                property real scalefactor: .46 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(.318, 1, .051, .9)]
-
-                model: segmentAmount
-
-                Shape {
-                    id: segment
-
-                    visible: index === 0 ? true : (index / segmentedArc.segmentAmount) < segmentedArc.inputValue
-
-                    ShapePath {
-                        fillColor: "transparent"
-                        strokeColor: segmentedArc.colorArray[segmentedArc.chargecolor]
-                        strokeWidth: root.height * segmentedArc.arcStrokeWidth
-                        capStyle: ShapePath.FlatCap
-                        joinStyle: ShapePath.MiterJoin
-                        startX: root.width / 2
-                        startY: root.height * (.5 - segmentedArc.scalefactor)
-
-                        PathAngleArc {
-                            centerX: root.width / 2
-                            centerY: root.height / 2
-                            radiusX: segmentedArc.scalefactor * root.width
-                            radiusY: segmentedArc.scalefactor * root.height
-                            startAngle: -90 + index * (sweepAngle + (segmentedArc.clockwise ? +segmentedArc.gap : -segmentedArc.gap)) + segmentedArc.start
-                            sweepAngle: segmentedArc.clockwise ? (segmentedArc.endFromStart / segmentedArc.segmentAmount) - segmentedArc.gap : -(segmentedArc.endFromStart / segmentedArc.segmentAmount) + segmentedArc.gap
-                            moveToStart: true
-                        }
-                    }
-                }
-            }
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
         }
     }
 }

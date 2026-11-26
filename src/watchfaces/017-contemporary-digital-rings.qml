@@ -11,10 +11,7 @@
 // Based on analog-precison by Mario Kicherer. Remodeled the arms to arcs
 // and tried hard on font centering and anchor alignment.
 
-import Nemo.Mce
-import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 import org.asteroid.controls
 
 Item {
@@ -46,10 +43,10 @@ Item {
             hourCanvas.hour = hour;
             hourCanvas.requestPaint();
             burnInProtectionManager.widthOffset = Qt.binding(function() {
-                return width * (nightstandMode.active ? 0.08 : 0.3);
+                return width * 0.3;
             });
             burnInProtectionManager.heightOffset = Qt.binding(function() {
-                return height * (nightstandMode.active ? 0.08 : 0.3);
+                return height * 0.3;
             });
         }
 
@@ -70,7 +67,7 @@ Item {
             anchors.fill: parent
             smooth: true
             renderStrategy: Canvas.Cooperative
-            visible: !displayAmbient && !nightstandMode.active
+            visible: !displayAmbient
             onPaint: {
                 var ctx = getContext("2d");
                 var rot = (wallClock.time.getSeconds() - 15) * 6;
@@ -92,7 +89,7 @@ Item {
             anchors.fill: parent
             smooth: true
             renderStrategy: Canvas.Cooperative
-            visible: !displayAmbient && !nightstandMode.active
+            visible: !displayAmbient
             onPaint: {
                 var ctx = getContext("2d");
                 var rot = (minute - 15) * 6;
@@ -113,7 +110,7 @@ Item {
             anchors.fill: parent
             smooth: true
             renderStrategy: Canvas.Cooperative
-            visible: !displayAmbient && !nightstandMode.active
+            visible: !displayAmbient
             onPaint: {
                 var ctx = getContext("2d");
                 var rot = 0.5 * (60 * (hour - 3) + wallClock.time.getMinutes());
@@ -321,99 +318,6 @@ Item {
             y: parent.height * .755
             width: parent.width * .31
             height: parent.height * .062
-            visible: !nightstandMode.active
-        }
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Shape {
-                id: chargeArc
-
-                property real angle: batteryChargePercentage.percent * 360 / 100
-                property real arcStrokeWidth: 0.03
-                property real scalefactor: 0.45 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(0.318, 1, 0.051, 0.9)]
-
-                anchors.fill: parent
-
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: chargeArc.colorArray[chargeArc.chargecolor]
-                    strokeWidth: parent.height * chargeArc.arcStrokeWidth
-                    capStyle: ShapePath.RoundCap
-                    joinStyle: ShapePath.MiterJoin
-                    startX: chargeArc.width / 2
-                    startY: chargeArc.height * (0.5 - chargeArc.scalefactor)
-
-                    PathAngleArc {
-                        centerX: chargeArc.width / 2
-                        centerY: chargeArc.height / 2
-                        radiusX: chargeArc.scalefactor * chargeArc.width
-                        radiusY: chargeArc.scalefactor * chargeArc.height
-                        startAngle: -90
-                        sweepAngle: chargeArc.angle
-                        moveToStart: false
-                    }
-
-                }
-
-            }
-
-            Icon {
-                id: batteryIcon
-
-                name: "ios-battery-charging"
-                visible: nightstandMode.active
-                width: parent.width * 0.14
-                height: parent.height * 0.14
-
-                anchors {
-                    centerIn: parent
-                    verticalCenterOffset: -parent.width * 0.316
-                }
-
-            }
-
-            ColorOverlay {
-                anchors.fill: batteryIcon
-                source: batteryIcon
-                color: chargeArc.colorArray[chargeArc.chargecolor]
-            }
-
-            Text {
-                id: batteryPercent
-
-                renderType: Text.NativeRendering
-                visible: nightstandMode.active
-                color: chargeArc.colorArray[chargeArc.chargecolor]
-                style: Text.Outline
-                styleColor: "#80000000"
-                text: batteryChargePercentage.percent + "%"
-
-                anchors {
-                    centerIn: parent
-                    verticalCenterOffset: parent.width * 0.324
-                }
-
-                font {
-                    pixelSize: parent.width * 0.09
-                    family: "Titillium"
-                    styleName: "ExtraCondensed"
-                }
-
-            }
-
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
         }
 
         Connections {

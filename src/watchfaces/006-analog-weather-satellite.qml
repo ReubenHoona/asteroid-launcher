@@ -82,73 +82,6 @@ Item {
         }
 
         Item {
-            id: dockMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: root
-            visible: dockMode.active
-
-            Shape {
-                id: chargeArc
-
-                property real angle: batteryChargePercentage.percent * 360 / 100
-                property real arcStrokeWidth: 0.016
-                property real scalefactor: 0.39 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(0.318, 1, 0.051, 0.9)]
-
-                anchors.fill: dockMode
-
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: chargeArc.colorArray[chargeArc.chargecolor]
-                    strokeWidth: dockMode.height * chargeArc.arcStrokeWidth
-                    capStyle: ShapePath.RoundCap
-                    joinStyle: ShapePath.MiterJoin
-                    startX: chargeArc.width / 2
-                    startY: chargeArc.height * (0.5 - chargeArc.scalefactor)
-
-                    PathAngleArc {
-                        centerX: dockMode.width / 2
-                        centerY: dockMode.height / 2
-                        radiusX: chargeArc.scalefactor * dockMode.width
-                        radiusY: chargeArc.scalefactor * dockMode.height
-                        startAngle: -90
-                        sweepAngle: chargeArc.angle
-                        moveToStart: false
-                    }
-
-                }
-
-            }
-
-            Text {
-                id: batteryDockPercent
-
-                visible: dockMode.active
-                color: chargeArc.colorArray[chargeArc.chargecolor]
-                style: Text.Outline
-                styleColor: "#80000000"
-                renderType: Text.NativeRendering
-                text: batteryChargePercentage.percent
-
-                anchors {
-                    centerIn: dockMode
-                    verticalCenterOffset: dockMode.width * 0.22
-                }
-
-                font {
-                    pixelSize: dockMode.width * 0.15
-                    family: "Noto Sans"
-                    styleName: "Condensed Light"
-                }
-
-            }
-
-        }
-
-        Item {
             id: dialBox
 
             anchors.fill: parent
@@ -222,13 +155,13 @@ Item {
                 // Wrapper for digital time related objects. Hour, minute and AP following units setting.
                 id: digitalBox
 
-                width: !dockMode.active ? boxSize : boxSize * 0.84
+                width: boxSize
                 height: width
                 opacity: activeContentOpacity
 
                 anchors {
                     centerIn: dialBox
-                    verticalCenterOffset: dockMode.active ? -root.width * 0.21 : -root.width * 0.29
+                    verticalCenterOffset: -root.width * 0.29
                 }
 
                 Text {
@@ -319,7 +252,7 @@ Item {
 
                 anchors {
                     centerIn: dialBox
-                    horizontalCenterOffset: !dockMode.active ? -boxPosition : -boxPosition * 0.78
+                    horizontalCenterOffset: -boxPosition
                 }
 
                 ConfigurationValue {
@@ -359,7 +292,6 @@ Item {
                     radius: width / 2
                     color: "#22ffffff"
                     opacity: inactiveArcOpacity
-                    visible: !dockMode.active
 
                     Rectangle {
                         anchors.centerIn: parent
@@ -438,7 +370,7 @@ Item {
 
                 anchors {
                     centerIn: dialBox
-                    horizontalCenterOffset: !dockMode.active ? boxPosition : boxPosition * 0.78
+                    horizontalCenterOffset: boxPosition
                 }
 
                 Rectangle {
@@ -450,7 +382,6 @@ Item {
                     radius: width / 2
                     color: "#22ffffff"
                     opacity: inactiveArcOpacity
-                    visible: !dockMode.active
 
                     Rectangle {
                         anchors.centerIn: parent
@@ -544,7 +475,6 @@ Item {
 
                 width: boxSize
                 height: width
-                visible: !dockMode.active
 
                 anchors {
                     centerIn: dialBox
@@ -731,7 +661,7 @@ Item {
                 anchors.centerIn: handBox
                 width: handBox.width
                 height: handBox.height
-                visible: !displayAmbient && !dockMode.active
+                visible: !displayAmbient
                 source: imgPath + "second.svg"
 
                 transform: Rotation {
@@ -748,7 +678,7 @@ Item {
         Timer {
             interval: 16
             repeat: true
-            running: !displayAmbient && !dockMode.active && visible
+            running: !displayAmbient && visible
             onTriggered: {
                 var now = new Date();
                 secondRot.angle = (now.getSeconds() * 1000 + now.getMilliseconds()) * 6 / 1000;

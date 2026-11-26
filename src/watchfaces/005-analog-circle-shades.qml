@@ -33,7 +33,7 @@ Item {
             id: batterySegments
 
             anchors.fill: parent
-            visible: !displayAmbient || nightstand
+            visible: !displayAmbient
 
             Repeater {
                 id: segmentedArc

@@ -6,10 +6,8 @@
 
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 import org.asteroid.controls
 import org.asteroid.utils
-import Nemo.Mce
 
 Item {
     anchors.fill: parent
@@ -25,7 +23,7 @@ Item {
             id: watchfaceRoot
 
             anchors.centerIn: parent
-            width: parent.width * (nightstandMode.active ? .8 : 1)
+            width: parent.width
             height: width
             layer.enabled: true
             layer.effect: DropShadow {
@@ -42,7 +40,6 @@ Item {
 
                 x: parent.width * .373 - width / 2
                 y: parent.height * .324 - height / 2
-                visible: !nightstandMode.active
                 color: "white"
                 renderType: Text.NativeRendering
                 font {
@@ -92,7 +89,7 @@ Item {
 
                 x: parent.width * .645
                 y: parent.height * .465 - height * .75
-                visible: use12H.value && !nightstandMode.active
+                visible: use12H.value
                 color: "white"
                 renderType: Text.NativeRendering
                 font {
@@ -107,7 +104,6 @@ Item {
 
                 x: parent.width * .626 - width / 2
                 y: parent.height * .675 - height / 2
-                visible: !nightstandMode.active
                 color: "white"
                 renderType: Text.NativeRendering
                 font {
@@ -131,7 +127,6 @@ Item {
                 y: parent.height * .14
                 width: parent.width * .4
                 height: parent.height * .07
-                visible: !nightstandMode.active
             }
             Item {
                 objectName: "eosComplication"
@@ -144,78 +139,12 @@ Item {
                 y: parent.height * .76
                 width: parent.width * .4
                 height: parent.height * .07
-                visible: !nightstandMode.active
             }
-        }
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Shape {
-                id: chargeArc
-
-                property real angle: batteryChargePercentage.percent * 360 / 100
-                property real arcStrokeWidth: .024
-                property real scalefactor: .42 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: [ "red", "yellow", Qt.rgba(.318, 1, .051, .9)]
-
-                anchors.fill: parent
-
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: chargeArc.colorArray[chargeArc.chargecolor]
-                    strokeWidth: chargeArc.height * chargeArc.arcStrokeWidth
-                    capStyle: ShapePath.FlatCap
-                    joinStyle: ShapePath.MiterJoin
-                    startX: chargeArc.width / 2
-                    startY: chargeArc.height * (.5 - chargeArc.scalefactor)
-
-                    PathAngleArc {
-                        centerX: chargeArc.width / 2
-                        centerY: chargeArc.height / 2
-                        radiusX: chargeArc.scalefactor * chargeArc.width
-                        radiusY: chargeArc.scalefactor * chargeArc.height
-                        startAngle: -90
-                        sweepAngle: chargeArc.angle
-                        moveToStart: false
-                    }
-                }
-            }
-
-            Text {
-                id: batteryPercent
-
-                anchors {
-                    centerIn: parent
-                    verticalCenterOffset: -parent.width * .3
-                }
-                visible: nightstandMode.active
-                color: chargeArc.colorArray[chargeArc.chargecolor]
-                style: Text.Outline
-                styleColor: "#80000000"
-                renderType: Text.NativeRendering
-                font {
-                    pixelSize: parent.width / 20
-                    family: "Xolonium"
-                    weight: Font.Bold
-                }
-                text: batteryChargePercentage.percent + "%"
-            }
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
         }
 
         Component.onCompleted: {
-            burnInProtectionManager.widthOffset = Qt.binding(function() { return width * (nightstandMode.active ? .12 : .2) })
-            burnInProtectionManager.heightOffset = Qt.binding(function() { return height * (nightstandMode.active ? .12 : .2) })
+            burnInProtectionManager.widthOffset = Qt.binding(function() { return width * .2 })
+            burnInProtectionManager.heightOffset = Qt.binding(function() { return height * .2 })
         }
     }
 }

@@ -10,11 +10,9 @@
 // SPDX-License-Identifier: LGPL-2.1-or-later
 
 import QtQuick
-import QtQuick.Shapes
 import Qt5Compat.GraphicalEffects
 import org.asteroid.controls
 import org.asteroid.utils
-import Nemo.Mce
 
 Item {
     anchors.fill: parent
@@ -34,7 +32,6 @@ Item {
 
             anchors.fill: parent
             renderStrategy: Canvas.Cooperative
-            visible: !nightstandMode.active
 
             onPaint: {
                 var ctx = getContext("2d")
@@ -63,7 +60,6 @@ Item {
 
             anchors.fill: parent
             renderStrategy: Canvas.Cooperative
-            visible: !nightstandMode.active
 
             onPaint: {
                 var ctx = getContext("2d")
@@ -92,7 +88,6 @@ Item {
 
             anchors.fill: parent
             renderStrategy: Canvas.Cooperative
-            visible: !nightstandMode.active
 
             onPaint: {
                 var ctx = getContext("2d")
@@ -124,7 +119,6 @@ Item {
                 verticalCenter: parent.verticalCenter
                 verticalCenterOffset: -parent.height * .23
             }
-            visible: !nightstandMode.active
             horizontalAlignment: Text.AlignHCenter
             color: Qt.rgba(1, 1, 1, .7)
             style: Text.Outline
@@ -145,7 +139,6 @@ Item {
                 top: dayDisplay.bottom
                 topMargin: parent.height * .0156
             }
-            visible: !nightstandMode.active
             horizontalAlignment: Text.AlignHCenter
             color: Qt.rgba(1, 1, 1, .7)
             style: Text.Outline
@@ -197,25 +190,6 @@ Item {
                 family: "League Spartan"
             }
             text: Qt.formatDate(wallClock.time, "MMMM").toUpperCase()
-        }
-
-        Text {
-            id: batteryPercent
-
-            anchors {
-                centerIn: parent
-                verticalCenterOffset: -parent.width * .18
-            }
-            visible: nightstandMode.active
-            color: segmentedArc.colorArray[segmentedArc.chargecolor]
-            style: Text.Outline
-            styleColor: Qt.rgba(0, 0, 0, .4)
-            renderType: Text.NativeRendering
-            font {
-                pixelSize: parent.width / 11
-                family: "League Spartan"
-            }
-            text: batteryChargePercentage.percent
         }
 
         // Hour hand — dual-stroke Canvas path with per-path drop shadow; no efficient Shape equivalent.
@@ -362,62 +336,6 @@ Item {
             }
         }
 
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Repeater {
-                id: segmentedArc
-
-                property real inputValue: batteryChargePercentage.percent / 100
-                property int segmentAmount: 12
-                property int start: 0
-                property int gap: 10
-                property int endFromStart: 360
-                property bool clockwise: true
-                property real arcStrokeWidth: .028
-                property real scalefactor: .42 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(.318, 1, .051, .9)]
-
-                model: segmentAmount
-
-                Shape {
-                    id: segment
-
-                    visible: index === 0 ? true : (index/segmentedArc.segmentAmount) < segmentedArc.inputValue
-
-                    ShapePath {
-                        fillColor: "transparent"
-                        strokeColor: segmentedArc.colorArray[segmentedArc.chargecolor]
-                        strokeWidth: rootitem.height * segmentedArc.arcStrokeWidth
-                        capStyle: ShapePath.RoundCap
-                        joinStyle: ShapePath.MiterJoin
-                        startX: rootitem.width / 2
-                        startY: rootitem.height * (.5 - segmentedArc.scalefactor)
-
-                        PathAngleArc {
-                            centerX: rootitem.width / 2
-                            centerY: rootitem.height / 2
-                            radiusX: segmentedArc.scalefactor * rootitem.width
-                            radiusY: segmentedArc.scalefactor * rootitem.height
-                            startAngle: -90 + index * (sweepAngle + (segmentedArc.clockwise ? +segmentedArc.gap : -segmentedArc.gap)) + segmentedArc.start
-                            sweepAngle: segmentedArc.clockwise ? (segmentedArc.endFromStart / segmentedArc.segmentAmount) - segmentedArc.gap : -(segmentedArc.endFromStart / segmentedArc.segmentAmount) + segmentedArc.gap
-                            moveToStart: true
-                        }
-                    }
-                }
-            }
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
-        }
-
         Connections {
             target: wallClock
             function onTimeChanged() {
@@ -455,8 +373,8 @@ Item {
             min5Strokes.requestPaint()
             minuteStrokes.requestPaint()
             nailDot.requestPaint()
-            burnInProtectionManager.widthOffset = Qt.binding(function() { return width * (nightstandMode.active ? .12 : .07) })
-            burnInProtectionManager.heightOffset = Qt.binding(function() { return height * (nightstandMode.active ? .12 : .07) })
+            burnInProtectionManager.widthOffset = Qt.binding(function() { return width * .07 })
+            burnInProtectionManager.heightOffset = Qt.binding(function() { return height * .07 })
         }
     }
 }

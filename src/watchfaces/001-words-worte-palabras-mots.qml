@@ -7,10 +7,8 @@
 // SPDX-FileCopyrightText: 2014 Aleksi Suomalainen <suomalainen.aleksi@gmail.com>
 // SPDX-License-Identifier: BSD-3-Clause
 
-import Nemo.Mce
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 import org.asteroid.controls
 
 Item {
@@ -29,7 +27,7 @@ Item {
             id: watchfaceRoot
 
             anchors.centerIn: parent
-            width: parent.width * (nightstandMode.active ? .8 : 1)
+            width: parent.width
             height: width
 
             layer.enabled: true
@@ -177,95 +175,7 @@ Item {
                     right: parent.right
                 }
 
-                Icon {
-                    id: batteryIcon
-
-                    anchors {
-                        right: parent.horizontalCenter
-                        rightMargin: watchfaceRoot.height * .004
-                    }
-                    width: watchfaceRoot.width * .1
-                    height: watchfaceRoot.height * .1
-                    visible: nightstandMode.active
-                    name: "ios-battery-charging"
-                }
-
-                Text {
-                    id: batteryPercent
-
-                    anchors {
-                        left: parent.horizontalCenter
-                        leftMargin: watchfaceRoot.height * .004
-                    }
-                    visible: nightstandMode.active
-                    color: "white"
-                    style: Text.Outline
-                    styleColor: "#80000000"
-                    renderType: Text.NativeRendering
-                    font {
-                        family: "Roboto"
-                        pixelSize: watchfaceRoot.width * .07
-                        styleName: "Regular"
-                    }
-                    text: batteryChargePercentage.percent + "%"
-                }
             }
-        }
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Repeater {
-                id: segmentedArc
-
-                property real inputValue: batteryChargePercentage.percent / 100
-                property int segmentAmount: 10
-                property int start: 0
-                property int gap: 6
-                property int endFromStart: 360
-                property bool clockwise: true
-                property real arcStrokeWidth: .024
-                property real scalefactor: .45 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(.318, 1, .051, .9)]
-
-                model: segmentAmount
-
-                Shape {
-                    id: segment
-
-                    visible: index === 0 ? true : (index / segmentedArc.segmentAmount) < segmentedArc.inputValue
-
-                    ShapePath {
-                        fillColor: "transparent"
-                        strokeColor: segmentedArc.colorArray[segmentedArc.chargecolor]
-                        strokeWidth: root.height * segmentedArc.arcStrokeWidth
-                        capStyle: ShapePath.FlatCap
-                        joinStyle: ShapePath.MiterJoin
-                        startX: root.width / 2
-                        startY: root.height * (.5 - segmentedArc.scalefactor)
-
-                        PathAngleArc {
-                            centerX: root.width / 2
-                            centerY: root.height / 2
-                            radiusX: segmentedArc.scalefactor * root.width
-                            radiusY: segmentedArc.scalefactor * root.height
-                            startAngle: -90 + index * (sweepAngle + (segmentedArc.clockwise ? +segmentedArc.gap : -segmentedArc.gap)) + segmentedArc.start
-                            sweepAngle: segmentedArc.clockwise ? (segmentedArc.endFromStart / segmentedArc.segmentAmount) - segmentedArc.gap : -(segmentedArc.endFromStart / segmentedArc.segmentAmount) + segmentedArc.gap
-                            moveToStart: true
-                        }
-                    }
-                }
-            }
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
         }
 
         Connections {
@@ -276,8 +186,8 @@ Item {
         }
 
         Component.onCompleted: {
-            burnInProtectionManager.widthOffset = Qt.binding(function() { return root.width * (nightstandMode.active ? .08 : .2) })
-            burnInProtectionManager.heightOffset = Qt.binding(function() { return root.height * (nightstandMode.active ? .08 : .2) })
+            burnInProtectionManager.widthOffset = Qt.binding(function() { return root.width * .2 })
+            burnInProtectionManager.heightOffset = Qt.binding(function() { return root.height * .2 })
         }
     }
 }

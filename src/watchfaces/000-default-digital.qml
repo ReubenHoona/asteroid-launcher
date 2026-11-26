@@ -4,10 +4,8 @@
 // SPDX-FileCopyrightText: 2017 Florent Revest <revestflo@gmail.com>
 // SPDX-License-Identifier: BSD-3-Clause
 
-import Nemo.Mce
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 
 Item {
     anchors.fill: parent
@@ -30,7 +28,7 @@ Item {
             id: watchfaceRoot
 
             anchors.centerIn: parent
-            width: parent.width * (nightstandMode.active ? .86 : 1)
+            width: parent.width
             height: width
 
             layer.enabled: true
@@ -133,7 +131,6 @@ Item {
                 y: parent.height * .19
                 width: parent.width * .6
                 height: parent.height * .075
-                visible: !nightstandMode.active
             }
             Item {
                 objectName: "eosComplication"
@@ -146,7 +143,6 @@ Item {
                 height: width
                 x: parent.width * .39 - width / 2
                 y: parent.height * .765 - height / 2
-                visible: !nightstandMode.active
             }
             Item {
                 objectName: "eosComplication"
@@ -159,69 +155,12 @@ Item {
                 height: width
                 x: parent.width * .61 - width / 2
                 y: parent.height * .765 - height / 2
-                visible: !nightstandMode.active
             }
-        }
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Repeater {
-                id: segmentedArc
-
-                property real inputValue: batteryChargePercentage.percent / 100
-                property int segmentAmount: 50
-                property int start: 0
-                property int gap: 6
-                property int endFromStart: 360
-                property bool clockwise: true
-                property real arcStrokeWidth: .055
-                property real scalefactor: .45 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(.318, 1, .051, .9)]
-
-                model: segmentAmount
-
-                Shape {
-                    id: segment
-
-                    visible: index === 0 ? true : (index / segmentedArc.segmentAmount) < segmentedArc.inputValue
-
-                    ShapePath {
-                        fillColor: "transparent"
-                        strokeColor: segmentedArc.colorArray[segmentedArc.chargecolor]
-                        strokeWidth: root.height * segmentedArc.arcStrokeWidth
-                        capStyle: ShapePath.FlatCap
-                        joinStyle: ShapePath.MiterJoin
-                        startX: root.width / 2
-                        startY: root.height * (.5 - segmentedArc.scalefactor)
-
-                        PathAngleArc {
-                            centerX: root.width / 2
-                            centerY: root.height / 2
-                            radiusX: segmentedArc.scalefactor * root.width
-                            radiusY: segmentedArc.scalefactor * root.height
-                            startAngle: -90 + index * (sweepAngle + (segmentedArc.clockwise ? +segmentedArc.gap : -segmentedArc.gap)) + segmentedArc.start
-                            sweepAngle: segmentedArc.clockwise ? (segmentedArc.endFromStart / segmentedArc.segmentAmount) - segmentedArc.gap : -(segmentedArc.endFromStart / segmentedArc.segmentAmount) + segmentedArc.gap
-                            moveToStart: true
-                        }
-                    }
-                }
-            }
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
         }
 
         Component.onCompleted: {
-            burnInProtectionManager.widthOffset = Qt.binding(function() { return root.width * (nightstandMode.active ? .1 : .32) })
-            burnInProtectionManager.heightOffset = Qt.binding(function() { return root.height * (nightstandMode.active ? .1 : .7) })
+            burnInProtectionManager.widthOffset = Qt.binding(function() { return root.width * .32 })
+            burnInProtectionManager.heightOffset = Qt.binding(function() { return root.height * .7 })
         }
     }
 }

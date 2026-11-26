@@ -10,10 +10,8 @@
 // Based on a fragmentShader example from doc.qt.io. Design is heavily
 // inspired by Jollas "The Bold Font" watchface.
 
-import Nemo.Mce
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 import org.asteroid.utils
 
 Item {
@@ -30,7 +28,7 @@ Item {
         opacity: 0
         layer.enabled: true
         layer.smooth: true
-        radius: DeviceSpecs.hasRoundScreen || nightstand ? faceRoot.width : 0
+        radius: DeviceSpecs.hasRoundScreen ? faceRoot.width : 0
     }
 
     Rectangle {
@@ -184,55 +182,6 @@ Item {
         anchors.centerIn: parent
         height: Math.min(parent.width, parent.height)
         width: height
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Shape {
-                id: chargeArc
-
-                property real angle: batteryChargePercentage.percent * 360 / 100
-                // radius of arc is scalefactor * height or width
-                property real arcStrokeWidth: 0.022
-                property real scalefactor: 0.45 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(0.318, 1, 0.051, 0.9)]
-
-                anchors.fill: parent
-
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: chargeArc.colorArray[chargeArc.chargecolor]
-                    strokeWidth: parent.height * chargeArc.arcStrokeWidth
-                    capStyle: ShapePath.FlatCap
-                    joinStyle: ShapePath.MiterJoin
-                    startX: chargeArc.width / 2
-                    startY: chargeArc.height * (0.5 - chargeArc.scalefactor)
-
-                    PathAngleArc {
-                        centerX: chargeArc.width / 2
-                        centerY: chargeArc.height / 2
-                        radiusX: chargeArc.scalefactor * chargeArc.width
-                        radiusY: chargeArc.scalefactor * chargeArc.height
-                        startAngle: -90
-                        sweepAngle: chargeArc.angle
-                        moveToStart: false
-                    }
-
-                }
-
-            }
-
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
-        }
 
     }
 

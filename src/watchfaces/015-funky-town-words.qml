@@ -6,10 +6,8 @@
 // SPDX-FileCopyrightText: 2014 Aleksi Suomalainen <suomalainen.aleksi@gmail.com>
 // SPDX-License-Identifier: BSD-3-Clause
 
-import Nemo.Mce
 import Qt5Compat.GraphicalEffects
 import QtQuick
-import QtQuick.Shapes
 
 Item {
     property string imgPath: "../watchfaces-img/funky-town-words-"
@@ -22,13 +20,13 @@ Item {
         width: height
         Component.onCompleted: {
             burnInProtectionManager.leftOffset = Qt.binding(function() {
-                return width * (nightstandMode.active ? 0.05 : 0.4);
+                return width * 0.4;
             });
             burnInProtectionManager.rightOffset = Qt.binding(function() {
                 return width * 0.05;
             });
             burnInProtectionManager.topOffset = Qt.binding(function() {
-                return height * (nightstandMode.active ? 0.05 : 0.4);
+                return height * 0.4;
             });
             burnInProtectionManager.bottomOffset = Qt.binding(function() {
                 return height * 0.05;
@@ -37,7 +35,7 @@ Item {
 
         Image {
             anchors.centerIn: parent
-            source: imgPath + wallClock.time.toLocaleString(Qt.locale(), "hh am").slice(0, 2) + (nightstandMode.active || displayAmbient ? "-bw.svg" : ".svg")
+            source: imgPath + wallClock.time.toLocaleString(Qt.locale(), "hh am").slice(0, 2) + (displayAmbient ? "-bw.svg" : ".svg")
             sourceSize.width: parent.width
             sourceSize.height: parent.height
             width: parent.width
@@ -58,7 +56,7 @@ Item {
             id: minuteDisplay
 
             renderType: Text.NativeRendering
-            color: nightstandMode.active || displayAmbient ? "#000" : "#fff"
+            color: displayAmbient ? "#000" : "#fff"
             text: wallClock.time.toLocaleString(Qt.locale(), "mm")
 
             anchors {
@@ -97,75 +95,6 @@ Item {
 
             }
 
-        }
-
-        Item {
-            id: nightstandMode
-
-            readonly property bool active: nightstand
-
-            anchors.fill: parent
-            visible: nightstandMode.active
-
-            Shape {
-                id: chargeArc
-
-                property real angle: batteryChargePercentage.percent * 360 / 100
-                property real arcStrokeWidth: 0.016
-                property real scalefactor: 0.45 - (arcStrokeWidth / 2)
-                property int chargecolor: Math.floor(batteryChargePercentage.percent / 33.35) | 0
-                readonly property var colorArray: ["red", "yellow", Qt.rgba(0.318, 1, 0.051, 0.9)]
-
-                anchors.fill: parent
-
-                ShapePath {
-                    fillColor: "transparent"
-                    strokeColor: chargeArc.colorArray[chargeArc.chargecolor]
-                    strokeWidth: parent.height * chargeArc.arcStrokeWidth
-                    capStyle: ShapePath.RoundCap
-                    joinStyle: ShapePath.MiterJoin
-                    startX: chargeArc.width / 2
-                    startY: chargeArc.height * (0.5 - chargeArc.scalefactor)
-
-                    PathAngleArc {
-                        centerX: chargeArc.width / 2
-                        centerY: chargeArc.height / 2
-                        radiusX: chargeArc.scalefactor * chargeArc.width
-                        radiusY: chargeArc.scalefactor * chargeArc.height
-                        startAngle: -90
-                        sweepAngle: chargeArc.angle
-                        moveToStart: false
-                    }
-
-                }
-
-            }
-
-            Text {
-                id: batteryPercent
-
-                renderType: Text.NativeRendering
-                visible: nightstandMode.active
-                color: chargeArc.colorArray[chargeArc.chargecolor]
-                text: batteryChargePercentage.percent
-
-                anchors {
-                    centerIn: parent
-                    verticalCenterOffset: -parent.width * 0.28
-                }
-
-                font {
-                    pixelSize: parent.width * 0.13
-                    family: "Source Sans Pro"
-                    weight: Font.Light
-                }
-
-            }
-
-        }
-
-        MceBatteryLevel {
-            id: batteryChargePercentage
         }
 
     }
