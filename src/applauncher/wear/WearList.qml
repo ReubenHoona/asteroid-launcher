@@ -11,17 +11,22 @@ import "WearEdge.js" as Edge
  * The list of stock's launcher screens (W2-launcher-app-list): the app list,
  * the grid and Recents are this one frame with different content.
  *
- *   - a 13 % spacer (Theme.margin.launcherTop, 25 dp = 50 px), then the header
- *     (titleLarge, 18 sp on a 20 sp line, weight 500, 0.2 sp tracking,
- *     onSurface, centred, up to 2 lines, 4 dp above and 12 dp below), so the
- *     first row's top is at 61 dp (122 px) (app-launcher-02, -03);
+ *   - a spacer (topSpacer), then the header (titleLarge, 18 sp on a 20 sp
+ *     line, weight 500, 0.2 sp tracking, onSurface, centred, up to 2 lines,
+ *     4 dp above and 31 px below). Wear OS 6 has the list and Recents higher
+ *     than CP3A's 13 % (61 dp): with a 20 px spacer the first row's top is at
+ *     y 99 and the header, shrunk and packed against it by the edge
+ *     transformation, has its cap top at y 45-46; the grid has a 51 px
+ *     spacer (header cap top y 72, first row of discs at y 130) (emulator
+ *     S04, S04-b, S04-c, S05; N61-32);
  *   - rows (columns: 1): 52 dp pills 172 dp wide (5.2 % side padding), 4 dp
  *     apart (app-launcher-04); or a grid (columns: 3) of 48 dp icons 6 dp
  *     apart in rows of three (app-launcher-16);
  *   - the end: a Medium (70 dp) edge button 12 dp under the last row
  *     ("Grid view", "List view", "All apps"; app-launcher-15);
  *   - every row, the header and the grid rows take the launcher's edge
- *     transformation, packed (WearEdge.js layout, app-launcher-07);
+ *     transformation, packed (WearEdge.js layout, app-launcher-07); the
+ *     header always the list's (LIST), as Wear OS 6 draws the grid's;
  *   - no TimeText (app-launcher-21).
  *
  * The base is the shared ScalingList (stock fling, stretch at the ends and
@@ -73,6 +78,14 @@ Item {
     readonly property real pitch: itemHeight + itemGap
     // the list at rest, scrolled to its top: the spacer shows
     readonly property real topPosition: view.originY - view.topMargin
+    /* Above the header (N61-32, emulator S04, S04-b): 5.2 % of the height for
+     * the list and Recents (20 px), 13.3 % for the grid (51 px); whole pixels,
+     * so the text is not drawn between two */
+    readonly property real topSpacer: Math.round(Theme.dp((columns > 1 ? 0.133 : 0.052) * Theme.screenHeightDp))
+    /* Under the header to the first row: 31 px. Shrunk by the edge
+     * transformation and packed against the first row it leaves the gap of
+     * the emulator (header cap top y 46 over the list, 72 over the grid) */
+    readonly property real headerBottom: Theme.dp(15.5)
     readonly property int cellCount: cells ? cells.itemCount : 0
 
     signal activated(var object, Item origin)
@@ -91,10 +104,12 @@ Item {
     }
 
     /*
-     * The intro slide (app-launcher-08): each time the list opens, the top spacer
-     * goes from 0.33 to 0.13 of the height (127 -> 50 px) in 400 ms,
-     * CubicBezier(0, 0, 0, 1), so the content slides up 77 px (stock hdu.java:578-590,
-     * launcher_scroll_to_top_anim_duration_ms, ListLauncherIntroAnimationJank).
+     * The intro slide (app-launcher-08): each time the list opens, the content
+     * slides up 0.2 of the height (77 px) in 400 ms, CubicBezier(0, 0, 0, 1)
+     * (stock hdu.java:578-590, launcher_scroll_to_top_anim_duration_ms,
+     * ListLauncherIntroAnimationJank), so the top spacer goes from 0.252 to
+     * 0.052 of the height for the list and Recents, 0.333 to 0.133 for the
+     * grid (N61-32: the same slide, ending at the Wear OS 6 spacer).
      * Called by AppDrawer.open(), not by openNow() (back from an app). With Reduce
      * animations on it is not shown. introShift is added to where the layout
      * draws the header and the rows.
@@ -106,7 +121,7 @@ Item {
             introShift = 0
             return
         }
-        introShift = height * (0.33 - 0.13)
+        introShift = height * 0.2
         introAnim.restart()
     }
     NumberAnimation {
@@ -133,7 +148,7 @@ Item {
             hs.push(root.itemHeight)
             gaps.push(root.itemGap)
         }
-        return Edge.layout(root.spec, tops, hs, gaps, vh, Motion.reduceMotion)
+        return Edge.layout(root.spec, tops, hs, gaps, vh, Motion.reduceMotion, Edge.LIST)
     }
 
     ScalingList {
@@ -142,8 +157,8 @@ Item {
         clip: true
         cacheBuffer: height
         spacing: root.itemGap
-        // 13 % of the height, then the header (4 dp, its line, 12 dp): the first row's top at 61 dp
-        topMargin: Theme.margin.launcherTop + headerItem.rawHeight
+        // the spacer, then the header (4 dp, its line, headerBottom): the first row's top at y 99 (grid 130)
+        topMargin: root.topSpacer + headerItem.rawHeight
         // the edge button 70 dp high, 3 dp above the edge, and 12 dp between it and the last row
         bottomMargin: edgeButton.preferredHeight + Theme.size.edgeButtonBottomGap + Theme.space.l
         model: root.columns > 1 ? Math.ceil(root.cellCount / root.columns) : root.model
@@ -154,8 +169,8 @@ Item {
     Item {
         id: headerItem
         width: root.width
-        // the natural place: 13 % under the top at rest, then up with the content
-        y: Theme.margin.launcherTop - (view.contentY - root.topPosition)
+        // the natural place: the spacer under the top at rest, then up with the content
+        y: root.topSpacer - (view.contentY - root.topPosition)
         readonly property real rawHeight: headerBox.height
         readonly property var ev: root.layout[0] || Edge.UNPLACED
 
@@ -166,8 +181,8 @@ Item {
             y: headerItem.ev.unplaced ? 0 : headerItem.ev.y - headerItem.y
             height: titleTop + headerLabel.height + (emptyLabel.visible ? emptyLabel.height + emptyLabel.topPad + emptyLabel.bottomPad : 0) + titleBottom
             readonly property real titleTop: Theme.dp(4)
-            // 12 dp to the first row
-            readonly property real titleBottom: Theme.space.l
+            // to the first row
+            readonly property real titleBottom: root.headerBottom
             opacity: headerItem.ev.contentAlpha
             visible: headerItem.ev.shown
             transform: Scale {

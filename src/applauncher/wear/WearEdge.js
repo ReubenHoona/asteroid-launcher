@@ -171,19 +171,23 @@ function columnLift(index, n, h, sideOffset) {
  * sideOffset, shown }: y the top of its picture and height its transformed
  * height (the picture is scaled about its top). Items beyond the screen
  * have shown false, the edge value of the place they would be at, and a
- * place off the screen. */
+ * place off the screen.
+ *   headSpec  (optional) the spec of item 0, the header: Wear OS 6 draws the
+ *             grids header as the lists (LIST), its rows as GRID (emulator
+ *             S04-b: "Apps" 78 px wide over the grid, 72 px over the list,
+ *             the scales LIST gives at their places; N61-32) */
 
 function placed(y, h, e) {
     return { y: y, height: transformedHeight(h, e.scale), scale: e.scale, containerAlpha: e.containerAlpha,
              contentAlpha: e.contentAlpha, sideOffset: e.sideOffset, shown: true }
 }
 
-function layout(spec, tops, hs, gaps, vh, reduced) {
+function layout(spec, tops, hs, gaps, vh, reduced, headSpec) {
     var n = tops.length
     var out = new Array(n)
     if (n === 0 || !(vh > 0))
         return out
-    function eval1(top, h) { return evaluate(spec, top / vh, h / vh, reduced) }
+    function eval1(top, h, i) { return evaluate(i === 0 && headSpec ? headSpec : spec, top / vh, h / vh, reduced) }
     function gone(top, h, e) {
         return { y: top, height: 0, scale: e.scale, containerAlpha: 0, contentAlpha: 0, sideOffset: e.sideOffset, shown: false }
     }
@@ -192,12 +196,12 @@ function layout(spec, tops, hs, gaps, vh, reduced) {
         var d = Math.abs(tops[i] + hs[i] / 2 - vh / 2)
         if (d < best) { best = d; a = i }
     }
-    out[a] = placed(tops[a], hs[a], eval1(tops[a], hs[a]))
+    out[a] = placed(tops[a], hs[a], eval1(tops[a], hs[a], a))
     // downwards from the anchor's bottom
     var bottom = out[a].y + out[a].height
     for (var k = a + 1; k < n; k++) {
         var top = bottom + gaps[k - 1]
-        var e = eval1(top, hs[k])
+        var e = eval1(top, hs[k], k)
         if (top >= vh) {
             for (var r = k; r < n; r++)
                 out[r] = gone(vh + hs[r], hs[r], e)
@@ -211,7 +215,7 @@ function layout(spec, tops, hs, gaps, vh, reduced) {
     var start = out[a].y
     for (var j = a - 1; j >= 0; j--) {
         var end = start - gaps[j]
-        var e2 = eval1(end - hs[j], hs[j])
+        var e2 = eval1(end - hs[j], hs[j], j)
         var h2 = transformedHeight(hs[j], e2.scale)
         if (end <= 0) {
             for (var q = j; q >= 0; q--)

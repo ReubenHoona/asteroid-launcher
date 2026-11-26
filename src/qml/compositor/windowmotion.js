@@ -120,11 +120,15 @@ var BACK = {
 
 /* ---- the app list's intro slide (app-launcher-08) ---- */
 var INTRO = {
-    // the top spacer 0.33 -> 0.13 of the height (127 -> 50 px), 400 ms,
-    // CubicBezier(0, 0, 0, 1); launcher_scroll_to_top_anim_duration_ms,
-    // compose_list_launcher_scroll_to_top_screen_height_percent = 0.2
-    fromFraction: 0.33,
-    toFraction: 0.13,
+    // the content slides 0.2 of the height in 400 ms, CubicBezier(0, 0, 0, 1)
+    // (launcher_scroll_to_top_anim_duration_ms,
+    // compose_list_launcher_scroll_to_top_screen_height_percent = 0.2), ending
+    // at the Wear OS 6 spacer (N61-32, WearList.topSpacer): the list and Recents
+    // 0.252 -> 0.052 of the height (97 -> 20 px), the grid 0.333 -> 0.133
+    fromFraction: 0.252,
+    toFraction: 0.052,
+    gridFromFraction: 0.333,
+    gridToFraction: 0.133,
     durationMs: 400,
     bezier: [0, 0, 0, 1, 1, 1]
 }
