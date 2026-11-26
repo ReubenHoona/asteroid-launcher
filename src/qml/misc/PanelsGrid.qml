@@ -726,9 +726,11 @@ GestureFilterArea {
      *
      * The tray that is out goes in one frame: the content is back on the
      * face and the tray hidden, with no retract slide. Its black background,
-     * which dims the face, stays and fades from what it was at the cut to
-     * nothing: 100 ms after the stream, 115 ms after quick settings, on
-     * standardAccel (0.3, 0, 1, 1). The face's overlay row reads trayCloseDim
+     * which dims the face, stays at the emulator's dim of the cut (the face
+     * at 0.35 after the stream, 0.18 after quick settings, or as bright as it
+     * showed at the release: TrayRules.cutDim) and fades to nothing: 100 ms
+     * after the stream, 115 ms after quick settings, on standardAccel
+     * (0.3, 0, 1, 1). The face's overlay row reads trayCloseDim
      * (it is drawn over the grid). A finger that takes a tray meanwhile
      * finds it closed; the fade runs on under it. */
     property real trayCloseDim: 0
@@ -749,7 +751,7 @@ GestureFilterArea {
         var row = content.y > 0 ? -1 : content.y < 0 ? 1 : 0
         if (row === 0)
             return
-        var dim = TrayRules.backgroundAlpha(trayFraction(row))
+        var dim = TrayRules.cutDim(row, TrayRules.backgroundAlpha(trayFraction(row)))
         closeFade.stop()
         _cutRow = row
         trayCloseDim = dim

@@ -103,16 +103,30 @@ function spring(opening, reason) {
 /* A committed close (the finger let go of a tray that goes back, the crown,
  * a close without a finger) cuts the tray away in one frame, with no retract
  * slide: the Wear OS 6 emulator (M06 and M07 close) lets the tray follow the
- * finger for about 70-100 ms and then shows the face at once, dimmed (0.35
- * after the stream, 0.18 after quick settings), which comes up to full in
- * about 100 ms after the stream (98 ms at 10x, 85-100 ms at 1x) or 115 ms
- * after quick settings (108 ms at 10x, about 115 ms at 1x), on standardAccel
- * (0.3, 0, 1, 1). Here the dim at the cut is the tray's own background at
- * that moment (backgroundAlpha), faded to nothing. A close another gesture
- * asked for (REASON.gesture) keeps its spring. */
+ * finger for about 70-100 ms over black (no face behind it) and then shows
+ * the face at once, dimmed, which comes up to full in about 100 ms after the
+ * stream (98 ms at 10x, 85-100 ms at 1x) or 115 ms after quick settings
+ * (108 ms at 10x, about 115 ms at 1x), on standardAccel (0.3, 0, 1, 1). A
+ * close another gesture asked for (REASON.gesture) keeps its spring. */
 var CLOSE_FADE_STREAM_MS = 100
 var CLOSE_FADE_QS_MS = 115
 var CLOSE_FADE_EASING = [0.3, 0, 1, 1]
+/* The face's brightness at the cut (N61-24 follow-up): 0.35 after the stream,
+ * 0.18 after quick settings (the emulator's M06 and M07 close at 10x: the first
+ * frames after the cut, flat for about 8 frames before standardAccel lifts
+ * them; at 1x the first frame came a little later on the curve). The face
+ * that showed through the tray's background at the release (CP3A's drag dim,
+ * backgroundAlpha: a tray let go under 50 % out) is not darkened: the fade
+ * starts at whichever is brighter. The open drag keeps CP3A's dim: the
+ * emulator's face fades with the finger from about 16-25 % to black at about
+ * 45-54 % of the screen (R06slow, R07slow), ours from 25 % to 50 %. */
+var CLOSE_CUT_BRIGHTNESS_STREAM = 0.35
+var CLOSE_CUT_BRIGHTNESS_QS = 0.18
+// the background's alpha the fade starts from after the tray of `row`, `alpha` at the release
+function cutDim(row, alpha) {
+    var stock = 1 - (row > 0 ? CLOSE_CUT_BRIGHTNESS_STREAM : CLOSE_CUT_BRIGHTNESS_QS)
+    return Math.max(0, Math.min(alpha, stock))
+}
 
 function closeCuts(reason) {
     return reason !== REASON.gesture

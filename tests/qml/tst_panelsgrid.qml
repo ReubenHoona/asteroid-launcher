@@ -6,8 +6,10 @@
  * over it, so the face dims evenly at TrayRules.backgroundAlpha of how far out the tray is
  * (D60-19; CP3A ihv.java:13-19 from jud.java:189-197 and jul.java:137-142). A committed close
  * is a cut (N61-24, the Wear OS 6 emulator's M06 and M07 close): the tray is gone in one frame
- * and the background fades from its alpha at the release to nothing in 100 ms (the stream) or
- * 115 ms (quick settings) on standardAccel (0.3, 0, 1, 1), sampled at fixed times; a release
+ * and the background fades from the emulator's dim of the cut (the face at 0.35 after the stream,
+ * 0.18 after quick settings; no darker than at the release: TrayRules.cutDim) to nothing in
+ * 100 ms (the stream) or 115 ms (quick settings) on standardAccel (0.3, 0, 1, 1), sampled at
+ * fixed times; a release
  * that reopens keeps the open spring, a close asked for by a gesture its spring. The grid runs on
  * the repo mocks (org.asteroid.launcher's GestureFilterArea stand-in), staged as LauncherQml
  * with tray.js and pager.js. A white face, so the dimming reads as brightness; trays that draw
@@ -272,6 +274,16 @@ Item {
             near(accel(0.5), 0.372, 0.001)
             near(accel(0.25), 0.1285, 0.001)
             verify(fadeAt(1, 50, 100) > 0.6, "still dark half way")
+            // the dim of the cut (the emulator's M06/M07 close at 10x): the face at 0.35 after the
+            // stream, 0.18 after quick settings, never darker than it showed at the release
+            compare(TrayRules.CLOSE_CUT_BRIGHTNESS_STREAM, 0.35)
+            compare(TrayRules.CLOSE_CUT_BRIGHTNESS_QS, 0.18)
+            near(TrayRules.cutDim(1, 1), 0.65, 1e-9)
+            near(TrayRules.cutDim(-1, 1), 0.82, 1e-9)
+            near(TrayRules.cutDim(1, 234 / 255), 0.65, 1e-9)
+            near(TrayRules.cutDim(-1, 0.6), 0.6, 1e-9)
+            near(TrayRules.cutDim(1, 0.3), 0.3, 1e-9)
+            compare(TrayRules.cutDim(-1, 0), 0)
         }
 
         function test_04_quick_settings_close_is_a_cut() {
@@ -290,11 +302,12 @@ Item {
 
         function test_05_stream_close_is_a_cut() {
             settleOpen(1)
-            // the finger down 200 px from the top: 48 % out, alpha 234/255
+            // the finger down 200 px from the top: 48 % out, alpha 234/255 (the face at 0.08), the cut
+            // shows it at 0.35 (alpha 0.65)
             drag(40, 200, 300)
             near(grid.bottomTrayFraction, 184 / 384, 1e-6)
-            var a0 = TrayRules.backgroundAlpha(184 / 384)
-            near(a0, 234 / 255, 1e-6)
+            near(TrayRules.backgroundAlpha(184 / 384), 234 / 255, 1e-6)
+            var a0 = 0.65
             grid.swipeReleased(false, 300, false)
             checkCut(1, a0, 100, "stream")
             settleOpen(1)
@@ -304,11 +317,12 @@ Item {
         }
 
         function test_06_fast_close_from_open() {
-            // a flick closes from far out: the face is black at the cut (alpha 1) and comes up in 115 ms
+            // a flick closes from far out (the face black under the tray, alpha 1): at the cut the face
+            // shows at 0.18 (alpha 0.82) and comes up in 115 ms
             settleOpen(-1)
             drag(330, -60, -1500)
             grid.swipeReleased(false, -1500, false)
-            checkCut(-1, 1, 115, "qs-flick")
+            checkCut(-1, 0.82, 115, "qs-flick")
         }
 
         function test_07_release_that_reopens_springs() {
@@ -347,7 +361,7 @@ Item {
             tryVerify(function () { return !grid.trayAnimation.running }, 2000)
             now += 1000
             verify(grid.crownScrolled(1), "and closes it")
-            checkCut(-1, 1, 115, "qs-crown")
+            checkCut(-1, 0.82, 115, "qs-crown")
             // closeTray (Theater mode's close 700 ms later) and the crown button's animateTo
             settleOpen(1)
             verify(grid.closeTray(TrayRules.REASON.nonDrag))
