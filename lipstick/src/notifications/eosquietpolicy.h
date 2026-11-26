@@ -22,14 +22,33 @@
  *
  * Alarm-class events still play and show: the watch's own alarms and
  * timers ("alarm"), an alarm going off on the phone ("eos_phone_alarm"),
- * and the find-my-watch ring ("ringtone": the user asked for it).
+ * and the find-my-watch alert ("find_my_watch", asteroid-btsyncd's ring for
+ * the phone's Find device: the user asked the watch to ring). It rings
+ * loud whatever the Ring volume and the mute, as stock's Find device ring
+ * ("The sound starts at zero volume and gradually increases over 20
+ * seconds", Pixel Watch Help; meta-eos64 find_my_watch.ini), and it plays
+ * in Do Not Disturb, in a call and off the wrist too (below), as
+ * asteroid-btsyncd lets it through Do Not Disturb and the charger.
+ *
+ * A call ringing on the phone is not of that class (isCallRing): its ring
+ * vibration ("eos_phone_ringing") or the same with the ringtone at the Ring
+ * volume ("ringtone", while Mute ring & notifications is off). It stays
+ * quiet in Bedtime and Theater, and plays in Do Not Disturb (for the callers
+ * the mode allows: asteroid-btsyncd's rule) and during a call (a second
+ * call).
  */
 namespace EosQuiet {
 
 inline bool alertsWhileQuiet(const std::string &event)
 {
     return event == "alarm" || event == "alarm_sound" || event == "alarm_vibra"
-        || event == "eos_phone_alarm" || event == "ringtone";
+        || event == "eos_phone_alarm" || event == "find_my_watch";
+}
+
+// A call ringing on the phone: the ring vibration alone, or with the ringtone
+inline bool isCallRing(const std::string &event)
+{
+    return event == "eos_phone_ringing" || event == "ringtone";
 }
 
 // The events of a notification's x-nemo-feedback hint (a comma-separated
@@ -60,8 +79,8 @@ inline std::string feedback(bool quiet, const std::string &hint)
  * 2 in progress), as stock (NotificationAttentionHelper.java:1168-1171,
  * 778-800, 843-846: in a call a notification does not vibrate; ringing is
  * not in-call) and calls win over alarms (DeskClock hob.java:68-96):
- *  - in progress: no event but an alarm's, a ringing call's (a second call)
- *    and the find-my-watch ring;
+ *  - in progress: no event but an alarm's, a ringing call's (a second call:
+ *    eos_phone_ringing or ringtone) and the find-my-watch alert's;
  *  - ringing: a phone alarm's vibration stops (the alarm view is under the
  *    call view), every other event plays.
  * Audit interruptions-07, interruptions-15.
@@ -69,7 +88,7 @@ inline std::string feedback(bool quiet, const std::string &hint)
 inline bool playsInCall(int callState, const std::string &event)
 {
     if (callState == 2)
-        return alertsWhileQuiet(event) || event == "eos_phone_ringing";
+        return alertsWhileQuiet(event) || isCallRing(event);
     if (callState == 1)
         return event != "eos_phone_alarm";
     return true;
@@ -141,7 +160,8 @@ inline std::string alarmFeedback(int mask, const std::string &hint)
  * "Notifications won't sound or vibrate when watch is off wrist or charging".
  * One switch for both (stock SilenceWhenNotWornSwitchPreference; the hub's
  * off-body sensor, the charger). Feedback only: the cards and banners stay,
- * unlike Bedtime and Theater (quiet). Alarms still sound, as in the modes.
+ * unlike Bedtime and Theater (quiet). Alarms and the find-my-watch alert
+ * still sound, as in the modes (a watch off the wrist is what it is for).
  */
 inline bool silenced(bool setting, bool offBody, bool charging)
 {
@@ -160,15 +180,16 @@ inline bool silenceDefault(bool oldKeySet, bool oldKeyValue)
  * Do Not Disturb holds the watch's own posters too (audit heads-up-alerts-17;
  * stock hiw.java:31-35 matches local notifications against the interruption
  * filter): a system notification other than an alarm or a call plays no event
- * and shows no banner, it joins the stream. Allowed: the alarm class, a call
- * ringing on the phone (starred callers only: modes-dnd-04), and the critical
+ * and shows no banner, it joins the stream. Allowed: the alarm class (with
+ * the find-my-watch alert), a call ringing on the phone (isCallRing; starred
+ * callers only: modes-dnd-04, asteroid-btsyncd's rule), and the critical
  * battery warnings ("battery_empty": shutdown and recharge; a safety exception
  * the audit infers). Bedtime and Theater are stricter (quiet, above): they let
  * no call through.
  */
 inline bool dndAllows(const std::string &event)
 {
-    return alertsWhileQuiet(event) || event == "eos_phone_ringing" || event == "battery_empty";
+    return alertsWhileQuiet(event) || isCallRing(event) || event == "battery_empty";
 }
 
 inline std::string feedbackDnd(bool dnd, const std::string &hint)

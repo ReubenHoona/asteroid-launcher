@@ -91,6 +91,7 @@ int main()
     CHECK(!isNotificationVibration("battery_empty"));
     CHECK(!isNotificationVibration("notif_strong,alarm"));
     CHECK(!isNotificationVibration("ringtone"));
+    CHECK(!isNotificationVibration("find_my_watch"));
 
     // at most one notification vibration per 2000 ms
     {

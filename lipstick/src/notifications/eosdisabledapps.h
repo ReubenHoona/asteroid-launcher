@@ -31,7 +31,7 @@
  * Never dropped, whatever the list says:
  *  - an alarm: category x-nemo.alarm, or an x-nemo-feedback event of the alarm
  *    class (eosquietpolicy.h alertsWhileQuiet: the alarm, a phone alarm, the
- *    find-my-watch ring), as stock's alarm channel cannot be turned off;
+ *    find-my-watch alert), as stock's alarm channel cannot be turned off;
  *  - an ongoing activity (eosongoing.h): it is no card, it is the face chip
  *    and what keeps its app alive in the background.
  */

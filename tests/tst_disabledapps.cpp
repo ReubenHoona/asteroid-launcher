@@ -85,7 +85,10 @@ int main()
     CHECK(!dropped(std::vector<std::string>{ "asteroid-alarmclock" }, post("asteroid-alarmclock", "", "x-nemo.alarm", "alarm")));
     // other events of a disabled app are dropped
     CHECK(dropped(off, post("asteroid-timer", "", "", "notif_normal")));
-    CHECK(isAlarm("x-nemo.alarm", "") && isAlarm("", "ringtone") && !isAlarm("x-nemo.email", "notif_strong"));
+    CHECK(isAlarm("x-nemo.alarm", "") && isAlarm("", "find_my_watch") && !isAlarm("x-nemo.email", "notif_strong"));
+    // the find-my-watch alert is of the alarm class; a call's ring (eosquietpolicy.h isCallRing) is not
+    CHECK(!dropped(off, post("asteroid-timer", "", "", "find_my_watch")));
+    CHECK(!isAlarm("", "ringtone") && !isAlarm("", "eos_phone_ringing"));
     // an ongoing activity (the face chip, what keeps its app alive) is not a card
     {
         Post p = post("asteroid-timer");
