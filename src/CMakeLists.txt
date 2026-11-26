@@ -201,6 +201,8 @@ set(QML_FILES
 	qml/firstrun/TutorialHint.qml
 	qml/firstrun/setup.js
 	qml/firstrun/tutorial.js
+	qml/firstrun/WhatsNew.qml
+	qml/firstrun/whatsnew.js
 	qml/compositor/KeyRouter.qml
 	qml/compositor/keymap.js
 	qml/compositor/lifecycle.js
@@ -300,6 +302,8 @@ set_source_files_properties(qml/firstrun/Tutorial.qml               PROPERTIES Q
 set_source_files_properties(qml/firstrun/TutorialHint.qml           PROPERTIES QT_RESOURCE_ALIAS firstrun/TutorialHint.qml)
 set_source_files_properties(qml/firstrun/setup.js                   PROPERTIES QT_RESOURCE_ALIAS firstrun/setup.js)
 set_source_files_properties(qml/firstrun/tutorial.js                PROPERTIES QT_RESOURCE_ALIAS firstrun/tutorial.js)
+set_source_files_properties(qml/firstrun/WhatsNew.qml                PROPERTIES QT_RESOURCE_ALIAS firstrun/WhatsNew.qml)
+set_source_files_properties(qml/firstrun/whatsnew.js                 PROPERTIES QT_RESOURCE_ALIAS firstrun/whatsnew.js)
 set_source_files_properties(qml/misc/tray.js                         PROPERTIES QT_RESOURCE_ALIAS tray.js)
 set_source_files_properties(qml/misc/pager.js                        PROPERTIES QT_RESOURCE_ALIAS pager.js)
 set_source_files_properties(qml/misc/AppDrawer.qml                   PROPERTIES QT_RESOURCE_ALIAS AppDrawer.qml)

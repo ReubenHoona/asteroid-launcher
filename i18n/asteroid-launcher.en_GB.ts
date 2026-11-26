@@ -3207,5 +3207,25 @@ for %1 seconds to</translation>
         <source>Add a widget</source>
         <translation>Add a widget</translation>
     </message>
+    <message id="id-whatsnew-splash">
+        <location filename="../src/qml/firstrun/WhatsNew.qml"/>
+        <source>Your watch just got better!</source>
+        <translation>Your watch just got better!</translation>
+    </message>
+    <message id="id-whatsnew-next">
+        <location filename="../src/qml/firstrun/WhatsNew.qml"/>
+        <source>Next</source>
+        <translation>Next</translation>
+    </message>
+    <message id="id-whatsnew-done">
+        <location filename="../src/qml/firstrun/WhatsNew.qml"/>
+        <source>Done</source>
+        <translation>Done</translation>
+    </message>
+    <message id="id-whatsnew-back">
+        <location filename="../src/qml/firstrun/WhatsNew.qml"/>
+        <source>Back</source>
+        <translation>Back</translation>
+    </message>
 </context>
 </TS>

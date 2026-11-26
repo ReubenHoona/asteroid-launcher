@@ -34,6 +34,7 @@ import QtQuick
 import QtQuick.Window
 import org.nemomobile.lipstick
 import "../system"
+import "../firstrun"
 import "../desktop.js" as Desktop
 
 /* The launcher overlays over applications (split out of compositor.qml),
@@ -69,6 +70,8 @@ Item {
         callAssistant: 3.65, errorDialog: 3.7, powerMenu: 3.8, sos: 3.9, touchLock: 5.5,
         // W3-launcher-misc: the system dialogs (under the pairing dialog, alarms and calls, except Phone away)
         celebration: 3.05, findPhone: 3.1, volume: 3.15, smartLinks: 3.2, liveUpdate: 3.2, phoneAway: 3.35,
+        // What's new after an update (FP-L8): over the app and the face, under the other system dialogs
+        whatsNew: 3.02,
         // the thermal screens share the power menu's level (above the call and alarm views)
         thermal: 3.8
     })
@@ -301,6 +304,18 @@ Item {
                && (modes.bedtime === true || modes.theater === true || modes.doNotDisturb === true)
     }
 
+    /* What's new after an update (setup-wizard-15, CR-42): once, over the app and the face, under the
+     * celebration, the pairing dialog, alarms and calls; not during setup (WhatsNew asks FirstRun) or over
+     * a surface that must not be covered; with the display off it waits for the next screen on */
+    WhatsNew {
+        id: whatsNewView
+        z: arbiter.layers.whatsNew
+        displayOn: typeof comp !== "undefined" && comp ? (!comp.displayIsOff && !Lipstick.compositor.displayAmbient) : true
+        blocked: arbiter.interrupting || arbiter.assistantShown || arbiter.sosShown || arbiter.powerMenuShown
+                 || arbiter.errorShown || goalCelebration.shown || arbiter.btDialogShown || phoneAwayDialog.shown
+    }
+    readonly property bool whatsNewShown: whatsNewView.shown
+
     /* The live update full view (system-dialogs-misc-12): a tap on a live update without an app */
     LiveUpdate {
         id: liveUpdateView
@@ -338,7 +353,7 @@ Item {
     readonly property bool systemDialogShown: findPhonePage.shown || phoneAwayDialog.shown || btDialogShown
                                               || smartLinksMenu.shown || goalCelebration.shown || volumePopup.shown
                                               || thermalUi.closableByCrown
-                                              || liveUpdateView.shown
+                                              || liveUpdateView.shown || whatsNewView.shown
     function closeSystemDialog() {
         // the newest first: Phone away is over everything else of the group
         if (phoneAwayDialog.shown) phoneAwayDialog.close()
@@ -349,5 +364,6 @@ Item {
         else if (thermalUi.closableByCrown) thermalUi.dismissWarning()
         else if (liveUpdateView.shown) liveUpdateView.close()
         else if (findPhonePage.shown) findPhonePage.close()
+        else if (whatsNewView.shown) whatsNewView.close()
     }
 }
