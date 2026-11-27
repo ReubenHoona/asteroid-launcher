@@ -19,7 +19,9 @@ import Nemo.DBus
  *     hotword-setting-key) and the Assistant itself is on (/org/asteroidos/assistant/enabled),
  *   - awake: the display fully on,
  *   - not blocked (KeyRouter: what stops the side button's hold, and the assistant, a call or touch lock up).
- * The daemon is asked on a change only, no timer and no polling; HotwordHeard is taken only while armed.
+ * The daemon is asked on a change only, no timer and no polling; HotwordHeard is taken only while armed. A daemon
+ * that answers false (no detector, the microphone busy) is not listening: it is not told to stop either, so a watch
+ * without a detector costs one call per wake at most.
  * heard(): the phrase was heard and the daemon stopped listening; it is asked again when it is wanted again.
  */
 Item {
@@ -45,7 +47,15 @@ Item {
         if (wanted === armed)
             return
         armed = wanted
-        daemon.typedCall("Hotword", [{ "type": "b", "value": armed }], function () {}, function () {})
+        var asked = armed
+        daemon.typedCall("Hotword", [{ "type": "b", "value": asked }], function (listening) {
+            // it could not listen: nothing to stop later (a late answer to an older call changes nothing)
+            if (asked && listening === false && arm.armed)
+                arm.armed = false
+        }, function () {
+            if (asked && arm.armed)
+                arm.armed = false
+        })
     }
 
     property QtObject daemon: DBusInterface {

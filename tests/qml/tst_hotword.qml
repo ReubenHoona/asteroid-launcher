@@ -95,6 +95,27 @@ Item {
             compare(asked(), [true, false, true, false, true, false])
         }
 
+        // a daemon that cannot listen (no detector installed) answers false: not told to stop, asked again at
+        // the next wake only
+        function test_04_daemon_cannot_listen() {
+            load(true)
+            Backend.replies[svc + ".Hotword"] = false
+            hw.blocked = false
+            hw.awake = true
+            compare(asked(), [true])
+            compare(hw.armed, false)
+            hw.awake = false
+            compare(asked(), [true])
+            hw.awake = true
+            compare(asked(), [true, true])
+            // the daemon unreachable: the same
+            Backend.errors = { "org.asteroidos.assistant.Hotword": "org.freedesktop.DBus.Error.ServiceUnknown" }
+            hw.awake = false
+            hw.awake = true
+            compare(asked(), [true, true, true])
+            compare(hw.armed, false)
+        }
+
         function test_03_heard_once_then_asked_again_when_wanted() {
             load(true)
             hw.awake = true
