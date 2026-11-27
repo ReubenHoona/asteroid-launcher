@@ -33,6 +33,8 @@ Item {
     // every installed face, as file URLs
     property var faces: []
     property string previewFolder: "file:///usr/share/asteroid-launcher/watchfaces-preview/182/"
+    // the 384 px pictures (the carousel's): a face without a 182 px picture shows its 384 px one
+    property string pictureFolder: "file:///usr/share/asteroid-launcher/watchfaces-preview/384/"
     readonly property real u: width / 384
 
     readonly property bool isOpen: visible && !leaving
@@ -214,16 +216,27 @@ Item {
                     color: FP.PLACEHOLDER
                     border.color: FP.ALL_RING_COLOR
                     border.width: list.ringWidth
+                    // the face's 182 px picture, or its 384 px one at this size when it has none: stock
+                    // has one preview picture per face and draws it at the item's size (kdu.java:305-345)
                     Image {
+                        objectName: "eosAddPicture"
+                        readonly property string pictureName: FP.stemOf(cell.file) + ".png"
+                        readonly property string sized: list.previewFolder + pictureName
+                        // the sized picture that could not be read
+                        property string missing: ""
                         anchors.centerIn: parent
                         width: list.previewSize
                         height: width
                         sourceSize.width: 182
                         sourceSize.height: 182
-                        source: list.previewFolder + FP.stemOf(cell.file) + ".png"
+                        source: missing === sized ? list.pictureFolder + pictureName : sized
                         asynchronous: true
                         fillMode: Image.PreserveAspectFit
                         smooth: true
+                        onStatusChanged: {
+                            if (status === Image.Error && String(source) === sized)
+                                missing = sized
+                        }
                     }
                 }
                 Label {

@@ -1274,6 +1274,7 @@ Item {
         z: 1
         faces: picker.store ? picker.store.installed : []
         previewFolder: picker.previewFolder
+        pictureFolder: picker.pictureFolder
         onPicked: (file, cx, cy, size) => picker.addFace(file, cx, cy, size)
     }
 

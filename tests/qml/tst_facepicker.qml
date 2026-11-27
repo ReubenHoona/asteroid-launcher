@@ -715,6 +715,45 @@ Item {
             compare(orphans.join(" "), "", "pictures without a face")
         }
 
+        // the Add new list draws a face's 182 px picture; a face without one shows its 384 px picture (the
+        // carousel's) at that size, not an empty ring: stock has one preview per face (kdu.java:305-345); a
+        // 182 px folder that has it again is read again
+        function addPictures(list) {
+            var out = []
+            var c = find(list, "eosAddGrid").contentItem.children
+            for (var i = 0; i < c.length; i++)
+                if (c[i].objectName === "eosAddCell")
+                    out.push(find(c[i], "eosAddPicture"))
+            return out
+        }
+        function allFrom(pics, folder) {
+            for (var i = 0; i < pics.length; i++)
+                if (pics[i].status !== Image.Ready || String(pics[i].source).indexOf(folder) !== 0)
+                    return false
+            return true
+        }
+        function test_d60_28_add_fallback() {
+            var p182 = Qt.resolvedUrl("previews182/").toString(), p384 = Qt.resolvedUrl("previews384/").toString()
+            if (!fileExists(p182 + "021-classic.png") || !fileExists(p384 + "021-classic.png"))
+                skip("the repo's previews are not staged as previews182/ and previews384/ next to the test")
+            var list = openAdd()
+            picker.previewFolder = p182
+            var pics = addPictures(list)
+            verify(pics.length >= 2, "cells: " + pics.length)
+            tryVerify(function () { return allFrom(pics, p182) }, 5000, "the 182 px pictures")
+            compare(pics[0].implicitWidth, 182)
+            // no 182 px picture: the 384 px one, decoded at 182 px
+            picker.previewFolder = Qt.resolvedUrl("no-such-folder/").toString()
+            tryVerify(function () { return allFrom(pics, p384) }, 5000, "the 384 px pictures")
+            compare(pics[0].implicitWidth, 182, "decoded at the list's size")
+            compare(pics[0].width, list.previewSize, "drawn at the preview's size")
+            var img = grabImage(picker)
+            img.save("/tmp/wo11-shots/d60-28-add-fallback.png")
+            // and back to the 182 px set
+            picker.previewFolder = p182
+            tryVerify(function () { return allFrom(pics, p182) }, 5000, "the 182 px pictures again")
+        }
+
         // ---- D60-29 ----------------------------------------------------------------------------------------
         function test_d60_29_row() {
             setup([["w1", "018-modular"], ["w2", "021-classic"], ["w3", "022-large"]], "w3")
