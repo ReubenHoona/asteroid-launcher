@@ -35,11 +35,14 @@ static std::string readFile(const std::string &path)
 
 int main()
 {
-    // the heart rate alert is all three; nothing else is any of them
+    // the heart rate alert is all three; nothing else is any of them, but a celebration is full screen (R5 E-06)
     CHECK(alarm("health-alert"));
     CHECK(oneId("health-alert"));
     CHECK(fullScreen("health-alert"));
-    for (const char *c : { "", "alarm", "celebration", "exercise-detect", "ongoing", "health", "Health-Alert" }) {
+    CHECK(fullScreen("celebration"));
+    CHECK(!alarm("celebration"));
+    CHECK(!oneId("celebration"));
+    for (const char *c : { "", "alarm", "exercise-detect", "ongoing", "health", "Health-Alert", "Celebration" }) {
         CHECK(!alarm(c));
         CHECK(!oneId(c));
         CHECK(!fullScreen(c));

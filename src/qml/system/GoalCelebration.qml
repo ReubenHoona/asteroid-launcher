@@ -5,21 +5,31 @@
 
 import QtQuick
 import Nemo.Configuration
+import Nemo.DBus
+import Nemo.Mce
 import org.asteroid.controls
-import org.asteroid.launcher
 import "goals.js" as Goals
 
-/* The daily goal celebration (health-fitness-14), as stock's Fitbit GoalAchievedCelebration: when
- * the day's step total crosses the goal (Settings: /org/asteroidos/ux/steps-goal, 10000) a full
- * screen shows the metric's icon, "Goal complete!", the metric's name and the value, with about 4 s
- * of confetti (our own design: the stock Lottie files are out of reach) and two short vibrations. It
- * goes after 10 s, with a tap, a swipe or the crown. Once per goal and day.
- * The steps are read from asteroid-sensorlogd's log (HealthLog, a file watcher: no polling, no timer
- * but its own 2 s debounce) only while the display is on, and once when it comes on; a goal reached
- * with the display off is shown at the next screen on. Not while a call, an alarm, setup or another
- * system surface is up, nor in Bedtime, Theater or Do Not Disturb (it is then dropped for the day:
- * a celebration that comes hours late says nothing). The animation and its timers run only while
- * the screen shows. Fed by the arbiter (`displayOn`, `blocked`, `quiet`). */
+/* The full screen celebrations (health-fitness-14, -15; R5 E-05, E-06, E-18), as stock's Fitbit CelebrationActivity
+ * (celebration/display/CelebrationActivity.java; manifest: turnScreenOn, showWhenLocked; started by trj.java:115-185
+ * with the rules of goals.js mayShow). asteroid-sensorlogd decides and posts them: the main goal reached (its type:
+ * steps, calories, distance, floors or Active Zone Minutes, tui.java:505-580), every hour of the reminders' window
+ * met, a reminder to move at minute 50 and its hour's 250 steps reached. Lipstick hands the post over
+ * (notificationPreviewPresenter.fullScreenRequested: x-asteroid-category "celebration" is a full screen category,
+ * eoscategory.h; no banner, and the transient post leaves no card).
+ *
+ * The screens (stock's layouts, the Fitbit Lottie and colours out of reach: our design for the confetti):
+ *   a goal (GoalAchievedCelebration):  the metric's icon, "Goal complete!", the metric's name, the value
+ *   a reminder (tsa.java f(): HourlyReminderToMoveMessage): the ring of the hour's steps of 250 round the hourly
+ *       activity icon, "Reminder to move", "N steps left\nthis hour"
+ *   its goal reached (tsa.java e(): HourlyReminderToMoveCelebration): "Reminder to move" small, 12 dp, the full
+ *       ring, 8 dp, "Goal complete!", "250/250"
+ * The arrival turns the display on (mce, as stock's turnScreenOn) and keeps it on for the 10 s it shows; a tap, a
+ * swipe or the crown ends it sooner. Not in Bedtime, Theater or Do Not Disturb, on the charger, off the wrist, with
+ * Celebrations off, nor over a call, an alarm, setup or another system surface (it is dropped then, as stock's).
+ * A goal's screen vibrates twice (its post has no feedback of its own); a reminder's vibration is its post's
+ * (lipstick plays it). Nothing runs while no celebration shows: no timer, no reading. Fed by the arbiter
+ * (`displayOn`, `blocked`, `quiet`). */
 Item {
     id: cel
     objectName: "goalCelebration"
@@ -31,79 +41,154 @@ Item {
     property bool blocked: false
     /* Bedtime, Theater or Do Not Disturb */
     property bool quiet: false
-    // a clock (the tests move it)
-    property var clock: function () { return new Date() }
+    // lipstick's preview presenter (fullScreenRequested); a test sets its own
+    property QtObject presenter: typeof notificationPreviewPresenter !== "undefined" ? notificationPreviewPresenter : null
 
     readonly property bool shown: dialog.shown
     readonly property alias dialog: dialog
-    readonly property alias health: log
     readonly property alias hideTimer: hide
     readonly property alias confettiAnimation: confettiAnim
     readonly property alias vibration: buzz
     readonly property bool celebrationsOn: switchValue.value !== false && switchValue.value !== "false"
-    // a celebration is waiting for the screen to come on
-    property bool pending: false
-    // the metric on the screen
-    property string metricId: "steps"
-    property int value: 0
+    readonly property bool charging: chargerType.valid && chargerType.type !== MceChargerType.None
+    readonly property bool offWrist: offBodyKnown.value === true && offBody.value === true
+    // a celebration waiting for the display the arrival asked for
+    property var pending: null
+    // the celebration on the screen (Goals.parse), how many were shown
+    property var current: null
     property int shows: 0
-    readonly property var metric: Goals.metric(metricId)
-
-    // the screen reads the sensor only while it is on
-    readonly property bool watching: celebrationsOn && displayOn
+    readonly property string kind: current ? current.kind : ""
+    readonly property bool isGoal: kind === "goal"
+    readonly property bool isReminder: kind === "rtm" || kind === "rtm-done"
+    readonly property var metric: isGoal ? Goals.metric(current.metric) : null
+    readonly property bool imperial: Qt.locale().measurementSystem !== Locale.MetricSystem
 
     ConfigurationValue { id: switchValue; key: "/org/asteroidos/health/celebrations"; defaultValue: true }
-    ConfigurationValue { id: goal; key: "/org/asteroidos/ux/steps-goal"; defaultValue: 10000 }
-    // the day (local, "YYYY-MM-DD") a goal was last celebrated on
-    ConfigurationValue { id: celebrated; key: "/org/asteroidos/health/celebrated-steps"; defaultValue: "" }
+    ConfigurationValue { id: offBody; key: "/org/asteroidos/sensors/off-body"; defaultValue: false }
+    ConfigurationValue { id: offBodyKnown; key: "/org/asteroidos/sensors/off-body-available"; defaultValue: false }
+    MceChargerType { id: chargerType }
 
-    HealthLog {
-        id: log
-        sensor: "stepCounter"
-        buckets: 1
-        active: cel.watching
-        onChanged: cel.check()
-    }
-
-    onWatchingChanged: if (watching) check()
-    onDisplayOnChanged: {
-        if (displayOn && pending)
-            tryShow()
-    }
-
-    /* The total crossed the goal? */
-    function check() {
-        if (!celebrationsOn)
-            return
-        var today = Goals.dayKey(clock())
-        var total = log.hasData ? log.lastValue : 0
-        if (Goals.decide(total, goal.value, celebrated.value, today) !== "celebrate")
-            return
-        // once for the day, whether or not it shows (a quiet hour drops it)
-        celebrated.value = today
-        value = total
-        pending = true
-        tryShow()
-    }
-
-    function tryShow() {
-        if (!Goals.mayShow({ displayOn: displayOn, blocked: blocked, quiet: quiet })) {
-            // a quiet or covered moment drops it, a dark screen keeps it for the next screen on
-            if (displayOn)
-                pending = false
-            return
+    Connections {
+        target: cel.presenter
+        ignoreUnknownSignals: true
+        function onFullScreenRequested(notification) {
+            if (notification && notification.hints)
+                cel.offer(Goals.parse(notification.hints))
         }
-        pending = false
+    }
+
+    /* A celebration has come: on the screen now, or once the display it asked for is on; dropped when it may not
+     * show (goals.js mayShow) */
+    function offer(c) {
+        if (!c)
+            return false
+        if (!Goals.mayShow({ blocked: blocked, quiet: quiet, charging: charging, offWrist: offWrist,
+                             enabled: celebrationsOn }))
+            return false
+        if (!displayOn) {
+            pending = c
+            requestDisplay()
+            return true
+        }
+        present(c)
+        return true
+    }
+    onDisplayOnChanged: {
+        if (displayOn && pending !== null) {
+            var c = pending
+            pending = null
+            present(c)
+        }
+    }
+
+    function present(c) {
+        current = c
         shows++
-        dialog.open()
+        if (dialog.shown)
+            dialog.opened()
+        else
+            dialog.open()
     }
     function close() { dialog.close() }
 
-    // the tests and the arbiter: show it now
-    function show(total) {
-        value = total
-        shows++
-        dialog.open()
+    // the tests and the arbiter: show this one now (a parsed celebration, goals.js parse)
+    function show(c) {
+        present(c)
+    }
+
+    // the texts of the screen
+    //% "Goal complete!"
+    readonly property string goalCompleteText: qsTrId("id-goal-complete") + localeManager.changesObserver
+    //% "Reminder to move"
+    readonly property string reminderText: qsTrId("id-reminder-to-move") + localeManager.changesObserver
+    readonly property string nameText: {
+        if (!isGoal)
+            return ""
+        switch (current.metric) {
+        //% "Steps"
+        case "steps": return qsTrId("id-goal-steps") + localeManager.changesObserver
+        //% "Calories"
+        case "calories": return qsTrId("id-goal-calories") + localeManager.changesObserver
+        //% "Distance"
+        case "distance": return qsTrId("id-goal-distance") + localeManager.changesObserver
+        //% "Floors"
+        case "floors": return qsTrId("id-goal-floors") + localeManager.changesObserver
+        //% "Active Zone Min"
+        case "azm": return qsTrId("id-goal-azm") + localeManager.changesObserver
+        //% "Hourly Activity"
+        case "hourly": return qsTrId("id-goal-hourly") + localeManager.changesObserver
+        }
+        return ""
+    }
+    readonly property var formats: ({
+        //% "%1 cal"
+        cal: qsTrId("id-goal-cal-value"),
+        //% "%1 floors"
+        floors: qsTrId("id-goal-floors-value"),
+        //% "%1 Zone Mins"
+        azm: qsTrId("id-goal-azm-value"),
+        //% "%1 hr"
+        hours: qsTrId("id-goal-hours-value"),
+        //% "%1 km"
+        km: qsTrId("id-goal-km-value"),
+        //% "%1 mi"
+        mi: qsTrId("id-goal-mi-value")
+    })
+    readonly property string valueText: isGoal ? Goals.valueText(current, Qt.locale(), imperial, formats) + localeManager.changesObserver : ""
+    readonly property string leftText: {
+        if (kind !== "rtm")
+            return ""
+        //% "%n step(s) left\nthis hour"
+        return qsTrId("id-rtm-steps-left", current.left) + localeManager.changesObserver
+    }
+    readonly property string ratioText: kind === "rtm-done" ? current.goal + "/" + current.goal : ""
+
+    // mce turns the display on for the arrival (its notification request, as the heart rate alert's), at most 10 s;
+    // the dialog keeps it on while it shows
+    property bool _holding: false
+    function requestDisplay() {
+        _holding = true
+        mce.typedCall("notification_begin_req",
+                      [{ "type": "s", "value": "asteroid-celebration" },
+                       { "type": "i", "value": 10000 },
+                       { "type": "i", "value": 0 }],
+                      function () {},
+                      function (error, message) { console.log("GoalCelebration: display on:", error, message) })
+    }
+    function releaseDisplay() {
+        if (!_holding)
+            return
+        _holding = false
+        mce.typedCall("notification_end_req",
+                      [{ "type": "s", "value": "asteroid-celebration" },
+                       { "type": "i", "value": 1000 }])
+    }
+    DBusInterface {
+        id: mce
+        bus: DBus.SystemBus
+        service: "com.nokia.mce"
+        path: "/com/nokia/mce/request"
+        iface: "com.nokia.mce.request"
     }
 
     Dialog {
@@ -113,13 +198,16 @@ Item {
         keepScreenOn: true
         onOpened: {
             hide.restart()
-            buzz.restart()
+            buzz.stop()
+            if (cel.isGoal)
+                buzz.start()
             confettiAnim.restart()
         }
         onClosed: {
             hide.stop()
             buzz.stop()
             confettiAnim.stop()
+            cel.releaseDisplay()
         }
 
         // a tap ends it (the swipe and the crown through the dialog and keymap)
@@ -129,12 +217,13 @@ Item {
         }
 
         // the confetti: our design, a fixed pattern, made only while the screen is up (24 pieces and their
-        // animations are not built at launcher start) and animated only while it shows
+        // animations are not built at launcher start) and animated only while it shows; a goal reached (a goal, its
+        // hour's reminder goal), not a reminder to move
         Loader {
             id: confettiLoader
             objectName: "confettiLoader"
             anchors.fill: parent
-            active: dialog.active
+            active: dialog.active && cel.kind !== "rtm"
             sourceComponent: Component {
                 Item {
                     id: confettiLayer
@@ -181,10 +270,11 @@ Item {
             }
         }
 
-        // the metric's icon, "Goal complete!", the name, the value
+        // a goal: the metric's icon, "Goal complete!", the name, the value
         Column {
             id: content
             objectName: "celebrationContent"
+            visible: cel.isGoal
             anchors.centerIn: parent
             width: parent.width * 0.8
             spacing: Theme.dp(4)
@@ -208,8 +298,7 @@ Item {
                 elide: Text.ElideRight
                 role: "titleMedium"
                 color: Theme.color.onBackground
-                //% "Goal complete!"
-                text: qsTrId("id-goal-complete") + localeManager.changesObserver
+                text: cel.goalCompleteText
             }
             Label {
                 id: nameLabel
@@ -218,8 +307,7 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 role: "labelMedium"
                 color: Theme.color.onSurfaceVariant
-                //% "Steps"
-                text: qsTrId("id-goal-steps") + localeManager.changesObserver
+                text: cel.nameText
             }
             Label {
                 id: valueLabel
@@ -227,8 +315,75 @@ Item {
                 width: parent.width
                 horizontalAlignment: Text.AlignHCenter
                 role: "displaySmall"
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Theme.dp(16)
                 color: Theme.color.primary
-                text: Goals.valueText(cel.value, Qt.locale())
+                text: cel.valueText
+            }
+        }
+
+        // a reminder to move: (its goal reached: the label first) the ring, the title, the steps
+        Column {
+            id: reminder
+            objectName: "reminderContent"
+            visible: cel.isReminder
+            anchors.centerIn: parent
+            width: parent.width * 0.76
+
+            Label {
+                id: reminderLabel
+                objectName: "reminderLabel"
+                visible: cel.kind === "rtm-done"
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                role: "labelMedium"
+                color: Theme.color.onSurfaceVariant
+                text: cel.reminderText
+            }
+            Item { width: 1; height: Theme.dp(12); visible: reminderLabel.visible }
+            CircularProgressIndicator {
+                id: ring
+                objectName: "reminderRing"
+                anchors.horizontalCenter: parent.horizontalCenter
+                width: Theme.dp(72)
+                height: width
+                displayOn: cel.displayOn && dialog.active
+                strokeWidth: Theme.dp(6)
+                color: Theme.color.primary
+                progress: Goals.ringProgress(cel.current)
+
+                // stock's ring has the hourly activity icon inside (gs_fitbit_hourly_activity)
+                Icon {
+                    objectName: "reminderIcon"
+                    anchors.centerIn: parent
+                    width: Theme.dp(28)
+                    height: width
+                    name: "eos-health-hourly"
+                    color: Theme.color.primary
+                }
+            }
+            Item { width: 1; height: Theme.dp(8) }
+            Label {
+                id: reminderTitle
+                objectName: "reminderTitle"
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                role: "titleMedium"
+                color: Theme.color.onBackground
+                text: cel.kind === "rtm-done" ? cel.goalCompleteText : cel.reminderText
+            }
+            Label {
+                id: reminderValue
+                objectName: "reminderValue"
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.Wrap
+                maximumLineCount: 2
+                role: cel.kind === "rtm-done" ? "titleLarge" : "bodyMedium"
+                color: cel.kind === "rtm-done" ? Theme.color.primary : Theme.color.onSurfaceVariant
+                text: cel.kind === "rtm-done" ? cel.ratioText : cel.leftText
             }
         }
 
@@ -238,7 +393,7 @@ Item {
             interval: Goals.SHOW_MS
             onTriggered: dialog.close()
         }
-        // the vibration: a confirmation, again after 260 ms
+        // the vibration of a goal: a confirmation, again after 260 ms
         SequentialAnimation {
             id: buzz
             ScriptAction { script: Haptics.confirm() }

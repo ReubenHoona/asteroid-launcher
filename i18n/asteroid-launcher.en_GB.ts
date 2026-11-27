@@ -1870,6 +1870,77 @@ Only selected people and apps can reach you.</translation>
         <source>Steps</source>
         <translation>Steps</translation>
     </message>
+    <message id="id-goal-calories">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Calories</source>
+        <translation>Calories</translation>
+    </message>
+    <message id="id-goal-distance">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Distance</source>
+        <translation>Distance</translation>
+    </message>
+    <message id="id-goal-floors">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Floors</source>
+        <translation>Floors</translation>
+    </message>
+    <message id="id-goal-azm">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Active Zone Min</source>
+        <translation>Active Zone Min</translation>
+    </message>
+    <message id="id-goal-hourly">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Hourly Activity</source>
+        <translation>Hourly Activity</translation>
+    </message>
+    <message id="id-goal-cal-value">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>%1 cal</source>
+        <translation>%1 cal</translation>
+    </message>
+    <message id="id-goal-floors-value">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>%1 floors</source>
+        <translation>%1 floors</translation>
+    </message>
+    <message id="id-goal-azm-value">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>%1 Zone Mins</source>
+        <translation>%1 Zone Mins</translation>
+    </message>
+    <message id="id-goal-hours-value">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>%1 hr</source>
+        <translation>%1 hr</translation>
+    </message>
+    <message id="id-goal-km-value">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>%1 km</source>
+        <translation>%1 km</translation>
+    </message>
+    <message id="id-goal-mi-value">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>%1 mi</source>
+        <translation>%1 mi</translation>
+    </message>
+    <message id="id-reminder-to-move">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>Reminder to move</source>
+        <translation>Reminder to move</translation>
+    </message>
+    <message id="id-rtm-steps-left" numerus="yes">
+        <location filename="../src/qml/system/GoalCelebration.qml"/>
+        <source>%n step(s) left
+this hour</source>
+        <translation>
+            <numerusform>%n step left
+this hour</numerusform>
+            <numerusform>%n steps left
+this hour</numerusform>
+        </translation>
+    </message>
     <message id="id-volume-call">
         <location filename="../src/qml/system/VolumePopup.qml"/>
         <source>In-call volume</source>
