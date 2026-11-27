@@ -6,7 +6,9 @@
 import QtQuick
 import Nemo.Configuration
 import Nemo.DBus
+import Connman
 import org.asteroid.controls
+import org.asteroid.utils
 import "thermal.js" as Thermal
 
 /* The thermal screens (power-boot-warnings-12), as stock's ThermalUiImpl, driven by the dconf key
@@ -16,9 +18,12 @@ import "thermal.js" as Thermal
  *             in 15 seconds" and a round OK button (the monitor moves on by itself)
  *   cooldown  "Cooling down..." for 3000 ms (icon 48 dp, its top at 32 % of the height), then an overlay that
  *             takes every touch and hides nothing; a tap on it shows "Your watch has overheated" with
- *             "Move your watch to a cooler place" (icon at 12 %) for 3 s. Theater mode is on for the
- *             cooldown (turned on here, turned off at its end only if it was this that turned it on);
- *             airplane mode and Bluetooth / Wi-Fi are the monitor's. The crown does nothing (keymap).
+ *             "Move your watch to a cooler place" (icon at 12 %) for 3 s. Theater mode and Airplane mode
+ *             are on for the cooldown (turned on here, turned off at its end only if it was this that
+ *             turned them on; stock startCooldownMode / the cooldown's end, R5 B-08). Airplane mode is
+ *             connman's offline mode as the quick panel's: Wi-Fi and mobile off, Bluetooth kept on when
+ *             it was on (stock's airplane mode keeps it, bluetooth_airplane_mode_toast; Settings'
+ *             bluetooth-off-in-airplane). The crown does nothing (keymap).
  *   end       the notice "Watch was too warm" / "It is now running normally"
  *   shutdown  the first boot after a thermal shutdown (the monitor writes
  *             /org/asteroidos/thermal/shutdown-notice): "Watch was too warm" / "It turned off to cool down
@@ -39,6 +44,9 @@ Item {
     readonly property string thermalState: stateValue.value === undefined ? "none" : String(stateValue.value)
     // Theater mode was turned on by the cooldown
     property bool theaterByUs: false
+    // Airplane mode was turned on by the cooldown (R5 B-08)
+    property bool airplaneByUs: false
+    readonly property alias restoreBluetooth: restoreBluetooth
     property int notices: 0
     property string lastNotice: ""
     readonly property alias coolingTimer: coolingTimer
@@ -70,6 +78,7 @@ Item {
                 modes.theater = true
                 theaterByUs = true
             }
+            airplaneOn()
         } else if (phase === "none") {
             coolingTimer.stop()
             cardTimer.stop()
@@ -82,6 +91,7 @@ Item {
         if (theaterByUs && typeof modes !== "undefined" && modes !== null)
             modes.theater = false
         theaterByUs = false
+        airplaneOff()
         //% "Watch was too warm"
         notice(qsTrId("id-thermal-end-title"),
                //% "It is now running normally"
@@ -120,6 +130,41 @@ Item {
 
     function displayOn() {
         mce.typedCall("req_display_state_on", [])
+    }
+
+    /* Airplane mode for the cooldown (R5 B-08): stock's ThermalUiImpl startCooldownMode turns it on (not in
+     * SOS mode: this watch has no emergency call) and the cooldown's end turns it off again
+     * (power-boot-warnings audit, CSUI modes/thermal). Already on: left alone, and left on at the end. */
+    NetworkManager { id: connman }
+    BluetoothStatus { id: btStatus }
+    ConfigurationValue {
+        id: btOffInAirplane
+        key: "/org/asteroidos/settings/bluetooth-off-in-airplane"
+        defaultValue: false
+    }
+    readonly property bool btStaysOn: btOffInAirplane.value !== true && String(btOffInAirplane.value) !== "true"
+    property bool _btWasOn: false
+    function airplaneOn() {
+        if (airplaneByUs || connman.offlineMode === true)
+            return
+        _btWasOn = btStatus.powered === true
+        connman.offlineMode = true
+        airplaneByUs = true
+        if (_btWasOn && btStaysOn)
+            restoreBluetooth.restart()
+    }
+    function airplaneOff() {
+        restoreBluetooth.stop()
+        if (airplaneByUs)
+            connman.offlineMode = false
+        airplaneByUs = false
+    }
+    // connman's offline mode turns Bluetooth off as well: on again, once, 1.5 s later (as the quick panel)
+    Timer {
+        id: restoreBluetooth
+        objectName: "thermalRestoreBluetooth"
+        interval: 1500
+        onTriggered: if (thermal.airplaneByUs && connman.offlineMode && !btStatus.powered) btStatus.powered = true
     }
 
     DBusInterface {
