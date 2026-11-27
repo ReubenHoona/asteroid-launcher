@@ -176,6 +176,7 @@ Item {
     // the face picker goes without applying (an application or the assistant came up)
     function closeFacePicker() {
         faceEditorItem.closeNow()
+        worldClockChooserItem.closeNow()
         if (facePickerItem.visible) facePickerItem.close()
     }
 
@@ -184,6 +185,7 @@ Item {
         appDrawerItem.closeNow()
         recentsItem.closeNow()
         faceEditorItem.closeNow()
+        worldClockChooserItem.closeNow()
         if (facePickerItem.visible) facePickerItem.close()
         if (tilesEditorItem.visible) tilesEditorItem.close()
     }
@@ -217,6 +219,11 @@ Item {
         // the face editor: the crown leaves it for the face, the choices kept (face-interaction-24)
         if (faceEditorItem.visible) {
             faceEditorItem.crownPressed()
+            return
+        }
+        // a World clock slot's zone chooser: the crown leaves it for the face, nothing picked
+        if (worldClockChooserItem.shown) {
+            worldClockChooserItem.closeNow()
             return
         }
         if (facePickerItem.visible) {
@@ -344,6 +351,27 @@ Item {
             facePreviewRenderer.render(faceLayer.favourites.currentId)
         }
     }
+    /* A tap on a World clock slot of the face (A-13): its zone chooser, over the face, as stock's
+     * complication tap opens ACTION_CHOOSE_TIMEZONE when there is no world clock app; the zone picked
+     * is stored for that slot. It goes with the display (as the editor) and with the crown. */
+    WorldClockChooser {
+        id: worldClockChooserItem
+        objectName: "eosWorldClockChooser"
+        z: 6.6
+        visible: shown
+        sources: complications
+    }
+    Connections {
+        target: complications
+        function onWorldClockChooserRequested(faceName, slotId, current) {
+            if (faceName !== "" && slotId !== "")
+                worldClockChooserItem.openFor(current, faceName, slotId)
+        }
+    }
+    Connections {
+        target: desktop
+        function onDisplayAwakeChanged() { if (!desktop.displayAwake) worldClockChooserItem.closeNow() }
+    }
     // stock: Recents, the assistant or an application coming up closes the picker without applying
     // (face-interaction-33, ked.java:340-347)
     Connections {
@@ -351,6 +379,7 @@ Item {
         function onHomeActiveChanged() {
             if (!Lipstick.compositor.homeActive) {
                 faceEditorItem.closeNow()
+                worldClockChooserItem.closeNow()
                 if (facePickerItem.shown)
                     facePickerItem.closeNow()
             }

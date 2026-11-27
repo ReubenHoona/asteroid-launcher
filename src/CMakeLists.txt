@@ -21,6 +21,7 @@ set(SRC
 	touchobserver.cpp
 	facepreviews.cpp
 	wristorientation.cpp
+	worldzones.cpp
 	eoslayout.c)
 set(HEADERS
 	applauncherbackground.h
@@ -47,6 +48,7 @@ set(HEADERS
 	eostouch.h
 	facepreviews.h
 	wristorientation.h
+	worldzones.h
 	eoshubdigits.h
 	eoslayout.h)
 
@@ -151,6 +153,7 @@ set(QML_FILES
 	qml/complications/EditorSlotsPage.qml
 	qml/complications/EditorBoolPage.qml
 	qml/complications/EditorDots.qml
+	qml/complications/WorldClockChooser.qml
 	qml/complications/faceeditor.js
 	qml/home/FaceColors.qml
 	qml/home/SimpleFace.qml
@@ -381,6 +384,7 @@ set_source_files_properties(qml/complications/EditorDatePage.qml PROPERTIES QT_R
 set_source_files_properties(qml/complications/EditorSlotsPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSlotsPage.qml)
 set_source_files_properties(qml/complications/EditorBoolPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorBoolPage.qml)
 set_source_files_properties(qml/complications/EditorDots.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorDots.qml)
+set_source_files_properties(qml/complications/WorldClockChooser.qml PROPERTIES QT_RESOURCE_ALIAS complications/WorldClockChooser.qml)
 set_source_files_properties(qml/complications/faceeditor.js PROPERTIES QT_RESOURCE_ALIAS complications/faceeditor.js)
 set_source_files_properties(qml/home/FaceColors.qml PROPERTIES QT_RESOURCE_ALIAS home/FaceColors.qml)
 set_source_files_properties(qml/home/SimpleFace.qml PROPERTIES QT_RESOURCE_ALIAS home/SimpleFace.qml)

@@ -69,12 +69,13 @@ Item {
     readonly property var pageKinds: pageSpecs.map(function (p) { return p.kind })
     readonly property bool choosing: chooser.shown
     // the second page of a source that needs a choice first is up (world clock, countdown, app)
-    readonly property bool choosingValue: paramList.shown || datePage.shown
+    readonly property bool choosingValue: paramList.shown || datePage.shown || zoneChooser.shown
     readonly property bool listing: optionsList.shown
     readonly property Item pagerView: pager
     readonly property Item chooserSheet: chooser
     readonly property Item paramSheet: paramList
     readonly property Item dateSheet: datePage
+    readonly property Item zoneSheet: zoneChooser
     readonly property Item optionsSheet: optionsList
     readonly property Item dotsItem: pageDots
     readonly property Item faderItem: fader
@@ -84,7 +85,8 @@ Item {
 
     // what the crown steers: the open list, else the stepper of a list setting page; none on the
     // other pages (RotaryInput: a null target leaves the crown nothing to turn)
-    property Item rotaryTarget: paramList.shown ? paramList.list
+    property Item rotaryTarget: zoneChooser.shown ? zoneChooser.rotaryTarget
+                                : paramList.shown ? paramList.list
                                 : datePage.shown ? (datePage.picker ? datePage.picker.rotaryTarget : null)
                                 : chooser.shown ? chooser.list : (optionsList.shown ? optionsList.list
                                 : (pager.currentItem ? pager.currentItem.stepper : null))
@@ -176,6 +178,7 @@ Item {
         chosenSlot = null
         paramList.closeNow()
         datePage.closeNow()
+        zoneChooser.closeNow()
         chooser.closeNow()
         poke()
     }
@@ -195,22 +198,19 @@ Item {
             datePage.open(FE.countdownDay(mine, new Date()))
             return
         }
-        var rows = []
-        var at = 0
         if (source === "worldclock") {
-            rows = FE.worldClockRows()
-            var off = mine !== "" ? C.offsetMinutes(mine) : null
-            at = FE.offsetIndex(off !== null ? off : -new Date().getTimezoneOffset())
-        } else {
-            var items = []
-            var m = sources.apps
-            for (var i = 0; m && i < m.itemCount; i++) {
-                var it = m.get(i)
-                items.push(it && it.object ? it.object : it)
-            }
-            rows = FE.appRows(items)
-            at = FE.rowIndex(rows, cur)
+            // the regions, then the zones of one (A-13: stock's zone chooser), on the slot's zone
+            zoneChooser.openFor(mine)
+            return
         }
+        var items = []
+        var m = sources.apps
+        for (var i = 0; m && i < m.itemCount; i++) {
+            var it = m.get(i)
+            items.push(it && it.object ? it.object : it)
+        }
+        var rows = FE.appRows(items)
+        var at = FE.rowIndex(rows, cur)
         paramList.title = sources.name(source)
         paramList.model = rows
         paramList.open(at)
@@ -244,6 +244,7 @@ Item {
         idleTimer.stop()
         paramList.closeNow()
         datePage.closeNow()
+        zoneChooser.closeNow()
         chooser.closeNow()
         optionsList.closeNow()
         chosenSlot = null
@@ -259,6 +260,8 @@ Item {
     }
     // a swipe right out of a list, or the way back from the chooser to the complications page
     function back() {
+        if (zoneChooser.back())
+            return true
         if (paramList.shown) {
             paramList.back()
             return true
@@ -474,6 +477,14 @@ Item {
         id: datePage
         objectName: "eosEditorDate"
         onPicked: (value) => editor.chooseSource(value)
+        onPoked: editor.poke()
+    }
+    // the World clock's regions and zones (A-13)
+    WorldClockChooser {
+        id: zoneChooser
+        objectName: "eosEditorZones"
+        sources: editor.sources
+        onPicked: (source) => editor.chooseSource(source)
         onPoked: editor.poke()
     }
     // the app each source belongs to, the chooser's second line

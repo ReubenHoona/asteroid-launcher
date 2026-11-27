@@ -23,9 +23,11 @@ import "../home/ambient.js" as Ambient
  * /org/asteroidos/watchface/complications/<face file name> as a list of
  * "slotId=source" strings (missing: the face's default; "empty": nothing).
  * A source is one of `all`, or "kind:parameter" for the three that need a
- * choice (`parameterised`): "worldclock:+0530" (a UTC offset), "countdown:
- * 2026-12-25" and "app:asteroid-music" (a desktop file); the face editor
- * asks for the parameter.
+ * choice (`parameterised`): "worldclock:<zone>" (a time zone id of the tz
+ * database: summer time included, A-13; a UTC offset such as "+0530" kept
+ * from before still reads as a fixed offset), "countdown:2026-12-25" and
+ * "app:asteroid-music" (a desktop file); the face editor asks for the
+ * parameter.
  *
  * Power, as the tiles: the sources read and follow their data only while
  * "active" (the face, or the face editor, on the awake screen) and only
@@ -56,6 +58,10 @@ Item {
     // launcher's apps (the app shortcut's name and icon)
     property int unread: 0
     property var apps: null
+    // the World clock's time zones (src/worldzones.h, the context property worldZones; a test sets its own)
+    property var zones: typeof worldZones !== "undefined" ? worldZones : null
+    // a tap on a World clock slot (stock: the zone chooser of that complication, ACTION_CHOOSE_TIMEZONE)
+    signal worldClockChooserRequested(string faceName, string slotId, string current)
 
     // the data sources, in the order of the face editor's list
     readonly property var all: ["empty", "date", "daymonth", "datemonth", "weekday", "timedate", "steps", "heartrate", "distance",
@@ -353,15 +359,8 @@ Item {
                           short: t.time, caption: t.marker, title: name("timedate"),
                           long: sources.now.toLocaleString(Qt.locale(), "ddd d MMM"), icon: "ios-time-outline" })
         }
-        case "worldclock": {
-            var off = C.offsetMinutes(p.param)
-            if (off === null)
-                return base({ short: nodata, text: nodata, icon: "ios-globe-outline", title: name("worldclock"), known: false })
-            var wc = C.inOffset(sources.now, off)
-            var wp = C.timeParts(wc, sources.use12h)
-            return base({ text: C.fmtTime(wc, sources.use12h), short: wp.time, caption: wp.marker, title: name("worldclock"),
-                          long: C.fmtTime(wc, sources.use12h), icon: "ios-globe-outline" })
-        }
+        case "worldclock":
+            return worldClockInfo(p.param)
         case "countdown": {
             var days = C.daysTo(sources.now, p.param)
             if (days === null)
@@ -541,10 +540,44 @@ Item {
                       icon: "eos-exercise", elements: C.exerciseDayElements(done, goal) })
     }
 
+    /* World clock (A-13), as stock's WorldClockProviderService (SHORT_TEXT): the text is the zone's time
+     * now (its offset at this moment: summer time included), "10:10AM" in 12 h when it fits, "10:10" in
+     * 24 h; the title (our caption) the zone's short code; the content description "World clock London"
+     * (our long slot: the city over the time). A UTC offset kept from before reads as a fixed offset. */
+    function worldClockInfo(param) {
+        var nodata = "- -"
+        var off = null, code = "", city = ""
+        var z = sources.zones
+        if (z && z.isZone(param)) {
+            var m = z.offsetMinutes(param, sources.now.getTime())
+            if (m > -100000) {
+                off = m
+                code = z.code(param)
+                city = z.city(param)
+            }
+        } else {
+            off = C.offsetMinutes(param)
+            if (off !== null)
+                code = C.offsetCode(off)
+        }
+        if (off === null)
+            return base({ short: nodata, text: nodata, icon: "ms-language", title: name("worldclock"), known: false })
+        var wc = C.inOffset(sources.now, off)
+        var loc = Qt.locale()
+        var t = C.worldClockText(wc, sources.use12h, loc.amText, loc.pmText)
+        return base({ text: t + " " + code, short: t, caption: code, title: city !== "" ? city : name("worldclock"),
+                      long: t, icon: "ms-language" })
+    }
+
     // where a tap on a slot goes, as the stock complications open their app
     function open(id, fromItem) {
         var p = C.split(id)
         switch (p.kind) {
+        case "worldclock":
+            // stock: no world clock app here, so the zone chooser of this complication (ACTION_CHOOSE_TIMEZONE)
+            worldClockChooserRequested(fromItem && fromItem.faceName !== undefined ? String(fromItem.faceName) : "",
+                                       fromItem && fromItem.slotItem ? String(fromItem.slotItem.slotId) : "", p.param)
+            break
         // the Health app on the metric's page (stock: Today at its DETAILS route, as the steps one)
         case "calories":
             openRequest.value = "energy@" + Date.now()
