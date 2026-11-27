@@ -73,6 +73,7 @@ set(QML_FILES
 	qml/system/PhoneAway.qml
 	qml/system/SmartLinks.qml
 	qml/system/MediaAutoLaunch.qml
+	qml/system/NavAutoLaunch.qml
 	qml/system/GoalCelebration.qml
 	qml/system/goals.js
 	qml/system/VolumePopup.qml
@@ -287,6 +288,7 @@ set_source_files_properties(qml/system/FindPhone.qml                 PROPERTIES 
 set_source_files_properties(qml/system/PhoneAway.qml                 PROPERTIES QT_RESOURCE_ALIAS system/PhoneAway.qml)
 set_source_files_properties(qml/system/SmartLinks.qml                PROPERTIES QT_RESOURCE_ALIAS system/SmartLinks.qml)
 set_source_files_properties(qml/system/MediaAutoLaunch.qml           PROPERTIES QT_RESOURCE_ALIAS system/MediaAutoLaunch.qml)
+set_source_files_properties(qml/system/NavAutoLaunch.qml             PROPERTIES QT_RESOURCE_ALIAS system/NavAutoLaunch.qml)
 set_source_files_properties(qml/system/GoalCelebration.qml           PROPERTIES QT_RESOURCE_ALIAS system/GoalCelebration.qml)
 set_source_files_properties(qml/system/goals.js                      PROPERTIES QT_RESOURCE_ALIAS system/goals.js)
 set_source_files_properties(qml/system/VolumePopup.qml               PROPERTIES QT_RESOURCE_ALIAS system/VolumePopup.qml)

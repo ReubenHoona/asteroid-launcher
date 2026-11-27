@@ -294,6 +294,14 @@ Item {
         appFront: typeof comp !== "undefined" && comp ? comp.appActive : false
         onGoHome: if (typeof comp !== "undefined" && comp) comp.goToFace()
     }
+    /* Auto-launch of the Maps trip screen (R5 D-02, apps-misc-10): the phone's turn by turn navigation
+     * opens the Maps app once per trip, under the same surfaces and not over the same apps as the media
+     * auto-launch; the display is not turned on */
+    NavAutoLaunch {
+        id: navAuto
+        blocked: mediaAuto.blocked
+        restricted: mediaAuto.restricted
+    }
     // a passive observer: it never takes a touch from the apps or the home screen under it
     PointHandler {
         acceptedDevices: PointerDevice.TouchScreen | PointerDevice.Mouse

@@ -83,6 +83,7 @@ Item {
     Component { id: favoritesComp; FavoritesTile { width: 384; height: 384 } }
     Loader { id: stepsLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/StepsTile.qml") }
     Loader { id: quickAddLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/QuickAddTile.qml") }
+    Loader { id: mapsLoader; width: 384; height: 384; active: false; source: Qt.resolvedUrl("LauncherQml/tiles/MapsTile.qml") }
 
     TestCase {
         name: "Tiles"
@@ -187,6 +188,33 @@ Item {
 
         // FP-L5 (health-fitness-30, CR-36): the card opens Health on its steps page, as the heart rate
         // tile and the steps complication open theirs
+        // R5 D-13: the Map app opens on its home (stock Maps); the Maps tile asks it for the map itself with
+        // dconf /map/open "map@<ms>" (as the other tiles ask their apps, CR-36): the card, Home and Work, the chip
+        function test_r5_d13_maps_tile_asks_for_the_map() {
+            mapsLoader.active = true
+            var t = mapsLoader.item
+            verify(t, "the Maps tile")
+            var names = ["mapsCard", "mapsHome", "mapsWork"]
+            for (var i = 0; i < names.length; i++) {
+                desktop.launched = []
+                Backend.conf["/map/open"] = ""
+                var before = Date.now()
+                findChild(t, names[i]).clicked()
+                compare(desktop.launched, ["asteroid-map"], names[i])
+                var v = String(Backend.conf["/map/open"])
+                verify(v.indexOf("map@") === 0, names[i] + ": " + v)
+                var ms = Number(v.slice(4))
+                verify(ms >= before && ms <= Date.now(), v)
+            }
+            desktop.launched = []
+            Backend.conf["/map/open"] = ""
+            t.chipClicked()
+            compare(desktop.launched, ["asteroid-map"])
+            compare(String(Backend.conf["/map/open"]).indexOf("map@"), 0, "the chip")
+            desktop.launched = []
+            mapsLoader.active = false
+        }
+
         function test_fp_l5_steps_route() {
             stepsLoader.active = true
             var t = stepsTile
