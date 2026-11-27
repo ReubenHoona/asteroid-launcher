@@ -1267,7 +1267,7 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
     if (!LipstickCompositor::instance() ||
         !LipstickCompositor::instance()->setOffloadLayout(path, until->isValid() ? until->toSecsSinceEpoch() : 0,
                                                           moveAfter)) {
-        *why = "the display offload daemon refused the layout";
+        *why = QString::fromLatin1(RefusedWhy);
         return false;
     }
     qInfo().noquote() << QString("hub offload: layout of %1 messages loaded (%2 sprites, "
@@ -1276,6 +1276,10 @@ bool HubOffload::build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, b
                          .arg(until->isValid() ? until->toString(QStringLiteral("ddd HH:mm")) : QStringLiteral("it changes"));
     return true;
 }
+
+// build()'s reason when the daemon could not upload the layout to the hub (a NACKed
+// upload): a passing failure, tried again sooner than a face that cannot be offloaded
+const char HubOffload::RefusedWhy[] = "the display offload daemon refused the layout";
 
 bool HubOffload::update(QQuickItem *face, bool use12h, const QString &faceSource,
                         const QDateTime &shown, int moveMinutes)
@@ -1319,15 +1323,17 @@ bool HubOffload::update(QQuickItem *face, bool use12h, const QString &faceSource
     if (m_loaded && key == m_key && (!m_until.isValid() || shown < m_until))
         return true;
     // a face that cannot be offloaded as it is: try again in the next hour
-    // or when it changes, not at every minute the AP draws it
+    // or when it changes, not at every minute the AP draws it; a layout the
+    // daemon could not upload (the hub NACKed it): again in the next five minutes
     const QString failKey = key + shown.toString(QStringLiteral("|yyyyMMddHH"));
-    if (!m_loaded && failKey == m_failedKey)
+    const QString refusedKey = failKey + QLatin1Char('|') + QString::number(shown.time().minute() / 5);
+    if (!m_loaded && (failKey == m_failedKey || refusedKey == m_failedKey))
         return false;
     if (!build(face, hour, minute, use12h, shown, &m_until, &why)) {
         qWarning() << "hub offload: no layout:" << why;
         // never leave an old layout to the hub: the AP draws this face
         drop(daemonHasLayout);
-        m_failedKey = failKey;
+        m_failedKey = why == QLatin1String(RefusedWhy) ? refusedKey : failKey;
         return false;
     }
     m_loaded = true;

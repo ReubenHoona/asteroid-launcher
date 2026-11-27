@@ -95,6 +95,8 @@ public:
     Q_INVOKABLE void invalidate();
 
 private:
+    static const char RefusedWhy[];
+
     bool build(QQuickItem *face, QQuickItem *hour, QQuickItem *minute, bool use12h,
                const QDateTime &shown, QDateTime *until, QString *why);
     void drop(bool daemonHasLayout);
