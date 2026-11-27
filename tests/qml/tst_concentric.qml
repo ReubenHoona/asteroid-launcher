@@ -351,6 +351,44 @@ Item {
             ld.source = ""
         }
 
+        // ---- A-21: the font is Roboto (the user's choice: keep the current font), digits one advance wide ----
+        function allTexts(item, out) {
+            out = out || []
+            if (!item)
+                return out
+            if (item.font !== undefined && item.text !== undefined && item.horizontalAlignment !== undefined)
+                out.push(item)
+            var d = item.children
+            if (d)
+                for (var i = 0; i < d.length; i++)
+                    allTexts(d[i], out)
+            return out
+        }
+        function test_a21_roboto() {
+            compare(Kit.FONT, "Roboto")
+            var modes = [false, true]
+            for (var a = 0; a < modes.length; a++) {
+                var f = show(10, 9, 30, modes[a], true)
+                var texts = allTexts(f)
+                verify(texts.length >= 28, "numerals, hour and minute: " + texts.length)
+                for (var i = 0; i < texts.length; i++) {
+                    compare(texts[i].font.family, "Roboto", texts[i].objectName + " " + texts[i].text)
+                    compare(texts[i].renderType, Text.NativeRendering, texts[i].objectName)
+                }
+            }
+            // the hub's glyph cells: every digit one advance wide in the dial's and the time's weights
+            var weights = [Font.Light, Font.Normal, Font.Medium]
+            for (var w = 0; w < weights.length; w++) {
+                var fm = Qt.createQmlObject("import QtQuick; FontMetrics { font.family: 'Roboto'; font.pixelSize: 90; font.weight: "
+                                            + weights[w] + " }", top)
+                var adv = fm.advanceWidth("0")
+                for (var dgt = 1; dgt <= 9; dgt++)
+                    compare(fm.advanceWidth(String(dgt)), adv, "weight " + weights[w] + " digit " + dgt)
+                fm.destroy()
+            }
+            ld.source = ""
+        }
+
         // ---- the fresh carousel (facepicker.js) ----
         function test_carousel_order() {
             // the faces of the image, in their folder's order

@@ -39,6 +39,10 @@ import "../eoskit/concentric.js" as C
  * rings). Stock's Half Dial (the face moved left, three complications) is not built: a known gap,
  * what stock does is in eoskit/concentric.js.
  * The hour has two digits in 12 h too ("06", stock); the minute is in the pill.
+ * The font (A-21, NEWLOOK-61 open point 4): Roboto for every text, numerals included. Stock draws
+ * Google Sans (the dial bitmap, the hour in Google Sans Clock), which is not ours to ship; the user
+ * declined Google Sans Flex and asked to keep the current font, and the sensor hub needs a font whose
+ * digits are all one advance wide (huboffload.cpp tabular), which Roboto's are in every weight.
  *
  * The sensor hub draws the always-on face (huboffload.cpp): the hour and the minute are
  * eosHubHour and eosHubMinute (12 h with a leading zero: eosHubZeroPad); the inner dial is
