@@ -129,6 +129,7 @@ set(QML_FILES
 	qml/tiles/BatteryTile.qml
 	qml/tiles/WeatherSource.qml
 	qml/tiles/SleepTile.qml
+	qml/tiles/FocusMetricsTile.qml
 	qml/tiles/ExerciseTile.qml
 	qml/tiles/LastActivityTile.qml
 	qml/tiles/LastActivitySource.qml
@@ -365,6 +366,7 @@ set_source_files_properties(qml/tiles/AlarmTile.qml                  PROPERTIES 
 set_source_files_properties(qml/tiles/BatteryTile.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/BatteryTile.qml)
 set_source_files_properties(qml/tiles/WeatherSource.qml          PROPERTIES QT_RESOURCE_ALIAS tiles/WeatherSource.qml)
 set_source_files_properties(qml/tiles/SleepTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/SleepTile.qml)
+set_source_files_properties(qml/tiles/FocusMetricsTile.qml       PROPERTIES QT_RESOURCE_ALIAS tiles/FocusMetricsTile.qml)
 set_source_files_properties(qml/tiles/ExerciseTile.qml           PROPERTIES QT_RESOURCE_ALIAS tiles/ExerciseTile.qml)
 set_source_files_properties(qml/tiles/LastActivityTile.qml       PROPERTIES QT_RESOURCE_ALIAS tiles/LastActivityTile.qml)
 set_source_files_properties(qml/tiles/LastActivitySource.qml     PROPERTIES QT_RESOURCE_ALIAS tiles/LastActivitySource.qml)

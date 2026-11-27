@@ -10,6 +10,8 @@ QtObject {
     property var summaries: ({})
     // R5 E-09: { "YYYY-MM-DD": HealthMetricsLoader.cardioLoad() map }
     property var cardio: ({})
+    // R5-fu: SleepDataLoader.lastNight() ({} for no night)
+    property var night: ({})
     property int alive: 0
     property int reads: 0
     signal changedSignal()
@@ -18,6 +20,7 @@ QtObject {
         workouts = []
         summaries = ({})
         cardio = ({})
+        night = ({})
         reads = 0
     }
     function dayKey(d) {
