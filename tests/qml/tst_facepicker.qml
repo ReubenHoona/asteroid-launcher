@@ -1324,7 +1324,8 @@ Item {
         // Big Time since A-07); its Add new entry is its name and its 10:09 picture.
         function test_n61_19_concentric_first() {
             var stems = ["000-default-digital", "010-analog-aviator", "018-modular", "019-list", "020-stacked",
-                         "021-classic", "022-large", "023-bold-numerals", "024-step-ring", "027-concentric", "028-big-time"]
+                         "021-classic", "022-large", "023-bold-numerals", "024-step-ring", "027-concentric", "028-big-time",
+                         "029-analog-arcs"]
             var installed = stems.map(function (st) { return top.face(st) })
             var names = FP.defaults(installed, top.face("027-concentric")).map(function (e) { return FP.plainName(e.file) })
             compare(names[0], "concentric")

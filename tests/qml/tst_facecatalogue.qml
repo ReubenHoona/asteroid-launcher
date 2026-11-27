@@ -10,7 +10,9 @@
  *    (faceeditor.js SOURCE_TYPES, slotTypes, accepts; EditorProviderList.openFor with the slot);
  *  - A-11: the picker names the eos faces with the stock faces' names (RWF strings.xml);
  *  - A-07: the Big Time face (two tones, 122 px digits on the stock preview's ink centres, the same look
- *    always-on, the hub's time items), screenshots into /tmp/r5f-shots.
+ *    always-on, the hub's time items), screenshots into /tmp/r5f-shots;
+ *  - A-08: the Analog Arcs face (the layouts' slots, the indices of both styles, the numerals, the hands,
+ *    the carousel's name), screenshots.
  * qmltestrunner under qemu-aarch64 with the image rootfs (offscreen, software Qt Quick), run in place
  * (the faces of ../../src).
  */
@@ -346,6 +348,87 @@ Item {
             compare(findAll(f, "eosTime")[0].hourItem.text, "18")
             ld.source = ""
             at(10, 9, false)
+        }
+
+        // ---- A-08: Analog Arcs ----
+        function activeSlots(f) {
+            return findAll(f, "eosComplication").filter(function (s) { return s.eosActive !== false && s.visible })
+                .map(function (s) { return s.slotId }).sort()
+        }
+        function test_a08_analog_arcs() {
+            at(10, 9, false)
+            var f = load("029-analog-arcs")
+            compare(f.eosHubDrawn, false)
+            compare(f.eosOptions.map(function (o) { return o.id }), ["color", "layout", "styles", "seconds"])
+            compare(f.opt("color"), "stream")
+            compare(f.opt("layout"), "max4")
+            compare(f.opt("styles"), "ring")
+            compare(f.opt("seconds"), true)
+            compare(f.eosOptions[1].labels, ["Max Four", "Max Two", "Minimal Four", "Minimal Two", "Numerals Four", "Numerals Two"])
+            compare(f.eosOptions[2].labels, ["Ring Indices", "Simple Indices"])
+            // Max Four: four bulbs at the layout's bounds x 2, four quarter arcs
+            compare(activeSlots(f), ["bottom", "left", "northeast", "northwest", "right", "southeast", "southwest", "top"])
+            var l = slotOf(f, "left"), t = slotOf(f, "top"), r = slotOf(f, "right"), bo = slotOf(f, "bottom")
+            compare([l.x, l.y, l.width], [72, 150, 86])
+            compare([t.x, t.y], [150, 72])
+            compare([r.x, r.y], [228, 150])
+            compare([bo.x, bo.y], [150, 224])
+            compare([slotOf(f, "northwest").arcStart, slotOf(f, "northwest").arcSweep], [180, 90])
+            compare([slotOf(f, "northeast").arcStart, slotOf(f, "southeast").arcStart, slotOf(f, "southwest").arcStart],
+                    [-90, 0, 90])
+            // stock's default sources
+            compare([l.defaultSource, t.defaultSource, r.defaultSource, bo.defaultSource], ["heartrate", "health", "date", "steps"])
+            compare([slotOf(f, "northwest").defaultSource, slotOf(f, "northeast").defaultSource,
+                     slotOf(f, "southwest").defaultSource, slotOf(f, "southeast").defaultSource], ["sun", "uv", "calories", "weather"])
+            // Ring Indices: two circles, 12 hour indices, 48 minute ticks, in Stream at 85 %
+            var circles = findAll(f, "eosArcsCircle")
+            compare(circles.length, 2)
+            compare(circles[0].width, 2 * 140.8)
+            compare(String(circles[0].border.color), Kit.accentColor("stream"))
+            compare(findAll(f, "eosArcsHourIndex").filter(function (i) { return i.visible }).length, 12)
+            compare(findAll(f, "eosArcsMinuteTick").filter(function (i) { return i.visible }).length, 48)
+            compare(findAll(f, "eosNumeral").length, 0)
+            // the hands, the seconds in the colour
+            verify(findAll(f, "eosHourHand").length === 1 && findAll(f, "eosSecondHand").length === 1)
+            shoot("arcs-max4-1009-awake.png")
+            // the other layouts
+            var want = {
+                max2: ["bottom", "left", "lower", "right", "top", "upper"],
+                minimal4: ["line", "northeast", "northwest", "southeast", "southwest"],
+                minimal2: ["line", "lower", "upper"],
+                numerals4: ["northeast", "northwest", "southeast", "southwest"],
+                numerals2: ["lower", "upper"]
+            }
+            for (var lay in want) {
+                f.eosStyle = { layout: lay }
+                compare(activeSlots(f), want[lay], lay)
+            }
+            f.eosStyle = { layout: "minimal4" }
+            compare([slotOf(f, "line").x, slotOf(f, "line").y, slotOf(f, "line").width, slotOf(f, "line").height], [98, 88, 188, 28])
+            compare(slotOf(f, "line").defaultSource, "date")
+            f.eosStyle = { layout: "max2" }
+            compare([slotOf(f, "upper").arcStart, slotOf(f, "upper").arcSweep, slotOf(f, "lower").arcStart], [180, 180, 0])
+            compare([slotOf(f, "upper").defaultSource, slotOf(f, "lower").defaultSource], ["weather", "uv"])
+            // Numerals: 12, 3, 6, 9 where numerals.png has them, Simple Indices: the hour indices alone
+            f.eosStyle = { layout: "numerals4", styles: "simple" }
+            var nums = findAll(f, "eosNumeral")
+            compare(nums.map(function (n) { return n.text }), ["12", "3", "6", "9"])
+            var mid = nums[1].mapToItem(top, nums[1].width / 2, Kit.DIGIT_CENTER * nums[1].font.pixelSize)
+            verify(Math.abs(mid.x - 285.5) <= 0.75 && Math.abs(mid.y - 195) <= 0.75, mid.x + "," + mid.y)
+            compare(findAll(f, "eosArcsCircle").length, 0)
+            compare(findAll(f, "eosArcsHourIndex").filter(function (i) { return i.visible }).length, 12)
+            compare(findAll(f, "eosArcsMinuteTick").filter(function (i) { return i.visible }).length, 0)
+            shoot("arcs-numerals4-simple-1009.png")
+            // always-on: the indices dim
+            at(10, 9, true)
+            f = load("029-analog-arcs")
+            tryCompare(f, "blend", 1, 5000)
+            compare(String(f.indexColor), String(f.accentAmbient))
+            shoot("arcs-max4-1009-ambient.png")
+            ld.source = ""
+            at(10, 9, false)
+            // the picker's name
+            compare(FP.displayName("file:///usr/share/asteroid-launcher/watchfaces/029-analog-arcs.qml"), "Analog Arcs")
         }
     }
 }

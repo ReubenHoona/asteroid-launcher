@@ -501,7 +501,7 @@ Item {
             // the faces of the image, in their folder's order
             var installed = ["000-default-digital.qml", "010-analog-aviator.qml", "018-modular.qml", "019-list.qml",
                              "020-stacked.qml", "021-classic.qml", "022-large.qml", "023-bold-numerals.qml",
-                             "027-concentric.qml", "028-big-time.qml"].map(function (f) {
+                             "027-concentric.qml", "028-big-time.qml", "029-analog-arcs.qml"].map(function (f) {
                 return "file:///usr/share/asteroid-launcher/watchfaces/" + f
             })
             var current = "file:///usr/share/asteroid-launcher/watchfaces/027-concentric.qml"
@@ -513,7 +513,7 @@ Item {
             compare(names[names.length - 1], "big-time")
             compare(names.length, 9)
             compare(names, ["concentric", "modular", "classic", "bold-numerals", "list", "stacked",
-                            "default-digital", "analog-aviator", "big-time"])
+                            "default-digital", "analog-arcs", "big-time"])
         }
     }
 }

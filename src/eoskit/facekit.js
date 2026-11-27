@@ -469,6 +469,37 @@ var PHOTO_SHADE = 0.35
  * stem at this size; Thin is 5 px) at 167 px, which gives the 122 px digits, centred on the preview's ink centres. */
 var BIG_TIME = { size: 167, hour: box(30, 41.2, 324, 160), minute: box(30, 185.2, 324, 160) }
 
+/* Analog Arcs (A-08; watch_face_analog_arc.xml, AnalogArcWatchFaceService, RWF gjj/gjr/gjs): analog, a ring of
+ * indices, round bulbs inside it and arcs on the rim. Color Stream; Layout Max Four (default), Max Two, Minimal
+ * Four, Minimal Two, Numerals Four, Numerals Two; Styles Ring Indices (default), Simple Indices; Seconds on.
+ * The slots are the layouts' bounds x 2 (stock-faces-extract.md, analog_arc): the bulbs (Max) left 36,75 top
+ * 75,36 right 114,75 bottom 75,112 units, 43 units across; the line (Minimal) 49,44-143,58; the arcs on the rim, a
+ * quarter each (Four) or a half each (Two). */
+var ARCS_LAYOUTS = ["max4", "max2", "minimal4", "minimal2", "numerals4", "numerals2"]
+var ARCS_LAYOUT_NAMES = ["Max Four", "Max Two", "Minimal Four", "Minimal Two", "Numerals Four", "Numerals Two"]
+var ARCS_STYLES = ["ring", "simple"]
+var ARCS_STYLE_NAMES = ["Ring Indices", "Simple Indices"]
+function analogArcs(layout) {
+    var l = ARCS_LAYOUTS.indexOf(layout) >= 0 ? layout : "max4"
+    var max = l === "max4" || l === "max2"
+    return {
+        bulbs: max ? { left: bulbAt(72, 150), top: bulbAt(150, 72), right: bulbAt(228, 150), bottom: bulbAt(150, 224) } : null,
+        line: l === "minimal4" || l === "minimal2" ? box(98, 88, 188, 28) : null,
+        four: l === "max4" || l === "minimal4" || l === "numerals4",
+        numerals: l === "numerals4" || l === "numerals2"
+    }
+}
+// the indices, as ring_indices.png and simple_indices.png draw them at 384 px (white, tinted by the colour): the
+// ring of two 2 px circles with the minute ticks between them and the hour indices across it, at 85 %; the
+// simple one, the 12 hour indices alone, at 100 %. Radii in px from the middle
+var ARCS_RING = { inner: 139.8, outer: 155.2, stroke: 2, minute: [143.6, 149.9], minuteWidth: 2,
+                  hour: [129, 156], hourWidth: 3, alpha: 0.85 }
+var ARCS_SIMPLE = { hour: [129, 149], hourWidth: 3.5, alpha: 1 }
+// the numerals of the Numerals layouts (numerals.png): 12, 3, 6 and 9, digits 74 px tall with a 6 px stroke
+// (Roboto Light 101 px), centred where the picture has them
+var ARCS_NUMERALS = { size: 101, at: [{ text: "12", cx: 189, cy: 107.5 }, { text: "3", cx: 285.5, cy: 195 },
+                                      { text: "6", cx: 188.5, cy: 273.5 }, { text: "9", cx: 97.5, cy: 195 }] }
+
 // the face a Loader fails on (watchface-catalogue-27, SysUI Simple: iqp.java:75-97,131-155)
 var SIMPLE = { size: 100, digitOffset: 13.1, colonDot: 4, colonOffset: 16.7, ambientText: "#808080" }
 
@@ -483,5 +514,8 @@ var SLOT_DEFAULTS = {
     bold: { bottom: "weather", left: "weather", right: "datemonth", topright: "date", bottomright: "weather", bottomleft: "steps", topleft: "heartrate" },
     ring: { ring: "steps" },
     words: { top: "empty" },
-    photo: { line: "weather" }
+    photo: { line: "weather" },
+    // Analog Arcs (stock-faces-extract.md, analog_arc): Day and date is "date", Sunrise and sunset "sun"
+    arcs: { left: "heartrate", top: "health", right: "date", bottom: "steps", line: "date",
+            northwest: "sun", northeast: "uv", southwest: "calories", southeast: "weather", upper: "weather", lower: "uv" }
 }
