@@ -80,6 +80,8 @@ Item {
         // M4 WO-10: stock's Last activity (TileLastActivityService, 0x7f140dba), in the add list
         //% "Last activity"
         "lastactivity": { app: "asteroid-exercise", file: "tiles/LastActivityTile.qml", name: qsTrId("id-tile-last-activity"), icon: "ios-run" },
+        // R5 E-17: stock's Focus Metrics (TileFocusMetricsService, 0x7f140886), in the add list
+        "focusmetrics": { app: "asteroid-health", file: "tiles/FocusMetricsTile.qml", name: qsTrId("id-tile-focus-metrics"), icon: "ms-monitor_heart" },
         //% "Maps"
         "maps": { app: "asteroid-map", file: "tiles/MapsTile.qml", name: qsTrId("id-tile-maps"), icon: "ios-map-outline" },
         //% "Solar"

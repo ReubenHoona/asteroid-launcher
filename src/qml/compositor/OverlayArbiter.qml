@@ -356,6 +356,17 @@ Item {
     }
     readonly property bool whatsNewShown: whatsNewView.shown
 
+    /* The phone's language and region (R5 C-04, DECISIONS Q60; stock PhoneSettingLocaleListener): applied when
+     * asteroid-btsyncd brings a new one; for a language the watch lacks, Settings' "Language not supported." once,
+     * as What's new with the display off at the next screen on, not over a surface that must not be covered */
+    PhoneLanguage {
+        id: phoneLanguage
+        displayOn: typeof comp !== "undefined" && comp ? (!comp.displayIsOff && !Lipstick.compositor.displayAmbient) : true
+        blocked: arbiter.interrupting || arbiter.assistantShown || arbiter.sosShown || arbiter.powerMenuShown
+                 || arbiter.errorShown || goalCelebration.shown || arbiter.btDialogShown || phoneAwayDialog.shown
+                 || whatsNewView.shown
+    }
+
     /* The live update full view (system-dialogs-misc-12): a tap on a live update without an app */
     LiveUpdate {
         id: liveUpdateView

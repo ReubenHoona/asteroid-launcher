@@ -124,6 +124,13 @@ Item {
     property var zoneNow: function () { return dtSettings.currentTimezone() }
     WallClock { id: wallClock }
 
+    // the language chosen in setup: the watch's language when the phone's is one it does not have (stock
+    // Settings.Global setup_locale, PhoneSettingLocaleListener; system/PhoneLanguage.qml, R5 C-04)
+    ConfigurationValue {
+        id: setupLocale
+        key: "/org/asteroidos/settings/setup-locale"
+        defaultValue: ""
+    }
     ConfigurationValue {
         id: clockFromPhoneObj
         key: "/org/asteroidos/time/phone-set"
@@ -435,6 +442,7 @@ Item {
 
     // a tap applies the language at once and goes to the instructions
     function chooseLanguage(locale) {
+        setupLocale.value = locale
         languageModel.setSystemLocale(locale, LanguageModel.UpdateWithoutReboot)
         open(Setup.pages.instructions)
     }

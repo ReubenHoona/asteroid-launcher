@@ -239,6 +239,11 @@ target_link_libraries(tst_huboffload_faces PRIVATE Qt6::Core Qt6::Gui Qt6::Quick
 add_executable(tst_eoslayout tst_eoslayout.cpp ../src/eoslayout.c ../src/eoslayout.h)
 target_include_directories(tst_eoslayout PRIVATE ../src)
 
+# The nearest catalogue for a region the image has none for (R5 C-04, lipstick/src/eoscatalogues.h); Qt Core
+add_executable(tst_catalogues tst_catalogues.cpp ../lipstick/src/eoscatalogues.h)
+target_include_directories(tst_catalogues PRIVATE ../lipstick/src)
+target_link_libraries(tst_catalogues PRIVATE Qt6::Core)
+
 # The World clock's time zones (A-13, src/worldzones.h): zone.tab regions and codes, offsets with summer time; Qt Core
 add_executable(tst_worldzones tst_worldzones.cpp ../src/worldzones.cpp ../src/worldzones.h)
 set_target_properties(tst_worldzones PROPERTIES AUTOMOC ON)

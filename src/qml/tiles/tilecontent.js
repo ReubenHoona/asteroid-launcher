@@ -267,6 +267,70 @@ function goalState(steps, goal) {
     return { kind: d > 0 ? "left" : d === 0 ? "met" : "over", n: Math.abs(d), met: steps >= goal, ratio: Math.min(2, steps / goal) }
 }
 
+/* ---- Main goal (R5 E-18): the type of the account's primary goal ---- */
+
+// stock PrimaryGoalType STEPS, CALORIES, DISTANCE, FLOORS, AZM; the keys and defaults are asteroid-sensorlogd's
+// (metrics/goals.h: /org/asteroidos/health/goals/main, ux/steps-goal, health/goals/calories, -/distance-m, -/floors,
+// -/azm; a type that is not one of these is steps, a goal of 0 or less the default)
+var MAIN_GOAL_TYPES = ["steps", "calories", "distance", "floors", "azm"]
+var MAIN_GOAL_DEFAULTS = { steps: 10000, calories: 2000, distance: 8047, floors: 10, azm: 22 }
+function mainGoalType(v) {
+    var s = String(v === undefined || v === null ? "" : v).toLowerCase()
+    return MAIN_GOAL_TYPES.indexOf(s) >= 0 ? s : "steps"
+}
+function mainGoalTarget(type, v) {
+    var n = Number(v)
+    return n > 0 ? n : MAIN_GOAL_DEFAULTS[mainGoalType(type)]
+}
+// the day's value of the type: HealthMetricsLoader.summary() for all but the steps (the live log's count)
+function mainGoalValue(type, summary, steps) {
+    var s = summary || {}
+    switch (type) {
+    case "calories": return Math.max(0, Number(s.energyKcal) || 0)
+    case "distance": return Math.max(0, Number(s.distanceM) || 0)
+    case "floors": return Math.max(0, Number(s.floors) || 0)
+    case "azm": return Math.max(0, Number(s.azm) || 0)
+    }
+    return Math.max(0, Number(steps) || 0)
+}
+// a number of the type as the card writes it: whole numbers, a distance (metres) in km or mi with at most two decimals
+function mainGoalNumber(type, v, imperial, locale) {
+    if (type === "distance") {
+        var d = Math.round(Number(v) / (imperial ? 1609.344 : 1000) * 100) / 100
+        var places = d === Math.round(d) ? 0 : Math.round(d * 10) === d * 10 ? 1 : 2
+        return Number(d).toLocaleString(locale, "f", places)
+    }
+    return Number(Math.round(Number(v) || 0)).toLocaleString(locale, "f", 0)
+}
+
+/* ---- Focus Metrics (R5 E-17) ---- */
+
+var CARDIO = "#FFB59E"                // the cardio load ring (inferred: stock's HEALTH palette colour is not in our sources)
+/* The cardio load card from HealthMetricsLoader.cardioLoad(): { known, percent, load, ratio }; percent of the top of
+ * the day's target (stock tpr.java: tul.bc(load, target), the week's), the ring the same, at most full */
+function focusCardio(c) {
+    var load = Math.max(0, Math.round(Number(c ? c.load : 0) || 0))
+    var high = Number(c ? c.high : 0) || 0
+    if (!c || c.hasTarget !== true || !(high > 0))
+        return { known: false, percent: 0, load: load, ratio: 0 }
+    return { known: true, percent: Math.round(100 * load / high), load: load, ratio: Math.min(1, load / high) }
+}
+/* Fitbit's assessment of a sleep score (aahn.java: Excellent, Good, Fair, Poor; Fitbit's bands 90, 80, 60) */
+function sleepWord(score) {
+    var s = Number(score)
+    if (!(s > 0))
+        return ""
+    return s >= 90 ? "excellent" : s >= 80 ? "good" : s >= 60 ? "fair" : "poor"
+}
+/* The sleep card from SleepDataLoader.lastNight(): { valid, score, word, ratio }; the ring the time asleep over the
+ * sleep goal (stock aahd: totalAsleepMinutes / goal, at most full) */
+function focusSleep(night) {
+    var s = sleepSummary(night)
+    if (!s.valid)
+        return { valid: false, score: -1, word: "", ratio: 0 }
+    return { valid: true, score: s.score, word: sleepWord(s.score), ratio: Math.min(1, s.asleepMin / s.goalMin) }
+}
+
 /* ---- Daily heart rate ---- */
 
 var HR_WINDOW_MINUTES = 120           // aapt.java:27-32

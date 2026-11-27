@@ -263,6 +263,26 @@ Item {
         }
 
         // the tile beside the stock preview (tile_last_activity_preview.xml drawn from its vector), for the eye
+        // R5-fu: miles or kilometres by the phone's unit system (asteroid-btsyncd's settings/imperial-units, the rule
+        // of the Exercise and Health apps), the locale's (here en_GB: metric) while it is unset
+        function test_09_units_from_the_phone() {
+            var key = "/org/asteroidos/settings/imperial-units"
+            Backend.confSet(key, true)
+            var t = make([run(25, 7, 40, "Run", 5200)])
+            compare(t.imperial, true)
+            compare(find(t, "lastActivityValue").text, "3.23")
+            compare(find(t, "lastActivityUnit").text, "mi")
+            // the phone switches to metric while the tile is on screen
+            Backend.confSet(key, false)
+            tryCompare(find(t, "lastActivityUnit"), "text", "km")
+            compare(find(t, "lastActivityValue").text, "5.20")
+            // unset again: the locale's measurement system
+            delete Backend.conf[key]
+            Backend.confWritten(key)
+            compare(t.imperial, Qt.locale().measurementSystem !== Locale.MetricSystem)
+            compare(find(t, "lastActivityUnit").text, t.imperial ? "mi" : "km")
+        }
+
         function test_08_beside_stock() {
             var t = make([run(24, 18, 30, "Run", 5800)])
             shot("lastactivity-yesterday")

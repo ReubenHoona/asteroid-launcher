@@ -98,8 +98,11 @@ function exerciseDayElements(done, goal) {
         out.push({ weight: 1, color: "", track: i >= done })
     return out
 }
-// "3.2" (one decimal, as the stock distance complication shows kilometres)
-function distanceText(steps, heightCm) { return distanceKm(steps, heightCm).toFixed(1) }
+// "3.2" (one decimal): kilometres, or miles with `imperial` (stock vsv.java u(): 6.21371E-4 a metre for UnitType US)
+function distanceText(steps, heightCm, imperial) {
+    var km = distanceKm(steps, heightCm)
+    return (imperial ? km * 1000 / 1609.344 : km).toFixed(1)
+}
 
 // ---- text helpers ----
 function pad2(n) { return (n < 10 ? "0" : "") + n }

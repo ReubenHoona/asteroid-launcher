@@ -76,6 +76,8 @@ set(QML_FILES
 	qml/system/NavAutoLaunch.qml
 	qml/system/GoalCelebration.qml
 	qml/system/goals.js
+	qml/system/PhoneLanguage.qml
+	qml/system/phonelanguage.js
 	qml/system/VolumePopup.qml
 	qml/system/VolumeStepSound.qml
 	qml/system/LiveUpdate.qml
@@ -127,6 +129,7 @@ set(QML_FILES
 	qml/tiles/BatteryTile.qml
 	qml/tiles/WeatherSource.qml
 	qml/tiles/SleepTile.qml
+	qml/tiles/FocusMetricsTile.qml
 	qml/tiles/ExerciseTile.qml
 	qml/tiles/LastActivityTile.qml
 	qml/tiles/LastActivitySource.qml
@@ -295,6 +298,8 @@ set_source_files_properties(qml/system/MediaAutoLaunch.qml           PROPERTIES 
 set_source_files_properties(qml/system/NavAutoLaunch.qml             PROPERTIES QT_RESOURCE_ALIAS system/NavAutoLaunch.qml)
 set_source_files_properties(qml/system/GoalCelebration.qml           PROPERTIES QT_RESOURCE_ALIAS system/GoalCelebration.qml)
 set_source_files_properties(qml/system/goals.js                      PROPERTIES QT_RESOURCE_ALIAS system/goals.js)
+set_source_files_properties(qml/system/PhoneLanguage.qml             PROPERTIES QT_RESOURCE_ALIAS system/PhoneLanguage.qml)
+set_source_files_properties(qml/system/phonelanguage.js              PROPERTIES QT_RESOURCE_ALIAS system/phonelanguage.js)
 set_source_files_properties(qml/system/VolumePopup.qml               PROPERTIES QT_RESOURCE_ALIAS system/VolumePopup.qml)
 set_source_files_properties(qml/system/VolumeStepSound.qml           PROPERTIES QT_RESOURCE_ALIAS system/VolumeStepSound.qml)
 set_source_files_properties(qml/system/LiveUpdate.qml                PROPERTIES QT_RESOURCE_ALIAS system/LiveUpdate.qml)
@@ -365,6 +370,7 @@ set_source_files_properties(qml/tiles/AlarmTile.qml                  PROPERTIES 
 set_source_files_properties(qml/tiles/BatteryTile.qml                PROPERTIES QT_RESOURCE_ALIAS tiles/BatteryTile.qml)
 set_source_files_properties(qml/tiles/WeatherSource.qml          PROPERTIES QT_RESOURCE_ALIAS tiles/WeatherSource.qml)
 set_source_files_properties(qml/tiles/SleepTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/SleepTile.qml)
+set_source_files_properties(qml/tiles/FocusMetricsTile.qml       PROPERTIES QT_RESOURCE_ALIAS tiles/FocusMetricsTile.qml)
 set_source_files_properties(qml/tiles/ExerciseTile.qml           PROPERTIES QT_RESOURCE_ALIAS tiles/ExerciseTile.qml)
 set_source_files_properties(qml/tiles/LastActivityTile.qml       PROPERTIES QT_RESOURCE_ALIAS tiles/LastActivityTile.qml)
 set_source_files_properties(qml/tiles/LastActivitySource.qml     PROPERTIES QT_RESOURCE_ALIAS tiles/LastActivitySource.qml)

@@ -107,7 +107,7 @@ function shortNumber(n, locale) {
 }
 
 /* The value of a goal as stock's GoalAchievedCelebration.b() writes it (uhz.a: at most 2 decimals, none needed for
- * whole numbers): steps "10,000"; calories "%1$s cal" (0x7f140187); distance in the locale's unit ("8.05 km", stock's
+ * whole numbers): steps "10,000"; calories "%1$s cal" (0x7f140187); distance in the phone's unit system, else the locale's ("8.05 km", stock's
  * unit plural); floors "%1$s floors" (0x7f140190); AZM "%1$s Zone Mins" (0x7f140185); hours "%1$s hr" (0x7f140197).
  * `fmt` holds the screen's translated formats (cal, floors, azm, hours, km, mi), each with %1. */
 function valueText(c, locale, imperial, fmt) {

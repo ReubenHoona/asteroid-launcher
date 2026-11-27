@@ -292,6 +292,25 @@ Item {
             closeIt()
         }
 
+        // R5-fu: a distance goal in the phone's unit system (asteroid-btsyncd's settings/imperial-units), the
+        // locale's (en_GB here: metric) while it is unset
+        function test_11_distance_in_the_phone_units() {
+            var key = "/org/asteroidos/settings/imperial-units"
+            compare(cel.imperial, Qt.locale().measurementSystem !== Locale.MetricSystem)
+            Backend.confSet(key, true)
+            tryCompare(cel, "imperial", true)
+            post({ type: "goal", metric: "distance", value: 8047, goal: 8047 })
+            verify(cel.shown)
+            compare(find(cel, "celebrationValue").text, "5 mi")
+            cel.hideTimer.triggered()
+            tryVerify(function () { return !cel.shown })
+            Backend.confSet(key, false)
+            tryCompare(cel, "imperial", false)
+            post({ type: "goal", metric: "distance", value: 8050, goal: 8047 })
+            verify(cel.shown)
+            compare(find(cel, "celebrationValue").text, "8.05 km")
+        }
+
         function test_10_ten_seconds_and_a_tap() {
             post({ type: "goal", metric: "steps", value: 10000, goal: 10000 })
             verify(cel.shown)

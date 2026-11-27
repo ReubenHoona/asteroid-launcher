@@ -3478,5 +3478,29 @@ for %1 seconds to</translation>
         <source>To stop the sound, you can also press a button on your watch.</source>
         <translation>To stop the sound, you can also press a button on your watch.</translation>
     </message>
+    <message id="id-tile-focus-metrics">
+        <source>Focus Metrics</source>
+        <translation>Focus Metrics</translation>
+    </message>
+    <message id="id-tile-plus">
+        <source>+%1</source>
+        <translation>+%1</translation>
+    </message>
+    <message id="id-tile-sleep-excellent">
+        <source>Excellent</source>
+        <translation>Excellent</translation>
+    </message>
+    <message id="id-tile-sleep-good">
+        <source>Good</source>
+        <translation>Good</translation>
+    </message>
+    <message id="id-tile-sleep-fair">
+        <source>Fair</source>
+        <translation>Fair</translation>
+    </message>
+    <message id="id-tile-sleep-poor">
+        <source>Poor</source>
+        <translation>Poor</translation>
+    </message>
 </context>
 </TS>

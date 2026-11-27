@@ -20,8 +20,9 @@ import "exercisetypes.js" as Types
  * NoSwipeActivity). A tap on the card opens the Exercise app. In the add list, not a default tile (as stock).
  *
  * The workout is asteroid-sensorlogd's (health.db, WorkoutLoader.last(): the newest one that ended). The main number is
- * its distance when it has one (two decimals, km or mi by the locale's measurement system, as the Exercise app's
- * summary), else its active time (m:ss, h:mm:ss): stock picks a stat per exercise type in code not traced (ulu.A),
+ * its distance when it has one (two decimals, km or mi as the Exercise app's summary: the phone's unit system that
+ * asteroid-btsyncd keeps at /org/asteroidos/settings/imperial-units, the locale's measurement system while it is
+ * unset; stock takes the account's units, not the watch language), else its active time (m:ss, h:mm:ss): stock picks a stat per exercise type in code not traced (ulu.A),
  * this rule is ours. The week of "the weekday's name" starts on Monday, as sensorlogd's Active Zone Minutes week
  * (stock: the account's first day of the week).
  * Battery (M1): the reader (LastActivitySource.qml) is made, and health.db read, only while the tile is on screen,
@@ -44,7 +45,15 @@ TileBase {
 
     // the newest workout that ended ({} for none) and what the tile shows of it
     property var workout: ({})
-    readonly property bool imperial: Qt.locale().measurementSystem !== Locale.MetricSystem
+    // miles or kilometres: the phone's unit system (R5 E-35), else the locale's (the rule of Exercise and Health)
+    ConfigurationValue {
+        id: units
+        key: "/org/asteroidos/settings/imperial-units"
+        defaultValue: tile.localeImperial(localeManager.localeRevision)
+    }
+    // the locale's measurement system (evaluated again after a language change: the revision is its argument)
+    function localeImperial(revision) { return Qt.locale().measurementSystem !== Locale.MetricSystem }
+    readonly property bool imperial: units.value === true || units.value === "true"
     readonly property var sum: TC.lastActivity(workout, tile.clock(), imperial)
     readonly property var type: sum.valid ? Types.find(sum.type) : null
     readonly property string exerciseName: type ? type.name : sum.type
