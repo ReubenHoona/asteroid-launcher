@@ -191,6 +191,7 @@ set(QML_FILES
 	qml/calls/InCallMore.qml
 	qml/calls/InCallKeypad.qml
 	qml/notifications/PhoneAlarm.qml
+	qml/notifications/FindWatch.qml
 	qml/quickpanel/QuickPanel.qml
 	qml/quickpanel/QuickPanelToggle.qml
 	qml/quickpanel/ModeDialog.qml
@@ -425,6 +426,7 @@ set_source_files_properties(qml/calls/IncomingCallMore.qml         PROPERTIES QT
 set_source_files_properties(qml/calls/InCallMore.qml               PROPERTIES QT_RESOURCE_ALIAS InCallMore.qml)
 set_source_files_properties(qml/calls/InCallKeypad.qml             PROPERTIES QT_RESOURCE_ALIAS InCallKeypad.qml)
 set_source_files_properties(qml/notifications/PhoneAlarm.qml            PROPERTIES QT_RESOURCE_ALIAS PhoneAlarm.qml)
+set_source_files_properties(qml/notifications/FindWatch.qml             PROPERTIES QT_RESOURCE_ALIAS FindWatch.qml)
 set_source_files_properties(qml/quickpanel/QuickPanel.qml            PROPERTIES QT_RESOURCE_ALIAS QuickPanel.qml)
 set_source_files_properties(qml/quickpanel/QuickPanelToggle.qml      PROPERTIES QT_RESOURCE_ALIAS QuickPanelToggle.qml)
 set_source_files_properties(qml/quickpanel/ModeDialog.qml            PROPERTIES QT_RESOURCE_ALIAS ModeDialog.qml)

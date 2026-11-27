@@ -66,7 +66,7 @@ Item {
 
     readonly property var layers: ({
         assistant: 2.5, headsUp: 3, shutdown: 3, mode: 3,
-        bluetooth: 3.3, hrAlert: 3.38, phoneAlarm: 3.4, alert: 3.5, call: 3.6,
+        bluetooth: 3.3, hrAlert: 3.38, phoneAlarm: 3.4, findWatch: 3.45, alert: 3.5, call: 3.6,
         callAssistant: 3.65, errorDialog: 3.7, powerMenu: 3.8, sos: 3.9, touchLock: 5.5,
         // W3-launcher-misc: the system dialogs (under the pairing dialog, alarms and calls, except Phone away)
         celebration: 3.05, findPhone: 3.1, volume: 3.15, smartLinks: 3.2, liveUpdate: 3.2, phoneAway: 3.35,
@@ -160,6 +160,20 @@ Item {
     }
     readonly property bool phoneAlarmShown: alarmLoader.item ? alarmLoader.item.visible : false
 
+    // Find my watch (apps-misc-14, D-29): the phone rings the watch; full screen, above the phone
+    // alarm and the preview, under the watch's own alarm window and the call. The crown and the side
+    // button stop it (keymap.js stopFindWatch), as Find Hub says ("you can also press the power button")
+    Loader {
+        id: findWatchLoader
+        z: arbiter.layers.findWatch
+        anchors.fill: parent
+        source: "../FindWatch.qml"
+    }
+    readonly property bool findWatchShown: findWatchLoader.item ? findWatchLoader.item.shown === true : false
+    // the page rings (keymap.js: a press stops the sound)
+    readonly property bool findWatchRinging: findWatchShown
+    function stopFindWatch() { return findWatchLoader.item ? findWatchLoader.item.stop() : false }
+
     /* The window of a firing alarm or timer of the watch (the alarm
      * presenter, a client window): above the assistant, the heads-up card
      * and the Bluetooth dialog (AppLifecycle puts its wrapper here). */
@@ -178,15 +192,21 @@ Item {
     // A surface of the system is up that covers the screen with something
     // that must not be covered by a mode's start screen (interruptions-16)
     readonly property bool interrupting: callShown || phoneAlarmShown || alertShown || sosShown || thermalBlocking
-                                         || hrAlertShown
+                                         || hrAlertShown || findWatchShown
 
     // A call or a firing alarm arriving closes the assistant, which stops
     // its microphone (interruptions-08, -09); the alarm also hides the
     // heads-up card (it stays in the stream)
-    readonly property bool _takesOver: callShown || alertShown
+    readonly property bool _takesOver: callShown || alertShown || findWatchShown
     on_TakesOverChanged: {
         if (_takesOver && assistantShown)
             closeAssistant()
+    }
+    // the find-my-watch page takes the screen as the alarm does: the heads-up card goes (it stays in
+    // the stream until the sound is stopped)
+    onFindWatchShownChanged: {
+        if (findWatchShown && previewLoader.item && previewLoader.item.hide)
+            previewLoader.item.hide()
     }
     onAlertShownChanged: {
         if (alertShown) {

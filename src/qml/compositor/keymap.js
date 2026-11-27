@@ -84,13 +84,15 @@ function crownIsSecond(counter, now) {
  *   sosShown       the Emergency SOS countdown is up: nothing else runs
  *   powerMenuShown the power menu is up: the side button does nothing
  *   callRinging    a call view is up, ringing, not silenced
+ *   findWatchRinging  the find-my-watch page is up (the phone rings the watch): the press stops
+ *                  the sound, as Find Hub says ("you can also press the power button", D-29)
  *   claimSide      the front window (an alarm presenter, or an app that
  *                  claimed the side button) takes it
  *   alertShown     a firing alarm or timer is in front
  *   option         'assistant' | 'recents' (/org/asteroidos/ux/side-button)
  *   shortcut       the screen reader shortcut is on
  * count: the press number in the sequence (press()).
- * Answers: none, touchLockHint, silenceCall, claim, recents, previous,
+ * Answers: none, touchLockHint, silenceCall, stopFindWatch, claim, recents, previous,
  * screenReader. */
 function sidePress(c, count) {
     if (c.setup || c.thermalBlocking === true)
@@ -101,6 +103,8 @@ function sidePress(c, count) {
         return "none"
     if (c.callRinging)
         return "silenceCall"
+    if (c.findWatchRinging === true)
+        return "stopFindWatch"
     if (c.claimSide)
         return "claim"
     // a firing alarm that did not claim the key: nothing happens under it
@@ -136,7 +140,7 @@ function sideHold(c) {
 }
 
 /* Crown press. c:
- *   setup, callRinging
+ *   setup, callRinging, findWatchRinging
  *   appKeyboardOpen  the application in front shows its full screen keyboard
  *                    (gestures protocol version 3, set_keyboard_open; CR-45)
  *   assistantShown   the assistant is open
@@ -155,9 +159,9 @@ function sideHold(c) {
  *                    Phone away, smart links, live update, goal celebration; W3-launcher-misc)
  *   keyguardLocked, bouncerShown   the screen lock is on, its bouncer is up (W3-launcher-a11y-security)
  *   endCallOnPower, callInProgress  Settings > Accessibility > Power button ends call is on, a call is going on
- * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall, endCall, showBouncer, hideBouncer,
- * closeHeadsUp, closeSystemDialog, closeCharging, closeAssistant, claim, hideAlert, hideCall, closeKeyboard,
- * leaveApp, home. */
+ * Answers: none, touchLockHint, closePowerMenu, closeErrorDialog, silenceCall, stopFindWatch, endCall, showBouncer,
+ * hideBouncer, closeHeadsUp, closeSystemDialog, closeCharging, closeAssistant, claim, hideAlert, hideCall,
+ * closeKeyboard, leaveApp, home. */
 function crownPress(c) {
     if (c.setup)
         return "none"
@@ -179,6 +183,10 @@ function crownPress(c) {
         return c.errorDialogCancelable ? "closeErrorDialog" : "none"
     if (c.callRinging)
         return "silenceCall"
+    // the find-my-watch page: the press stops the sound (above the lock and the heads-up: a lost
+    // watch may be locked, D-29)
+    if (c.findWatchRinging === true)
+        return "stopFindWatch"
     // Settings > Accessibility > Power button ends call: the crown ends a call in progress
     // (the power button is the crown on this watch; accessibility-lock-security-22)
     if (c.endCallOnPower === true && c.callInProgress === true)
@@ -227,7 +235,9 @@ function crownPress(c) {
  * runs the Home action too, but only if tilt-to-wake and touch-to-wake are
  * both on (KeyGestureUtils.java:83-103, PowerKeyRule.java:130-160). From a
  * fully dark screen the press only wakes. The Home action closes an app's
- * keyboard first (closeKeyboard); else the answer is face. */
+ * keyboard first (closeKeyboard); else the answer is face. The find-my-watch
+ * page's sound stops with any press, also one that woke the screen
+ * (stopFindWatch, D-29). */
 function crownWake(c) {
     if (c.setup)
         return "none"
@@ -236,6 +246,8 @@ function crownWake(c) {
         return "touchLockHint"
     if (c.sosShown || c.powerMenuShown)
         return "none"
+    if (c.findWatchRinging === true)
+        return "stopFindWatch"
     // the press woke a locked watch: the bouncer
     if (c.keyguardLocked === true)
         return "showBouncer"

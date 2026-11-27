@@ -90,4 +90,48 @@ TestCase {
         // ringing wins over all of them
         compare(KeyMap.palmCover(ctx({ callRinging: true, callShown: true, setup: true, appActive: true })), "silenceCall")
     }
+
+    // D-29: the find-my-watch page rings (the phone's find device): the crown and the side button stop the sound,
+    // as Find Hub says ("To stop the sound, you can also press the power button", com.google.android.apps.adm
+    // ring_device_message_1), also the press that wakes the screen and also on a locked watch (a lost watch)
+    function test_03b_find_my_watch_press_stops_the_sound() {
+        var f = { findWatchRinging: true }
+        function with_(o) {
+            var c = ctx(f)
+            for (var n in o)
+                c[n] = o[n]
+            return c
+        }
+        compare(KeyMap.crownPress(with_({})), "stopFindWatch")
+        compare(KeyMap.sidePress(with_({}), 1), "stopFindWatch")
+        compare(KeyMap.crownWake(with_({ fromAmbient: false })), "stopFindWatch")
+        compare(KeyMap.crownWake(with_({ fromAmbient: true })), "stopFindWatch")
+        // above the lock, the heads-up, a system dialog, an app's claim, the charging screen and the assistant
+        compare(KeyMap.crownPress(with_({ keyguardLocked: true })), "stopFindWatch")
+        compare(KeyMap.crownWake(with_({ keyguardLocked: true })), "stopFindWatch")
+        compare(KeyMap.sidePress(with_({ keyguardLocked: true }), 1), "stopFindWatch")
+        compare(KeyMap.crownPress(with_({ headsUpShown: true })), "stopFindWatch")
+        compare(KeyMap.crownPress(with_({ systemDialogShown: true })), "stopFindWatch")
+        compare(KeyMap.crownPress(with_({ claimCrown: true, appActive: true })), "stopFindWatch")
+        compare(KeyMap.sidePress(with_({ claimSide: true }), 1), "stopFindWatch")
+        compare(KeyMap.crownPress(with_({ chargingShown: true })), "stopFindWatch")
+        compare(KeyMap.crownPress(with_({ assistantShown: true })), "stopFindWatch")
+        compare(KeyMap.sidePress(with_({ option: "recents" }), 1), "stopFindWatch")
+        // what stays above it: setup, touch lock (its hint), the SOS countdown, the power menu, a ringing call
+        compare(KeyMap.crownPress(with_({ setup: true })), "none")
+        compare(KeyMap.crownPress(with_({ touchLocked: true })), "touchLockHint")
+        compare(KeyMap.sidePress(with_({ touchLocked: true }), 1), "touchLockHint")
+        compare(KeyMap.crownWake(with_({ touchLocked: true })), "touchLockHint")
+        compare(KeyMap.crownPress(with_({ sosShown: true })), "none")
+        compare(KeyMap.sidePress(with_({ sosShown: true }), 1), "none")
+        compare(KeyMap.crownPress(with_({ powerMenuShown: true })), "closePowerMenu")
+        compare(KeyMap.crownPress(with_({ callRinging: true })), "silenceCall")
+        compare(KeyMap.sidePress(with_({ callRinging: true }), 1), "silenceCall")
+        // the side button's hold is the assistant's as before (the page does not take it)
+        compare(KeyMap.sideHold(with_({})), "assistant")
+        // without the page nothing changes
+        compare(KeyMap.crownPress(ctx({ findWatchRinging: false })), "home")
+        compare(KeyMap.sidePress(ctx({ findWatchRinging: false }), 1), "none")
+        compare(KeyMap.crownWake(ctx({ findWatchRinging: false })), "none")
+    }
 }

@@ -3468,5 +3468,15 @@ for %1 seconds to</translation>
         <source>Contacts</source>
         <translation>Contacts</translation>
     </message>
+    <message id="id-findwatch-ringing">
+        <location filename="../src/qml/notifications/FindWatch.qml"/>
+        <source>Playing sound…</source>
+        <translation>Playing sound…</translation>
+    </message>
+    <message id="id-findwatch-note">
+        <location filename="../src/qml/notifications/FindWatch.qml"/>
+        <source>To stop the sound, you can also press a button on your watch.</source>
+        <translation>To stop the sound, you can also press a button on your watch.</translation>
+    </message>
 </context>
 </TS>

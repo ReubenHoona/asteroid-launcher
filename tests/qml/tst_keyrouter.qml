@@ -30,6 +30,10 @@ Item {
         property bool headsUpShown: false
         property bool callInProgress: false
         property bool callOngoing: false
+        // the find-my-watch page (D-29)
+        property bool findWatchRinging: false
+        property int findWatchStops: 0
+        function stopFindWatch() { findWatchStops++; return true }
         property int headsUpClosed: 0
         property int silenced: 0
         function silenceCall() { silenced++ }
@@ -109,6 +113,8 @@ Item {
             win.closes = 0
             root.closed = 0
             arbiter.headsUpShown = false
+            arbiter.findWatchRinging = false
+            arbiter.findWatchStops = 0
             homeLoader.item.crown = 0
             homeLoader.item.face = 0
         }
@@ -198,6 +204,36 @@ Item {
             compare(lpmCalls(), 1)
             arbiter.callShown = false
             arbiter.callOngoing = false
+        }
+
+        // D-29: while the find-my-watch page rings, the crown (also the press that woke the screen) and the side
+        // button stop the sound and do nothing else: the app's keyboard, the app and Home stay as they are
+        function test_06b_find_my_watch() {
+            var left0 = comp.left
+            arbiter.findWatchRinging = true
+            verify(kr.context().findWatchRinging)
+            kr.crownPressed()
+            compare(arbiter.findWatchStops, 1)
+            compare(win.closes, 0)
+            compare(root.closed, 0)
+            compare(homeLoader.item.crown, 0)
+            now += 10000
+            kr.sidePressed()
+            compare(arbiter.findWatchStops, 2)
+            now += 10000
+            comp.wakeFromAmbient = true
+            kr.crownWoke()
+            compare(arbiter.findWatchStops, 3)
+            compare(comp.left, left0)
+            compare(homeLoader.item.face, 0)
+            comp.wakeFromAmbient = false
+            // the page went: the crown closes the keyboard again
+            arbiter.findWatchRinging = false
+            verify(!kr.context().findWatchRinging)
+            now += 10000
+            kr.crownPressed()
+            compare(arbiter.findWatchStops, 3)
+            compare(win.closes, 1)
         }
 
         function test_05_wake_press() {
