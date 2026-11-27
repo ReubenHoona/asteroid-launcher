@@ -31,6 +31,10 @@ add_executable(tst_batterypolicy tst_batterypolicy.cpp)
 target_include_directories(tst_batterypolicy PRIVATE ../lipstick/src/notifications)
 target_compile_definitions(tst_batterypolicy PRIVATE NOTIFIER_SRC="${CMAKE_CURRENT_SOURCE_DIR}/../lipstick/src/notifications")
 
+# The boot-complete feedback (src/eosbootfeedback.h, R5 B-09: once per boot, setup done, not a trial boot), plain C++
+add_executable(tst_bootfeedback tst_bootfeedback.cpp)
+target_include_directories(tst_bootfeedback PRIVATE ../src)
+
 # The notification server in Bedtime and Theater (lipstick/src/notifications/eosquietpolicy.h), plain C++
 add_executable(tst_quietpolicy tst_quietpolicy.cpp)
 target_include_directories(tst_quietpolicy PRIVATE ../lipstick/src/notifications)

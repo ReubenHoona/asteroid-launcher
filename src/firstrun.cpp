@@ -28,6 +28,7 @@
  */
 
 #include "firstrun.h"
+#include "eosbootfeedback.h"
 
 #include <timed-qt6/event>
 #include <timed-qt6/interface>
@@ -80,6 +81,22 @@ FirstRun::FirstRun()
     m_mceDbus = new QDBusInterface("com.nokia.mce", "/com/nokia/mce/request", "com.nokia.mce.request", QDBusConnection::systemBus());
     firstRunDone = new MDConfItem("/org/asteroidos/launcher/firstRunDone", this);
     m_tutorialPending = new MDConfItem("/org/asteroidos/launcher/tutorialPending", this);
+    m_bootFeedbackBoot = new MDConfItem("/org/asteroidos/launcher/boot-feedback-boot-id", this);
+}
+
+bool FirstRun::bootFeedbackDue()
+{
+    auto readText = [](const char *path) {
+        QFile f(QString::fromLatin1(path));
+        return f.open(QIODevice::ReadOnly) ? f.read(4096).toStdString() : std::string();
+    };
+    const std::string bootId = readText("/proc/sys/kernel/random/boot_id");
+    const std::string last = m_bootFeedbackBoot->value(QString()).toString().toStdString();
+    const std::string phase = EosBootFeedback::updatePhase(readText("/var/lib/eos-update/state"));
+    const bool due = EosBootFeedback::due(bootId, last, !isFirstRun(), phase);
+    if (EosBootFeedback::remember(bootId, last))
+        m_bootFeedbackBoot->set(QString::fromStdString(EosBootFeedback::trim(bootId)));
+    return due;
 }
 
 bool FirstRun::isFirstRun()
