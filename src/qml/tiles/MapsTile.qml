@@ -17,7 +17,8 @@ import "tilecontent.js" as TC
  * so the tile has no search button.
  *
  * Saved places are asteroid-map's /map/waypointList ([icon, [lat, lon], colour, name, date] each); opening at one
- * writes the map's view (/map/view/location/lat and long, millionths of a degree) and starts the app.
+ * writes the map's view (/map/view/location/lat and long, millionths of a degree) and starts the app. The Map app
+ * opens on its home (stock Maps, R5 D-13); the tile asks it for the map itself (dconf /map/open "map@<ms>", as the other tiles ask their apps, CR-36).
  * Battery: nothing runs.
  */
 TileBase {
@@ -28,21 +29,23 @@ TileBase {
     backgroundTap: false
     //% "Map"
     chipText: qsTrId("id-tile-map") + localeManager.changesObserver
-    onChipClicked: desktop.launchByName("asteroid-map", null)
+    onChipClicked: go(null, null)
 
     ConfigurationValue { id: waypoints; key: "/map/waypointList"; defaultValue: "[]" }
     ConfigurationValue { id: viewLat; key: "/map/view/location/lat"; defaultValue: 0 }
     ConfigurationValue { id: viewLon; key: "/map/view/location/long"; defaultValue: 0 }
+    ConfigurationValue { id: openRequest; key: "/map/open"; defaultValue: "" }
 
     readonly property var home: TC.savedPlace(String(waypoints.value), "Home")
     readonly property var work: TC.savedPlace(String(waypoints.value), "Work")
 
-    // opens the map at a place (the map reads its view when it starts)
+    // opens the map at a place (the map reads its view when it starts), the map itself, not the app's home
     function go(place, from) {
         if (place) {
             viewLat.value = Math.round(place.lat * 1000000)
             viewLon.value = Math.round(place.lon * 1000000)
         }
+        openRequest.value = "map@" + Date.now()
         desktop.launchByName("asteroid-map", from)
     }
 
