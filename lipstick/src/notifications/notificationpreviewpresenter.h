@@ -113,6 +113,10 @@ signals:
     //! Sent when a notification's feedback is due (it arrived, or its delay of Immediately ended)
     void notificationPresented(uint id);
 
+    //! eos (M4 WO-12): a notification of a full screen category arrived (eoscategory.h: the heart rate alert):
+    //! the launcher shows it full screen, it has no banner
+    void fullScreenRequested(QObject *notification);
+
     void faceCurrentChanged();
     void surfaceBusyChanged();
     void detailOpenChanged();

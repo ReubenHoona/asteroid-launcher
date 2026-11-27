@@ -575,6 +575,9 @@ Item {
             return
         if (isCall(n) && reopenCall(n))
             return
+        // the heart rate alert's card opens its screen (stock: the notification opens HeartRateAlertInfoActivity)
+        if (Desktop.hrAlert && Desktop.hrAlert.openFromCard(n))
+            return
         if (expandedId === idOf(n) && conversationKey(n) !== "" && openConversation(n))
             return
         toggleCard(idOf(n))

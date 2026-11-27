@@ -20,6 +20,7 @@
 #include "notificationmanager.h"
 #include "notificationfeedbackplayer.h"
 #include "eosquietpolicy.h"
+#include "eoscategory.h"
 #include "lipsticksettings.h"
 
 namespace {
@@ -71,18 +72,19 @@ void NotificationFeedbackPlayer::addNotification(uint id)
         // If feedback is suppressed, ignore this notification
         if (!notification->hints().value(NotificationManager::HINT_FEEDBACK_SUPPRESSED).toBool()) {
             // Play the feedback related to the notification if any (eos: in
-            // Bedtime or Theater only an alarm's, eosquietpolicy.h)
+            // Bedtime or Theater only an alarm's, eosquietpolicy.h, and an
+            // alarm category post's, eoscategory.h)
             // and an alarm only with what the modes' Customize > Alarms and
             // Timers allow (Theater: vibration only)
             const QString feedback = QString::fromStdString(EosQuiet::feedbackInCall(
                 LipstickSettings::instance()->callState(),
                 EosQuiet::alarmFeedback(
                     NotificationManager::instance()->alarmMask(),
-                    EosQuiet::feedbackDnd(
+                    EosCategory::modeFeedback(
+                        notification->hints().value(QStringLiteral("x-asteroid-category")).toString().toStdString(),
+                        NotificationManager::instance()->quiet() || NotificationManager::instance()->silenced(),
                         NotificationManager::instance()->dnd(),
-                        EosQuiet::feedback(
-                            NotificationManager::instance()->quiet() || NotificationManager::instance()->silenced(),
-                            notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString())))));
+                        notification->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString()))));
             const QStringList feedbackItems = feedback.split(QStringLiteral(","), Qt::SkipEmptyParts);
             if (!feedbackItems.isEmpty()) {
                 QMap<QString, QVariant> properties;
@@ -146,7 +148,7 @@ void NotificationFeedbackPlayer::callStateChanged()
 }
 
 // eos: Bedtime or Theater came on: whatever plays and is not an alarm's
-// (a call ringing on the phone) stops now
+// (a call ringing on the phone) stops now; an alarm category post's goes on
 void NotificationFeedbackPlayer::quietChanged()
 {
     const bool dnd = NotificationManager::instance()->dnd();
@@ -156,7 +158,8 @@ void NotificationFeedbackPlayer::quietChanged()
     QMultiHash<LipstickNotification *, uint>::iterator it = idToEventId.begin();
     while (it != idToEventId.end()) {
         const std::string hint = it.key()->hints().value(NotificationManager::HINT_FEEDBACK).toString().toStdString();
-        if (EosQuiet::feedbackDnd(dnd, EosQuiet::feedback(quiet, hint)).empty()) {
+        const std::string category = it.key()->hints().value(QStringLiteral("x-asteroid-category")).toString().toStdString();
+        if (EosCategory::modeFeedback(category, quiet, dnd, hint).empty()) {
             ngfClient->stop(it.value());
             it = idToEventId.erase(it);
         } else {

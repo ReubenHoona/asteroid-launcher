@@ -51,7 +51,7 @@ import "../desktop.js" as Desktop
  * everything a user did not just ask for: audit interruptions-09, -15, -16,
  * -18, -20). Lowest first:
  *   assistant 2.5, heads-up card 3, shutdown 3, Bedtime start 3,
- *   Bluetooth pairing 3.3, phone alarm 3.4, the alert window (a firing
+ *   Bluetooth pairing 3.3, the heart rate alert 3.38 (M4 WO-12), phone alarm 3.4, the alert window (a firing
  *   alarm or timer of the watch) 3.5, call 3.6, app error dialogs 3.7
  *   (W2-launcher-power-system), power menu 3.8 (above the call and alarm
  *   views; thermal dialogs share it), Emergency SOS 3.9, touch lock 5.5
@@ -66,7 +66,7 @@ Item {
 
     readonly property var layers: ({
         assistant: 2.5, headsUp: 3, shutdown: 3, mode: 3,
-        bluetooth: 3.3, phoneAlarm: 3.4, alert: 3.5, call: 3.6,
+        bluetooth: 3.3, hrAlert: 3.38, phoneAlarm: 3.4, alert: 3.5, call: 3.6,
         callAssistant: 3.65, errorDialog: 3.7, powerMenu: 3.8, sos: 3.9, touchLock: 5.5,
         // W3-launcher-misc: the system dialogs (under the pairing dialog, alarms and calls, except Phone away)
         celebration: 3.05, findPhone: 3.1, volume: 3.15, smartLinks: 3.2, liveUpdate: 3.2, phoneAway: 3.35,
@@ -178,6 +178,7 @@ Item {
     // A surface of the system is up that covers the screen with something
     // that must not be covered by a mode's start screen (interruptions-16)
     readonly property bool interrupting: callShown || phoneAlarmShown || alertShown || sosShown || thermalBlocking
+                                         || hrAlertShown
 
     // A call or a firing alarm arriving closes the assistant, which stops
     // its microphone (interruptions-08, -09); the alarm also hides the
@@ -249,6 +250,16 @@ Item {
         anchors.fill: parent
         source: "../system/ModeScreen.qml"
     }
+
+    /* The heart rate alert (M4 WO-12): asteroid-sensorlogd's high or low heart rate notification full screen, as
+     * stock's HeartRateAlertInfoActivity (category alarm: also in Do Not Disturb, Bedtime and Theater, where the
+     * screen stays off); over the app, the face and the system dialogs, under the alarms and calls */
+    HrAlert {
+        id: hrAlertView
+        z: arbiter.layers.hrAlert
+        displayOn: typeof comp !== "undefined" && comp ? (!comp.displayIsOff && !Lipstick.compositor.displayAmbient) : true
+    }
+    readonly property bool hrAlertShown: hrAlertView.shown
 
     // The pairing dialog: under the call, the alarms and the alert window
     Loader {
@@ -350,13 +361,14 @@ Item {
     }
 
     readonly property bool btDialogShown: bluetoothLoader.item ? bluetoothLoader.item.shown === true : false
-    readonly property bool systemDialogShown: findPhonePage.shown || phoneAwayDialog.shown || btDialogShown
+    readonly property bool systemDialogShown: hrAlertView.shown || findPhonePage.shown || phoneAwayDialog.shown || btDialogShown
                                               || smartLinksMenu.shown || goalCelebration.shown || volumePopup.shown
                                               || thermalUi.closableByCrown
                                               || liveUpdateView.shown || whatsNewView.shown
     function closeSystemDialog() {
-        // the newest first: Phone away is over everything else of the group
-        if (phoneAwayDialog.shown) phoneAwayDialog.close()
+        // the newest first: the heart rate alert is over the group, then Phone away
+        if (hrAlertView.shown) hrAlertView.close()
+        else if (phoneAwayDialog.shown) phoneAwayDialog.close()
         else if (btDialogShown) bluetoothLoader.item.close()
         else if (smartLinksMenu.shown) smartLinksMenu.close()
         else if (goalCelebration.shown) goalCelebration.close()

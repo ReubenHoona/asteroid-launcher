@@ -3272,5 +3272,35 @@ for %1 seconds to</translation>
         <source>%1 of %2 days</source>
         <translation>%1 of %2 days</translation>
     </message>
+    <message id="id-hralert-high">
+        <location filename="../src/qml/system/HrAlert.qml"/>
+        <source>High heart rate</source>
+        <translation>High heart rate</translation>
+    </message>
+    <message id="id-hralert-low">
+        <location filename="../src/qml/system/HrAlert.qml"/>
+        <source>Low heart rate</source>
+        <translation>Low heart rate</translation>
+    </message>
+    <message id="id-hralert-bpm">
+        <location filename="../src/qml/system/HrAlert.qml"/>
+        <source>%1 bpm</source>
+        <translation>%1 bpm</translation>
+    </message>
+    <message id="id-hralert-high-detail">
+        <location filename="../src/qml/system/HrAlert.qml"/>
+        <source>Your heart rate rose above %1 bpm while you appeared to be inactive from %2 - %3.</source>
+        <translation>Your heart rate rose above %1 bpm while you appeared to be inactive from %2 - %3.</translation>
+    </message>
+    <message id="id-hralert-low-detail">
+        <location filename="../src/qml/system/HrAlert.qml"/>
+        <source>Your heart rate fell below %1 bpm while you appeared to be inactive from %2 - %3.</source>
+        <translation>Your heart rate fell below %1 bpm while you appeared to be inactive from %2 - %3.</translation>
+    </message>
+    <message id="id-hralert-dismiss">
+        <location filename="../src/qml/system/HrAlert.qml"/>
+        <source>Dismiss</source>
+        <translation>Dismiss</translation>
+    </message>
 </context>
 </TS>

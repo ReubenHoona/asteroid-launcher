@@ -2657,5 +2657,29 @@ for %1 seconds to</translation>
         <source>%1 of %2 days</source>
         <translation>%1 of %2 days</translation>
     </message>
+    <message id="id-hralert-high">
+        <source>High heart rate</source>
+        <translation>High heart rate</translation>
+    </message>
+    <message id="id-hralert-low">
+        <source>Low heart rate</source>
+        <translation>Low heart rate</translation>
+    </message>
+    <message id="id-hralert-bpm">
+        <source>%1 bpm</source>
+        <translation>%1 bpm</translation>
+    </message>
+    <message id="id-hralert-high-detail">
+        <source>Your heart rate rose above %1 bpm while you appeared to be inactive from %2 - %3.</source>
+        <translation>Your heart rate rose above %1 bpm while you appeared to be inactive from %2 - %3.</translation>
+    </message>
+    <message id="id-hralert-low-detail">
+        <source>Your heart rate fell below %1 bpm while you appeared to be inactive from %2 - %3.</source>
+        <translation>Your heart rate fell below %1 bpm while you appeared to be inactive from %2 - %3.</translation>
+    </message>
+    <message id="id-hralert-dismiss">
+        <source>Dismiss</source>
+        <translation>Dismiss</translation>
+    </message>
 </context>
 </TS>

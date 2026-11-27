@@ -16,6 +16,7 @@
 #include "notifications/notificationmanager.h"
 #include "notifications/notificationfeedbackplayer.h"
 #include "notifications/eosquietpolicy.h"
+#include "notifications/eoscategory.h"
 #include "notifications/eosalertpolicy.h"
 #include <QScreen> // should be included by lipstickcompositor.h
 #include "compositor/lipstickcompositor.h"
@@ -183,6 +184,12 @@ void NotificationPreviewPresenter::updateNotification(uint id)
         // Remove updated notification only from the queue so that a currently visible notification won't suddenly disappear
         playFeedback(id);
 
+        // eos (M4 WO-12): a full screen category (the heart rate alert, stock's full screen activity) goes to the
+        // launcher's screen for it, also in Bedtime, Theater and Do Not Disturb (an alarm category: eoscategory.h)
+        if (!notification->hidden() && !notification->restored()
+                && EosCategory::fullScreen(notification->hints().value(QStringLiteral("x-asteroid-category")).toString().toStdString()))
+            emit fullScreenRequested(notification);
+
         removeNotification(id, true);
 
         if (currentNotification != notification) {
@@ -334,6 +341,10 @@ bool NotificationPreviewPresenter::windowSuppresses() const
 bool NotificationPreviewPresenter::notificationShouldBeShown(LipstickNotification *notification)
 {
     if (notification->hidden() || notification->restored() || (notification->previewBody().isEmpty() && notification->previewSummary().isEmpty()))
+        return false;
+
+    // eos (M4 WO-12): a full screen category has its screen, no banner (eoscategory.h)
+    if (EosCategory::fullScreen(notification->hints().value(QStringLiteral("x-asteroid-category")).toString().toStdString()))
         return false;
 
     // eos: Bedtime or Theater: no banner (it would turn the screen on) but

@@ -29,6 +29,7 @@
 #include "notificationmanager.h"
 #include "appwatcher.h"
 #include "eosdisabledapps.h"
+#include "eoscategory.h"
 
 // Define this if you'd like to see debug messages from the notification manager
 #ifdef DEBUG_NOTIFICATIONS
@@ -296,6 +297,20 @@ QStringList NotificationManager::GetCapabilities()
 uint NotificationManager::Notify(const QString &appName, uint replacesId, const QString &appIcon, const QString &summary, const QString &body, const QStringList &actions, const QVariantHash &hints, int expireTimeout)
 {
     NOTIFICATIONS_DEBUG("NOTIFY:" << appName << replacesId << appIcon << summary << body << actions << hints << expireTimeout);
+
+    // eos (M4 WO-12): one card for a one-id category (eoscategory.h: the heart rate alert, stock's one id): the app's
+    // card of it goes and the post is a new card, which alerts as a new one
+    const std::string asteroidCategory = hints.value(QStringLiteral("x-asteroid-category")).toString().toStdString();
+    if (EosCategory::oneId(asteroidCategory)) {
+        std::vector<EosCategory::Card> cards;
+        for (auto it = notifications.constBegin(); it != notifications.constEnd(); ++it)
+            cards.push_back({ it.key(), it.value()->appName().toStdString(),
+                              it.value()->hints().value(QStringLiteral("x-asteroid-category")).toString().toStdString() });
+        for (unsigned old : EosCategory::replacedCards(appName.toStdString(), asteroidCategory, cards))
+            CloseNotification(old);
+        replacesId = 0;
+    }
+
     uint id = replacesId != 0 ? replacesId : nextAvailableNotificationID();
 
     // eos: an app whose notifications are off (Settings > App notifications) posts nothing: no card, no

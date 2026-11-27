@@ -35,6 +35,12 @@ target_compile_definitions(tst_batterypolicy PRIVATE NOTIFIER_SRC="${CMAKE_CURRE
 add_executable(tst_quietpolicy tst_quietpolicy.cpp)
 target_include_directories(tst_quietpolicy PRIVATE ../lipstick/src/notifications)
 
+# M4 WO-12: what a notification's x-asteroid-category asks of the server (lipstick/src/notifications/eoscategory.h:
+# the heart rate alert's category alarm, one id, full screen) and a lint of where the server uses it, plain C++
+add_executable(tst_eoscategory tst_eoscategory.cpp)
+target_include_directories(tst_eoscategory PRIVATE ../lipstick/src/notifications)
+target_compile_definitions(tst_eoscategory PRIVATE NOTIFIER_SRC="${CMAKE_CURRENT_SOURCE_DIR}/../lipstick/src/notifications")
+
 # The app notification switches (lipstick/src/notifications/eosdisabledapps.h, CR-18) and a lint of where the
 # notification server, the launcher and the battery notices use them: plain C++
 add_executable(tst_disabledapps tst_disabledapps.cpp)

@@ -23,3 +23,5 @@ var setupPairing
 var smartLinks
 // the live update full view (system/LiveUpdate.qml): open(entry)
 var liveUpdate
+// the heart rate alert screen (system/HrAlert.qml, M4 WO-12): openFromCard(notification)
+var hrAlert
