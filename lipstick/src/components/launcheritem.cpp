@@ -27,6 +27,7 @@
 
 #include "launcheritem.h"
 #include "appwatcher.h"
+#include "eosappstart.h"
 #include "launchermodel.h"
 
 LauncherItem::LauncherItem(const QString &filePath, QObject *parent)
@@ -166,6 +167,7 @@ void LauncherItem::launchApplication()
     if (_desktopEntry.isNull())
         return;
 
+    EosAppStart::trace("launch", filename());
     LAUNCHER_DEBUG("launching exec line for" << _desktopEntry->name());
 
     // Get the command text from the desktop entry

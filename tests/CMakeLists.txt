@@ -132,6 +132,11 @@ target_link_libraries(tst_launchersort PRIVATE Qt6::Core)
 add_executable(tst_appcrash tst_appcrash.cpp)
 target_include_directories(tst_appcrash PRIVATE ../lipstick/src/components)
 
+# The app start trace (lipstick/src/utilities/eosappstart.h), Qt Core only
+add_executable(tst_appstart tst_appstart.cpp ../lipstick/src/utilities/eosappstart.h)
+target_include_directories(tst_appstart PRIVATE ../lipstick/src/utilities)
+target_link_libraries(tst_appstart PRIVATE Qt6::Core)
+
 # The unresponsive-app exchange (lipstick/src/compositor/eosanr.h), plain C++
 add_executable(tst_anr tst_anr.cpp)
 target_include_directories(tst_anr PRIVATE ../lipstick/src/compositor)

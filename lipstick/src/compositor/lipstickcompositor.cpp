@@ -28,6 +28,8 @@
 #include "asteroidgesturesextension.h"
 #include "eosoffloadpolicy.h"
 #include "appwatcher.h"
+#include "eosappstart.h"
+#include <QTouchEvent>
 #include <signal.h>
 #include <qpa/qwindowsysteminterface.h>
 #include <private/qguiapplication_p.h>
@@ -127,6 +129,9 @@ LipstickCompositor::LipstickCompositor()
 
     connect(QGuiApplication::clipboard(), SIGNAL(dataChanged()), SLOT(clipboardDataChanged()));
 
+    if (EosAppStart::enabled())
+        setupAppStartTrace();
+
     m_timedDbus = new Maemo::Timed::Interface();
     if( !m_timedDbus->isValid() )
     {
@@ -195,6 +200,9 @@ void LipstickCompositor::onToplevelCreated(QWaylandXdgToplevel * topLevel, QWayl
 
 void LipstickCompositor::onSurfaceCreated(QWaylandSurface *surface)
 {
+    if (EosAppStart::enabled())
+        EosAppStart::trace("surface created", QStringLiteral("pid ")
+                           + QString::number(surface->client() ? surface->client()->processId() : 0));
     LipstickCompositorWindow *item = surfaceWindow(surface);
     if (!item)
         item = createView(surface);
@@ -539,12 +547,22 @@ void LipstickCompositor::surfaceMapped(QWaylandSurface *surface)
 
     item->setTouchEventsEnabled(true);
 
+    const bool traced = EosAppStart::enabled();
+    if (traced) {
+        // its first buffer: the window is handed to QML (AppLifecycle.onWindowAdded) now
+        EosAppStart::trace("surface mapped", QStringLiteral("window %1 pid %2").arg(item->windowId()).arg(item->processId()));
+        m_appStartFrameWindow.storeRelease(item->windowId());
+        m_appStartFrame.storeRelease(1);
+    }
+
     emit windowCountChanged();
     emit windowAdded(item);
 
     windowAdded(item->windowId());
 
     emit availableWinIdsChanged();
+    if (traced)
+        EosAppStart::trace("window added", QStringLiteral("window %1").arg(item->windowId()));
 }
 
 void LipstickCompositor::surfaceTitleChanged()
@@ -867,6 +885,51 @@ QByteArray LipstickCompositor::offloadRequest(const QByteArray &request, int tim
     // no daemon (an empty reply): the AP keeps drawing the always-on display
     const std::string reply = EosOffload::request(EosOffload::SOCKET_PATH, request.toStdString(), timeoutSec);
     return QByteArray(reply.data(), qsizetype(reply.size()));
+}
+
+/* The app start trace (eosappstart.h). A touch release as the compositor's
+ * window gets it, and the first frame that is swapped after a window was
+ * mapped: the scene is synchronized after the mapping (the GUI thread waits
+ * for that), then swapped, so a frame that was being drawn while the window
+ * came is not taken for it. Both connected only with the trace on. */
+namespace {
+class AppStartTouchTrace : public QObject
+{
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject *watched, QEvent *event) override
+    {
+        if (event->type() == QEvent::TouchEnd && watched->isWindowType()) {
+            const QList<QEventPoint> &points = static_cast<QTouchEvent *>(event)->points();
+            const QPointF p = points.isEmpty() ? QPointF() : points.first().scenePosition();
+            EosAppStart::trace("touch up", QStringLiteral("%1,%2").arg(qRound(p.x())).arg(qRound(p.y())));
+        }
+        return false;
+    }
+};
+}
+
+void LipstickCompositor::setupAppStartTrace()
+{
+    connect(m_window, &QQuickWindow::afterSynchronizing, this, [this]() {
+        m_appStartFrame.testAndSetOrdered(1, 2);
+    }, Qt::DirectConnection);
+    connect(m_window, &QQuickWindow::frameSwapped, this, [this]() {
+        const int id = m_appStartFrameWindow.loadAcquire();
+        if (m_appStartFrame.testAndSetOrdered(2, 0))
+            EosAppStart::trace("frame swapped", QStringLiteral("window %1").arg(id));
+    }, Qt::DirectConnection);
+    m_window->installEventFilter(new AppStartTouchTrace(m_window));
+}
+
+bool LipstickCompositor::appStartTraced() const
+{
+    return EosAppStart::enabled();
+}
+
+void LipstickCompositor::appStartTrace(const QString &stage, const QString &what)
+{
+    EosAppStart::trace(qUtf8Printable(stage), what);
 }
 
 void LipstickCompositor::offloadBoost()

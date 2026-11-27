@@ -164,7 +164,20 @@ Item {
     }
     Connections {
         target: launchMotion
-        function onInProgressChanged() { if (launchMotion.inProgress) transitions.boost() }
+        function onInProgressChanged() {
+            if (launchMotion.inProgress) {
+                transitions.boost()
+                transitions.trace("launch motion start", launchMotion.fromOrigin ? "origin" : "centre")
+            }
+        }
+    }
+
+    /* A stage of the app start trace (EOS_APPSTART_TRACE in the launcher's
+     * environment: lipstick's eosappstart.h). Nothing without it. */
+    function trace(stage, what) {
+        var c = typeof Lipstick !== "undefined" ? Lipstick.compositor : null
+        if (c && c.appStartTraced === true)
+            c.appStartTrace(stage, what === undefined ? "" : String(what))
     }
     Connections {
         target: revealMotion
@@ -200,11 +213,14 @@ Item {
         _openerLayer = win.parent
         if (win.parent)
             win.parent.ready = !running
+        trace("open window", (win.window && win.window.windowId !== undefined ? "window " + win.window.windowId + " " : "")
+                             + (running ? (overSplash ? "zooming over the splash" : "zooming") : "at rest"))
     }
 
     Connections {
         target: launchMotion
         function onFinished() {
+            transitions.trace("launch motion end", transitions._opener ? "with the window" : "")
             if (transitions._opener)
                 transitions._opener.opening = false
             transitions._opener = null

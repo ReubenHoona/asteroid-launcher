@@ -50,6 +50,10 @@ Item {
         // LipstickCompositor.offloadBoost (CR-46): the window transitions that asked for it
         property int boosts: 0
         function offloadBoost() { boosts++ }
+        // LipstickCompositor's app start trace (eosappstart.h): what WindowTransitions logged
+        property bool appStartTraced: false
+        property var traced: []
+        function appStartTrace(stage, what) { traced = traced.concat([stage + (what ? " " + what : "")]) }
         signal displayOff()
         signal displayOn()
         signal displayAboutToBeOn()
@@ -78,6 +82,12 @@ Item {
     }
     Item { id: appLayer; property bool ready: true }
     Item { id: winA; property Item window: null }
+    // a window wrapper as WindowTransitions.openWindow sets it up, in its layer
+    Item {
+        id: layerT
+        property bool ready: true
+        Item { id: winT; property Item window: null; property QtObject motion: null; property bool opening: false }
+    }
     // the spring maths of the commit, without a frame clock
     WearSpring { id: probe }
 
@@ -429,6 +439,38 @@ Item {
             tryCompare(lipstickComp, "boosts", 3, 500, "the launch")
             tryCompare(wt.launch, "inProgress", false, 3000)
             compare(lipstickComp.boosts, 3, "once per transition")
+        }
+
+        // The app start trace (EOS_APPSTART_TRACE): WindowTransitions logs the launch springs and the
+        // window it opens through LipstickCompositor.appStartTrace, only while appStartTraced is true
+        function test_10_app_start_trace() {
+            lipstickComp.traced = []
+            lipstickComp.appStartTraced = false
+            wt.launch.start()
+            tryCompare(wt.launch, "inProgress", false, 3000)
+            wt.openWindow(winT, true)
+            compare(lipstickComp.traced.length, 0, "nothing with the trace off")
+
+            lipstickComp.appStartTraced = true
+            // the splash starts the springs, the window comes while they run
+            wt.launch.start()
+            tryVerify(function () { return wt.launch.inProgress }, 500)
+            wt.openWindow(winT, true)
+            verify(winT.opening)
+            tryCompare(wt.launch, "inProgress", false, 3000)
+            compare(lipstickComp.traced, ["launch motion start centre", "open window zooming over the splash",
+                                          "launch motion end with the window"])
+            // a window that comes after the springs: at rest
+            lipstickComp.traced = []
+            wt.openWindow(winT, true)
+            compare(lipstickComp.traced, ["open window at rest"])
+            // a window without a splash starts the springs itself
+            lipstickComp.traced = []
+            wt.openWindow(winT, false)
+            tryCompare(wt.launch, "inProgress", false, 3000)
+            compare(lipstickComp.traced, ["launch motion start centre", "open window zooming", "launch motion end with the window"])
+            lipstickComp.appStartTraced = false
+            lipstickComp.traced = []
         }
     }
 }

@@ -14,6 +14,7 @@
 #include <mdesktopentry.h>
 
 #include "appwatcher.h"
+#include "eosappstart.h"
 
 static AppWatcher *s_instance = nullptr;
 
@@ -66,6 +67,8 @@ bool AppWatcher::launch(const QString &program, const QStringList &args, const Q
         return false;
     }
     proc->setProperty("eosPid", qint64(proc->processId()));
+    // the program runs (QProcess has seen its exec)
+    EosAppStart::trace("started", program + QStringLiteral(" pid ") + QString::number(proc->processId()));
     return true;
 }
 

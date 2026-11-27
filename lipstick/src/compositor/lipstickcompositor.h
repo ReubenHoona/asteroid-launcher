@@ -27,6 +27,7 @@
 #include <QWaylandClient>
 #include <QPointer>
 #include <QTimer>
+#include <QAtomicInt>
 #include <MDConfItem>
 #include "eosfreezer.h"
 #include "eosanr.h"
@@ -50,6 +51,8 @@ class LipstickCompositor : public QWaylandQuickCompositor
     Q_PROPERTY(int ghostWindowCount READ ghostWindowCount NOTIFY ghostWindowCountChanged)
     Q_PROPERTY(bool homeActive READ homeActive WRITE setHomeActive NOTIFY homeActiveChanged)
     Q_PROPERTY(bool debug READ debug CONSTANT)
+    // the app start trace is on (eosappstart.h): QML calls appStartTrace() only then
+    Q_PROPERTY(bool appStartTraced READ appStartTraced CONSTANT)
     Q_PROPERTY(QWaylandSurface* fullscreenSurface READ fullscreenSurface WRITE setFullscreenSurface NOTIFY fullscreenSurfaceChanged)
     Q_PROPERTY(bool directRenderingActive READ directRenderingActive NOTIFY directRenderingActiveChanged)
     Q_PROPERTY(int topmostWindowId READ topmostWindowId WRITE setTopmostWindowId NOTIFY topmostWindowIdChanged)
@@ -127,6 +130,9 @@ public:
     // CLOCK_BOOTTIME in ms: runs while the AP sleeps (the go-to-watch-face
     // time is measured on it, no timer armed)
     Q_INVOKABLE qint64 bootTimeMs() const;
+    // A stage of the app start trace from QML (eosappstart.h; WindowTransitions.qml)
+    bool appStartTraced() const;
+    Q_INVOKABLE void appStartTrace(const QString &stage, const QString &what = QString());
     Q_INVOKABLE void clearKeyboardFocus();
     Q_INVOKABLE void setDisplayOff();
     Q_INVOKABLE QVariant settingsValue(const QString &key, const QVariant &defaultValue = QVariant()) const
@@ -332,6 +338,12 @@ private:
         [](const std::string &request) { return EosOffload::post(EosOffload::SOCKET_PATH, request); } };
     bool m_offloadTtbAsk = false;
     bool m_offloadLockedSecure = false;
+    // the app start trace (eosappstart.h): the first frame swapped after a
+    // window was mapped (1: mapped, 2: synchronized since; the render thread
+    // reads them) and that window's id
+    void setupAppStartTrace();
+    QAtomicInt m_appStartFrame;
+    QAtomicInt m_appStartFrameWindow;
 };
 
 #endif // LIPSTICKCOMPOSITOR_H
