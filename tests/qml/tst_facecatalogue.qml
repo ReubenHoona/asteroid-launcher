@@ -7,7 +7,8 @@
  *    the colourway roles (gdo.java), Large Scale on Spring with its bulb in the second tone
  *    (preview_accessible.png), Concentric's text colours equal to the roles;
  *  - A-14: the complication chooser lists only the sources whose stock data types the slot takes
- *    (faceeditor.js SOURCE_TYPES, slotTypes, accepts; EditorProviderList.openFor with the slot).
+ *    (faceeditor.js SOURCE_TYPES, slotTypes, accepts; EditorProviderList.openFor with the slot);
+ *  - A-11: the picker names the eos faces with the stock faces' names (RWF strings.xml).
  * qmltestrunner under qemu-aarch64 with the image rootfs (offscreen, software Qt Quick), run in place
  * (the faces of ../../src).
  */
@@ -18,6 +19,7 @@ import "../../src/eoskit/facekit.js" as Kit
 import "../../src/eoskit/concentric.js" as C
 import "../../src/qml/complications/faceeditor.js" as FE
 import "../../src/qml/complications"
+import "../../src/qml/misc/facepicker.js" as FP
 
 Item {
     id: top
@@ -253,6 +255,23 @@ Item {
             f = load("024-step-ring")
             compare(FE.slotTypes(slotOf(f, "ring").shape, slotOf(f, "ring").supportedTypes), ["RANGED_VALUE"])
             ld.source = ""
+        }
+
+        // ---- A-11: the stock names in the picker ----
+        function test_a11_names() {
+            var sys = "file:///usr/share/asteroid-launcher/watchfaces/"
+            var want = { "018-modular": "Utility", "019-list": "Index", "020-stacked": "Everyday", "021-classic": "Classic",
+                         "022-large": "Large Scale", "023-bold-numerals": "Analog Bold", "024-step-ring": "Track",
+                         "025-words": "Prime", "026-photo": "Photos", "027-concentric": "Concentric" }
+            for (var st in want)
+                compare(FP.displayName(sys + st + ".qml"), want[st], st)
+            // the upstream faces keep their names, a face the table does not know its file name's words
+            compare(FP.displayName(sys + "000-default-digital.qml"), "Digital")
+            compare(FP.displayName("file:///tmp/faces/090-my-own-face.qml"), "My Own Face")
+            // the favourites stay keyed on the file: the fresh carousel still finds the faces by their file names
+            var installed = ["018-modular", "021-classic", "027-concentric"].map(function (s) { return sys + s + ".qml" })
+            compare(FP.defaults(installed, sys + "027-concentric.qml").map(function (e) { return e.id }),
+                    ["027-concentric", "018-modular", "021-classic"])
         }
     }
 }
