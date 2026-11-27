@@ -219,7 +219,7 @@ var APPS = {
     weather: "weather", uv: "weather", precipitation: "weather", aqi: "weather", sun: "weather",
     nextevent: "calendar",
     alarm: "clock", timer: "clock", stopwatch: "clock", moon: "clock", countdown: "clock",
-    media: "media", assistant: "assistant"
+    media: "media", assistant: "assistant", map: "maps", contact: "contacts"
 }
 function appOf(kind) {
     return APPS.hasOwnProperty(kind) ? APPS[kind] : "settings"
@@ -274,6 +274,20 @@ function regionRows(keys, names) {
 }
 function isRegionRow(value) { return String(value).indexOf(REGION_PREFIX) === 0 }
 function regionOfRow(value) { return String(value).slice(REGION_PREFIX.length) }
+/* The Favorite contact's choice (A-16, stock ACTION_CHOOSE_CONTACTS_COMPLICATION): the contacts of the
+ * Contacts module (cached list [{ key, name, starred }]), starred first, then by name.
+ * param(key, name) -> the source's parameter (ComplicationSources.contactParam). */
+function contactRows(contacts, param) {
+    var l = (contacts || []).filter(function (c) { return c && c.key && c.name })
+    l.sort(function (a, b) {
+        if ((a.starred === true) !== (b.starred === true))
+            return a.starred === true ? -1 : 1
+        return String(a.name).localeCompare(String(b.name))
+    })
+    return l.map(function (c) {
+        return { value: "contact:" + param(c.key, c.name), title: String(c.name), icon: "ios-contact" }
+    })
+}
 // zones: [{ id, city, code }] (WorldZones.zones)
 function zoneRows(zones) {
     return (zones || []).map(function (z) {

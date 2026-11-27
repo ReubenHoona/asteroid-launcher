@@ -67,9 +67,9 @@ Item {
     readonly property var all: ["empty", "date", "daymonth", "datemonth", "weekday", "timedate", "steps", "heartrate", "distance",
                                 "calories", "floors", "azm", "exercisedays",
                                 "battery", "phonebattery", "notifications", "health", "exercise", "weather", "uv", "precipitation",
-                                "aqi", "sun", "moon", "nextevent", "alarm", "timer", "stopwatch", "media", "assistant"]
+                                "aqi", "sun", "moon", "nextevent", "alarm", "timer", "stopwatch", "media", "assistant", "map"]
     // the sources that need a choice first (the face editor's second page)
-    readonly property var parameterised: ["worldclock", "countdown", "app"]
+    readonly property var parameterised: ["worldclock", "countdown", "app", "contact"]
     function kindOf(id) { return C.split(id).kind }
     function isSource(id) {
         var p = C.split(id)
@@ -144,6 +144,10 @@ Item {
         case "countdown": return qsTrId("id-comp-countdown")
         //% "App shortcut"
         case "app": return qsTrId("id-comp-app-shortcut")
+        //% "Show map"
+        case "map": return qsTrId("id-comp-show-map")
+        //% "Favorite contact"
+        case "contact": return qsTrId("id-comp-favorite-contact")
         }
         return id
     }
@@ -264,7 +268,7 @@ Item {
     // always-on screen (only the date)
     function base(o) {
         var d = { type: "short", text: "", short: "", caption: "", lead: "", title: "", long: "", icon: "", iconTop: false,
-                  progress: -1, color: "", elements: [], image: "", known: true, ambient: false }
+                  progress: -1, color: "", elements: [], image: "", letter: "", tileColor: "", known: true, ambient: false }
         for (var k in o)
             d[k] = o[k]
         return d
@@ -506,8 +510,44 @@ Item {
                           text: ap2 && ap2.title ? ap2.title : name("app"), long: ap2 && ap2.title ? ap2.title : name("app"),
                           known: ap2 !== null })
         }
+        case "map": {
+            // stock Maps' "Show map" (MapsLocationComplicationDataSourceService): an icon, the map at the watch's place
+            var mp = appItem("asteroid-map")
+            return base({ type: "icon", icon: mp && mp.iconId ? mp.iconId : "ios-map", title: name("map"), text: name("map"),
+                          long: name("map") })
+        }
+        case "contact":
+            return contactInfo(p.param)
         }
         return base({ known: false })
+    }
+
+    /* Favorite contact (A-16), as Google Contacts' ContactsComplicationProviderService: SMALL_IMAGE (PHOTO) of the
+     * chosen contact, the photo when the Contacts module has it cached, else the letter on its colour (the Contacts
+     * app's monogram); the content description is the name. The slot keeps the contact as
+     * "contact:<JSON { k: key, n: name }>" (the Contact tile's way, tile-contact): the face needs no list to draw it. */
+    function contactOf(param) {
+        try {
+            var o = JSON.parse(decodeURIComponent(String(param)))
+            return o && o.k ? { key: String(o.k), name: String(o.n || "") } : null
+        } catch (e) {
+            return null
+        }
+    }
+    function contactParam(key, contactName) {
+        return encodeURIComponent(JSON.stringify({ k: String(key), n: String(contactName || "") }))
+    }
+    function contactInfo(param) {
+        var c = contactOf(param)
+        if (!c)
+            return base({ type: "icon", icon: "ios-contact", title: name("contact"), text: name("contact"), known: false })
+        var cs = contactLoader.item
+        var photo = cs ? cs.photoOf(c.key, cs.photoRevision) : ""
+        var letter = cs ? cs.letterOf(c.name) : ""
+        if (photo === "" && letter === "")
+            return base({ type: "icon", icon: "ios-contact", title: c.name, text: c.name, long: c.name })
+        return base({ type: "smallimage", image: photo, letter: letter, tileColor: cs ? cs.colorOf(c.name) : "",
+                      title: c.name, text: c.name, long: c.name, icon: "ios-contact" })
     }
 
     /* Today's energy burned, floors and Active Zone Minutes (M4 WO-10), as the Fitbit offloadable Calories, Floors and
@@ -670,8 +710,29 @@ Item {
         case "app":
             desktop.launchByName(p.param, fromItem)
             break
+        case "map":
+            // stock: the map at the watch's place (Maps' dispatch, user-action 12): the Map app's start page
+            desktop.launchByName("asteroid-map", fromItem)
+            break
+        case "contact": {
+            // stock: the contact (ContactComplicationTapActivity): the Contacts app on it, as the Contact tile does
+            var ct = contactOf(p.param)
+            if (ct)
+                contactsRequest.value = "contact:" + ct.key + "@" + Date.now()
+            desktop.launchByName("asteroid-contacts", fromItem)
+            break
+        }
         }
     }
+    ConfigurationValue { id: contactsRequest; key: "/org/asteroidos/contacts/ui/open"; defaultValue: "" }
+    // the Favorite contact's photo cache and the editor's list (only while a slot shows a contact or the editor lists them)
+    property bool contactsListed: false
+    Loader {
+        id: contactLoader
+        active: sources.demand.contact === true || sources.contactsListed
+        source: "ContactSource.qml"
+    }
+    readonly property var contactSource: contactLoader.item
     ConfigurationValue { id: openRequest; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
     ConfigurationValue { id: calendarRequest; key: "/org/asteroidos/calendar/ui/open"; defaultValue: "" }
     ConfigurationValue { id: settingsRequest; key: "/org/asteroidos/settings/ui/open"; defaultValue: "" }

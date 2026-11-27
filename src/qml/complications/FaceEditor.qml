@@ -172,6 +172,21 @@ Item {
         return slot && sources ? sources.sourceOf(config.value, slot.slotId, slot.defaultSource || "empty") : "empty"
     }
     property Item chosenSlot: null
+    // the Favorite contact's rows (A-16), from the Contacts module's list
+    function contactRowsNow() {
+        var cs = sources ? sources.contactSource : null
+        return FE.contactRows(cs ? cs.contacts : [], function (k, n) { return sources.contactParam(k, n) })
+    }
+    // the phone's list came while the contact list is open: the rows follow it
+    Connections {
+        target: editor.sources ? editor.sources.contactSource : null
+        ignoreUnknownSignals: true
+        function onContactsChanged() {
+            if (paramList.shown && paramList.title === editor.sources.name("contact"))
+                paramList.model = editor.contactRowsNow()
+        }
+    }
+    onChoosingValueChanged: if (!choosingValue && sources) sources.contactsListed = false
     function chooseSource(source) {
         if (chosenSlot && sources)
             config.value = sources.withSource(config.value, chosenSlot.slotId, source)
@@ -201,6 +216,16 @@ Item {
         if (source === "worldclock") {
             // the regions, then the zones of one (A-13: stock's zone chooser), on the slot's zone
             zoneChooser.openFor(mine)
+            return
+        }
+        if (source === "contact") {
+            // the contacts (A-16): the cached list now, the phone's when it answers (contactRowsBinding)
+            sources.contactsListed = true
+            if (sources.contactSource)
+                sources.contactSource.load()
+            paramList.title = sources.name(source)
+            paramList.model = contactRowsNow()
+            paramList.open(FE.rowIndex(paramList.model, cur))
             return
         }
         var items = []
@@ -502,7 +527,11 @@ Item {
         //% "Media controls"
         "media": qsTrId("id-face-app-media") + localeManager.changesObserver,
         //% "Assistant"
-        "assistant": qsTrId("id-face-app-assistant") + localeManager.changesObserver
+        "assistant": qsTrId("id-face-app-assistant") + localeManager.changesObserver,
+        //% "Maps"
+        "maps": qsTrId("id-face-app-maps") + localeManager.changesObserver,
+        //% "Contacts"
+        "contacts": qsTrId("id-face-app-contacts") + localeManager.changesObserver
     })
 
     // ---- touches: the idle timer's eyes (above everything, passive) -----------------------

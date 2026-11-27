@@ -3352,5 +3352,25 @@ for %1 seconds to</translation>
         <source>Universal</source>
         <translation>Universal</translation>
     </message>
+    <message id="id-comp-show-map">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Show map</source>
+        <translation>Show map</translation>
+    </message>
+    <message id="id-comp-favorite-contact">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Favorite contact</source>
+        <translation>Favorite contact</translation>
+    </message>
+    <message id="id-face-app-maps">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Maps</source>
+        <translation>Maps</translation>
+    </message>
+    <message id="id-face-app-contacts">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Contacts</source>
+        <translation>Contacts</translation>
+    </message>
 </context>
 </TS>

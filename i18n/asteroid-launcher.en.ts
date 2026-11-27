@@ -2721,5 +2721,21 @@ for %1 seconds to</translation>
         <source>Universal</source>
         <translation>Universal</translation>
     </message>
+    <message id="id-comp-show-map">
+        <source>Show map</source>
+        <translation>Show map</translation>
+    </message>
+    <message id="id-comp-favorite-contact">
+        <source>Favorite contact</source>
+        <translation>Favorite contact</translation>
+    </message>
+    <message id="id-face-app-maps">
+        <source>Maps</source>
+        <translation>Maps</translation>
+    </message>
+    <message id="id-face-app-contacts">
+        <source>Contacts</source>
+        <translation>Contacts</translation>
+    </message>
 </context>
 </TS>
