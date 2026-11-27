@@ -264,7 +264,7 @@ Item {
         anchors.fill: parent
         propagateComposedEvents: true
 
-        onPressed: {
+        onPressed: (mouse) => {
             clickY = Math.round(mouse.y)
             mouse.accepted = false
         }

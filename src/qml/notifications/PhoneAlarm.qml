@@ -198,7 +198,7 @@ Item {
         }
         onPopulatedChanged: {
             var n = newest(null)
-            if (populated && n !== null)
+            if (alarmModel.populated && n !== null)
                 show(n)
         }
     }
