@@ -2711,6 +2711,10 @@ for %1 seconds to</translation>
         <source>Exercise days</source>
         <translation>Exercise days</translation>
     </message>
+    <message id="id-comp-cardio-load">
+        <source>Cardio load</source>
+        <translation>Cardio load</translation>
+    </message>
     <message id="id-comp-days-of">
         <source>%1 of %2 days</source>
         <translation>%1 of %2 days</translation>

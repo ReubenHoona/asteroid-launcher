@@ -29,12 +29,16 @@ Item {
     property date now: new Date()
     property bool wantsDay: false
     property bool wantsWeek: false
+    // R5 E-09: today's cardio load and its target (HealthMetricsLoader.cardioLoad)
+    property bool wantsCardio: false
 
     // the numbers (-1: not read yet)
     property int kcal: -1
     property int floors: -1
     property int azm: -1
     property int exerciseDays: -1
+    property int cardio: -1
+    property int cardioHigh: -1  // the top of the target; -1: none yet
     readonly property int reads: _reads
 
     property int _reads: 0
@@ -43,7 +47,8 @@ Item {
     property bool _dirty: false
 
     function valueOf(kind) {
-        return kind === "calories" ? kcal : kind === "floors" ? floors : kind === "azm" ? azm : kind === "exercisedays" ? exerciseDays : -1
+        return kind === "calories" ? kcal : kind === "floors" ? floors : kind === "azm" ? azm : kind === "exercisedays" ? exerciseDays
+             : kind === "cardioload" ? cardio : -1
     }
 
     function refresh() {
@@ -60,6 +65,11 @@ Item {
         }
         if (wantsWeek)
             exerciseDays = C.exerciseDays(workouts.workouts(new Date(C.weekStartMs(now.getTime())), today))
+        if (wantsCardio) {
+            var c = metrics.cardioLoad(today)
+            cardio = Math.max(0, Math.round(Number(c.load) || 0))
+            cardioHigh = c.hasTarget === true ? Number(c.high) : -1
+        }
     }
     // something to read: never read, a new day, or the data changed and the last read is a minute old
     function due() {
@@ -86,11 +96,12 @@ Item {
     onActiveChanged: tick()
     onWantsDayChanged: if (wantsDay) { _readAt = -1; tick() }
     onWantsWeekChanged: if (wantsWeek) { _readAt = -1; tick() }
+    onWantsCardioChanged: if (wantsCardio) { _readAt = -1; tick() }
     Component.onCompleted: tick()
 
     HealthMetricsLoader {
         id: metrics
-        onDataChanged: if (src.wantsDay) src.changed()
+        onDataChanged: if (src.wantsDay || src.wantsCardio) src.changed()
     }
     WorkoutLoader {
         id: workouts

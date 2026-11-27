@@ -65,7 +65,7 @@ Item {
             verify(!Ambient.complicationStale("phonebattery", true))
             // the live data the hub cannot draw stays '--' there
             var stale = ["timedate", "worldclock", "steps", "heartrate", "notifications", "nextevent", "sun",
-                         "timer", "stopwatch", "media", "calories", "floors", "azm"]
+                         "timer", "stopwatch", "media", "calories", "floors", "azm", "cardioload"]
             compare(Ambient.STALE_KINDS, stale)
             for (var i = 0; i < stale.length; i++) {
                 verify(Ambient.complicationStale(stale[i], true), stale[i])

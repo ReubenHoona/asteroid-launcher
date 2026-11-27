@@ -12,6 +12,12 @@ QtObject {
         return s ? s : ({})
     }
     function restingHrOf(date) { return -1 }
+    // R5 E-09: SensorlogdFixture.cardio's map of the day, else no load and no target yet
+    function cardioLoad(date) {
+        SensorlogdFixture.reads++
+        var c = SensorlogdFixture.cardio[SensorlogdFixture.dayKey(date)]
+        return c ? c : ({ load: 0, hasTarget: false, low: 0, high: 0, daysLeft: 7, state: "", week: [] })
+    }
     function daily(date) { return ({}) }
     property Connections _c: Connections {
         target: SensorlogdFixture

@@ -203,7 +203,7 @@ function offWristDeadline(now) { return now + OFFWRIST.DELAY_S * 1000 }
  * they are read there too and a new value rebuilds the hub's layout at the
  * next AP wakeup (ComplicationSources.hubValues, AmbientController; D60-03). */
 var STALE_KINDS = ["timedate", "worldclock", "steps", "heartrate", "notifications",
-                   "nextevent", "sun", "timer", "stopwatch", "media", "calories", "floors", "azm"]
+                   "nextevent", "sun", "timer", "stopwatch", "media", "calories", "floors", "azm", "cardioload"]
 
 function complicationStale(kind, hubDrawn) {
     return hubDrawn === true && STALE_KINDS.indexOf(kind) >= 0

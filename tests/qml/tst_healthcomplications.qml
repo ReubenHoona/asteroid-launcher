@@ -266,6 +266,40 @@ Item {
             compare(C.FIT_GOALS.azm, 22)
         }
 
+        // R5 E-09: today's cardio load, a ring towards the top of its target once there is one; '--' hub-drawn
+        function test_09_cardio_load() {
+            verify(sources.all.indexOf("cardioload") > sources.all.indexOf("exercisedays"))
+            verify(sources.isSource("cardioload"))
+            compare(sources.name("cardioload"), "Cardio load")
+            var c = {}
+            c[SensorlogdFixture.dayKey(root.fixedNow)] = { load: 45, hasTarget: true, low: 32, high: 52, state: "in", week: [] }
+            SensorlogdFixture.cardio = c
+            show("cardioload")
+            tryVerify(function () { return sources.demand.cardioload === true && sources.info("cardioload").text === "45" })
+            var d = sources.info("cardioload")
+            compare(d.type, "ranged")
+            compare(d.title, "Cardio load")
+            compare(d.icon, "ms-monitor_heart")
+            verify(Math.abs(d.progress - 45 / 52) < 1e-9)
+            compare(SensorlogdFixture.reads, 1) // the day summary is not read for it
+            // no target yet: the number alone
+            c[SensorlogdFixture.dayKey(root.fixedNow)] = { load: 12, hasTarget: false, daysLeft: 5, state: "", week: [] }
+            SensorlogdFixture.cardio = c
+            SensorlogdFixture.changed()
+            sources.now = new Date(root.fixedNow.getTime() + 60000)
+            tryVerify(function () { return sources.info("cardioload").text === "12" })
+            compare(sources.info("cardioload").type, "short")
+            // hub-drawn always-on: it changes between the hub's pictures
+            sources.active = false
+            sources.ambient = true
+            sources.hubDrawn = true
+            compare(sources.info("cardioload").text, "--")
+            sources.hubDrawn = false
+            Backend.confSet("/org/asteroidos/health/ui/open", "")
+            sources.open("cardioload", null)
+            verify(String(Backend.confGet("/org/asteroidos/health/ui/open")).indexOf("cardioload@") === 0)
+        }
+
         // the four in round slots (the bulb), for the eye
         function test_08_shot() {
             today({ energyKcal: 1234, floors: 7, azm: 30 })

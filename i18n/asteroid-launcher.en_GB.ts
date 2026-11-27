@@ -3338,6 +3338,11 @@ for %1 seconds to</translation>
         <source>Exercise days</source>
         <translation>Exercise days</translation>
     </message>
+    <message id="id-comp-cardio-load">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Cardio load</source>
+        <translation>Cardio load</translation>
+    </message>
     <message id="id-comp-days-of">
         <location filename="../src/qml/complications/ComplicationSources.qml"/>
         <source>%1 of %2 days</source>

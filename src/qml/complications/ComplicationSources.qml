@@ -59,7 +59,7 @@ Item {
 
     // the data sources, in the order of the face editor's list
     readonly property var all: ["empty", "date", "daymonth", "datemonth", "weekday", "timedate", "steps", "heartrate", "distance",
-                                "calories", "floors", "azm", "exercisedays",
+                                "calories", "floors", "azm", "exercisedays", "cardioload",
                                 "battery", "phonebattery", "notifications", "health", "exercise", "weather", "uv", "precipitation",
                                 "aqi", "sun", "moon", "nextevent", "alarm", "timer", "stopwatch", "media", "assistant"]
     // the sources that need a choice first (the face editor's second page)
@@ -98,6 +98,8 @@ Item {
         case "azm": return qsTrId("id-comp-azm")
         //% "Exercise days"
         case "exercisedays": return qsTrId("id-comp-exercise-days")
+        //% "Cardio load"
+        case "cardioload": return qsTrId("id-comp-cardio-load")
         //% "Battery"
         case "battery": return qsTrId("id-comp-battery")
         //% "Phone battery"
@@ -392,6 +394,8 @@ Item {
             return fitInfo(p.kind)
         case "exercisedays":
             return exerciseDaysInfo()
+        case "cardioload":
+            return cardioLoadInfo()
         case "exercise":
             return base({ type: "icon", icon: "ios-run", title: name("exercise"), text: name("exercise") })
         case "heartrate":
@@ -526,6 +530,20 @@ Item {
         return base({ type: "ranged", text: t, short: t, title: name(kind), long: t, icon: icon,
                       progress: Math.min(1, v / C.FIT_GOALS[kind]) })
     }
+    /* Today's cardio load (R5 E-09), as the Fitbit Cardio load complication (CardioLoadComplicationDataSourceService,
+     * the offloadable one too: "%d cardio load" 0x7f140148): the number, a ring towards the top of the day's target
+     * once there is one (sensorlogd's HealthMetricsLoader.cardioLoad, HealthSource.qml); '- -' until read */
+    function cardioLoadInfo() {
+        var nodata = "- -"
+        var h = healthLoader.item
+        var v = h ? h.cardio : -1
+        if (!(v >= 0))
+            return base({ short: nodata, text: nodata, title: name("cardioload"), icon: "ms-monitor_heart", known: false })
+        var t = Number(v).toLocaleString(Qt.locale(), "f", 0)
+        var high = h.cardioHigh
+        return base({ type: high > 0 ? "ranged" : "short", text: t, short: t, title: name("cardioload"), long: t,
+                      icon: "ms-monitor_heart", progress: high > 0 ? Math.min(1, v / high) : -1 })
+    }
     /* The days of this week with a workout (M4 WO-10), as the Fitbit Exercise days complication (WEIGHTED_ELEMENTS:
      * an element a day of the goal, the days done in the tint, the count in the middle; '%1$d of %2$d days') */
     function exerciseDaysInfo() {
@@ -561,6 +579,11 @@ Item {
         case "exercisedays":
             // stock: TodayRoute.Details("EXERCISE") (xnz.java), the Health app's Exercise days page
             openRequest.value = "exercise@" + Date.now()
+            desktop.launchByName("asteroid-health", fromItem)
+            break
+        case "cardioload":
+            // stock: the Cardio load details (fitbit://cl_l2), the Health app's Cardio load page
+            openRequest.value = "cardioload@" + Date.now()
             desktop.launchByName("asteroid-health", fromItem)
             break
         case "steps":
@@ -663,9 +686,10 @@ Item {
     Loader {
         id: healthLoader
         active: sources.demand.calories === true || sources.demand.floors === true || sources.demand.azm === true
-                || sources.demand.exercisedays === true
+                || sources.demand.exercisedays === true || sources.demand.cardioload === true
         source: "HealthSource.qml"
     }
+    Binding { target: healthLoader.item; property: "wantsCardio"; value: sources.demand.cardioload === true; when: healthLoader.item !== null }
     Binding { target: healthLoader.item; property: "now"; value: sources.now; when: healthLoader.item !== null }
     Binding {
         target: healthLoader.item; property: "wantsDay"; when: healthLoader.item !== null
