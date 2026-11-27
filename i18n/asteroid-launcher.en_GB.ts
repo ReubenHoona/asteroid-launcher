@@ -3318,5 +3318,9 @@ for %1 seconds to</translation>
         <source>Start tutorial</source>
         <translation>Start tutorial</translation>
     </message>
+    <message id="id-conversation-minutes-ago">
+        <source>%1m ago</source>
+        <translation>%1m ago</translation>
+    </message>
 </context>
 </TS>
