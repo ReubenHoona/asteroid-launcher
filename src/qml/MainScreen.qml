@@ -371,7 +371,12 @@ Item {
             return
         }
         launchedFromDrawer = appDrawer.isOpen
-        if (Desktop.launchSplash && !launcherItem.isLaunching) {
+        // The process is started before the splash is set up (its icon is parsed and drawn
+        // right here): the app does not wait for that, and the splash's first frame comes
+        // after this handler either way. A launch still running (isLaunching) gets no splash.
+        var withSplash = Desktop.launchSplash && !launcherItem.isLaunching
+        launcherItem.launchApplication()
+        if (withSplash) {
             var r = fromItem ? fromItem.mapToItem(null, 0, 0, fromItem.width, fromItem.height)
                              : Qt.rect(0, 0, 0, 0)
             Desktop.launchSplash.start(r, alb.centerColor(launcherItem.filePath),
@@ -382,7 +387,6 @@ Item {
         }
         // an origin the splash did not take (the display is off) is not kept for a later launch
         armOrigin(null)
-        launcherItem.launchApplication()
     }
 
     Component.onCompleted: {
