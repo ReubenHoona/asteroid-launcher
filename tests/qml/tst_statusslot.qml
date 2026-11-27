@@ -356,5 +356,35 @@ Item {
             near(tap.height, 120, 0.01, "120 px tall")
             verify(tap.mapToItem(top, tap.width, 0).x <= (o.x + d.x) / 2 + 0.01, "short of half way to the dot")
         }
+
+        // ---- R5 K-06: thermal mode, from eos-thermal's dconf state ----
+        // stock's THERMAL_MODE status is on for ThermalStatusEvent 5 only (jqf.java: EMERGENCY = the cooldown)
+        function test_08_thermal_mode() {
+            compare(slot.sources.thermal, false)
+            Backend.confSet("/org/asteroidos/thermal/state", "warning")
+            wait(30)
+            compare(slot.sources.thermal, false, "the warning shows no icon")
+            compare(slot.sources.slotKey, "")
+            Backend.confSet("/org/asteroidos/thermal/state", "cooldown")
+            tryCompare(slot.sources, "thermal", true, 1000)
+            compare(slot.sources.slotKey, "thermal")
+            compare(row.slots, ["status"])
+            tryCompare(row.statusIconSlot, "appear", 1, 2000)
+            verify(/eos-status-thermal\.svg$/.test(String(slot.statusIcon.mainIcon.source)),
+                   String(slot.statusIcon.mainIcon.source))
+            compare(slot.statusIcon.description, "Watch is warm")
+            compare(slot.ambientIconsKey, "s:thermal")
+            // the first of stock's priorities: over touch lock and Bedtime
+            ongoingRegistry.touchLocked = true
+            modes.bedtime = true
+            compare(slot.sources.slotKey, "thermal")
+            ongoingRegistry.touchLocked = false
+            modes.bedtime = false
+            // the cooldown over: gone
+            Backend.confSet("/org/asteroidos/thermal/state", "none")
+            tryCompare(slot.sources, "thermal", false, 1000)
+            slotOut(row.statusIconSlot)
+            compare(slot.ambientIconsKey, "")
+        }
     }
 }
