@@ -6,6 +6,7 @@
 import QtQuick
 import org.asteroid.controls
 import ".."
+import "../compositor"
 import "../facepicker.js" as FP
 import "tileseditor.js" as TE
 
@@ -17,8 +18,15 @@ import "tileseditor.js" as TE
  * ring (the first rings' tops at 88 px) and its name under it (one line,
  * 80 dp wide, white, its capitals 29 px under the ring); no app icon. Opening: scale 0.25 to 1 in 250 ms (0.4, 0, 0.2, 1),
  * alpha 0 to 1 in 75 ms, from a black disc, with a white #12ffffff flash held
- * 75 ms and faded over 750 ms (the same as the face picker's list). Back (a
- * swipe right) is the reverse. A tap on a cell emits picked(id, cx, cy,
+ * 75 ms and faded over 750 ms (the same as the face picker's list). Back by
+ * the crown is the reverse. A swipe right is stock's SwipeDismissFrameLayout
+ * around managementui_all_items (management_ui_root_layout.xml:66-71; R5
+ * B-16, motion B8; the face picker's list does the same, facepicker.js
+ * ADD_DISMISS_*): the list follows the finger, squeezed about its centre
+ * with its right edge pinned (scale 1 - 0.3 p, at least 0.7) and dimmed
+ * (min(0.3, p / 2)); past 0.33 of the width (not moving back) or on a fling
+ * right of 500 dp/s it goes right on a spring 1.0/600 and the carousel is
+ * back, else it springs back. A tap on a cell emits picked(id, cx, cy,
  * size) with where the preview is; the editor adds the tile and flies the
  * preview into its card. Gap tiles-framework-18.
  */
@@ -38,6 +46,73 @@ Item {
     signal picked(string tileId, real cx, real cy, real size)
     signal closed()
 
+    // the swipe to dismiss: the list's move right (px), its scale, the progress its dim follows; it is
+    // swiping from the first move of the finger to the end of its spring
+    property real swipeX: 0
+    property real swipeScale: 1
+    property real swipeP: 0
+    property bool swiping: false
+    property bool dismissing: false
+    readonly property real swipeDim: FP.addDismissDim(swipeP)
+
+    function dismissCommits(dx, vx, vy, movingBack) {
+        return FP.addDismissCommits(dx, vx, vy, movingBack, width, 2 * u)
+    }
+    // the finger has moved it dx px
+    function dragTo(dx) {
+        if (!visible || leaving)
+            return
+        dismissSpring.stop()
+        swiping = true
+        swipeP = Math.max(0, dx) / width
+        swipeScale = FP.addDismissDragScale(swipeP)
+        swipeX = Math.max(0, 1 - swipeScale) * width / 2
+    }
+    // the finger let go at vx, vy px/s
+    function release(dx, vx, vy, movingBack) {
+        if (!swiping || leaving)
+            return
+        dismissing = dismissCommits(dx, vx, vy, movingBack)
+        if (dismissing)
+            leaving = true
+        dismissSpring.snapTo(swipeX)
+        dismissSpring.animateTo(dismissing ? width : 0, vx)
+    }
+    function springMoved(x) {
+        if (!swiping)
+            return
+        swipeX = Math.max(0, Math.min(width, x))
+        swipeScale = FP.addDismissSpringScale(swipeX, width)
+        swipeP = Math.max(swipeP, (swipeScale - 1) / -FP.ADD_DISMISS_SCALE)
+    }
+    function springDone() {
+        var gone = dismissing
+        resetSwipe()
+        if (gone) {
+            // as back() ends, without its reverse zoom (the carousel is back, iax.java:15-26)
+            leaving = false
+            visible = false
+            closed()
+        }
+    }
+    function resetSwipe() {
+        dismissSpring.stop()
+        swiping = false
+        dismissing = false
+        swipeX = 0
+        swipeScale = 1
+        swipeP = 0
+    }
+    WearSpring {
+        id: dismissSpring
+        objectName: "eosTileListDismissSpring"
+        stiffness: FP.ADD_DISMISS_STIFFNESS
+        dampingRatio: FP.ADD_DISMISS_DAMPING
+        visibilityThreshold: FP.ADD_DISMISS_MIN_CHANGE
+        onValueChanged: list.springMoved(value)
+        onFinished: list.springDone()
+    }
+
     readonly property alias grid: grid
     readonly property real previewSize: TE.LIST_PREVIEW * u
     readonly property real ringWidth: TE.LIST_RING * u
@@ -51,6 +126,7 @@ Item {
     function open() {
         leaveAnim.stop()
         fadeAnimRun.stop()
+        resetSwipe()
         leaving = false
         panel.scale = FP.ADD_SCALE_FROM
         panel.opacity = 0
@@ -65,6 +141,7 @@ Item {
         if (!visible || leaving)
             return
         enterAnim.stop()
+        resetSwipe()
         leaving = true
         leaveAnim.restart()
     }
@@ -74,6 +151,7 @@ Item {
         enterAnim.stop()
         leaveAnim.stop()
         fadeAnimRun.stop()
+        resetSwipe()
         leaving = false
         visible = false
     }
@@ -89,6 +167,19 @@ Item {
         objectName: "eosTileListPanel"
         anchors.fill: parent
         transformOrigin: Item.Center
+        // the swipe: scaled about the centre, then moved right
+        transform: [
+            Scale {
+                origin.x: panel.width / 2
+                origin.y: panel.height / 2
+                xScale: list.swipeScale
+                yScale: list.swipeScale
+            },
+            Translate { x: list.swipeX }
+        ]
+        // stock clips the moving frame to the round outline (gax.java:96-98); a layer only while it moves
+        layer.enabled: list.swiping
+        layer.effect: CircleMaskShader { }
 
         // the circular reveal: a black disc that grows with the list
         Rectangle {
@@ -226,26 +317,43 @@ Item {
             visible: opacity > 0
         }
 
-        // swipe right: back (the stock decision rule of the back swipe)
+        // the dim of the swipe (stock: a SRC_ATOP black on the frame's layer, gax.java:116-127)
+        Rectangle {
+            objectName: "eosTileListDim"
+            anchors.fill: parent
+            radius: width / 2
+            color: "#000000"
+            opacity: list.swipeDim
+            visible: opacity > 0
+        }
+
+        // swipe right: the list follows the finger, then goes or comes back (SwipeDismissFrameLayout)
         DragHandler {
             id: swipe
             target: null
             yAxis.enabled: false
-            property real lastDx: 0
+            // the finger's x at its last move: stock's gaq.i, the raw X of the last MOVE (gar.java:150-152)
+            property real lastMoveX: 0
             property real dx: 0
-            property real v: 0
+            property real vx: 0
+            property real vy: 0
             onTranslationChanged: {
-                lastDx = translation.x - dx
                 dx = translation.x
-                v = centroid.velocity.x
+                lastMoveX = centroid.scenePosition.x
+                vx = centroid.velocity.x
+                vy = centroid.velocity.y
+                if (active)
+                    list.dragTo(dx)
             }
             onActiveChanged: {
                 if (active) {
                     dx = 0
-                    lastDx = 0
-                    v = 0
-                } else if (Motion.backShouldCommit(dx, v, lastDx, list.width, Theme.dp(1))) {
-                    list.back()
+                    lastMoveX = centroid.scenePosition.x
+                    vx = 0
+                    vy = 0
+                } else {
+                    // moving back is the UP left of the last MOVE (gar.java:192)
+                    list.release(dx, vx, vy, centroid.scenePosition.x < lastMoveX)
                 }
             }
         }

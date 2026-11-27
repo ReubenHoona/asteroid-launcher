@@ -40,11 +40,14 @@ Item {
     Rectangle { anchors.fill: parent; color: "black" }
 
     Component { id: editorComp; TilesEditor { idleEnabled: false } }
+    Component { id: spyComp; SignalSpy { } }
 
     TestCase {
         name: "TilesEditor"
         when: windowShown
 
+        // the editor of the add list tests (R5 B-16)
+        property var curEd: null
         // three tiles without settings and one with (the Assistant's chips)
         readonly property var registry: ({
             timer: { file: "tiles/TimerTile.qml", name: "Timer", icon: "ios-timer-outline" },
@@ -359,6 +362,100 @@ Item {
                         break
                     }
             fuzzyCompare(first - (p0.y + rings[0].height), 29, 2)
+        }
+
+        // ---- R5 B-16: the add list's swipe to dismiss, stock's SwipeDismissFrameLayout around
+        // managementui_all_items (management_ui_root_layout.xml:66-71; gar.java:174-194, gax.java:51-127): the list
+        // follows the finger squeezed about its centre with its right edge pinned (scale 1 - 0.3 p, at least 0.7) and
+        // dimmed (min(0.3, p / 2)); past 0.33 W (not moving back) or a fling right of 500 dp/s it goes right on a
+        // spring 1.0/600 and the carousel is back, else it springs back
+
+        function openAddList() {
+            var ed = openEditor(["timer"], 0)
+            curEd = ed
+            ed.addTapped()
+            var list = ed.addList
+            tryCompare(list, "isOpen", true, 3000)
+            wait(Motion.duration(400))
+            return list
+        }
+        function dragRight(list, steps, step, ms) {
+            mousePress(list, 60, 300)
+            for (var i = 1; i <= steps; i++)
+                mouseMove(list, 60 + step * i, 300, ms)
+        }
+        function test_r5_b16_squeeze_and_back() {
+            var list = openAddList()
+            var panel = findChild(list, "eosTileListPanel"), dim = findChild(list, "eosTileListDim")
+            verify(panel !== null && dim !== null, "panel and dim")
+            // 96 px slowly (200 px/s): p = 0.25
+            dragRight(list, 12, 8, 40)
+            var p = 96 / 384
+            fuzzyCompare(list.swipeScale, 1 - 0.3 * p, 0.012)
+            fuzzyCompare(list.swipeX, 0.3 * p * 384 / 2, 1.5)
+            fuzzyCompare(dim.opacity, Math.min(0.3, p / 2), 0.012)
+            var r = panel.mapToItem(list, panel.width, panel.height / 2)
+            fuzzyCompare(r.x, 384, 1.5)
+            var l = panel.mapToItem(list, 0, panel.height / 2)
+            fuzzyCompare(l.x, 384 - 384 * (1 - 0.3 * p), 2)
+            verify(panel.layer.enabled, "clipped round while it moves")
+            // (the software renderer cannot run the round clip's shader: the shot is taken without it)
+            panel.layer.enabled = false
+            wait(30)
+            top.grabToImage(function (res) { res.saveToFile("/tmp/r5ui-shots/b16-tile-list-squeeze.png") })
+            wait(80)
+            panel.layer.enabled = Qt.binding(function () { return list.swiping })
+            // released short of 0.33 W, not flung: back on the spring, the list stays
+            mouseRelease(list, 60 + 96, 300, Qt.LeftButton, Qt.NoModifier, 60)
+            tryCompare(list, "swipeX", 0, 5000)
+            tryCompare(list, "swipeScale", 1, 5000)
+            tryCompare(dim, "opacity", 0, 5000)
+            verify(list.visible && list.isOpen, "still open")
+            compare(panel.layer.enabled, false, "no layer at rest")
+        }
+        function test_r5_b16_commit() {
+            var list = openAddList()
+            var ed = curEd
+            var leave = findChild(list, "eosTileListLeave")
+            var closedSpy = createTemporaryObject(spyComp, top, { target: list, signalName: "closed" })
+            // 160 px slowly: past 0.33 W (126.7 px)
+            dragRight(list, 20, 8, 40)
+            var seen = { min: 1 }
+            var conn = function () { seen.min = Math.min(seen.min, list.swipeScale) }
+            list.swipeScaleChanged.connect(conn)
+            mouseRelease(list, 60 + 160, 300, Qt.LeftButton, Qt.NoModifier, 60)
+            verify(!leave.running, "not the reverse zoom")
+            tryCompare(list, "visible", false, 5000)
+            list.swipeScaleChanged.disconnect(conn)
+            verify(seen.min >= 0.7 - 1e-6, "the scale stops at 0.7: " + seen.min)
+            verify(seen.min <= 0.75, "and gets there on the way out: " + seen.min)
+            compare(closedSpy.count, 1)
+            compare(list.swipeX, 0, "reset")
+            compare(list.swipeScale, 1, "reset")
+            // the editor is still there, its carousel back
+            verify(ed.visible, "the carousel is back")
+            verify(!ed.adding)
+        }
+        function test_r5_b16_fling() {
+            var list = openAddList()
+            // 48 px fast (8 px per 4 ms = 2000 px/s): a fling of more than 500 dp/s
+            dragRight(list, 6, 8, 4)
+            mouseRelease(list, 60 + 48, 300, Qt.LeftButton, Qt.NoModifier, 4)
+            tryCompare(list, "visible", false, 5000)
+        }
+        function test_r5_b16_rule() {
+            var list = openAddList()
+            verify(list.dismissCommits(130, 0, 0, false), "past 0.33 W")
+            verify(!list.dismissCommits(126, 0, 0, false), "short of 0.33 W")
+            verify(!list.dismissCommits(200, 0, 0, true), "moving back at the release")
+            verify(list.dismissCommits(20, 1000, 0, false), "a fling right")
+            verify(!list.dismissCommits(20, 1000, 1200, false), "not when it goes more up or down")
+            verify(!list.dismissCommits(200, -1200, 0, false), "a fling back cancels")
+            verify(!list.dismissCommits(20, 999, 0, false), "slower than 500 dp/s")
+            // the crown's back is still the reverse zoom
+            list.back()
+            verify(findChild(list, "eosTileListLeave").running)
+            tryCompare(list, "visible", false, 5000)
         }
 
         // ---- R5 B-19: the ours-only Battery and Media tiles are not offered (DECISIONS Q27, tiles-individual-30/31)
