@@ -21,12 +21,15 @@
 //    the app; no type or one the app does not have: the app's list, no request.
 //  - R5 D-12: "What's on my calendar?" from the calendar (a reader double with invented events): the day's events
 //    that have not ended, the next one of the week, a clear day; the card opens the Calendar (on the event it names).
+//  - R5 D-23: steps and distance of past days (SensorlogdFixture summaries), workouts by type and period
+//    (SensorlogdFixture workouts), invented numbers; the card opens Health on the page.
 // MODE=st (the staged tree).
 import QtQuick
 import QtTest
 import Nemo.Alarms
 import LauncherTest
 import org.nemomobile.lipstick
+import org.asteroid.sensorlogd
 import "st/qml/desktop.js" as Desktop
 
 Item {
@@ -100,7 +103,14 @@ Item {
                 m.remove(m.get(0))
             Backend.errors = {}
             Backend.clearCalls()
+            SensorlogdFixture.reset()
         }
+        function dayAgo(n) {
+            var t = new Date()
+            return new Date(t.getFullYear(), t.getMonth(), t.getDate() - n)
+        }
+        // Monday = 0
+        function weekdayIndex() { return (new Date().getDay() + 6) % 7 }
         // the alarm presenter's notices (asteroid-alarmclock alarmpresenter noticeFor), invented times
         readonly property string presenterService: "org.asteroidos.alarmpresenter"
         function presenterNotice(kind, id, time, alarmKind) {
@@ -423,6 +433,103 @@ Item {
             c = askLater("calendar.query", { day: 0, next: true })
             compare(c.text, "There's nothing on your calendar for the next 7 days.")
             compare(c.title, "")
+        }
+
+        // R5 D-23: last week's steps (Monday to Sunday), the average; a day with nothing; Health's steps page
+        function test_d23_steps_history() {
+            var m0 = weekdayIndex()
+            var sums = {}
+            for (var i = 0; i < 7; i++)
+                sums[SensorlogdFixture.dayKey(dayAgo(m0 + 7 - i))] = { steps: 1000 * (i + 1), distanceM: 0 }
+            // this week's Monday is not last week's
+            sums[SensorlogdFixture.dayKey(dayAgo(m0))] = { steps: 99999, distanceM: 0 }
+            SensorlogdFixture.summaries = sums
+            var c = ask("health.steps", { period: "lastweek", from: m0 + 7, to: m0 + 1 })
+            compare(c.text, "You took 28,000 steps last week. That's 4,000 a day on average.")
+            compare(c.title, "28,000")
+            compare(c.chips[0].label, "Open Health")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            compare(fakeDesktop.launched, ["asteroid-health"])
+            verify(String(Backend.conf["/org/asteroidos/health/ui/open"]).indexOf("steps@") === 0)
+            // nothing logged that day
+            SensorlogdFixture.summaries = {}
+            compare(ask("health.steps", { period: "yesterday", from: 1, to: 1 }).text, "I don't have your steps for yesterday.")
+            // a weekday
+            var s = {}
+            s[SensorlogdFixture.dayKey(dayAgo(3))] = { steps: 6543, distanceM: 0 }
+            SensorlogdFixture.summaries = s
+            var day = Qt.locale("en_GB").dayName(dayAgo(3).getDay(), Locale.LongFormat)
+            compare(ask("health.steps", { period: "weekday", from: 3, to: 3 }).text, "You took 6,543 steps on " + day + ".")
+        }
+
+        // R5 D-23: the distance of a day, in the unit said; today so far; Health's distance page
+        function test_d23_distance() {
+            var s = {}
+            s[SensorlogdFixture.dayKey(dayAgo(1))] = { steps: 7000, distanceM: 5240 }
+            s[SensorlogdFixture.dayKey(dayAgo(0))] = { steps: 2000, distanceM: 1500 }
+            SensorlogdFixture.summaries = s
+            var c = ask("health.distance", { period: "yesterday", from: 1, to: 1, unit: "km" })
+            compare(c.text, "You covered 5.24 km yesterday.")
+            compare(c.title, "5.24 km")
+            compare(ask("health.distance", { period: "yesterday", from: 1, to: 1, unit: "mi" }).text, "You covered 3.26 mi yesterday.")
+            compare(ask("health.distance", { period: "today", from: 0, to: 0, unit: "km" }).text, "You've covered 1.50 km today.")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            verify(String(Backend.conf["/org/asteroidos/health/ui/open"]).indexOf("distance@") === 0)
+        }
+
+        // R5 D-23: workouts: the newest of a type, a period's total, the time, the count, the last one, none
+        function test_d23_workouts() {
+            var now = Date.now()
+            SensorlogdFixture.workouts = [
+                { id: 1, startMs: at(-2, 7, 0), endMs: at(-2, 7, 31), activeS: 1860, type: "Run", distanceM: 5200, ended: true },
+                { id: 2, startMs: now - 25 * 60000, endMs: now - 5 * 60000, activeS: 1200, type: "Run", distanceM: 3000, ended: true },
+                { id: 3, startMs: at(-1, 18, 0), endMs: at(-1, 19, 0), activeS: 3600, type: "Bike", distanceM: 20000, ended: true },
+                { id: 4, startMs: at(-3, 8, 0), endMs: at(-3, 8, 30), activeS: 1800, type: "PoolSwim", distanceM: 1000, ended: true },
+                { id: 5, startMs: now - 60000, endMs: 0, activeS: 60, type: "Run", distanceM: 100, ended: false },
+                { id: 6, startMs: at(-20, 9, 0), endMs: at(-20, 10, 0), activeS: 3600, type: "Run", distanceM: 10000, ended: true }
+            ]
+            var c = ask("workout.query", { type: "Run", metric: "distance", unit: "km" })
+            compare(c.text, "Your last run was 3.00 km, today.")
+            compare(c.title, "3.00 km")
+            compare(ask("workout.query", { type: "Run", metric: "distance", unit: "km", period: "7days", from: 6, to: 0 }).text,
+                    "You covered 8.20 km in 2 runs in the last 7 days.")
+            compare(ask("workout.query", { type: "Bike", metric: "time", period: "7days", from: 6, to: 0 }).text,
+                    "You spent 1 hour on 1 bike ride in the last 7 days.")
+            compare(ask("workout.query", { type: "Run", metric: "count", period: "7days", from: 6, to: 0 }).text,
+                    "You did 2 runs in the last 7 days.")
+            var day = Qt.locale("en_GB").dayName(dayAgo(3).getDay(), Locale.LongFormat)
+            compare(ask("workout.query", { type: "Swim", metric: "last", unit: "km" }).text,
+                    "Your last swim was on " + day + ": 1.00 km in 30 minutes.")
+            // "how many runs": this week's
+            var monday = dayAgo(weekdayIndex()).getTime()
+            var runs = SensorlogdFixture.workouts.filter(function (w) { return w.type === "Run" && w.ended && w.startMs >= monday }).length
+            compare(ask("workout.query", { type: "Run", metric: "count" }).text, "You did " + runs + " " + (runs === 1 ? "run" : "runs") + " this week.")
+            // none
+            compare(ask("workout.query", { type: "Hike", metric: "distance" }).text, "You haven't recorded a hike yet.")
+            compare(ask("workout.query", { type: "Hike", metric: "count", period: "lastweek", from: 9, to: 3 }).text, "You didn't do any hikes last week.")
+            // the last workout of any type, Health's exercise page
+            c = ask("workout.query", { metric: "last", unit: "km" })
+            compare(c.text, "Your last workout was today: 3.00 km in 20 minutes.")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            verify(String(Backend.conf["/org/asteroidos/health/ui/open"]).indexOf("exercise@") === 0)
+        }
+
+        // R5 D-23: the health reader file loads and makes its two loaders (here on the repo double of sensorlogd)
+        function test_d23_health_reader() {
+            var comp = Qt.createComponent(Qt.resolvedUrl("st/qml/assistant/AssistantHealth.qml"))
+            compare(comp.status, Component.Ready, comp.errorString())
+            var alive = SensorlogdFixture.alive
+            var h = comp.createObject(top)
+            verify(h !== null && h.metrics !== null && h.workouts !== null)
+            compare(SensorlogdFixture.alive, alive + 2)
+            h.destroy()
+            tryCompare(SensorlogdFixture, "alive", alive)
         }
 
         // R5 D-12: the real reader (org.nemomobile.calendar of the image) loads, reads its window and gives a list

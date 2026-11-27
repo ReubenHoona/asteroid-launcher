@@ -268,7 +268,9 @@ Item {
         case "weather.query": return weather(s, done)
         case "battery.query": return batteryQuery(s.device, done)
         case "health.heartrate": return heartRate(s.measure, done)
-        case "health.steps": return steps(done)
+        case "health.steps": return (s.period && s.period !== "today") ? stepsHistory(s, done) : steps(done)
+        case "health.distance": return distance(s, done)
+        case "workout.query": return workoutQuery(s, done)
         case "dnd.set":
             doNotDisturb.value = !!s.on
             return done(card(s.on ? "ios-remove-circle" : "ios-remove-circle-outline", "",
@@ -807,6 +809,170 @@ Item {
         })
     }
 
+    /* ---- the health history: steps and distance of past days, workouts -------------------------------------- */
+
+    // Stock: "How many steps did I walk last week?", "How many miles did I walk today?", "How many miles did I do
+    // yesterday?", "How far did I run?" (voice_plate_suggestion_14, _15, _18, _19, _20) open Fitbit on the metric
+    // (Assistant's FITNESS_SHOW_FITNESS_METRIC: GET_HEALTH_OBSERVATION with STEPS / DISTANCE, sbq.java:17, :184).
+    // Ours answer on the card from sensorlogd's history (AssistantHealth.qml, made for the question and dropped)
+    // and open Health on that page.
+    property Component healthReader: Component { AssistantHealth {} }
+    function withHealth(f) {
+        var h = healthReader ? healthReader.createObject(actions) : null
+        try {
+            f(h)
+        } finally {
+            if (h)
+                h.destroy()
+        }
+    }
+    function daysAgo(n) {
+        var t = new Date()
+        return new Date(t.getFullYear(), t.getMonth(), t.getDate() - n)
+    }
+    function periodWord(s) {
+        switch (s.period) {
+        case "yesterday": return loc("id-asst-yesterday", "yesterday")
+        case "week": return loc("id-asst-this-week", "this week")
+        case "lastweek": return loc("id-asst-last-week", "last week")
+        case "7days": return loc("id-asst-last-7-days", "in the last 7 days")
+        case "weekday": return loc("id-asst-on-day", "on %1").arg(Qt.locale("en_GB").dayName(daysAgo(s.from).getDay(), Locale.LongFormat))
+        }
+        return loc("id-asst-today", "today")
+    }
+    // when a workout was: "today", "yesterday", "on Monday" within the week, else "on 3 November"
+    function pastDay(ms) {
+        var d = new Date(ms), t = new Date()
+        var days = Math.round((new Date(t.getFullYear(), t.getMonth(), t.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000)
+        if (days <= 0) return loc("id-asst-today", "today")
+        if (days === 1) return loc("id-asst-yesterday", "yesterday")
+        if (days < 7) return loc("id-asst-on-day", "on %1").arg(Qt.locale("en_GB").dayName(d.getDay(), Locale.LongFormat))
+        return loc("id-asst-on-day", "on %1").arg(Qt.locale("en_GB").toString(d, "d MMMM"))
+    }
+    function stepCount(n) { return Number(n).toLocaleString(Qt.locale("en_GB"), "f", 0) }
+    // "5.24 km" / "3.26 mi": the unit said, else the locale's (the Exercise app's summary and the Last activity tile)
+    function distanceText(m, unit) {
+        var imperial = unit ? unit === "mi" : Qt.locale().measurementSystem !== Locale.MetricSystem
+        var v = imperial ? m / 1609.344 : m / 1000
+        return Number(v).toLocaleString(Qt.locale("en_GB"), "f", 2) + " " + (imperial ? loc("id-asst-mi", "mi") : loc("id-asst-km", "km"))
+    }
+    function minutesOf(seconds) { return minutesText(Math.max(60, Math.round(seconds / 60) * 60)) }
+    // the days of a period, oldest first: summary(day) of each
+    function daySummaries(s) {
+        var out = []
+        withHealth(function (h) {
+            for (var d = s.from; d >= s.to; d--) {
+                var sum = h ? h.metrics.summary(daysAgo(d)) : null
+                out.push(sum && sum.steps !== undefined ? sum : null)
+            }
+        })
+        return out
+    }
+    function healthChip(page) {
+        return { label: loc("id-asst-open-health", "Open Health"), icon: "", run: function (d) { openHealth(page, d) } }
+    }
+
+    function stepsHistory(s, done) {
+        var days = daySummaries(s)
+        var total = 0, any = false
+        for (var i = 0; i < days.length; i++)
+            if (days[i]) { any = true; total += Number(days[i].steps) || 0 }
+        var when = periodWord(s)
+        var chips = [healthChip("steps")]
+        if (!any)
+            return done(card("ios-walk", "", loc("id-asst-steps-none", "I don't have your steps for %1.").arg(when), chips, "#81c995"))
+        var text = (s.to === 0 ? loc("id-asst-steps-so-far", "You've taken %1 steps %2.") : loc("id-asst-steps-took", "You took %1 steps %2."))
+                   .arg(stepCount(total)).arg(when)
+        if (days.length > 1)
+            text += " " + loc("id-asst-steps-average", "That's %1 a day on average.").arg(stepCount(Math.round(total / days.length)))
+        done(card("ios-walk", stepCount(total), text, chips, "#81c995"))
+    }
+
+    function distance(s, done) {
+        var days = daySummaries(s)
+        var total = 0, any = false
+        for (var i = 0; i < days.length; i++)
+            if (days[i]) { any = true; total += Number(days[i].distanceM) || 0 }
+        var when = periodWord(s)
+        var chips = [healthChip("distance")]
+        if (!any)
+            return done(card("ios-walk", "", loc("id-asst-distance-none", "I don't have your distance for %1.").arg(when), chips, "#81c995"))
+        var d = distanceText(total, s.unit)
+        done(card("ios-walk", d, (s.to === 0 ? loc("id-asst-distance-so-far", "You've covered %1 %2.")
+                                             : loc("id-asst-distance-took", "You covered %1 %2.")).arg(d).arg(when), chips, "#81c995"))
+    }
+
+    // the Exercise app's types a spoken one covers (a swim in the pool is a swim)
+    readonly property var workoutFamilies: ({ "Run": ["Run", "TreadMill"], "Bike": ["Bike", "MountainBiking"],
+                                              "Swim": ["Swim", "PoolSwim", "OpenWaterSwim"], "Hike": ["Hike"],
+                                              "Walk": ["Walk"], "RowingMachine": ["RowingMachine"] })
+    function workoutNoun(type, many) {
+        switch (type) {
+        case "Run": return many ? loc("id-asst-w-runs", "runs") : loc("id-asst-w-run", "run")
+        case "Bike": return many ? loc("id-asst-w-rides", "bike rides") : loc("id-asst-w-ride", "bike ride")
+        case "Swim": return many ? loc("id-asst-w-swims", "swims") : loc("id-asst-w-swim", "swim")
+        case "Hike": return many ? loc("id-asst-w-hikes", "hikes") : loc("id-asst-w-hike", "hike")
+        case "Walk": return many ? loc("id-asst-w-walks", "walks") : loc("id-asst-w-walk", "walk")
+        case "RowingMachine": return many ? loc("id-asst-w-rows", "rows") : loc("id-asst-w-row", "row")
+        }
+        return many ? loc("id-asst-w-workouts", "workouts") : loc("id-asst-w-workout", "workout")
+    }
+    // "How far did I run (this week)?", "How long did I cycle?", "How many runs did I do?", "When was my last swim?":
+    // the finished workouts of that type, of the period, else the newest one
+    function workoutQuery(s, done) {
+        // "How many runs did I do?": this week's
+        if (s.metric === "count" && !s.period)
+            s = { type: s.type, metric: "count", unit: s.unit, period: "week", from: (new Date().getDay() + 6) % 7, to: 0 }
+        var family = s.type ? (workoutFamilies[s.type] || [s.type]) : null
+        var list = []
+        withHealth(function (h) {
+            if (!h)
+                return
+            var rows = s.period ? h.workouts.workouts(daysAgo(s.from), daysAgo(s.to)) : h.workouts.recent(100)
+            for (var i = 0; i < rows.length; i++)
+                if (rows[i] && rows[i].ended !== false && (!family || family.indexOf(rows[i].type) >= 0))
+                    list.push(rows[i])
+        })
+        list.sort(function (a, b) { return b.startMs - a.startMs })
+        var one = workoutNoun(s.type, false), many = workoutNoun(s.type, true)
+        var icon = "ios-stopwatch-outline", accent = "#81c995"
+        var chips = [healthChip("exercise")]
+        var when = s.period ? periodWord(s) : ""
+        if (list.length === 0) {
+            var none = s.period ? loc("id-asst-w-none-in", "You didn't do any %1 %2.").arg(many).arg(when)
+                                : loc("id-asst-w-none", "You haven't recorded a %1 yet.").arg(one)
+            return done(card(icon, s.metric === "count" ? "0" : "", none, chips, accent))
+        }
+        if (s.metric === "count") {
+            var n = list.length
+            return done(card(icon, String(n), loc("id-asst-w-count", "You did %1 %2 %3.").arg(n).arg(n === 1 ? one : many).arg(when), chips, accent))
+        }
+        if (!s.period || s.metric === "last") {
+            var w = list[0]
+            var day = pastDay(w.startMs)
+            var dist = Number(w.distanceM) || 0
+            var text
+            if (s.metric === "last")
+                text = dist > 0 ? loc("id-asst-w-last", "Your last %1 was %2: %3 in %4.").arg(one).arg(day).arg(distanceText(dist, s.unit)).arg(minutesOf(w.activeS))
+                                : loc("id-asst-w-last-time", "Your last %1 was %2: %3.").arg(one).arg(day).arg(minutesOf(w.activeS))
+            else if (s.metric === "distance" && dist > 0)
+                text = loc("id-asst-w-last-distance", "Your last %1 was %2, %3.").arg(one).arg(distanceText(dist, s.unit)).arg(day)
+            else
+                text = loc("id-asst-w-last-took", "Your last %1 took %2, %3.").arg(one).arg(minutesOf(w.activeS)).arg(day)
+            var big = (s.metric !== "time" && dist > 0) ? distanceText(dist, s.unit) : minutesOf(w.activeS)
+            return done(card(icon, big, text, chips, accent))
+        }
+        var totalM = 0, totalS = 0
+        for (var j = 0; j < list.length; j++) {
+            totalM += Number(list[j].distanceM) || 0
+            totalS += Number(list[j].activeS) || 0
+        }
+        var count = list.length + " " + (list.length === 1 ? one : many)
+        if (s.metric === "distance" && totalM > 0)
+            return done(card(icon, distanceText(totalM, s.unit), loc("id-asst-w-distance", "You covered %1 in %2 %3.")
+                             .arg(distanceText(totalM, s.unit)).arg(count).arg(when), chips, accent))
+        done(card(icon, minutesOf(totalS), loc("id-asst-w-time", "You spent %1 on %2 %3.").arg(minutesOf(totalS)).arg(count).arg(when), chips, accent))
+    }
     function brightness(s, done) {
         var v = s.level !== undefined ? s.level : display.brightness + (s.delta || 0)
         v = Math.max(10, Math.min(100, Math.round(v / 10) * 10))
