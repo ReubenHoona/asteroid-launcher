@@ -43,6 +43,18 @@ Item {
 
     Loader { id: al; active: false; source: Qt.resolvedUrl("st/qml/assistant/AssistantActions.qml") }
 
+    // a notification as lipstick's model holds them
+    Component {
+        id: noticeComp
+        QtObject {
+            property int replacesId
+            property string summary
+            property string body
+            property var hints
+            property var timestamp
+        }
+    }
+
     // R5 D-12: the calendar reader (AssistantAgenda.qml's interface) on invented events, read a moment later
     property var agendaEvents: []
     property int agendaReaders: 0
@@ -101,8 +113,8 @@ Item {
             }
             if (alarmKind)
                 hints["x-eos-alarm-kind"] = alarmKind
-            var n = { replacesId: id, summary: "Alarm", body: kind === "ringing" ? time : "Snoozing until " + time,
-                      hints: hints, timestamp: new Date() }
+            var n = noticeComp.createObject(top, { replacesId: id, summary: "Alarm", hints: hints, timestamp: new Date(),
+                                                   body: kind === "ringing" ? time : "Snoozing until " + time })
             Lipstick.notificationModel.add(n)
             return n
         }
