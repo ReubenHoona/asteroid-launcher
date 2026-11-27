@@ -96,6 +96,9 @@ QtObject {
 
     // D-Bus replies, "interface.method" -> value
     property var replies: ({})
+    // D-Bus errors, "interface.method" -> an error name: the call's error callback runs instead (a method the
+    // service does not have: "org.freedesktop.DBus.Error.UnknownMethod")
+    property var errors: ({})
 
     function reset() {
         conf = {}
@@ -114,6 +117,7 @@ QtObject {
             "org.freedesktop.timedate1.ListTimezones": ["Africa/Abidjan", "America/New_York", "Europe/Berlin",
                                                         "Europe/London", "Europe/Paris", "Asia/Tokyo", "Zulu"]
         }
+        errors = {}
         calls = []
     }
     Component.onCompleted: reset()

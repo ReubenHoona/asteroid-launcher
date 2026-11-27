@@ -18,6 +18,8 @@ import org.asteroid.settings
 import org.asteroid.launcher
 import "../desktop.js" as Desktop
 import "../tiles/clocklogic.js" as Clock
+import "../tiles/exercisetypes.js" as ExerciseTypes
+import "../tiles/tilecontent.js" as TC
 
 /*
  * What the assistant does for an intent (asteroid-assistant's Result), the
@@ -67,6 +69,14 @@ Item {
     ConfigurationValue { id: currentTemp; key: "/org/asteroidos/weather/current-temp"; defaultValue: 0 }
     // Health's page request, "<page>@<ms>" (the heart rate tile writes the same)
     ConfigurationValue { id: healthOpen; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
+    // the Calendar app's open request, "event:<start ms>@<ms>" (the agenda tile and the next event complication)
+    ConfigurationValue { id: calendarRequest; key: "/org/asteroidos/calendar/ui/open"; defaultValue: "" }
+    // the reader of the calendar's events, made for one question (tests give their own)
+    property Component agendaReader: Component { AssistantAgenda {} }
+    // the Exercise app's start request, "<exercise key>@<ms>" (the Exercise tile and the workout offer write it)
+    ConfigurationValue { id: exerciseRequest; key: "/org/asteroidos/exercise/start-request"; defaultValue: "" }
+    // the Stopwatch's start request, "<ms>": the app starts a stopwatch that is at zero (see stopwatchStart)
+    ConfigurationValue { id: stopwatchRequest; key: "/org/asteroidos/stopwatch/start-request"; defaultValue: "" }
 
     AlarmsModel { id: countdowns; onlyCountdown: true }
     AlarmsModel { id: alarms }
@@ -103,6 +113,14 @@ Item {
         iface: "org.asteroidos.btsyncd.Assistant"
         signalsEnabled: true
         function rcActResult(id: int, json: string) { actions.actResult(id, json) }
+    }
+    // the alarm presenter (asteroid-alarmclock): Snooze and Stop of the alarm that rings, Show to bring it back
+    DBusInterface {
+        id: presenter
+        bus: DBus.SessionBus
+        service: "org.asteroidos.alarmpresenter"
+        path: "/org/asteroidos/alarmpresenter"
+        iface: "org.asteroidos.alarmpresenter"
     }
     ConfigurationValue { id: smsDryRun; key: "/org/asteroidos/assistant/sms-dry-run"; defaultValue: false }
     ConfigurationValue { id: callDryRun; key: "/org/asteroidos/assistant/call-dry-run"; defaultValue: false }
@@ -178,6 +196,34 @@ Item {
                 Desktop.desktop.launchByName("asteroid-health", null)
         } })
     }
+    // "Start the stopwatch": the Stopwatch, started. Stock: Assistant's START_STOPWATCH ("Starting stopwatch",
+    // snh.java:58-68) sends DeskClock's STOPWATCH action (rly.java:21-25), which starts a stopwatch that is at
+    // zero and leaves a running or paused one as it is (hvd.java:36-47). The request is written before the app
+    // starts or comes to the front, as the tiles' requests; the app reads it (asteroid-stopwatch: R5-assistant
+    // NOTES; until then it only opens)
+    function stopwatchStart(onDone) {
+        onDone({ close: true, then: function () {
+            stopwatchRequest.value = String(Date.now())
+            if (typeof Desktop !== "undefined" && Desktop.desktop)
+                Desktop.desktop.launchByName("asteroid-stopwatch", null)
+        } })
+    }
+    // "Start a run": the Exercise app on that exercise. Stock: Assistant's FITNESS_START_EXERCISE sends Fitbit's
+    // actions.intent.START_EXERCISE with the exercise type (sbv.java:195; Fitbit AppActionsViewModel.java:243-244,
+    // the workout screen with the start action). Ours: the app's start request, as the Exercise tile's buttons
+    // (the app opens that exercise; one that is on stays on); no type ("start a workout"): the app's list.
+    // "... and play music" (gemini_suggestion_start_run_music): the phone's player resumes too
+    function exerciseStart(s, onDone) {
+        var type = s.type ? ExerciseTypes.find(s.type) : null
+        onDone({ close: true, then: function () {
+            if (type)
+                exerciseRequest.value = type.key + "@" + Date.now()
+            if (typeof Desktop !== "undefined" && Desktop.desktop)
+                Desktop.desktop.launchByName("asteroid-exercise", null)
+            if (s.music && mediaPresent && mpris.canPlay)
+                mpris.play()
+        } })
+    }
     function forEachAlarm(model, f) {
         for (var i = 0; i < model.rowCount(); i++) {
             var a = model.data(model.index(i, 0), 0x0100)
@@ -205,12 +251,16 @@ Item {
                                        }), "#c58af9"))
         case "timer.cancel": return timerCancel(done)
         case "timer.query": return timerQuery(done)
+        case "timer.pause": case "timer.resume": case "timer.reset": return timerControl(intent.slice(6), done)
         case "alarm.set": return alarmSet(s, done)
         case "alarm.ask": return done(card("ios-alarm-outline", "", loc("id-asst-alarm-when", "For what time? Say, for example, \"Set an alarm for 7 AM\"."),
                                        [chipOpen(loc("id-asst-open-alarms", "Open Alarms"), "asteroid-alarmclock")], "#f6aea9"))
         case "alarm.cancel": return alarmCancel(s, done)
         case "alarm.query": return alarmQuery(done)
-        case "stopwatch.start": return openApp("asteroid-stopwatch", done)
+        case "alarm.snooze": case "alarm.stop": return alarmRinging(intent === "alarm.snooze", done)
+        case "stopwatch.start": return stopwatchStart(done)
+        case "exercise.start": return exerciseStart(s, done)
+        case "calendar.query": return calendarQuery(s, done)
         case "reminder.set": return reminderSet(s.text, new Date(s.at * 1000), done)
         case "reminder.ask": return reminderAsk(s.text, done)
         case "app.open": return openApp(s.app, done)
@@ -218,7 +268,9 @@ Item {
         case "weather.query": return weather(s, done)
         case "battery.query": return batteryQuery(s.device, done)
         case "health.heartrate": return heartRate(s.measure, done)
-        case "health.steps": return steps(done)
+        case "health.steps": return (s.period && s.period !== "today") ? stepsHistory(s, done) : steps(done)
+        case "health.distance": return distance(s, done)
+        case "workout.query": return workoutQuery(s, done)
         case "dnd.set":
             doNotDisturb.value = !!s.on
             return done(card(s.on ? "ios-remove-circle" : "ios-remove-circle-outline", "",
@@ -328,6 +380,57 @@ Item {
         done(card("ios-timer-outline", countdownClock(left), text, [chipOpen(loc("id-asst-open-timer", "Open Timer"), "asteroid-timer")], "#c58af9"))
     }
 
+    // Pause, resume or reset the timer, as Assistant's own timer actions (stock sny.java:187-380): pause a
+    // running timer ("I have paused the timer."), resume a paused one, reset either to its whole length, waiting
+    // (the Timer app's Reset); the same edits of the countdown alarm as asteroid-timer's TimerEngine (pause:
+    // enabled off and save, nemo keeps the seconds run; resume: enabled on and save; reset: enabled off,
+    // reset(), save). The card shows the time left and opens the Timer
+    function timerControl(op, done) {
+        var now = Date.now()
+        var running = [], paused = []
+        forEachAlarm(countdowns, function (a) {
+            var st = Clock.classify(a, now)
+            if (st.state === "running") running.push({ a: a, st: st })
+            else if (st.state === "paused") paused.push({ a: a, st: st })
+        })
+        running.sort(function (x, y) { return x.st.endMs - y.st.endMs })
+        var icon = "ios-timer-outline"
+        var text = function (t) { return card(icon, "", t) }
+        var none = loc("id-asst-timer-none-active", "I couldn't find any timers or alarms that are active right now.")
+        var shown = function (seconds, t) {
+            return card(icon, countdownClock(Math.max(0, Math.round(seconds))), t,
+                        [chipOpen(loc("id-asst-open-timer", "Open Timer"), "asteroid-timer")], "#c58af9")
+        }
+        if (op === "pause") {
+            if (running.length === 0)
+                return done(text(paused.length > 0 ? loc("id-asst-timer-already-paused", "Timer is already paused.") : none))
+            var r = running[0]
+            var left = (r.st.endMs - now) / 1000
+            r.a.enabled = false
+            r.a.save()
+            return done(shown(left, loc("id-asst-timer-paused", "I have paused the timer.")))
+        }
+        if (op === "resume") {
+            if (paused.length === 0)
+                return done(text(running.length > 0 ? loc("id-asst-timer-already-running", "Timer is already running.") : none))
+            var p = paused[0]
+            p.a.enabled = true
+            p.a.save()
+            return done(shown(p.st.frozenMs / 1000, loc("id-asst-timer-resumed", "I have resumed the timer.")))
+        }
+        // reset
+        var t = running.length > 0 ? running[0] : paused.length > 0 ? paused[0] : null
+        if (!t) {
+            var any = false
+            forEachAlarm(countdowns, function () { any = true })
+            return done(text(any ? loc("id-asst-timer-none-reset", "I couldn't find any timers to reset.") : none))
+        }
+        t.a.enabled = false
+        t.a.reset()
+        t.a.save()
+        done(shown(t.st.durationSec, loc("id-asst-timer-reset", "I have reset the timer.")))
+    }
+
     function alarmSet(s, done) {
         if (s.tooFar)
             return done(card("ios-alarm-outline", "", loc("id-asst-alarm-24h", "I can set an alarm for the next 24 hours, or one that repeats. Open the alarm clock to choose a day."),
@@ -394,6 +497,45 @@ Item {
                   [chipOpen(loc("id-asst-open-alarms", "Open Alarms"), "asteroid-alarmclock")], "#f6aea9"))
     }
 
+    // The alarms that ring now: the presenter's "Ringing" notifications (asteroid-alarmclock alarmpresenter
+    // noticeFor, kind "ringing": resident, the default action the presenter's show; a snoozed one opens the
+    // alarm clock and has Stop). x-eos-alarm-kind says alarm or timer where the presenter gives it
+    function ringingAlarms() {
+        var list = []
+        for (var i = 0; i < notifications.itemCount; i++) {
+            var n = notifications.get(i)
+            if (!n || !n.hints || n.hints["x-eos-app"] !== "asteroid-alarmclock" || n.hints["x-nemo-remote-action-stop"])
+                continue
+            var def = String(n.hints["x-nemo-remote-action-default"] || "").split(" ")
+            if (def[0] !== presenter.service || def[3] !== "show")
+                continue
+            if ((n.hints["x-eos-alarm-kind"] || "alarm") === "alarm")
+                list.push(n)
+        }
+        return list
+    }
+    // Snooze or stop the ringing alarm, as Assistant (stock smt.java:459-531: only the alarms that are firing;
+    // none: no_alarms_to_snooze / no_alarms_to_stop). The presenter snoozes or dismisses every ringing alarm
+    // together, as its own buttons do. A presenter without these methods: the alarm screen comes back
+    function alarmRinging(snooze, done) {
+        var ringing = ringingAlarms()
+        var icon = "ios-alarm-outline"
+        if (ringing.length === 0)
+            return done(card(icon, "", snooze ? loc("id-asst-alarm-none-snooze", "I couldn't find any alarms to snooze.")
+                                              : loc("id-asst-alarm-none-stop", "I couldn't find any alarms to stop.")))
+        var title = String(ringing[0].body || "")
+        presenter.typedCall(snooze ? "snooze" : "dismiss", [], function () {
+            done(card(icon, title, snooze ? loc("id-asst-alarm-snoozed", "I have snoozed the alarm.")
+                                          : loc("id-asst-alarm-stopped", "I have stopped the alarm."), [], "#f6aea9"))
+        }, function () {
+            done(failure(card(icon, title, snooze ? loc("id-asst-alarm-snooze-there", "Snooze it on the alarm screen.")
+                                                  : loc("id-asst-alarm-stop-there", "Stop it on the alarm screen."),
+                              [{ label: loc("id-asst-show-alarm", "Show alarm"), icon: "", run: function (d) {
+                                  d({ close: true, then: function () { presenter.typedCall("show", []) } })
+                              } }], "#f6aea9")))
+        })
+    }
+
     function reminderSet(text, when, done) {
         // a calendar event with a reminder at its start: the agenda shows it
         // and the alarm presenter rings it (timed, as Calendar alarms)
@@ -423,6 +565,111 @@ Item {
                   [{ label: loc("id-asst-in-1-hour", "In 1 hour"), run: function (d) { reminderSet(text, inHour, d) } },
                    { label: loc("id-asst-at-6pm", "At %1").arg(clock(18, 0)), run: function (d) { reminderSet(text, evening, d) } },
                    { label: loc("id-asst-tomorrow-9", "Tomorrow"), run: function (d) { reminderSet(text, morning, d) } }], "#7fcfff"))
+    }
+
+    /* ---- the calendar ---------------------------------------------------------------------------------------- */
+
+    // One window of the calendar read by a reader made for it (AssistantAgenda.qml): cb(list) when the model has
+    // read it, or after 1.5 s (a model that had nothing to read); one question at a time
+    property var agendaWait: null
+    Timer { id: agendaTimeout; interval: 1500; onTriggered: if (actions.agendaWait) actions.agendaWait.finish() }
+    function readAgenda(from, to, cb) {
+        if (agendaWait)
+            agendaWait.finish()
+        var r = agendaReader ? agendaReader.createObject(actions, { "startDate": from, "endDate": to }) : null
+        if (!r)
+            return cb([])
+        var w = { done: false }
+        w.finish = function () {
+            if (w.done)
+                return
+            w.done = true
+            if (agendaWait === w) {
+                agendaWait = null
+                agendaTimeout.stop()
+            }
+            var list = []
+            try { list = r.list() } catch (e) { list = [] }
+            r.destroy()
+            cb(list)
+        }
+        agendaWait = w
+        r.updated.connect(w.finish)
+        agendaTimeout.restart()
+    }
+    function eventTime(e) {
+        var d = new Date(e.start)
+        return clock(d.getHours(), d.getMinutes())
+    }
+    // an event in a list: "Team sync at 10:00", "Market day (all day)", "Team sync (until 11:00)" when it is on
+    function eventPhrase(e, now) {
+        if (e.allDay)
+            return loc("id-asst-cal-item-all-day", "%1 (all day)").arg(e.title)
+        if (e.start <= now) {
+            var end = new Date(e.end)
+            return loc("id-asst-cal-item-on", "%1 (until %2)").arg(e.title).arg(clock(end.getHours(), end.getMinutes()))
+        }
+        return loc("id-asst-cal-item", "%1 at %2").arg(e.title).arg(eventTime(e))
+    }
+    // "What's on my calendar?": the day's events that have not ended; "What's next?": the first event of the
+    // coming week that has not ended (the agenda tile's choice: tilecontent.js pickEvent). Stock answers these
+    // from the phone's calendar (suggestion_whats_on_my_calendar, no_speech_suggestion_3); ours from the
+    // watch's calendar, where the phone's arrives. The card opens the Calendar, on the event when it names one
+    function calendarQuery(s, done) {
+        var now = Date.now()
+        var t = new Date(now)
+        var dayIndex = Math.max(0, s.day || 0)
+        var from = new Date(t.getFullYear(), t.getMonth(), t.getDate() + (s.next ? 0 : dayIndex))
+        var to = new Date(t.getFullYear(), t.getMonth(), t.getDate() + (s.next ? 8 : dayIndex + 1))
+        var icon = "ios-calendar-outline", accent = "#7fcfff"
+        var openChip = function (ev) {
+            return { label: loc("id-asst-open-calendar", "Open Calendar"), icon: "", run: function (d) {
+                d({ close: true, then: function () {
+                    if (ev)
+                        calendarRequest.value = "event:" + ev.start + "@" + Date.now()
+                    if (typeof Desktop !== "undefined" && Desktop.desktop)
+                        Desktop.desktop.launchByName("asteroid-calendar", null)
+                } })
+            } }
+        }
+        readAgenda(from, to, function (all) {
+            var left = all.filter(function (e) { return e.end > now || (e.end === e.start && e.start >= now) })
+            if (s.next) {
+                var ev = TC.pickEvent(left, now)
+                if (!ev)
+                    return done(card(icon, "", loc("id-asst-cal-next-none", "There's nothing on your calendar for the next 7 days."),
+                                     [openChip(null)], accent))
+                var text
+                if (!ev.allDay && ev.start <= now) {
+                    var end = new Date(ev.end)
+                    text = loc("id-asst-cal-next-now", "%1 is on now, until %2.").arg(ev.title).arg(clock(end.getHours(), end.getMinutes()))
+                } else if (ev.allDay) {
+                    text = loc("id-asst-cal-next-all-day", "Your next event is %1, %2, all day.").arg(ev.title).arg(dayWord(new Date(ev.start)))
+                } else {
+                    text = loc("id-asst-cal-next", "Your next event is %1, %2 at %3.").arg(ev.title).arg(dayWord(new Date(ev.start))).arg(eventTime(ev))
+                }
+                return done(card(icon, ev.allDay ? loc("id-asst-cal-all-day", "All day") : eventTime(ev), text, [openChip(ev)], accent))
+            }
+            // the day's events by start, an all-day one before a timed one that starts with it
+            left.sort(function (a, b) { return a.start !== b.start ? a.start - b.start : (a.allDay ? -1 : b.allDay ? 1 : 0) })
+            var when = dayWord(from)
+            if (left.length === 0) {
+                var none = dayIndex === 0
+                    ? (all.length > 0 ? loc("id-asst-cal-none-left", "There's nothing else on your calendar today.")
+                                      : loc("id-asst-cal-clear", "Your day is clear."))
+                    : loc("id-asst-cal-none", "There's nothing on your calendar %1.").arg(when)
+                return done(card(icon, "", none, [openChip(null)], accent))
+            }
+            var shown = left.slice(0, 3).map(function (e) { return eventPhrase(e, now) })
+            var items = shown.length === 1 ? shown[0]
+                      : shown.slice(0, -1).join(", ") + " " + loc("id-asst-and", "and") + " " + shown[shown.length - 1]
+            var head = left.length === 1 ? loc("id-asst-cal-one", "You have 1 event %1:").arg(when)
+                                         : loc("id-asst-cal-many", "You have %1 events %2:").arg(left.length).arg(when)
+            var more = left.length > 3 ? " " + loc("id-asst-cal-more", "And %1 more.").arg(left.length - 3) : ""
+            var first = left[0]
+            done(card(icon, first.allDay ? loc("id-asst-cal-all-day", "All day") : eventTime(first), head + " " + items + "." + more,
+                      [openChip(left.length === 1 ? first : null)], accent))
+        })
     }
 
     function weather(s, done) {
@@ -562,6 +809,170 @@ Item {
         })
     }
 
+    /* ---- the health history: steps and distance of past days, workouts -------------------------------------- */
+
+    // Stock: "How many steps did I walk last week?", "How many miles did I walk today?", "How many miles did I do
+    // yesterday?", "How far did I run?" (voice_plate_suggestion_14, _15, _18, _19, _20) open Fitbit on the metric
+    // (Assistant's FITNESS_SHOW_FITNESS_METRIC: GET_HEALTH_OBSERVATION with STEPS / DISTANCE, sbq.java:17, :184).
+    // Ours answer on the card from sensorlogd's history (AssistantHealth.qml, made for the question and dropped)
+    // and open Health on that page.
+    property Component healthReader: Component { AssistantHealth {} }
+    function withHealth(f) {
+        var h = healthReader ? healthReader.createObject(actions) : null
+        try {
+            f(h)
+        } finally {
+            if (h)
+                h.destroy()
+        }
+    }
+    function daysAgo(n) {
+        var t = new Date()
+        return new Date(t.getFullYear(), t.getMonth(), t.getDate() - n)
+    }
+    function periodWord(s) {
+        switch (s.period) {
+        case "yesterday": return loc("id-asst-yesterday", "yesterday")
+        case "week": return loc("id-asst-this-week", "this week")
+        case "lastweek": return loc("id-asst-last-week", "last week")
+        case "7days": return loc("id-asst-last-7-days", "in the last 7 days")
+        case "weekday": return loc("id-asst-on-day", "on %1").arg(Qt.locale("en_GB").dayName(daysAgo(s.from).getDay(), Locale.LongFormat))
+        }
+        return loc("id-asst-today", "today")
+    }
+    // when a workout was: "today", "yesterday", "on Monday" within the week, else "on 3 November"
+    function pastDay(ms) {
+        var d = new Date(ms), t = new Date()
+        var days = Math.round((new Date(t.getFullYear(), t.getMonth(), t.getDate()) - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 86400000)
+        if (days <= 0) return loc("id-asst-today", "today")
+        if (days === 1) return loc("id-asst-yesterday", "yesterday")
+        if (days < 7) return loc("id-asst-on-day", "on %1").arg(Qt.locale("en_GB").dayName(d.getDay(), Locale.LongFormat))
+        return loc("id-asst-on-day", "on %1").arg(Qt.locale("en_GB").toString(d, "d MMMM"))
+    }
+    function stepCount(n) { return Number(n).toLocaleString(Qt.locale("en_GB"), "f", 0) }
+    // "5.24 km" / "3.26 mi": the unit said, else the locale's (the Exercise app's summary and the Last activity tile)
+    function distanceText(m, unit) {
+        var imperial = unit ? unit === "mi" : Qt.locale().measurementSystem !== Locale.MetricSystem
+        var v = imperial ? m / 1609.344 : m / 1000
+        return Number(v).toLocaleString(Qt.locale("en_GB"), "f", 2) + " " + (imperial ? loc("id-asst-mi", "mi") : loc("id-asst-km", "km"))
+    }
+    function minutesOf(seconds) { return minutesText(Math.max(60, Math.round(seconds / 60) * 60)) }
+    // the days of a period, oldest first: summary(day) of each
+    function daySummaries(s) {
+        var out = []
+        withHealth(function (h) {
+            for (var d = s.from; d >= s.to; d--) {
+                var sum = h ? h.metrics.summary(daysAgo(d)) : null
+                out.push(sum && sum.steps !== undefined ? sum : null)
+            }
+        })
+        return out
+    }
+    function healthChip(page) {
+        return { label: loc("id-asst-open-health", "Open Health"), icon: "", run: function (d) { openHealth(page, d) } }
+    }
+
+    function stepsHistory(s, done) {
+        var days = daySummaries(s)
+        var total = 0, any = false
+        for (var i = 0; i < days.length; i++)
+            if (days[i]) { any = true; total += Number(days[i].steps) || 0 }
+        var when = periodWord(s)
+        var chips = [healthChip("steps")]
+        if (!any)
+            return done(card("ios-walk", "", loc("id-asst-steps-none", "I don't have your steps for %1.").arg(when), chips, "#81c995"))
+        var text = (s.to === 0 ? loc("id-asst-steps-so-far", "You've taken %1 steps %2.") : loc("id-asst-steps-took", "You took %1 steps %2."))
+                   .arg(stepCount(total)).arg(when)
+        if (days.length > 1)
+            text += " " + loc("id-asst-steps-average", "That's %1 a day on average.").arg(stepCount(Math.round(total / days.length)))
+        done(card("ios-walk", stepCount(total), text, chips, "#81c995"))
+    }
+
+    function distance(s, done) {
+        var days = daySummaries(s)
+        var total = 0, any = false
+        for (var i = 0; i < days.length; i++)
+            if (days[i]) { any = true; total += Number(days[i].distanceM) || 0 }
+        var when = periodWord(s)
+        var chips = [healthChip("distance")]
+        if (!any)
+            return done(card("ios-walk", "", loc("id-asst-distance-none", "I don't have your distance for %1.").arg(when), chips, "#81c995"))
+        var d = distanceText(total, s.unit)
+        done(card("ios-walk", d, (s.to === 0 ? loc("id-asst-distance-so-far", "You've covered %1 %2.")
+                                             : loc("id-asst-distance-took", "You covered %1 %2.")).arg(d).arg(when), chips, "#81c995"))
+    }
+
+    // the Exercise app's types a spoken one covers (a swim in the pool is a swim)
+    readonly property var workoutFamilies: ({ "Run": ["Run", "TreadMill"], "Bike": ["Bike", "MountainBiking"],
+                                              "Swim": ["Swim", "PoolSwim", "OpenWaterSwim"], "Hike": ["Hike"],
+                                              "Walk": ["Walk"], "RowingMachine": ["RowingMachine"] })
+    function workoutNoun(type, many) {
+        switch (type) {
+        case "Run": return many ? loc("id-asst-w-runs", "runs") : loc("id-asst-w-run", "run")
+        case "Bike": return many ? loc("id-asst-w-rides", "bike rides") : loc("id-asst-w-ride", "bike ride")
+        case "Swim": return many ? loc("id-asst-w-swims", "swims") : loc("id-asst-w-swim", "swim")
+        case "Hike": return many ? loc("id-asst-w-hikes", "hikes") : loc("id-asst-w-hike", "hike")
+        case "Walk": return many ? loc("id-asst-w-walks", "walks") : loc("id-asst-w-walk", "walk")
+        case "RowingMachine": return many ? loc("id-asst-w-rows", "rows") : loc("id-asst-w-row", "row")
+        }
+        return many ? loc("id-asst-w-workouts", "workouts") : loc("id-asst-w-workout", "workout")
+    }
+    // "How far did I run (this week)?", "How long did I cycle?", "How many runs did I do?", "When was my last swim?":
+    // the finished workouts of that type, of the period, else the newest one
+    function workoutQuery(s, done) {
+        // "How many runs did I do?": this week's
+        if (s.metric === "count" && !s.period)
+            s = { type: s.type, metric: "count", unit: s.unit, period: "week", from: (new Date().getDay() + 6) % 7, to: 0 }
+        var family = s.type ? (workoutFamilies[s.type] || [s.type]) : null
+        var list = []
+        withHealth(function (h) {
+            if (!h)
+                return
+            var rows = s.period ? h.workouts.workouts(daysAgo(s.from), daysAgo(s.to)) : h.workouts.recent(100)
+            for (var i = 0; i < rows.length; i++)
+                if (rows[i] && rows[i].ended !== false && (!family || family.indexOf(rows[i].type) >= 0))
+                    list.push(rows[i])
+        })
+        list.sort(function (a, b) { return b.startMs - a.startMs })
+        var one = workoutNoun(s.type, false), many = workoutNoun(s.type, true)
+        var icon = "ios-stopwatch-outline", accent = "#81c995"
+        var chips = [healthChip("exercise")]
+        var when = s.period ? periodWord(s) : ""
+        if (list.length === 0) {
+            var none = s.period ? loc("id-asst-w-none-in", "You didn't do any %1 %2.").arg(many).arg(when)
+                                : loc("id-asst-w-none", "You haven't recorded a %1 yet.").arg(one)
+            return done(card(icon, s.metric === "count" ? "0" : "", none, chips, accent))
+        }
+        if (s.metric === "count") {
+            var n = list.length
+            return done(card(icon, String(n), loc("id-asst-w-count", "You did %1 %2 %3.").arg(n).arg(n === 1 ? one : many).arg(when), chips, accent))
+        }
+        if (!s.period || s.metric === "last") {
+            var w = list[0]
+            var day = pastDay(w.startMs)
+            var dist = Number(w.distanceM) || 0
+            var text
+            if (s.metric === "last")
+                text = dist > 0 ? loc("id-asst-w-last", "Your last %1 was %2: %3 in %4.").arg(one).arg(day).arg(distanceText(dist, s.unit)).arg(minutesOf(w.activeS))
+                                : loc("id-asst-w-last-time", "Your last %1 was %2: %3.").arg(one).arg(day).arg(minutesOf(w.activeS))
+            else if (s.metric === "distance" && dist > 0)
+                text = loc("id-asst-w-last-distance", "Your last %1 was %2, %3.").arg(one).arg(distanceText(dist, s.unit)).arg(day)
+            else
+                text = loc("id-asst-w-last-took", "Your last %1 took %2, %3.").arg(one).arg(minutesOf(w.activeS)).arg(day)
+            var big = (s.metric !== "time" && dist > 0) ? distanceText(dist, s.unit) : minutesOf(w.activeS)
+            return done(card(icon, big, text, chips, accent))
+        }
+        var totalM = 0, totalS = 0
+        for (var j = 0; j < list.length; j++) {
+            totalM += Number(list[j].distanceM) || 0
+            totalS += Number(list[j].activeS) || 0
+        }
+        var count = list.length + " " + (list.length === 1 ? one : many)
+        if (s.metric === "distance" && totalM > 0)
+            return done(card(icon, distanceText(totalM, s.unit), loc("id-asst-w-distance", "You covered %1 in %2 %3.")
+                             .arg(distanceText(totalM, s.unit)).arg(count).arg(when), chips, accent))
+        done(card(icon, minutesOf(totalS), loc("id-asst-w-time", "You spent %1 on %2 %3.").arg(minutesOf(totalS)).arg(count).arg(when), chips, accent))
+    }
     function brightness(s, done) {
         var v = s.level !== undefined ? s.level : display.brightness + (s.delta || 0)
         v = Math.max(10, Math.min(100, Math.round(v / 10) * 10))

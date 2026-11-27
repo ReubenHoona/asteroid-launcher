@@ -11,11 +11,25 @@
 //    is not active.
 //  - health-fitness-21: the heart rate answers with the last reading or "--" and opens Health's heart
 //    rate page ("heartrate@<ms>"), never the hidden asteroid-hrm.
+//  - R5 D-20: pause, resume and reset the timer by voice (Assistant's timer_paused/_resumed/_reset_confirmation),
+//    with the Timer app's edits of the countdown alarm, stock's answers when there is nothing to do.
+//  - R5 D-21: snooze or stop the ringing alarm (the presenter's "Ringing" notification) through the presenter's
+//    snooze / dismiss; nothing ringing (a snoozed alarm, a ringing timer): stock's no_alarms_to_snooze / _stop;
+//    a presenter without the methods: the alarm screen comes back.
+//  - R5 D-22: "Start the stopwatch" writes the Stopwatch's start request ("<ms>") and opens the app.
+//  - R5 D-11: "Start a run" writes the Exercise app's start request ("Run@<ms>", as the Exercise tile) and opens
+//    the app; no type or one the app does not have: the app's list, no request.
+//  - R5 D-12: "What's on my calendar?" from the calendar (a reader double with invented events): the day's events
+//    that have not ended, the next one of the week, a clear day; the card opens the Calendar (on the event it names).
+//  - R5 D-23: steps and distance of past days (SensorlogdFixture summaries), workouts by type and period
+//    (SensorlogdFixture workouts), invented numbers; the card opens Health on the page.
 // MODE=st (the staged tree).
 import QtQuick
 import QtTest
 import Nemo.Alarms
 import LauncherTest
+import org.nemomobile.lipstick
+import org.asteroid.sensorlogd
 import "st/qml/desktop.js" as Desktop
 
 Item {
@@ -32,6 +46,38 @@ Item {
 
     Loader { id: al; active: false; source: Qt.resolvedUrl("st/qml/assistant/AssistantActions.qml") }
 
+    // a notification as lipstick's model holds them
+    Component {
+        id: noticeComp
+        QtObject {
+            property int replacesId
+            property string summary
+            property string body
+            property var hints
+            property var timestamp
+        }
+    }
+
+    // R5 D-12: the calendar reader (AssistantAgenda.qml's interface) on invented events, read a moment later
+    property var agendaEvents: []
+    property int agendaReaders: 0
+    Component {
+        id: fakeAgenda
+        QtObject {
+            id: fa
+            property date startDate
+            property date endDate
+            signal updated()
+            function list() {
+                var a = startDate.getTime(), b = endDate.getTime()
+                return top.agendaEvents.filter(function (e) { return e.end > a && e.start < b })
+            }
+            property Timer later: Timer { interval: 20; running: true; onTriggered: fa.updated() }
+            Component.onCompleted: top.agendaReaders++
+            Component.onDestruction: top.agendaReaders--
+        }
+    }
+
     TestCase {
         name: "AssistantActions"
         when: windowShown
@@ -45,13 +91,44 @@ Item {
             al.active = true
             tryCompare(al, "status", Loader.Ready, 30000)
             aa = al.item
+            aa.agendaReader = fakeAgenda
         }
         function init() {
             AlarmsMock.alarms = []
             AlarmsMock.creatable = true
             fakeDesktop.launched = []
             got = null
+            var m = Lipstick.notificationModel
+            while (m && m.itemCount > 0)
+                m.remove(m.get(0))
+            Backend.errors = {}
+            Backend.clearCalls()
+            SensorlogdFixture.reset()
         }
+        function dayAgo(n) {
+            var t = new Date()
+            return new Date(t.getFullYear(), t.getMonth(), t.getDate() - n)
+        }
+        // Monday = 0
+        function weekdayIndex() { return (new Date().getDay() + 6) % 7 }
+        // the alarm presenter's notices (asteroid-alarmclock alarmpresenter noticeFor), invented times
+        readonly property string presenterService: "org.asteroidos.alarmpresenter"
+        function presenterNotice(kind, id, time, alarmKind) {
+            var hints = { "category": "x-nemo.alarm", "x-eos-app": "asteroid-alarmclock", "resident": true }
+            if (kind === "ringing")
+                hints["x-nemo-remote-action-default"] = presenterService + " /org/asteroidos/alarmpresenter " + presenterService + " show"
+            else {
+                hints["x-nemo-remote-action-default"] = "org.asteroidos.alarmclock /org/asteroidos/alarmclock org.asteroidos.alarmclock show"
+                hints["x-nemo-remote-action-stop"] = presenterService + " /org/asteroidos/alarmpresenter " + presenterService + " stop " + id
+            }
+            if (alarmKind)
+                hints["x-eos-alarm-kind"] = alarmKind
+            var n = noticeComp.createObject(top, { replacesId: id, summary: "Alarm", hints: hints, timestamp: new Date(),
+                                                   body: kind === "ringing" ? time : "Snoozing until " + time })
+            Lipstick.notificationModel.add(n)
+            return n
+        }
+        function presenterCall(method) { return Backend.find(presenterService, presenterService + "." + method) }
         function cleanup() {
             AlarmsMock.creatable = false
             AlarmsMock.alarms = []
@@ -63,6 +140,18 @@ Item {
             return got
         }
         function nowS() { return Math.floor(Date.now() / 1000) }
+        // an answer that comes later (a reader, a log)
+        function askLater(intent, slots) {
+            got = null
+            aa.run(intent, slots, "", function (c) { got = c })
+            tryVerify(function () { return got !== null }, 4000)
+            return got
+        }
+        // ms of a time of the day `offset` days from today
+        function at(offset, h, m) {
+            var n = new Date()
+            return new Date(n.getFullYear(), n.getMonth(), n.getDate() + offset, h, m).getTime()
+        }
         function countdowns() { return AlarmsMock.alarms.filter(function (a) { return a.countdown === true }) }
 
         function test_00_no_timer_starts_one() {
@@ -153,6 +242,338 @@ Item {
             verify(got !== null && got.close === true)
             got.then()
             compare(fakeDesktop.launched, ["asteroid-health"])
+        }
+
+        // R5 D-20: a running 5 minute timer with 3 minutes left is paused, then resumed, then reset
+        function test_d20_pause_resume_reset() {
+            var t = AlarmsMock.make({ countdown: true, minute: 5, enabled: true, triggerTime: nowS() + 180 })
+            AlarmsMock.alarms = [t]
+            var c = ask("timer.pause", {})
+            compare(c.text, "I have paused the timer.")
+            compare(t.enabled, false)
+            compare(t.triggerTime, 0)
+            verify(t.elapsed >= 119 && t.elapsed <= 121, "elapsed " + t.elapsed)
+            verify(c.title === "3:00" || c.title === "2:59", c.title)
+            compare(c.chips.length, 1)
+            compare(c.chips[0].label, "Open Timer")
+            // paused: pausing again says so and changes nothing
+            c = ask("timer.pause", {})
+            compare(c.text, "Timer is already paused.")
+            compare(t.triggerTime, 0)
+            // resume: it ends what was left from now
+            c = ask("timer.resume", {})
+            compare(c.text, "I have resumed the timer.")
+            compare(t.enabled, true)
+            var left = t.triggerTime - nowS()
+            verify(left >= 178 && left <= 181, "left " + left)
+            c = ask("timer.resume", {})
+            compare(c.text, "Timer is already running.")
+            // reset: the whole length, waiting (the Timer app's Reset), the same alarm
+            c = ask("timer.reset", {})
+            compare(c.text, "I have reset the timer.")
+            compare(c.title, "5:00")
+            compare(t.enabled, false)
+            compare(t.triggerTime, 0)
+            compare(t.elapsed, 0)
+            compare(AlarmsMock.alarms, [t])
+            // a reset timer is a paused one at its whole length: resume starts it
+            c = ask("timer.resume", {})
+            compare(c.text, "I have resumed the timer.")
+            left = t.triggerTime - nowS()
+            verify(left >= 298 && left <= 301, "left " + left)
+        }
+
+        // R5 D-21: nothing rings: stock's answers, nothing is asked of the presenter
+        function test_d21_nothing_rings() {
+            compare(ask("alarm.snooze", {}).text, "I couldn't find any alarms to snooze.")
+            compare(ask("alarm.stop", {}).text, "I couldn't find any alarms to stop.")
+            // a snoozed alarm is not ringing (stock: only the firing ones), nor is a ringing timer
+            presenterNotice("snoozed", 41, "06:50")
+            presenterNotice("ringing", 42, "0:00", "timer")
+            compare(ask("alarm.stop", {}).text, "I couldn't find any alarms to stop.")
+            compare(ask("alarm.snooze", {}).text, "I couldn't find any alarms to snooze.")
+            compare(presenterCall("snooze"), null)
+            compare(presenterCall("dismiss"), null)
+        }
+
+        // R5 D-21: an alarm rings: the presenter snoozes or dismisses it, the card says so with its time
+        function test_d21_snooze_and_stop() {
+            presenterNotice("ringing", 43, "06:45")
+            var c = ask("alarm.snooze", {})
+            compare(c.text, "I have snoozed the alarm.")
+            compare(c.title, "06:45")
+            verify(c.error !== true)
+            verify(presenterCall("snooze") !== null)
+            compare(presenterCall("dismiss"), null)
+            Backend.clearCalls()
+            // a presenter of before x-eos-alarm-kind: the ringing notice is an alarm
+            c = ask("alarm.stop", {})
+            compare(c.text, "I have stopped the alarm.")
+            verify(presenterCall("dismiss") !== null)
+            compare(presenterCall("snooze"), null)
+        }
+
+        // R5 D-21: a presenter without snooze / dismiss (image 72's): the card says where to do it, Show alarm
+        // brings the alarm screen back
+        function test_d21_presenter_without_the_methods() {
+            presenterNotice("ringing", 44, "07:10", "alarm")
+            Backend.errors = { "org.asteroidos.alarmpresenter.snooze": "org.freedesktop.DBus.Error.UnknownMethod",
+                               "org.asteroidos.alarmpresenter.dismiss": "org.freedesktop.DBus.Error.UnknownMethod" }
+            var c = ask("alarm.snooze", {})
+            compare(c.error, true)
+            compare(c.text, "Snooze it on the alarm screen.")
+            compare(c.chips.length, 1)
+            compare(c.chips[0].label, "Show alarm")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            verify(r !== null && r.close === true)
+            r.then()
+            verify(presenterCall("show") !== null)
+            compare(ask("alarm.stop", {}).text, "Stop it on the alarm screen.")
+        }
+
+        // R5 D-22: the overlay goes, the request is written, then the app starts
+        function test_d22_start_stopwatch() {
+            var before = Date.now()
+            var c = ask("stopwatch.start", {})
+            verify(c !== null && c.close === true)
+            compare(fakeDesktop.launched, [])
+            c.then()
+            compare(fakeDesktop.launched, ["asteroid-stopwatch"])
+            var req = Number(Backend.conf["/org/asteroidos/stopwatch/start-request"])
+            verify(req >= before && req <= Date.now() + 1, "request " + req)
+        }
+
+        // R5 D-11: a run, then a workout with no type, then a type the app does not know
+        function test_d11_start_exercise() {
+            var key = "/org/asteroidos/exercise/start-request"
+            Backend.confSet(key, "")
+            var before = Date.now()
+            var c = ask("exercise.start", { type: "Run" })
+            verify(c !== null && c.close === true)
+            compare(fakeDesktop.launched, [])
+            c.then()
+            compare(fakeDesktop.launched, ["asteroid-exercise"])
+            var req = String(Backend.conf[key])
+            compare(req.split("@")[0], "Run")
+            var ms = Number(req.split("@")[1])
+            verify(ms >= before && ms <= Date.now() + 1, req)
+            // "start a workout": the app's list, the request is not written again
+            Backend.confSet(key, "")
+            fakeDesktop.launched = []
+            ask("exercise.start", {}).then()
+            compare(fakeDesktop.launched, ["asteroid-exercise"])
+            compare(Backend.conf[key], "")
+            ask("exercise.start", { type: "Juggling" }).then()
+            compare(Backend.conf[key], "")
+            // the app's keys as they are: a yoga session
+            ask("exercise.start", { type: "Yoga" }).then()
+            compare(String(Backend.conf[key]).split("@")[0], "Yoga")
+        }
+
+        // R5 D-12: tomorrow's events in order (an all-day one first), the next day's left out; the chip opens the app
+        function test_d12_day_list() {
+            top.agendaEvents = [
+                { start: at(1, 13, 30), end: at(1, 14, 0), title: "Dentist", allDay: false },
+                { start: at(1, 9, 0), end: at(1, 10, 0), title: "Design review", allDay: false },
+                { start: at(1, 0, 0), end: at(2, 0, 0), title: "Market day", allDay: true },
+                { start: at(2, 9, 0), end: at(2, 10, 0), title: "Book club", allDay: false }
+            ]
+            var c = askLater("calendar.query", { day: 1 })
+            compare(c.text, "You have 3 events tomorrow: Market day (all day), Design review at 09:00 and Dentist at 13:30.")
+            compare(c.title, "All day")
+            compare(c.chips.length, 1)
+            compare(c.chips[0].label, "Open Calendar")
+            Backend.confSet("/org/asteroidos/calendar/ui/open", "")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            verify(r !== null && r.close === true)
+            r.then()
+            compare(fakeDesktop.launched, ["asteroid-calendar"])
+            compare(Backend.conf["/org/asteroidos/calendar/ui/open"], "")
+            // the reader is made for the question and dropped after it
+            tryCompare(top, "agendaReaders", 0)
+            // four events: three named, the rest counted
+            top.agendaEvents = top.agendaEvents.concat([{ start: at(1, 18, 0), end: at(1, 19, 0), title: "Choir", allDay: false }])
+            compare(askLater("calendar.query", { day: 1 }).text,
+                    "You have 4 events tomorrow: Market day (all day), Design review at 09:00 and Dentist at 13:30. And 1 more.")
+        }
+
+        // R5 D-12: one event: the card names it and the chip opens the Calendar on it (the agenda tile's request)
+        function test_d12_one_event() {
+            var start = at(1, 9, 0)
+            top.agendaEvents = [{ start: start, end: at(1, 10, 0), title: "Design review", allDay: false }]
+            var c = askLater("calendar.query", { day: 1 })
+            compare(c.text, "You have 1 event tomorrow: Design review at 09:00.")
+            compare(c.title, "09:00")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            compare(fakeDesktop.launched, ["asteroid-calendar"])
+            var req = String(Backend.conf["/org/asteroidos/calendar/ui/open"])
+            compare(req.split("@")[0], "event:" + start)
+        }
+
+        // R5 D-12: the next event of the week, one that is on now, none
+        function test_d12_next() {
+            var start = at(3, 10, 0)
+            top.agendaEvents = [{ start: start, end: at(3, 11, 0), title: "Book club", allDay: false }]
+            var day = Qt.locale("en_GB").dayName(new Date(start).getDay(), Locale.LongFormat)
+            var c = askLater("calendar.query", { day: 0, next: true })
+            compare(c.text, "Your next event is Book club, on " + day + " at 10:00.")
+            compare(c.title, "10:00")
+            // one on now comes first
+            var n = Date.now()
+            var end = new Date(n + 20 * 60000)
+            top.agendaEvents = top.agendaEvents.concat([{ start: n - 10 * 60000, end: end.getTime(), title: "Stand-up", allDay: false }])
+            c = askLater("calendar.query", { day: 0, next: true })
+            compare(c.text, "Stand-up is on now, until " + Qt.formatTime(end, "HH:mm") + ".")
+            // nothing in the coming week (the window ends a week ahead)
+            top.agendaEvents = [{ start: at(9, 10, 0), end: at(9, 11, 0), title: "Far away", allDay: false }]
+            c = askLater("calendar.query", { day: 0, next: true })
+            compare(c.text, "There's nothing on your calendar for the next 7 days.")
+            compare(c.title, "")
+        }
+
+        // R5 D-23: last week's steps (Monday to Sunday), the average; a day with nothing; Health's steps page
+        function test_d23_steps_history() {
+            var m0 = weekdayIndex()
+            var sums = {}
+            for (var i = 0; i < 7; i++)
+                sums[SensorlogdFixture.dayKey(dayAgo(m0 + 7 - i))] = { steps: 1000 * (i + 1), distanceM: 0 }
+            // this week's Monday is not last week's
+            sums[SensorlogdFixture.dayKey(dayAgo(m0))] = { steps: 99999, distanceM: 0 }
+            SensorlogdFixture.summaries = sums
+            var c = ask("health.steps", { period: "lastweek", from: m0 + 7, to: m0 + 1 })
+            compare(c.text, "You took 28,000 steps last week. That's 4,000 a day on average.")
+            compare(c.title, "28,000")
+            compare(c.chips[0].label, "Open Health")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            compare(fakeDesktop.launched, ["asteroid-health"])
+            verify(String(Backend.conf["/org/asteroidos/health/ui/open"]).indexOf("steps@") === 0)
+            // nothing logged that day
+            SensorlogdFixture.summaries = {}
+            compare(ask("health.steps", { period: "yesterday", from: 1, to: 1 }).text, "I don't have your steps for yesterday.")
+            // a weekday
+            var s = {}
+            s[SensorlogdFixture.dayKey(dayAgo(3))] = { steps: 6543, distanceM: 0 }
+            SensorlogdFixture.summaries = s
+            var day = Qt.locale("en_GB").dayName(dayAgo(3).getDay(), Locale.LongFormat)
+            compare(ask("health.steps", { period: "weekday", from: 3, to: 3 }).text, "You took 6,543 steps on " + day + ".")
+        }
+
+        // R5 D-23: the distance of a day, in the unit said; today so far; Health's distance page
+        function test_d23_distance() {
+            var s = {}
+            s[SensorlogdFixture.dayKey(dayAgo(1))] = { steps: 7000, distanceM: 5240 }
+            s[SensorlogdFixture.dayKey(dayAgo(0))] = { steps: 2000, distanceM: 1500 }
+            SensorlogdFixture.summaries = s
+            var c = ask("health.distance", { period: "yesterday", from: 1, to: 1, unit: "km" })
+            compare(c.text, "You covered 5.24 km yesterday.")
+            compare(c.title, "5.24 km")
+            compare(ask("health.distance", { period: "yesterday", from: 1, to: 1, unit: "mi" }).text, "You covered 3.26 mi yesterday.")
+            compare(ask("health.distance", { period: "today", from: 0, to: 0, unit: "km" }).text, "You've covered 1.50 km today.")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            verify(String(Backend.conf["/org/asteroidos/health/ui/open"]).indexOf("distance@") === 0)
+        }
+
+        // R5 D-23: workouts: the newest of a type, a period's total, the time, the count, the last one, none
+        function test_d23_workouts() {
+            var now = Date.now()
+            SensorlogdFixture.workouts = [
+                { id: 1, startMs: at(-2, 7, 0), endMs: at(-2, 7, 31), activeS: 1860, type: "Run", distanceM: 5200, ended: true },
+                { id: 2, startMs: now - 25 * 60000, endMs: now - 5 * 60000, activeS: 1200, type: "Run", distanceM: 3000, ended: true },
+                { id: 3, startMs: at(-1, 18, 0), endMs: at(-1, 19, 0), activeS: 3600, type: "Bike", distanceM: 20000, ended: true },
+                { id: 4, startMs: at(-3, 8, 0), endMs: at(-3, 8, 30), activeS: 1800, type: "PoolSwim", distanceM: 1000, ended: true },
+                { id: 5, startMs: now - 60000, endMs: 0, activeS: 60, type: "Run", distanceM: 100, ended: false },
+                { id: 6, startMs: at(-20, 9, 0), endMs: at(-20, 10, 0), activeS: 3600, type: "Run", distanceM: 10000, ended: true }
+            ]
+            var c = ask("workout.query", { type: "Run", metric: "distance", unit: "km" })
+            compare(c.text, "Your last run was 3.00 km, today.")
+            compare(c.title, "3.00 km")
+            compare(ask("workout.query", { type: "Run", metric: "distance", unit: "km", period: "7days", from: 6, to: 0 }).text,
+                    "You covered 8.20 km in 2 runs in the last 7 days.")
+            compare(ask("workout.query", { type: "Bike", metric: "time", period: "7days", from: 6, to: 0 }).text,
+                    "You spent 1 hour on 1 bike ride in the last 7 days.")
+            compare(ask("workout.query", { type: "Run", metric: "count", period: "7days", from: 6, to: 0 }).text,
+                    "You did 2 runs in the last 7 days.")
+            var day = Qt.locale("en_GB").dayName(dayAgo(3).getDay(), Locale.LongFormat)
+            compare(ask("workout.query", { type: "Swim", metric: "last", unit: "km" }).text,
+                    "Your last swim was on " + day + ": 1.00 km in 30 minutes.")
+            // "how many runs": this week's
+            var monday = dayAgo(weekdayIndex()).getTime()
+            var runs = SensorlogdFixture.workouts.filter(function (w) { return w.type === "Run" && w.ended && w.startMs >= monday }).length
+            compare(ask("workout.query", { type: "Run", metric: "count" }).text, "You did " + runs + " " + (runs === 1 ? "run" : "runs") + " this week.")
+            // none
+            compare(ask("workout.query", { type: "Hike", metric: "distance" }).text, "You haven't recorded a hike yet.")
+            compare(ask("workout.query", { type: "Hike", metric: "count", period: "lastweek", from: 9, to: 3 }).text, "You didn't do any hikes last week.")
+            // the last workout of any type, Health's exercise page
+            c = ask("workout.query", { metric: "last", unit: "km" })
+            compare(c.text, "Your last workout was today: 3.00 km in 20 minutes.")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            verify(String(Backend.conf["/org/asteroidos/health/ui/open"]).indexOf("exercise@") === 0)
+        }
+
+        // R5 D-23: the health reader file loads and makes its two loaders (here on the repo double of sensorlogd)
+        function test_d23_health_reader() {
+            var comp = Qt.createComponent(Qt.resolvedUrl("st/qml/assistant/AssistantHealth.qml"))
+            compare(comp.status, Component.Ready, comp.errorString())
+            var alive = SensorlogdFixture.alive
+            var h = comp.createObject(top)
+            verify(h !== null && h.metrics !== null && h.workouts !== null)
+            compare(SensorlogdFixture.alive, alive + 2)
+            h.destroy()
+            tryCompare(SensorlogdFixture, "alive", alive)
+        }
+
+        // R5 D-12: the real reader (org.nemomobile.calendar of the image) loads, reads its window and gives a list
+        function test_d12_real_reader() {
+            var comp = Qt.createComponent(Qt.resolvedUrl("st/qml/assistant/AssistantAgenda.qml"))
+            compare(comp.status, Component.Ready, comp.errorString())
+            var n = new Date()
+            var r = comp.createObject(top, { "startDate": new Date(n.getFullYear(), n.getMonth(), n.getDate()),
+                                             "endDate": new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) })
+            verify(r !== null)
+            var l = r.list()
+            verify(Array.isArray(l))
+            r.destroy()
+        }
+
+        // R5 D-12: a clear day, a day whose events have ended, an empty tomorrow
+        function test_d12_clear() {
+            top.agendaEvents = []
+            compare(askLater("calendar.query", { day: 0 }).text, "Your day is clear.")
+            compare(askLater("calendar.query", { day: 1 }).text, "There's nothing on your calendar tomorrow.")
+            var n = new Date()
+            var earlier = new Date(n.getTime() - 40 * 60000)
+            if (earlier.getDate() === n.getDate()) {
+                top.agendaEvents = [{ start: earlier.getTime(), end: n.getTime() - 10 * 60000, title: "Breakfast", allDay: false }]
+                compare(askLater("calendar.query", { day: 0 }).text, "There's nothing else on your calendar today.")
+            }
+        }
+
+        // R5 D-20: nothing to pause, resume or reset (stock's no_timers_alarms_running, no_timers_to_reset_message)
+        function test_d20_nothing_active() {
+            var none = "I couldn't find any timers or alarms that are active right now."
+            compare(ask("timer.pause", {}).text, none)
+            compare(ask("timer.resume", {}).text, none)
+            compare(ask("timer.reset", {}).text, none)
+            // a timer that rang: not active, nothing changes
+            var rung = AlarmsMock.make({ countdown: true, minute: 1, enabled: true, triggerTime: nowS() - 30 })
+            AlarmsMock.alarms = [rung]
+            compare(ask("timer.pause", {}).text, none)
+            compare(ask("timer.reset", {}).text, "I couldn't find any timers to reset.")
+            compare(rung.enabled, true)
+            verify(rung.triggerTime > 0)
+            // an alarm is never a timer
+            AlarmsMock.alarms = [AlarmsMock.make({ countdown: false, hour: 7, minute: 0, enabled: true })]
+            compare(ask("timer.pause", {}).text, none)
         }
     }
 }
