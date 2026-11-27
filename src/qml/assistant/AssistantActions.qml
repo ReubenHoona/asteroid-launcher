@@ -205,6 +205,7 @@ Item {
                                        }), "#c58af9"))
         case "timer.cancel": return timerCancel(done)
         case "timer.query": return timerQuery(done)
+        case "timer.pause": case "timer.resume": case "timer.reset": return timerControl(intent.slice(6), done)
         case "alarm.set": return alarmSet(s, done)
         case "alarm.ask": return done(card("ios-alarm-outline", "", loc("id-asst-alarm-when", "For what time? Say, for example, \"Set an alarm for 7 AM\"."),
                                        [chipOpen(loc("id-asst-open-alarms", "Open Alarms"), "asteroid-alarmclock")], "#f6aea9"))
@@ -326,6 +327,57 @@ Item {
         var text = left < 90 ? loc("id-asst-left-s", "%1 left.").arg(minutesText(left))
                              : loc("id-asst-left-m", "About %1 left.").arg(minutesText(Math.round(left / 60) * 60))
         done(card("ios-timer-outline", countdownClock(left), text, [chipOpen(loc("id-asst-open-timer", "Open Timer"), "asteroid-timer")], "#c58af9"))
+    }
+
+    // Pause, resume or reset the timer, as Assistant's own timer actions (stock sny.java:187-380): pause a
+    // running timer ("I have paused the timer."), resume a paused one, reset either to its whole length, waiting
+    // (the Timer app's Reset); the same edits of the countdown alarm as asteroid-timer's TimerEngine (pause:
+    // enabled off and save, nemo keeps the seconds run; resume: enabled on and save; reset: enabled off,
+    // reset(), save). The card shows the time left and opens the Timer
+    function timerControl(op, done) {
+        var now = Date.now()
+        var running = [], paused = []
+        forEachAlarm(countdowns, function (a) {
+            var st = Clock.classify(a, now)
+            if (st.state === "running") running.push({ a: a, st: st })
+            else if (st.state === "paused") paused.push({ a: a, st: st })
+        })
+        running.sort(function (x, y) { return x.st.endMs - y.st.endMs })
+        var icon = "ios-timer-outline"
+        var text = function (t) { return card(icon, "", t) }
+        var none = loc("id-asst-timer-none-active", "I couldn't find any timers or alarms that are active right now.")
+        var shown = function (seconds, t) {
+            return card(icon, countdownClock(Math.max(0, Math.round(seconds))), t,
+                        [chipOpen(loc("id-asst-open-timer", "Open Timer"), "asteroid-timer")], "#c58af9")
+        }
+        if (op === "pause") {
+            if (running.length === 0)
+                return done(text(paused.length > 0 ? loc("id-asst-timer-already-paused", "Timer is already paused.") : none))
+            var r = running[0]
+            var left = (r.st.endMs - now) / 1000
+            r.a.enabled = false
+            r.a.save()
+            return done(shown(left, loc("id-asst-timer-paused", "I have paused the timer.")))
+        }
+        if (op === "resume") {
+            if (paused.length === 0)
+                return done(text(running.length > 0 ? loc("id-asst-timer-already-running", "Timer is already running.") : none))
+            var p = paused[0]
+            p.a.enabled = true
+            p.a.save()
+            return done(shown(p.st.frozenMs / 1000, loc("id-asst-timer-resumed", "I have resumed the timer.")))
+        }
+        // reset
+        var t = running.length > 0 ? running[0] : paused.length > 0 ? paused[0] : null
+        if (!t) {
+            var any = false
+            forEachAlarm(countdowns, function () { any = true })
+            return done(text(any ? loc("id-asst-timer-none-reset", "I couldn't find any timers to reset.") : none))
+        }
+        t.a.enabled = false
+        t.a.reset()
+        t.a.save()
+        done(shown(t.st.durationSec, loc("id-asst-timer-reset", "I have reset the timer.")))
     }
 
     function alarmSet(s, done) {

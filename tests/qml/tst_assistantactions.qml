@@ -11,6 +11,8 @@
 //    is not active.
 //  - health-fitness-21: the heart rate answers with the last reading or "--" and opens Health's heart
 //    rate page ("heartrate@<ms>"), never the hidden asteroid-hrm.
+//  - R5 D-20: pause, resume and reset the timer by voice (Assistant's timer_paused/_resumed/_reset_confirmation),
+//    with the Timer app's edits of the countdown alarm, stock's answers when there is nothing to do.
 // MODE=st (the staged tree).
 import QtQuick
 import QtTest
@@ -153,6 +155,63 @@ Item {
             verify(got !== null && got.close === true)
             got.then()
             compare(fakeDesktop.launched, ["asteroid-health"])
+        }
+
+        // R5 D-20: a running 5 minute timer with 3 minutes left is paused, then resumed, then reset
+        function test_d20_pause_resume_reset() {
+            var t = AlarmsMock.make({ countdown: true, minute: 5, enabled: true, triggerTime: nowS() + 180 })
+            AlarmsMock.alarms = [t]
+            var c = ask("timer.pause", {})
+            compare(c.text, "I have paused the timer.")
+            compare(t.enabled, false)
+            compare(t.triggerTime, 0)
+            verify(t.elapsed >= 119 && t.elapsed <= 121, "elapsed " + t.elapsed)
+            verify(c.title === "3:00" || c.title === "2:59", c.title)
+            compare(c.chips.length, 1)
+            compare(c.chips[0].label, "Open Timer")
+            // paused: pausing again says so and changes nothing
+            c = ask("timer.pause", {})
+            compare(c.text, "Timer is already paused.")
+            compare(t.triggerTime, 0)
+            // resume: it ends what was left from now
+            c = ask("timer.resume", {})
+            compare(c.text, "I have resumed the timer.")
+            compare(t.enabled, true)
+            var left = t.triggerTime - nowS()
+            verify(left >= 178 && left <= 181, "left " + left)
+            c = ask("timer.resume", {})
+            compare(c.text, "Timer is already running.")
+            // reset: the whole length, waiting (the Timer app's Reset), the same alarm
+            c = ask("timer.reset", {})
+            compare(c.text, "I have reset the timer.")
+            compare(c.title, "5:00")
+            compare(t.enabled, false)
+            compare(t.triggerTime, 0)
+            compare(t.elapsed, 0)
+            compare(AlarmsMock.alarms, [t])
+            // a reset timer is a paused one at its whole length: resume starts it
+            c = ask("timer.resume", {})
+            compare(c.text, "I have resumed the timer.")
+            left = t.triggerTime - nowS()
+            verify(left >= 298 && left <= 301, "left " + left)
+        }
+
+        // R5 D-20: nothing to pause, resume or reset (stock's no_timers_alarms_running, no_timers_to_reset_message)
+        function test_d20_nothing_active() {
+            var none = "I couldn't find any timers or alarms that are active right now."
+            compare(ask("timer.pause", {}).text, none)
+            compare(ask("timer.resume", {}).text, none)
+            compare(ask("timer.reset", {}).text, none)
+            // a timer that rang: not active, nothing changes
+            var rung = AlarmsMock.make({ countdown: true, minute: 1, enabled: true, triggerTime: nowS() - 30 })
+            AlarmsMock.alarms = [rung]
+            compare(ask("timer.pause", {}).text, none)
+            compare(ask("timer.reset", {}).text, "I couldn't find any timers to reset.")
+            compare(rung.enabled, true)
+            verify(rung.triggerTime > 0)
+            // an alarm is never a timer
+            AlarmsMock.alarms = [AlarmsMock.make({ countdown: false, hour: 7, minute: 0, enabled: true })]
+            compare(ask("timer.pause", {}).text, none)
         }
     }
 }

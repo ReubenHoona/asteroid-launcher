@@ -4,6 +4,10 @@
 // creatable: AlarmsModel.createAlarm() gives an alarm object whose save() adds it to `alarms` (a countdown
 // that is enabled gets its triggerTime, as nemo's) and whose deleteAlarm() takes it out (default off: no
 // test starts a timer by accident).
+// A countdown's save() and reset() do what nemo's AlarmObject does (alarmobject.cpp save(), reset()): enabled
+// with no trigger time, it ends the duration less `elapsed` from now; disabled with a trigger time (a pause),
+// `elapsed` is the time run and the trigger time 0; disabled without one, `elapsed` is 0. reset(): elapsed and
+// triggerTime 0.
 pragma Singleton
 import QtQuick
 
@@ -13,8 +17,14 @@ QtObject {
     property int lastId: 1000
 
     function save(a) {
-        if (a.countdown && a.enabled && !(a.triggerTime > 0))
-            a.triggerTime = Math.floor(Date.now() / 1000) + a.hour * 3600 + a.minute * 60 + a.second
+        var now = Math.floor(Date.now() / 1000)
+        var dur = a.hour * 3600 + a.minute * 60 + a.second
+        if (a.countdown && a.enabled && !(a.triggerTime > 0)) {
+            a.triggerTime = now + dur - (a.elapsed > 0 ? a.elapsed : 0)
+        } else if (a.countdown && !a.enabled) {
+            a.elapsed = a.triggerTime > 0 ? dur - (a.triggerTime - now) : 0
+            a.triggerTime = 0
+        }
         var list = alarms.slice()
         if (list.indexOf(a) < 0)
             list.push(a)
@@ -31,6 +41,7 @@ QtObject {
             a[k] = fields[k]
         a.save = function () { save(a) }
         a.deleteAlarm = function () { remove(a) }
+        a.reset = function () { if (a.countdown) { a.elapsed = 0; a.triggerTime = 0 } }
         return a
     }
 }
