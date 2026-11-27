@@ -37,6 +37,8 @@ Item {
 
     Rectangle { anchors.fill: parent; color: "black" }
     Loader { id: ld; anchors.fill: parent }
+    // the digits' advances (A-21)
+    FontMetrics { id: digitProbe; font.family: "Roboto"; font.pixelSize: 90 }
 
     readonly property string shots: "/tmp/concentric-shots/"
 
@@ -379,12 +381,10 @@ Item {
             // the hub's glyph cells: every digit one advance wide in the dial's and the time's weights
             var weights = [Font.Light, Font.Normal, Font.Medium]
             for (var w = 0; w < weights.length; w++) {
-                var fm = Qt.createQmlObject("import QtQuick; FontMetrics { font.family: 'Roboto'; font.pixelSize: 90; font.weight: "
-                                            + weights[w] + " }", top)
-                var adv = fm.advanceWidth("0")
+                digitProbe.font.weight = weights[w]
+                var adv = digitProbe.advanceWidth("0")
                 for (var dgt = 1; dgt <= 9; dgt++)
-                    compare(fm.advanceWidth(String(dgt)), adv, "weight " + weights[w] + " digit " + dgt)
-                fm.destroy()
+                    compare(digitProbe.advanceWidth(String(dgt)), adv, "weight " + weights[w] + " digit " + dgt)
             }
             ld.source = ""
         }
@@ -394,19 +394,19 @@ Item {
             // the faces of the image, in their folder's order
             var installed = ["000-default-digital.qml", "010-analog-aviator.qml", "018-modular.qml", "019-list.qml",
                              "020-stacked.qml", "021-classic.qml", "022-large.qml", "023-bold-numerals.qml",
-                             "027-concentric.qml"].map(function (f) {
+                             "027-concentric.qml", "028-big-time.qml"].map(function (f) {
                 return "file:///usr/share/asteroid-launcher/watchfaces/" + f
             })
             var current = "file:///usr/share/asteroid-launcher/watchfaces/027-concentric.qml"
             var names = FP.defaults(installed, current).map(function (e) { return FP.plainName(e.file) })
-            // S15: Concentric, Utility, Classic, ..., Big Time (Large) last; the face on the watch once
+            // S15: Concentric, Utility, Classic, ..., Big Time last (A-07); the face on the watch once
             compare(names[0], "concentric")
             compare(names[1], "modular")
             compare(names[2], "classic")
-            compare(names[names.length - 1], "large")
+            compare(names[names.length - 1], "big-time")
             compare(names.length, 9)
             compare(names, ["concentric", "modular", "classic", "bold-numerals", "list", "stacked",
-                            "default-digital", "analog-aviator", "large"])
+                            "default-digital", "analog-aviator", "big-time"])
         }
     }
 }

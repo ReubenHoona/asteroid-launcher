@@ -26,6 +26,9 @@ Item {
     property color color: "white"
     property color ambientColor: "#b3b3b3"
     property real blend: 0
+    // the weights of the two layers (a face whose always-on look is its awake one gives the same twice)
+    property int liveWeight: Kit.weight(bold, false)
+    property int ambientWeight: Kit.weight(bold, true)
     property string family: Kit.FONT
     property int horizontalAlignment: Text.AlignHCenter
 
@@ -48,7 +51,7 @@ Item {
         renderType: Text.NativeRendering
         font.family: num.family
         font.pixelSize: Math.round(num.pixelSize)
-        font.weight: Kit.weight(num.bold, false)
+        font.weight: num.liveWeight
     }
     Text {
         id: ambientText
@@ -61,6 +64,6 @@ Item {
         renderType: Text.NativeRendering
         font.family: num.family
         font.pixelSize: Math.round(num.pixelSize)
-        font.weight: Kit.weight(num.bold, true)
+        font.weight: num.ambientWeight
     }
 }

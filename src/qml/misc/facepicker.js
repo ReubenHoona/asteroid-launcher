@@ -314,9 +314,9 @@ function idleAction(view, centred) {
 // (modular, bold-numerals, classic, large, list, stacked), and the user's rule is "do what
 // stock does" (stock's favourites include the analog Analog Bold and Classic).
 // The order of stock Wear OS 6's fresh carousel (S15: Concentric, Utility, Classic, ..., Big Time last):
-// Concentric, the default face, leads, Modular stands in for Utility, Large for Big Time.
+// Concentric, the default face, leads, Modular stands in for Utility; Big Time (A-07) is last.
 var DEFAULT_FACES = ["concentric", "modular", "classic", "bold-numerals", "list", "stacked",
-                     "default-digital", "analog-aviator", "large"]
+                     "default-digital", "analog-aviator", "big-time"]
 
 function stemOf(file) {
     return String(file).split("/").pop().replace(/\.qml$/, "")

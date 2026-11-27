@@ -462,6 +462,13 @@ function photo(layout) {
 // the shade over the picture so the time stays readable, and its alpha in the always-on screen (the time alone)
 var PHOTO_SHADE = 0.35
 
+/* Big Time (A-07; watch_face_bigtime.xml, BigTimeWatchFaceService, RWF glb.java and gkz.java cases 0-5): the hours
+ * over the minutes, each 80 units (160 px) of Clepsydra centred in its box (glb.a 15,10-177,90 and glb.b
+ * 15,82-177,162 units); no slot, no option but Color. The stock preview (preview_bigtime.png, at 384 px): digits
+ * 122 px tall with an 8 px stroke, ink centres at y 121.2 (hours) and 265.2 (minutes). Ours: Roboto Light (a 10 px
+ * stem at this size; Thin is 5 px) at 167 px, which gives the 122 px digits, centred on the preview's ink centres. */
+var BIG_TIME = { size: 167, hour: box(30, 41.2, 324, 160), minute: box(30, 185.2, 324, 160) }
+
 // the face a Loader fails on (watchface-catalogue-27, SysUI Simple: iqp.java:75-97,131-155)
 var SIMPLE = { size: 100, digitOffset: 13.1, colonDot: 4, colonOffset: 16.7, ambientText: "#808080" }
 

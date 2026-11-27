@@ -8,7 +8,9 @@
  *    (preview_accessible.png), Concentric's text colours equal to the roles;
  *  - A-14: the complication chooser lists only the sources whose stock data types the slot takes
  *    (faceeditor.js SOURCE_TYPES, slotTypes, accepts; EditorProviderList.openFor with the slot);
- *  - A-11: the picker names the eos faces with the stock faces' names (RWF strings.xml).
+ *  - A-11: the picker names the eos faces with the stock faces' names (RWF strings.xml);
+ *  - A-07: the Big Time face (two tones, 122 px digits on the stock preview's ink centres, the same look
+ *    always-on, the hub's time items), screenshots into /tmp/r5f-shots.
  * qmltestrunner under qemu-aarch64 with the image rootfs (offscreen, software Qt Quick), run in place
  * (the faces of ../../src).
  */
@@ -35,6 +37,9 @@ Item {
 
     Rectangle { anchors.fill: parent; color: "black" }
     Loader { id: ld; anchors.fill: parent }
+    readonly property string shots: "/tmp/r5f-shots/"
+    // the digits' ink (A-07)
+    FontMetrics { id: bigProbe }
     // the editor's chooser sheet (A-14), with a stand-in for the home screen's sources
     EditorProviderList { id: chooserSheet; sources: fakeSources }
 
@@ -272,6 +277,75 @@ Item {
             var installed = ["018-modular", "021-classic", "027-concentric"].map(function (s) { return sys + s + ".qml" })
             compare(FP.defaults(installed, sys + "027-concentric.qml").map(function (e) { return e.id }),
                     ["027-concentric", "018-modular", "021-classic"])
+        }
+
+        // ---- A-07: Big Time ----
+        function shoot(name) {
+            var got = { ok: false }
+            top.grabToImage(function (r) { got.r = r; got.ok = true })
+            tryVerify(function () { return got.ok }, 10000)
+            verify(got.r.saveToFile(top.shots + name), name)
+        }
+        function at(h, m, ambient, use12) {
+            top.displayAmbient = ambient === true
+            top.use12H = { value: use12 !== false }
+            top.wallClock = { time: new Date(2026, 10, 24, h, m, 0) }
+        }
+        function test_a07_big_time() {
+            at(10, 9, false)
+            var f = load("028-big-time")
+            // Color only: the 51, Pomelo; no slot
+            compare(f.eosOptions.length, 1)
+            compare(f.eosOptions[0].id, "color")
+            compare(f.eosOptions[0].values.length, 51)
+            compare(f.opt("color"), "pomelo")
+            compare(findAll(f, "eosComplication").length, 0)
+            var st = findAll(f, "eosTime")[0]
+            var hh = st.hourItem, mm = st.minuteItem
+            compare(hh.text, "10")
+            compare(mm.text, "09")
+            // the two tones: the hours in role c, the minutes in role e (preview_bigtime.png: #F8908B, #FFCBC9)
+            compare(String(hh.interactiveItem.color), "#f8908b")
+            compare(String(mm.interactiveItem.color), "#ffcbc9")
+            // Roboto Light at 167 px: 122 px digits (the preview's), the middles on its ink centres
+            compare(hh.interactiveItem.font.pixelSize, 167)
+            compare(hh.interactiveItem.font.weight, Font.Light)
+            compare(mm.interactiveItem.font.weight, Font.Light)
+            bigProbe.font = hh.interactiveItem.font
+            var ink = bigProbe.tightBoundingRect("10")
+            verify(Math.abs(ink.height - 122) <= 2, "digits " + ink.height + " px")
+            var mid = function (it) { return it.mapToItem(top, 0, Kit.DIGIT_CENTER * it.font.pixelSize).y }
+            verify(Math.abs(mid(hh.interactiveItem) - 121.2) <= 1, "hour middle " + mid(hh.interactiveItem))
+            verify(Math.abs(mid(mm.interactiveItem) - 265.2) <= 1, "minute middle " + mid(mm.interactiveItem))
+            // centred across the screen
+            var cx = function (it) { return it.mapToItem(top, it.width / 2, 0).x }
+            verify(Math.abs(cx(hh) - 192) <= 0.5 && Math.abs(cx(mm) - 192) <= 0.5)
+            shoot("bigtime-1009-awake.png")
+            // two-tone colourways: Sunset (pop14) hours pink, minutes blue
+            f.eosStyle = { color: "sunset" }
+            compare(String(hh.interactiveItem.color), "#ffcaed")
+            compare(String(mm.interactiveItem.color), "#b6daf1")
+            shoot("bigtime-1009-sunset.png")
+            f.eosStyle = {}
+            // always-on: the same look (stock's ambient blocks set nothing), the hub's items carry it
+            at(18, 33, true)
+            f = load("028-big-time")
+            tryCompare(f, "blend", 1, 5000)
+            var h2 = findAll(f, "eosHubHour")[0], m2 = findAll(f, "eosHubMinute")[0]
+            compare(h2.text, "6")
+            compare(m2.text, "33")
+            compare(String(h2.color), "#f8908b")
+            compare(String(m2.color), "#ffcbc9")
+            compare(h2.font.weight, Font.Light)
+            compare(h2.renderType, Text.NativeRendering)
+            compare(h2.font.family, "Roboto")
+            shoot("bigtime-0633-ambient.png")
+            // 24 h: two digits
+            at(18, 33, false, false)
+            f = load("028-big-time")
+            compare(findAll(f, "eosTime")[0].hourItem.text, "18")
+            ld.source = ""
+            at(10, 9, false)
         }
     }
 }
