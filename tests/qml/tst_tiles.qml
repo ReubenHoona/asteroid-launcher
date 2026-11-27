@@ -666,13 +666,17 @@ Item {
             verify(String(Backend.conf["/org/asteroidos/alarmclock/open"]).indexOf("new@") === 0)
         }
 
+        // the tile's clock (TileBase.clock) at a fixed time: on the wall clock the time to go and the day
+        // depended on the second the test ran in ('22h 57m' when the tile was made in the next minute)
+        function fixedClock(ms) { return function () { return ms } }
+
         function test_n61_28_alarm_next() {
-            // one alarm on, 22 h 58 min ahead (S14-d's preview)
-            var now = new Date()
+            // one alarm on, 22 h 58 min ahead (S14-d's preview): at 9:00 on 10 March, the alarm at 7:58
+            var now = new Date(2026, 2, 10, 9, 0, 0)
             var at = new Date(now.getTime() + (22 * 60 + 58) * 60000)
             AlarmsMock.alarms = [{ id: 7, hour: at.getHours(), minute: at.getMinutes(), second: 0, daysOfWeek: "",
                                    enabled: true, countdown: false, triggerTime: 0, elapsed: 0 }]
-            var t = createTemporaryObject(alarmComp, top, {})
+            var t = createTemporaryObject(alarmComp, top, { clock: fixedClock(now.getTime()) })
             verify(t)
             waitForRendering(t)
             shot(t, "n61-28-next")
@@ -705,9 +709,7 @@ Item {
             fuzzyCompare(centre(t, row).x, 192, 1)
             // the day under it in yellow (S14-d 'Tomorrow' ink y 290-305)
             var day = findChild(t, "alarmDay")
-            var today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-            var ringDay = new Date(at.getFullYear(), at.getMonth(), at.getDate()).getTime()
-            compare(day.text, ringDay === today ? "Today" : "Tomorrow")
+            compare(day.text, "Tomorrow")
             compare(col(day.color), col("#FFFD66"))
             var d = inkRows(img, 120, 264, 280, 320, 0.5)
             fuzzyCompare(d.first, 290, 2)
@@ -734,12 +736,13 @@ Item {
         }
 
         function test_n61_28_alarm_snoozed() {
-            // snoozed: timed rings it again in 9 minutes, not at its own 7:00
-            var again = Math.floor(Date.now() / 1000) + 9 * 60
+            // snoozed: timed rings it again in 9 minutes, not at its own 7:00 (at 7:51 on 10 March)
+            var now = new Date(2026, 2, 10, 7, 51, 0).getTime()
+            var again = Math.floor(now / 1000) + 9 * 60
             var own = new Date((again - 3600) * 1000)
             AlarmsMock.alarms = [{ id: 3, hour: own.getHours(), minute: own.getMinutes(), second: 0, daysOfWeek: "",
                                    enabled: true, countdown: false, triggerTime: again, elapsed: 0 }]
-            var t = createTemporaryObject(alarmComp, top, {})
+            var t = createTemporaryObject(alarmComp, top, { clock: fixedClock(now) })
             verify(t)
             waitForRendering(t)
             compare(t.mode, "snoozed")

@@ -26,6 +26,7 @@ TileBase {
 
     WeatherSource {
         id: src
+        clock: tile.clock
         live: tile.live
         awake: tile.awake && !tile.preview
     }

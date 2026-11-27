@@ -54,6 +54,9 @@ Item {
     // on screen and drawing: not in ambient, not behind an app. Tiles that
     // count (the timer) tick only while this holds
     readonly property bool awake: live && Lipstick.compositor.homeActive && !Lipstick.compositor.displayAmbient
+    // the wall clock (ms since the epoch) a tile reads the time of day from: the alarm that rings
+    // next, today's events, the sun (tests set a fixed one)
+    property var clock: function () { return Date.now() }
     property string chipText: ""
     property string chipIcon: ""
     // the edge button's colours (stock filledButtonColors: primary / onPrimary;

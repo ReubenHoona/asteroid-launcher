@@ -26,6 +26,8 @@ Item {
     // the tile is on screen / on screen with the display on
     property bool live: false
     property bool awake: false
+    // the wall clock in ms: which day is today, the sun's next event (the tile's TileBase.clock)
+    property var clock: function () { return Date.now() }
 
     readonly property alias city: city
     readonly property alias fahrenheit: fahrenheit
@@ -62,14 +64,14 @@ Item {
         maxs: [d0max.value, d1max.value, d2max.value, d3max.value, d4max.value]
     })
     readonly property var forecast: WD.parseExtended(String(extended.value))
-    property var now: new Date()
+    property var now: new Date(clock())
     readonly property var weather: WD.build(forecast, legacy, now)
     readonly property var today: WD.today(weather)
     // the sun's next event for the Solar tile, with the time
     readonly property var solar: WD.solarInfo(weather, Math.floor(now.getTime() / 1000))
-    onForecastChanged: now = new Date()
-    onLegacyChanged: now = new Date()
-    onLiveChanged: if (live) now = new Date()
+    onForecastChanged: now = new Date(clock())
+    onLegacyChanged: now = new Date(clock())
+    onLiveChanged: if (live) now = new Date(clock())
 
     readonly property bool placeKnown: String(city.value) !== "" || String(userCity.value) !== ""
                                        || Number(userLat.value) !== 0 || Number(phoneLat.value) !== 0

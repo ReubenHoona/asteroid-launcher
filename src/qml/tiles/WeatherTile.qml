@@ -44,6 +44,7 @@ TileBase {
     // the forecast, its day logic and its state (the Weather app's), shared with the Solar and UV tiles
     WeatherSource {
         id: src
+        clock: tile.clock
         live: tile.live
         awake: tile.awake && !tile.preview
     }

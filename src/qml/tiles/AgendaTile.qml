@@ -34,10 +34,10 @@ TileBase {
     ConfigurationValue { id: calendarRequest; key: "/org/asteroidos/calendar/ui/open"; defaultValue: "" }
 
     // the window of the model: from the start of today a week ahead; moved on when the tile shows on another day
-    property date windowDay: new Date()
+    property date windowDay: new Date(clock())
     property var shown: null
-    // the time the shown event was chosen for (the title and the timer follow it)
-    property real stamp: Date.now()
+    // the time the shown event was chosen for (the title and the timer follow it; TileBase.clock)
+    property real stamp: clock()
 
     AgendaModel {
         id: agenda
@@ -51,7 +51,7 @@ TileBase {
     Component.onCompleted: refresh()
 
     function refresh() {
-        var now = new Date()
+        var now = new Date(clock())
         if (now.toDateString() !== windowDay.toDateString())
             windowDay = now
         stamp = now.getTime()
@@ -95,7 +95,7 @@ TileBase {
         id: changeTimer
         objectName: "agendaChange"
         readonly property real at: TC.nextChangeMs(tile.shown, tile.stamp)
-        interval: Math.max(1000, Math.min(2147483000, at - Date.now() + 500))
+        interval: Math.max(1000, Math.min(2147483000, at - tile.clock() + 500))
         repeat: false
         running: tile.awake && !tile.preview && at > 0
         onTriggered: tile.refresh()

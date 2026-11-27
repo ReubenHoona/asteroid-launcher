@@ -28,6 +28,7 @@ TileBase {
 
     WeatherSource {
         id: src
+        clock: tile.clock
         live: tile.live
         awake: tile.awake && !tile.preview
     }
@@ -61,7 +62,7 @@ TileBase {
     // tickMs > 0 is a test hook: a fixed interval instead of the whole minute.
     property int tickMs: 0
     function msToNextMinute() {
-        return tile.tickMs > 0 ? tile.tickMs : Math.max(1000, 60000 - (Date.now() % 60000) + 200)
+        return tile.tickMs > 0 ? tile.tickMs : Math.max(1000, 60000 - (tile.clock() % 60000) + 200)
     }
     Timer {
         id: minute
@@ -71,7 +72,7 @@ TileBase {
         running: tile.awake && !tile.preview && tile.known
         onRunningChanged: if (running) interval = tile.msToNextMinute()
         onTriggered: {
-            src.now = new Date()
+            src.now = new Date(tile.clock())
             interval = tile.msToNextMinute()
             if (tile.awake && !tile.preview && tile.known)
                 restart()

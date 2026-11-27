@@ -79,10 +79,10 @@ TileBase {
     // { state: "none" | "next" | "snoozed", alarm, at, until }
     property var pick: ({ state: "none" })
     readonly property string mode: pick.state
-    // the time the time to go is counted from (set by refresh() and the minute tick)
-    property real nowMs: Date.now()
+    // the time the time to go is counted from (set by refresh() and the minute tick; TileBase.clock)
+    property real nowMs: clock()
     onLiveChanged: if (live) refresh()
-    onAwakeChanged: if (awake) nowMs = Date.now()
+    onAwakeChanged: if (awake) nowMs = clock()
     Component.onCompleted: refresh()
 
     function refresh() {
@@ -92,7 +92,7 @@ TileBase {
             if (a)
                 list.push(a)
         }
-        nowMs = Date.now()
+        nowMs = clock()
         pick = Clock.pick(list, nowMs)
     }
 
@@ -104,7 +104,7 @@ TileBase {
         interval: Math.min(Clock.nextMinuteMs(tile.pick.at - tile.nowMs), 60001)
         running: tile.awake && tile.mode === "next"
         onTriggered: {
-            tile.nowMs = Date.now()
+            tile.nowMs = tile.clock()
             if (tile.awake && tile.mode === "next")
                 minuteTimer.restart()
         }
