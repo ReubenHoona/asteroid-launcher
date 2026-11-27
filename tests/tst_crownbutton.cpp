@@ -8,7 +8,7 @@
  *   asteroid-crown        pressed        asteroid-crown-wake  wakePressed
  *   asteroid-crown-long   longPressed    asteroid-crown-down  pressStarted
  *   asteroid-crown-up     released       screenshot           screenshotRequested
- *   anything else         triggered(action)
+ *   anything else         triggered(action) (the palm cover of mce 0014: "palm-cover")
  * Run it as: dbus-run-session -- sh -c 'DBUS_SYSTEM_BUS_ADDRESS=$DBUS_SESSION_BUS_ADDRESS ./tst_crownbutton'
  */
 
@@ -77,6 +77,8 @@ int main(int argc, char **argv)
         { "side-key",            "0 0 0 0 0 0 [side-key]" },
         { "side-key-long",       "0 0 0 0 0 0 [side-key-long]" },
         { "asteroid-crown-x",    "0 0 0 0 0 0 [asteroid-crown-x]" },
+        // mce 0014 (R5 B-03): a palm over the screen, for KeyRouter (keymap.js palmCover)
+        { "palm-cover",          "0 0 0 0 0 0 [palm-cover]" },
     };
     for (const Case &k : cases) {
         c = Counts();

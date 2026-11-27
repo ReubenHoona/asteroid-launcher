@@ -10,6 +10,7 @@
 // stand-ins with its ids (arbiter, comp, root, launchSplash, homeLoader). MODE=st (the staged tree).
 import QtQuick
 import QtTest
+import LauncherTest
 
 Item {
     id: top
@@ -28,7 +29,10 @@ Item {
         property bool thermalBlocking: false
         property bool headsUpShown: false
         property bool callInProgress: false
+        property bool callOngoing: false
         property int headsUpClosed: 0
+        property int silenced: 0
+        function silenceCall() { silenced++ }
         property var sos: ({})
         function noteInput() {}
         function closeHeadsUp() { headsUpClosed++ }
@@ -51,6 +55,12 @@ Item {
         function closeTopmost() { closed++ }
     }
     QtObject { id: launchSplash; property bool active: false }
+    // the launcher's CrownButton (mce's power_button_trigger): the palm cover comes as triggered("palm-cover")
+    QtObject {
+        id: crownButton
+        signal pressed()
+        signal triggered(string action)
+    }
     QtObject {
         id: homeLoader
         property var item: QtObject {
@@ -146,6 +156,48 @@ Item {
             kr.crownPressed()
             compare(win.closes, 0)
             compare(homeLoader.item.crown, 1)
+        }
+
+        // R5 B-03: mce 0014's power_button_trigger("palm-cover"): mce's req_display_state_lpm (ambient,
+        // or off without the always-on screen), or a ringing call silenced and the screen kept
+        function lpmCalls() {
+            return Backend.calls.filter(function (c) { return c.target === "com.nokia.mce"
+                                                             && c.method === "com.nokia.mce.request.req_display_state_lpm" }).length
+        }
+        function test_06_palm_cover_sleeps() {
+            Backend.clearCalls()
+            arbiter.silenced = 0
+            comp.left = 0
+            crownButton.triggered("palm-cover")
+            compare(lpmCalls(), 1)
+            compare(arbiter.silenced, 0)
+            // the app in front and its keyboard are not touched (the key never reaches them)
+            compare(win.closes, 0)
+            compare(root.closed, 0)
+            compare(comp.left, 0)
+            // another trigger is not the palm
+            crownButton.triggered("asteroid-crown-other")
+            compare(lpmCalls(), 1)
+        }
+        function test_07_palm_cover_silences_a_ringing_call() {
+            Backend.clearCalls()
+            arbiter.silenced = 0
+            arbiter.callShown = true
+            arbiter.callRinging = true
+            crownButton.triggered("palm-cover")
+            compare(arbiter.silenced, 1)
+            compare(lpmCalls(), 0, "the screen stays")
+            // silenced: the next palm keeps the screen too
+            arbiter.callRinging = false
+            crownButton.triggered("palm-cover")
+            compare(arbiter.silenced, 1)
+            compare(lpmCalls(), 0)
+            // answered: a palm puts the screen to sleep
+            arbiter.callOngoing = true
+            crownButton.triggered("palm-cover")
+            compare(lpmCalls(), 1)
+            arbiter.callShown = false
+            arbiter.callOngoing = false
         }
 
         function test_05_wake_press() {

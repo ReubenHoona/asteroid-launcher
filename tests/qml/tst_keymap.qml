@@ -70,4 +70,24 @@ TestCase {
         compare(KeyMap.crownWake(ctx({ fromAmbient: true, tiltToWake: false, appActive: true, appKeyboardOpen: true })), "none")
         compare(KeyMap.crownWake(ctx({ fromAmbient: true, appActive: true, appKeyboardOpen: true, callShown: true })), "none")
     }
+
+    // R5 B-03: a palm over the screen (mce 0014 "palm-cover") as stock's KEYCODE_SLEEP: a ringing call is
+    // silenced (config_silenceRingerOnSleepKey), else goToSleep (ambient or off)
+    function test_03_palm_cover() {
+        compare(KeyMap.palmCover(ctx({})), "sleep")
+        compare(KeyMap.palmCover(ctx({ callRinging: true, callShown: true })), "silenceCall")
+        // a ringing call already silenced keeps its screen; a call in progress goes to sleep with the rest
+        compare(KeyMap.palmCover(ctx({ callShown: true, callOngoing: false })), "none")
+        compare(KeyMap.palmCover(ctx({ callShown: true, callOngoing: true })), "sleep")
+        // the key never reaches the window in front: an app, its keyboard, a claim, setup, touch lock,
+        // an alert or the assistant change nothing
+        var others = [{ appActive: true }, { appActive: true, appKeyboardOpen: true }, { claimCrown: true },
+                      { claimSide: true }, { setup: true }, { touchLocked: true }, { alertShown: true },
+                      { assistantShown: true }, { headsUpShown: true }, { chargingShown: true },
+                      { keyguardLocked: true }, { powerMenuShown: true }]
+        for (var i = 0; i < others.length; i++)
+            compare(KeyMap.palmCover(ctx(others[i])), "sleep", JSON.stringify(others[i]))
+        // ringing wins over all of them
+        compare(KeyMap.palmCover(ctx({ callRinging: true, callShown: true, setup: true, appActive: true })), "silenceCall")
+    }
 }

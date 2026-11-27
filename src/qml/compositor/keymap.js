@@ -248,6 +248,22 @@ function crownWake(c) {
     return "face"
 }
 
+/* A palm over the screen (R5 B-03; mce 0014 sends power_button_trigger "palm-cover" at the release of
+ * the touch panel's KEY_SLEEP, only with the display on or dimmed), as stock's KEYCODE_SLEEP
+ * (PhoneWindowManager interceptKeyBeforeQueueing -> sleepRelease): a ringing call is silenced and the
+ * screen stays (config_silenceRingerOnSleepKey true); a ringing call already silenced keeps its screen
+ * too (silenceRinger again does nothing); else goToSleep(GO_TO_SLEEP_REASON_SLEEP_BUTTON), which is
+ * ambient with the always-on screen and off without it (config_shortPressOnSleepBehavior 0). The key
+ * never reaches the window in front (ACTION_PASS_TO_USER cleared), so no claim, keyboard, setup or
+ * touch lock changes it. Answers: silenceCall, none, sleep. */
+function palmCover(c) {
+    if (c.callRinging)
+        return "silenceCall"
+    if (c.callShown && !c.callOngoing)
+        return "none"
+    return "sleep"
+}
+
 /* The crown held 3000 ms (mce long_press_delay, power_button_trigger
  * "asteroid-crown-long", from any display state): the power menu while the
  * button is still down (veryLongPressOnPowerBehavior = 1,
