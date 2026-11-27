@@ -2681,5 +2681,13 @@ for %1 seconds to</translation>
         <source>Dismiss</source>
         <translation>Dismiss</translation>
     </message>
+    <message id="id-findwatch-ringing">
+        <source>Playing sound…</source>
+        <translation>Playing sound…</translation>
+    </message>
+    <message id="id-findwatch-note">
+        <source>To stop the sound, you can also press a button on your watch.</source>
+        <translation>To stop the sound, you can also press a button on your watch.</translation>
+    </message>
 </context>
 </TS>
