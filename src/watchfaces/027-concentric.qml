@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 import QtQuick
+import QtQuick.Shapes
 import org.asteroid.controls
 import "../eoskit"
 import "../eoskit/facekit.js" as Kit
@@ -35,9 +36,10 @@ import "../eoskit/concentric.js" as C
  *   always-on (S02)             outer numerals gone, outer ticks still (at 0),   the same; the switch over EosFace's
  *                               thin digits, circle; the switch is a cut (M13)    blend (300 ms in, at once out)
  *
- * Options: Color (default Cloud: white dial and pill), Layout: Dial I (default) and Dial II (no tick
- * rings). Stock's Half Dial (the face moved left, three complications) is not built: a known gap,
- * what stock does is in eoskit/concentric.js.
+ * Options: Color (default Cloud: white dial and pill), Layout: Dial I (default), Dial II (no tick
+ * rings) and Half Dial (A-06; stock's numbers in eoskit/concentric.js HALF): the dial 142 px to the
+ * left (its centre at x 50), the hour 82 px at the bezel, a shorter pill, the vignette that fades the
+ * dial into the left bezel, and three bulbs down the right (Weather, Date and month, Heart rate).
  * The hour has two digits in 12 h too ("06", stock); the minute is in the pill.
  * The font (A-21, NEWLOOK-61 open point 4): Roboto for every text, numerals included. Stock draws
  * Google Sans (the dial bitmap, the hour in Google Sans Clock), which is not ours to ship; the user
@@ -51,7 +53,9 @@ import "../eoskit/concentric.js" as C
  * the background, which the AP draws once: the outer ticks, the inner short ticks (a ring that
  * stands still always-on) and what lies over the dial, the black disk and the circle (eosHubCover):
  * the hub cuts their part out of the slots' cells, so it never draws a sprite over anything but
- * black. So the AP sleeps through the minutes.
+ * black. So the AP sleeps through the minutes. Half Dial: the same, moved; the vignette
+ * (eosHubShade) stays in the background and cuts the cells of the numerals it darkens, as a cover
+ * does; the bulbs are background too (their always-on values as ComplicationSources gives them).
  */
 EosFace {
     id: face
@@ -64,6 +68,9 @@ EosFace {
         Kit.listOption("layout", C.LAYOUTS, C.LAYOUT_NAMES, "dial1")
     ]
     readonly property bool ticksShown: opt("layout") !== "dial2"
+    readonly property bool half: opt("layout") === "half"
+    // Half Dial moves the dial, the pill and the time to the left (design px)
+    readonly property real shift: C.shiftOf(opt("layout"))
     // the dial's and the pill's colour: the colorway's text colour (white for Cloud)
     readonly property color ringColor: C.textColor(opt("color"))
     readonly property int numeralPx: Math.round(C.NUMERAL_PX * k)
@@ -196,160 +203,229 @@ EosFace {
         }
     }
 
-    // ---- the outer tick ring: turning with the seconds awake, still (at 0) always-on ----
-    TickRing {
-        objectName: "eosConcentricSecondsTicks"
-        spec: C.SECONDS_TICKS
-        turn: C.ringTurn(face.secondsT)
-        visible: face.ticksShown && face.blend < 1
-        opacity: 1 - face.blend
-    }
-    TickRing {
-        objectName: "eosConcentricAmbientTicks"
-        spec: C.SECONDS_TICKS
-        turn: 0
-        visible: face.ticksShown && face.blend > 0
-        opacity: face.blend
-    }
-
-    // ---- the inner dial: the minutes (the sensor hub draws it always-on) ----
+    // ---- the dial: Half Dial moves it 142 px to the left (the face's bounds, gnq case 8) ----
     Item {
-        id: minutesDial
-        objectName: "eosHubDial"
-        anchors.fill: parent
+        objectName: "eosConcentricDialLayer"
+        x: face.shift * face.k
+        width: face.width
+        height: face.height
 
-        // for the sensor hub (huboffload.cpp): the minute shown, where a numeral Text's top-left is
-        // at slot j at a whole minute, and where the long tick of slot j runs (this item's px)
-        readonly property int eosHubMinute: face.minute
-        readonly property real eosHubTickWidth: C.TICK_WIDTH * face.k
-        readonly property color eosHubTickColor: C.TICK_COLOR
-        function eosHubSlotOrigin(j) {
-            var p = C.numeralTopLeft(C.MINUTES_RADIUS, j * 6, minuteNumerals.itemAt(0).implicitWidth, face.k,
-                                     face.numeralPx, Kit.DIGIT_CENTER, true)
-            return Qt.point(p.x, p.y)
-        }
-        function eosHubTick(j) {
-            var l = C.tickLine(j * 6, C.MINUTES_TICKS.major[0], C.MINUTES_TICKS.major[1])
-            return { x1: l.x1 * face.k, y1: l.y1 * face.k, x2: l.x2 * face.k, y2: l.y2 * face.k }
-        }
-
-        // awake: one ring of short and long ticks turning with the minutes (and the seconds)
+        // ---- the outer tick ring: turning with the seconds awake, still (at 0) always-on ----
         TickRing {
-            objectName: "eosConcentricMinutesTicks"
-            spec: C.MINUTES_TICKS
-            turn: C.ringTurn(face.minutesT)
-            visible: face.ticksShown && !face.ambient
+            objectName: "eosConcentricSecondsTicks"
+            spec: C.SECONDS_TICKS
+            turn: C.ringTurn(face.secondsT)
+            visible: face.ticksShown && face.blend < 1
+            opacity: 1 - face.blend
         }
-        // always-on: the short ticks stand still, so they are the same pixels at every minute (the
-        // hub's background has them), and only the long ones turn with the minute (the hub's slots).
-        // The rings change at the switch (the turn is on the whole minute from then on), not over
-        // the blend: the same ticks, so no cross-fade of two copies
         TickRing {
-            objectName: "eosConcentricMinutesShortTicks"
-            spec: C.MINUTES_TICKS
+            objectName: "eosConcentricAmbientTicks"
+            spec: C.SECONDS_TICKS
             turn: 0
-            showMajor: false
-            visible: face.ticksShown && face.ambient
+            visible: face.ticksShown && face.blend > 0
+            opacity: face.blend
         }
-        TickRing {
-            objectName: "eosConcentricMinutesLongTicks"
-            spec: C.MINUTES_TICKS
-            turn: C.ringTurn(face.minutesT)
-            showMinor: false
-            majorName: "eosHubDialTick"
-            visible: face.ticksShown && face.ambient
+
+        // ---- the inner dial: the minutes (the sensor hub draws it always-on) ----
+        Item {
+            id: minutesDial
+            objectName: "eosHubDial"
+            anchors.fill: parent
+
+            // for the sensor hub (huboffload.cpp): the minute shown, where a numeral Text's top-left is
+            // at slot j at a whole minute, and where the long tick of slot j runs (this item's px)
+            readonly property int eosHubMinute: face.minute
+            readonly property real eosHubTickWidth: C.TICK_WIDTH * face.k
+            readonly property color eosHubTickColor: C.TICK_COLOR
+            function eosHubSlotOrigin(j) {
+                var p = C.numeralTopLeft(C.MINUTES_RADIUS, j * 6, minuteNumerals.itemAt(0).implicitWidth, face.k,
+                                         face.numeralPx, Kit.DIGIT_CENTER, true)
+                return Qt.point(p.x, p.y)
+            }
+            function eosHubTick(j) {
+                var l = C.tickLine(j * 6, C.MINUTES_TICKS.major[0], C.MINUTES_TICKS.major[1])
+                return { x1: l.x1 * face.k, y1: l.y1 * face.k, x2: l.x2 * face.k, y2: l.y2 * face.k }
+            }
+
+            // awake: one ring of short and long ticks turning with the minutes (and the seconds)
+            TickRing {
+                objectName: "eosConcentricMinutesTicks"
+                spec: C.MINUTES_TICKS
+                turn: C.ringTurn(face.minutesT)
+                visible: face.ticksShown && !face.ambient
+            }
+            // always-on: the short ticks stand still, so they are the same pixels at every minute (the
+            // hub's background has them), and only the long ones turn with the minute (the hub's slots).
+            // The rings change at the switch (the turn is on the whole minute from then on), not over
+            // the blend: the same ticks, so no cross-fade of two copies
+            TickRing {
+                objectName: "eosConcentricMinutesShortTicks"
+                spec: C.MINUTES_TICKS
+                turn: 0
+                showMajor: false
+                visible: face.ticksShown && face.ambient
+            }
+            TickRing {
+                objectName: "eosConcentricMinutesLongTicks"
+                spec: C.MINUTES_TICKS
+                turn: C.ringTurn(face.minutesT)
+                showMinor: false
+                majorName: "eosHubDialTick"
+                visible: face.ticksShown && face.ambient
+            }
+            Repeater {
+                id: minuteNumerals
+                model: 12
+                delegate: Numeral {
+                    objectName: "eosHubDialNumeral"
+                    radius: C.MINUTES_RADIUS
+                    t: face.minutesT
+                    value: index * 5
+                    color: C.MINUTES_COLOR
+                }
+            }
         }
-        Repeater {
-            id: minuteNumerals
-            model: 12
-            delegate: Numeral {
-                objectName: "eosHubDialNumeral"
-                radius: C.MINUTES_RADIUS
-                t: face.minutesT
-                value: index * 5
-                color: C.MINUTES_COLOR
+
+        // ---- the black under the pill: awake a box over the inner numerals in it, always-on a disk ----
+        Rectangle {
+            objectName: "eosConcentricScrim"
+            visible: face.blend < 1
+            opacity: 1 - face.blend
+            x: C.SCRIM_RECT.x * face.k
+            y: C.SCRIM_RECT.y * face.k
+            width: C.SCRIM_RECT.w * face.k
+            height: C.SCRIM_RECT.h * face.k
+            color: "black"
+        }
+        Rectangle {
+            objectName: "eosHubCover"
+            visible: face.blend > 0
+            opacity: face.blend
+            x: (C.SCRIM_DISK.cx - C.SCRIM_DISK.r) * face.k
+            y: (C.SCRIM_DISK.cy - C.SCRIM_DISK.r) * face.k
+            width: 2 * C.SCRIM_DISK.r * face.k
+            height: width
+            radius: width / 2
+            color: "black"
+            // a cover is a fill or a border (huboffload.cpp): no border
+            border.width: 0
+            antialiasing: true
+        }
+
+        // ---- the outer dial: the seconds, awake only ----
+        Item {
+            objectName: "eosConcentricSecondsDial"
+            anchors.fill: parent
+            visible: face.blend < 1
+            opacity: 1 - face.blend
+            Repeater {
+                model: 12
+                delegate: Numeral {
+                    objectName: "eosConcentricSecond"
+                    radius: C.SECONDS_RADIUS
+                    t: face.secondsT
+                    value: index * 5
+                    color: face.ringColor
+                }
             }
         }
     }
 
-    // ---- the black under the pill: awake a box over the inner numerals in it, always-on a disk ----
-    Rectangle {
-        objectName: "eosConcentricScrim"
-        visible: face.blend < 1
-        opacity: 1 - face.blend
-        x: C.SCRIM_RECT.x * face.k
-        y: C.SCRIM_RECT.y * face.k
-        width: C.SCRIM_RECT.w * face.k
-        height: C.SCRIM_RECT.h * face.k
-        color: "black"
-    }
-    Rectangle {
-        objectName: "eosHubCover"
-        visible: face.blend > 0
-        opacity: face.blend
-        x: (C.SCRIM_DISK.cx - C.SCRIM_DISK.r) * face.k
-        y: (C.SCRIM_DISK.cy - C.SCRIM_DISK.r) * face.k
-        width: 2 * C.SCRIM_DISK.r * face.k
-        height: width
-        radius: width / 2
-        color: "black"
-        // a cover is a fill or a border (huboffload.cpp): no border
-        border.width: 0
-        antialiasing: true
-    }
-
-    // ---- the outer dial: the seconds, awake only ----
-    Item {
-        objectName: "eosConcentricSecondsDial"
+    // ---- Half Dial's vignette (the seconds wheel's: over both dials, under the pill and the time) ----
+    // the left half of the screen, transparent out to 0.75 of 201.6 px from the middle, then to black
+    Shape {
+        id: vignette
+        objectName: "eosHubShade"
         anchors.fill: parent
-        visible: face.blend < 1
-        opacity: 1 - face.blend
-        Repeater {
-            model: 12
-            delegate: Numeral {
-                objectName: "eosConcentricSecond"
-                radius: C.SECONDS_RADIUS
-                t: face.secondsT
-                value: index * 5
-                color: face.ringColor
+        visible: face.half
+        // for the sensor hub (huboffload.cpp buildDial): the centre and radius in this item's px, the
+        // fraction the black starts at, the side it darkens (a unit vector from the centre)
+        readonly property point eosHubShadeCenter: Qt.point(C.HALF.vignette.cx * face.k, C.HALF.vignette.cy * face.k)
+        readonly property real eosHubShadeRadius: C.HALF.vignette.r * face.k
+        readonly property real eosHubShadeFrom: C.HALF.vignette.from
+        readonly property point eosHubShadeSide: Qt.point(-1, 0)
+        ShapePath {
+            strokeWidth: -1
+            strokeColor: "transparent"
+            fillGradient: RadialGradient {
+                centerX: vignette.eosHubShadeCenter.x
+                centerY: vignette.eosHubShadeCenter.y
+                centerRadius: vignette.eosHubShadeRadius
+                focalX: centerX
+                focalY: centerY
+                GradientStop { position: 0; color: "#00000000" }
+                GradientStop { position: C.HALF.vignette.from; color: "#00000000" }
+                GradientStop { position: 1; color: "#ff000000" }
             }
+            // from 6 o'clock round the left to 12 o'clock, back down the middle
+            startX: vignette.eosHubShadeCenter.x
+            startY: vignette.eosHubShadeCenter.y + vignette.eosHubShadeRadius
+            PathArc {
+                x: vignette.eosHubShadeCenter.x
+                y: vignette.eosHubShadeCenter.y - vignette.eosHubShadeRadius
+                radiusX: vignette.eosHubShadeRadius
+                radiusY: vignette.eosHubShadeRadius
+                direction: PathArc.Clockwise
+            }
+            PathLine { x: vignette.eosHubShadeCenter.x; y: vignette.eosHubShadeCenter.y + vignette.eosHubShadeRadius }
         }
     }
 
-    // ---- the pill, a circle always-on ----
-    Rectangle {
-        objectName: "eosHubCover"
-        readonly property real outer: C.PILL.r + C.PILL.stroke / 2
-        x: (C.PILL.cx - outer) * face.k
-        y: (C.PILL.cy - outer) * face.k
-        width: C.pillWidth(face.blend) * face.k
-        height: 2 * outer * face.k
-        radius: height / 2
-        color: "transparent"
-        border.width: C.PILL.stroke * face.k
-        border.color: face.ringColor
-        antialiasing: true
+    Item {
+        objectName: "eosConcentricTimeLayer"
+        x: face.shift * face.k
+        width: face.width
+        height: face.height
+
+        // ---- the pill, a circle always-on ----
+        Rectangle {
+            objectName: "eosHubCover"
+            readonly property real outer: C.PILL.r + C.PILL.stroke / 2
+            x: (C.PILL.cx - outer) * face.k
+            y: (C.PILL.cy - outer) * face.k
+            width: C.pillWidth(face.blend, C.pillReach(face.opt("layout"))) * face.k
+            height: 2 * outer * face.k
+            radius: height / 2
+            color: "transparent"
+            border.width: C.PILL.stroke * face.k
+            border.color: face.ringColor
+            antialiasing: true
+        }
+
+        // ---- the time ----
+        DigitsText {
+            objectName: "eosConcentricHour"
+            text: C.hourText(face.hour24, face.use12)
+            px: (face.half ? C.HALF.hourPx : C.HOUR.px) * face.k
+            liveWeight: Font.Medium
+            ambientWeight: Font.Light
+            hubName: "eosHubHour"
+            inkLeft: (face.half ? C.HALF.hourInkLeft : C.HOUR.inkLeft) * face.k
+            centerY: C.HOUR.centerY * face.k
+        }
+        DigitsText {
+            objectName: "eosConcentricMinute"
+            text: face.minuteStr
+            px: C.MINUTE.px * face.k
+            liveWeight: Font.Normal
+            ambientWeight: Font.Light
+            hubName: "eosHubMinute"
+            inkLeft: C.MINUTE.inkLeft * face.k
+            centerY: C.MINUTE.centerY * face.k
+        }
     }
 
-    // ---- the time ----
-    DigitsText {
-        objectName: "eosConcentricHour"
-        text: C.hourText(face.hour24, face.use12)
-        px: C.HOUR.px * face.k
-        liveWeight: Font.Medium
-        ambientWeight: Font.Light
-        hubName: "eosHubHour"
-        inkLeft: C.HOUR.inkLeft * face.k
-        centerY: C.HOUR.centerY * face.k
+    // ---- Half Dial's bulbs down the right (not moved; off in Dial I and II) ----
+    EosSlot {
+        owner: face; slotId: "top"; shape: "bulb"; defaultSource: C.HALF.defaults.top
+        spec: C.HALF.bulbs.top; eosActive: face.half
     }
-    DigitsText {
-        objectName: "eosConcentricMinute"
-        text: face.minuteStr
-        px: C.MINUTE.px * face.k
-        liveWeight: Font.Normal
-        ambientWeight: Font.Light
-        hubName: "eosHubMinute"
-        inkLeft: C.MINUTE.inkLeft * face.k
-        centerY: C.MINUTE.centerY * face.k
+    EosSlot {
+        owner: face; slotId: "center"; shape: "bulb"; defaultSource: C.HALF.defaults.center
+        spec: C.HALF.bulbs.center; eosActive: face.half
+    }
+    EosSlot {
+        owner: face; slotId: "bottom"; shape: "bulb"; defaultSource: C.HALF.defaults.bottom
+        spec: C.HALF.bulbs.bottom; eosActive: face.half
     }
 }

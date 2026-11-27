@@ -67,26 +67,53 @@ var SCRIM_DISK = { cx: 288, cy: 192, r: 34 }
 
 // ---- the options (watch_face_orbita.xml): Color (four_colorway, default index 1 = Cloud) and Layout
 // (COMPLICATIONS_LAYOUT_STYLES, "Layout"): Dial I (default: tick rings on), Dial II (no tick rings:
-// gnr 12 disables both index layers).
-// KNOWN GAP (D60-48): stock's third layout, Half Dial, is not built. No capture of it exists to measure
-// (the emulator shots have Dial I only) and the code alone leaves its look open (the hour would sit at
-// the bezel). What stock does, for when it is built:
-//  - gnq case 8: the face's bounds become (-71, 0, 121, 192) units, everything 142 px to the left (the
-//    dials' centre at x 50 px), the hour 40 units (80 px) instead of 44; both index rings on;
-//  - the pill is "half-dial-inset" (gnp 12, InsetPathDrawable at (176, 79) units, length 33): before the
-//    shift a stadium from x 143 to 193 units (110..244 px after it), radius 17; always-on the circle
-//    (gnp 18/19 animate the length 33 -> 0); "full-dial-inset" is off;
-//  - the seconds NumberWheel draws its vignette (setIncludeVignette, setVignetteScreenPercentage 0.75):
-//    RadialGradient at its centre, radius 1.05 x the half width, transparent to 0.75 of it, then black,
-//    PorterDuff DARKEN (= black with that alpha over what is under it), the left half only (drawArc 90,
-//    180); always-on too (the numbers' opacity is 0, the vignette is drawn regardless);
-//  - three bulb complications (192-unit space): top 111.2..154.2 x 19..62 (weather, fallback sunrise and
-//    sunset), centre 137.2..180.2 x 75..118 (date), bottom 111.2..154.2 x 131..174 (heart rate,
-//    fallback unread notifications); off in Dial I and II;
-//  - Ambient Lite time box (gnq 8): x from ((43.32 + 71) / 0.75 - 71) units, 142..242, to 340.68.
-// The hub path would cut the slots off the panel and under the vignette (buildDial's Keep can hold both).
-var LAYOUTS = ["dial1", "dial2"]
-var LAYOUT_NAMES = ["Dial I", "Dial II"]
+// gnr 12 disables both index layers) and Half Dial (A-06, D60-48 residue; gnp 10 -> gnq case 8):
+//  - the face's bounds become (-71, 0, 121, 192) units: everything of the dial 142 px to the left (the
+//    dials' centre at x 50 px; NumberWheel and the scrims follow the parent bounds), both index rings on;
+//  - the hour 40 units instead of 44 (gnu.b(40)): Roboto 90 * 40 / 44 = 82 px; its box (gnu.i, left
+//    aligned) moves with the dial, so the first digit's ink starts where Dial I's would at that size:
+//    box left 130 px + 14 px * 40 / 44 of side bearing, less 142 (0.7 px: at the bezel, as stock);
+//  - the pill is "half-dial-inset" (gnp 12; gnr 7: InsetPathDrawable at (176, 79) units, length 33):
+//    the stadium's circle centres 143 and 176 units, radius 17 (110..244 px after the shift);
+//    always-on the circle (gnp 18/19: the length 33 -> 0); "full-dial-inset" is off;
+//  - the seconds NumberWheel draws its vignette (setIncludeVignette; screen percentage 0.75): a
+//    RadialGradient centred on the wheel's own bounds, which do not move (NumberWheel's q and s are set
+//    from them at its making; the numerals follow the parent bounds), so on the screen's middle, radius
+//    1.05 x 96 units (201.6 px), transparent out to 0.75 of it (151.2 px), then to black; PorterDuff DARKEN
+//    (black with that alpha over what is under it); the left half only (drawArc 90, 180); always-on too
+//    (the numbers' opacity is 0, the vignette is drawn regardless); drawn by the seconds wheel, so over
+//    both dials and under the pill and the time;
+//  - three bulbs (orbita_bulb_complication_*, 192-unit space, not moved): top 111.2..154.2 x 19..62
+//    (Weather, fallback Sunrise and sunset), centre 137.2..180.2 x 75..118 (DATA_SOURCE_DATE: Date and
+//    month), bottom 111.2..154.2 x 131..174 (Heart rate, fallback Notifications); off in Dial I and II.
+// The sensor hub keeps drawing the dial always-on: the numerals the vignette darkens get cells of their
+// own cut by it (huboffload.cpp buildDial: eosHubShade), the ones off the panel none.
+var LAYOUTS = ["dial1", "dial2", "half"]
+var LAYOUT_NAMES = ["Dial I", "Dial II", "Half Dial"]
+var HALF = {
+    shift: -142,
+    hourPx: 82,
+    hourInkLeft: 130 + 14 * 40 / 44,
+    pillReach: 66,
+    vignette: { cx: 192, cy: 192, r: 201.6, from: 0.75 },
+    bulbs: {
+        top: { x: 222.4, y: 38, w: 86, h: 86 },
+        center: { x: 274.4, y: 150, w: 86, h: 86 },
+        bottom: { x: 222.4, y: 262, w: 86, h: 86 }
+    },
+    defaults: { top: "weather", center: "datemonth", bottom: "heartrate" }
+}
+// the dial's shift (design px) and the pill's reach for a layout
+function shiftOf(layout) { return layout === "half" ? HALF.shift : 0 }
+function pillReach(layout) { return layout === "half" ? HALF.pillReach : PILL.reach }
+// the vignette's darkening (0..1) at a design point: the left half of the screen, from 0.75 of its radius
+function vignetteAt(x, y) {
+    var v = HALF.vignette
+    if (x > v.cx)
+        return 0
+    var d = Math.sqrt((x - v.cx) * (x - v.cx) + (y - v.cy) * (y - v.cy)) / v.r
+    return Math.max(0, Math.min(1, (d - v.from) / (1 - v.from)))
+}
 
 // the colorways' text colour ("c" of stock-colorways.tsv, the A rows that four_colorway.xml lists: Jade is
 // A13, Lemongrass A37, not the C05/C06 rows of the same names), what NumberWheel and the pill take; the
@@ -171,9 +198,9 @@ function windowValue(t) {
     return (Math.round(t / 5) * 5) % 60
 }
 // the pill's outer width (design px) at an always-on blend 0..1: the stadium's right end moves
-// left until it is the circle (stock: AccelerateDecelerateInterpolator, gnu.d)
-function pillWidth(blend) {
+// left until it is the circle (stock: AccelerateDecelerateInterpolator, gnu.d); reach: Half Dial's is shorter
+function pillWidth(blend, reach) {
     var b = Math.max(0, Math.min(1, blend))
     var e = 0.5 - 0.5 * Math.cos(Math.PI * b)
-    return 2 * (PILL.r + PILL.stroke / 2) + PILL.reach * (1 - e)
+    return 2 * (PILL.r + PILL.stroke / 2) + (reach === undefined ? PILL.reach : reach) * (1 - e)
 }
