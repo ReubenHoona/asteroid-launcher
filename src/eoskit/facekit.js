@@ -99,11 +99,105 @@ var ACCENTS = [
 ]
 function accentIds() { return ACCENTS.map(function (a) { return a[0] }) }
 function accentNames() { return ACCENTS.map(function (a) { return a[1] }) }
-function accentColor(id, fallbackId) {
+
+/* The long list ("Color" of all_colorway.xml, A-19): the 35, then 16 two-tone colourways (rwf_color_pop01..16;
+ * Abstract, Analog, Large Scale and Big Time use it). RWF glo.java:191-206 makes each with d(id, first, second):
+ * the primary ("b") is the first tone, the text colour ("c", and "g") the second; no dark or light ramp. */
+var POP_ACCENTS = [
+    ["milkshake", "Milkshake", "#fff6e2", "#ffcaed"],
+    ["verbena", "Verbena", "#ffcaed", "#e4b0fd"],
+    ["salmon", "Salmon", "#fae7d5", "#f99586"],
+    ["amber", "Amber", "#ffd88a", "#fdb78f"],
+    ["cantaloupe", "Cantaloupe", "#f8efcd", "#ffc8a1"],
+    ["mustard", "Mustard", "#c4b575", "#fffa86"],
+    ["key-lime", "Key Lime", "#e4e4e4", "#dcf085"],
+    ["spring", "Spring", "#c7ff81", "#80fdd5"],
+    ["avocado", "Avocado", "#67887b", "#adf7b9"],
+    ["polar", "Polar", "#e4e4e4", "#99f3ff"],
+    ["arctic", "Arctic", "#a2c2f7", "#99f3ff"],
+    ["winter", "Winter", "#aeb4ff", "#b6daf1"],
+    ["macaron", "Macaron", "#e4b0fd", "#ffd4b6"],
+    ["sunset", "Sunset", "#b6daf1", "#ffcaed"],
+    ["seafoam", "Seafoam", "#cce4df", "#f4ffb4"],
+    ["charcoal", "Charcoal", "#616161", "#a0a3ab"]
+]
+// the 51 in stock order (all_colorway.xml: A02 ... A22, then pop01 ... pop16)
+var ALL_COLORS = accentIds().concat(POP_ACCENTS.map(function (a) { return a[0] }))
+/* The other roles of the 35 (glo.java gdm b, c, d, e; stock-colorways.tsv columns c, d, e): [c text, d dark,
+ * e light]. A face asks for a role as stock's colourway class does (gdo.java): "b" the primary, "c" the text
+ * colour (the second tone of a two-tone one), "d" the dark ramp (else "c"), "e" the light one (else "b"). */
+var COLOR_ROLES = {
+    "graphite": ["#9b9b9b", "#616161", "#b0b0b0"],
+    "cloud": ["#ffffff", "#b0b0b0", "#c5c5c5"],
+    "almond": ["#fff6e2", "#cac5bc", "#fcf7eb"],
+    "watermelon": ["#ff7572", "#e24a4a", "#ffa9a7"],
+    "coral": ["#f99181", "#eb6552", "#ffbaaf"],
+    "pomelo": ["#f8908b", "#d6524e", "#ffcbc9"],
+    "guava": ["#ffb2ad", "#d06a66", "#ffdcdb"],
+    "peach": ["#ffb891", "#d88455", "#ffdac6"],
+    "champagne": ["#ffc79f", "#e78d4e", "#ffe2cc"],
+    "chai": ["#d8a161", "#bd7015", "#dbbe9b"],
+    "sand": ["#cbbb75", "#9d915e", "#dfd3a0"],
+    "honey": ["#fac16e", "#bd7015", "#ffe2a8"],
+    "melon": ["#ffd786", "#e2963d", "#ffe5b2"],
+    "wheat": ["#ffe9b9", "#d1b475", "#fcf7eb"],
+    "dandelion": ["#fffa7a", "#d8bb53", "#fffcb7"],
+    "limoncello": ["#fcffb6", "#d7db55", "#feffe2"],
+    "lemongrass": ["#e8febb", "#b3e154", "#f9ffe2"],
+    "lime": ["#e6ff7b", "#b8cc62", "#f1ffb4"],
+    "pear": ["#c7ff81", "#96c75a", "#e5ffc5"],
+    "spearmint": ["#9df8ab", "#44b456", "#ceffd6"],
+    "fern": ["#73e1a5", "#209857", "#acffd2"],
+    "forest": ["#6a9685", "#37785f", "#accfc2"],
+    "mint": ["#80fdd5", "#50cd9d", "#ccffed"],
+    "jade": ["#b0f1d9", "#859a8f", "#dbfaee"],
+    "sage": ["#b2dcd3", "#9ecec4", "#e5fffa"],
+    "stream": ["#9fe2ec", "#00bcd6", "#ddfaff"],
+    "aqua": ["#99f3ff", "#7abfff", "#c4f8ff"],
+    "sky": ["#aedfff", "#8cc5ea", "#dff2ff"],
+    "ocean": ["#94bafa", "#2e5fb0", "#c0d8ff"],
+    "sapphire": ["#75a5f4", "#0f53c6", "#afcdff"],
+    "amethyst": ["#a0a7ff", "#7a52ea", "#caceff"],
+    "lilac": ["#d0baff", "#947acc", "#e2d4ff"],
+    "lavender": ["#d593fe", "#b952ea", "#e5b9ff"],
+    "flamingo": ["#f9b0ff", "#dd56e9", "#fcd1ff"],
+    "bubble-gum": ["#ffbae8", "#ef8fbd", "#ffdcf3"]
+}
+// the entry [id, name, primary(, second)] of an id of either list, or null
+function accentEntry(id) {
     for (var i = 0; i < ACCENTS.length; i++)
         if (ACCENTS[i][0] === id)
-            return ACCENTS[i][2]
+            return ACCENTS[i]
+    for (var j = 0; j < POP_ACCENTS.length; j++)
+        if (POP_ACCENTS[j][0] === id)
+            return POP_ACCENTS[j]
+    return null
+}
+function accentName(id) {
+    var a = accentEntry(id)
+    return a ? a[1] : id
+}
+function accentColor(id, fallbackId) {
+    var a = accentEntry(id)
+    if (a)
+        return a[2]
     return fallbackId !== undefined && fallbackId !== id ? accentColor(fallbackId) : "#ffffff"
+}
+// a role ("b", "c", "d", "e") of a colourway, as gdo.java answers it (see COLOR_ROLES)
+function colorRole(id, role, fallbackId) {
+    var a = accentEntry(id)
+    if (!a)
+        return fallbackId !== undefined && fallbackId !== id ? colorRole(fallbackId, role) : "#ffffff"
+    var r = COLOR_ROLES.hasOwnProperty(id) ? COLOR_ROLES[id] : null
+    switch (role) {
+    case "c":
+        return r ? r[0] : a[3]
+    case "d":
+        return r ? r[1] : a[3]
+    case "e":
+        return r ? r[2] : a[2]
+    }
+    return a[2]
 }
 
 // ---- the option schema (watchface-catalogue-10) -----------------------------------------
@@ -115,16 +209,11 @@ function listOption(id, values, labels, def) {
 }
 function boolOption(id, def) { return { id: id, kind: "bool", def: def } }
 function colorOption(def, ids) {
-    // ids: a face with a colour list of its own (Track: SOLORING_COLORS), in stock order; else the 35
+    // ids: a face with a colour list of its own (Track: SOLORING_COLORS; the long list: ALL_COLORS), in stock
+    // order; else the 35
     if (!ids)
         return listOption("color", accentIds(), accentNames(), def)
-    var names = ids.map(function (id) {
-        for (var i = 0; i < ACCENTS.length; i++)
-            if (ACCENTS[i][0] === id)
-                return ACCENTS[i][1]
-        return id
-    })
-    return listOption("color", ids, names, def)
+    return listOption("color", ids, ids.map(accentName), def)
 }
 // Track (watch_face_soloring.xml, soloring_colorway): five colours, default index 0 = Mint
 // (audit/watchface-catalogue/stock-faces-extract.md, soloring)
@@ -373,6 +462,44 @@ function photo(layout) {
 // the shade over the picture so the time stays readable, and its alpha in the always-on screen (the time alone)
 var PHOTO_SHADE = 0.35
 
+/* Big Time (A-07; watch_face_bigtime.xml, BigTimeWatchFaceService, RWF glb.java and gkz.java cases 0-5): the hours
+ * over the minutes, each 80 units (160 px) of Clepsydra centred in its box (glb.a 15,10-177,90 and glb.b
+ * 15,82-177,162 units); no slot, no option but Color. The stock preview (preview_bigtime.png, at 384 px): digits
+ * 122 px tall with an 8 px stroke, ink centres at y 121.2 (hours) and 265.2 (minutes). Ours: Roboto Light (a 10 px
+ * stem at this size; Thin is 5 px) at 167 px, which gives the 122 px digits, centred on the preview's ink centres. */
+var BIG_TIME = { size: 167, hour: box(30, 41.2, 324, 160), minute: box(30, 185.2, 324, 160) }
+
+/* Analog Arcs (A-08; watch_face_analog_arc.xml, AnalogArcWatchFaceService, RWF gjj/gjr/gjs): analog, a ring of
+ * indices, round bulbs inside it and arcs on the rim. Color Stream; Layout Max Four (default), Max Two, Minimal
+ * Four, Minimal Two, Numerals Four, Numerals Two; Styles Ring Indices (default), Simple Indices; Seconds on.
+ * The slots are the layouts' bounds x 2 (stock-faces-extract.md, analog_arc): the bulbs (Max) left 36,75 top
+ * 75,36 right 114,75 bottom 75,112 units, 43 units across; the line (Minimal) 49,44-143,58; the arcs on the rim, a
+ * quarter each (Four) or a half each (Two). */
+var ARCS_LAYOUTS = ["max4", "max2", "minimal4", "minimal2", "numerals4", "numerals2"]
+var ARCS_LAYOUT_NAMES = ["Max Four", "Max Two", "Minimal Four", "Minimal Two", "Numerals Four", "Numerals Two"]
+var ARCS_STYLES = ["ring", "simple"]
+var ARCS_STYLE_NAMES = ["Ring Indices", "Simple Indices"]
+function analogArcs(layout) {
+    var l = ARCS_LAYOUTS.indexOf(layout) >= 0 ? layout : "max4"
+    var max = l === "max4" || l === "max2"
+    return {
+        bulbs: max ? { left: bulbAt(72, 150), top: bulbAt(150, 72), right: bulbAt(228, 150), bottom: bulbAt(150, 224) } : null,
+        line: l === "minimal4" || l === "minimal2" ? box(98, 88, 188, 28) : null,
+        four: l === "max4" || l === "minimal4" || l === "numerals4",
+        numerals: l === "numerals4" || l === "numerals2"
+    }
+}
+// the indices, as ring_indices.png and simple_indices.png draw them at 384 px (white, tinted by the colour): the
+// ring of two 2 px circles with the minute ticks between them and the hour indices across it, at 85 %; the
+// simple one, the 12 hour indices alone, at 100 %. Radii in px from the middle
+var ARCS_RING = { inner: 139.8, outer: 155.2, stroke: 2, minute: [143.6, 149.9], minuteWidth: 2,
+                  hour: [129, 156], hourWidth: 3, alpha: 0.85 }
+var ARCS_SIMPLE = { hour: [129, 149], hourWidth: 3.5, alpha: 1 }
+// the numerals of the Numerals layouts (numerals.png): 12, 3, 6 and 9, digits 74 px tall with a 6 px stroke
+// (Roboto Light 101 px), centred where the picture has them
+var ARCS_NUMERALS = { size: 101, at: [{ text: "12", cx: 189, cy: 107.5 }, { text: "3", cx: 285.5, cy: 195 },
+                                      { text: "6", cx: 188.5, cy: 273.5 }, { text: "9", cx: 97.5, cy: 195 }] }
+
 // the face a Loader fails on (watchface-catalogue-27, SysUI Simple: iqp.java:75-97,131-155)
 var SIMPLE = { size: 100, digitOffset: 13.1, colonDot: 4, colonOffset: 16.7, ambientText: "#808080" }
 
@@ -387,5 +514,8 @@ var SLOT_DEFAULTS = {
     bold: { bottom: "weather", left: "weather", right: "datemonth", topright: "date", bottomright: "weather", bottomleft: "steps", topleft: "heartrate" },
     ring: { ring: "steps" },
     words: { top: "empty" },
-    photo: { line: "weather" }
+    photo: { line: "weather" },
+    // Analog Arcs (stock-faces-extract.md, analog_arc): Day and date is "date", Sunrise and sunset "sun"
+    arcs: { left: "heartrate", top: "health", right: "date", bottom: "steps", line: "date",
+            northwest: "sun", northeast: "uv", southwest: "calories", southeast: "weather", upper: "weather", lower: "uv" }
 }

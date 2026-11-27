@@ -16,6 +16,8 @@
  *  - the AP's always-on short ticks are the same pixels at every minute (the hub's background has
  *    them; they stand still, only the long ones turn);
  *  - Dial II has no tick slots; under the wrist flip every slot is the point mirror;
+ *  - Half Dial (R5 A-06): the dial moved left, the slots off the panel without sprites, the vignette's
+ *    (eosHubShade) slots with cells of their own, the AP's ticks darkened by it;
  *  - a dial that shows another minute is refused (the AP draws).
  * The real face file, its eoskit and the image's org.asteroid.controls (Motion), software Qt Quick in an
  * offscreen window; the compositor is a stand-in (tests/stubs/lipstickcompositor.h). With CONC_OUT set the
@@ -412,6 +414,92 @@ int main(int argc, char **argv)
             CHECK(t.groups[0].at.value(j) == QPoint(384, 384) - a.groups[0].at[j] - QPoint(a.groups[0].cell.width(),
                                                                                          a.groups[0].cell.height()));
         CHECK(t.groups[1].at.size() == a.groups[1].at.size());
+    }
+
+    // Half Dial (R5 A-06): the dial 142 px to the left, the hour at 82 px, the vignette over the left half.
+    // The numeral slots off the panel have no sprite; the ones the vignette darkens have cells of their own (cut
+    // by it, as by a cover), so there are more of those than on Dial I; every sprite is where the AP draws its
+    // numeral (one ink offset for all)
+    const Built hd = build(&engine, QString(), 10, 9, true, QStringLiteral("half"), -1, QStringLiteral("hub-half-1009"));
+    CHECK(hd.ok);
+    CHECK(hd.layouts == 1);
+    CHECK(hd.timeSprites == 4);
+    fprintf(stderr, "  Half Dial: %d numeral slots (%d with cells of their own, %d hidden), %d cell atlases, layout %lld bytes"
+                    " (Dial I: %d slots, %d own)\n", hd.numeralSlots, hd.ownSlots, hd.hiddenSlots, int(hd.groups.size()),
+            hd.fileSize, b.numeralSlots, b.ownSlots);
+    CHECK(hd.coversInBackground == 2);
+    CHECK(hd.numeralSlots + hd.hiddenSlots == 60);
+    CHECK(hd.hiddenSlots > b.hiddenSlots + 5);
+    CHECK(hd.ownSlots > b.ownSlots);
+    // more than 16 slots of their own: their cells spill into a second numeral atlas (at most 256 cells each:
+    // 60 + 12 x 16, then 1 + 12 x 21), the long ticks' atlas last
+    CHECK(hd.ownSlots > 16);
+    CHECK(hd.groups.size() == 2 + (hd.ownSlots - 16 + 20) / 21);
+    for (const Group &g : hd.groups)
+        CHECK(g.n <= 256);
+    if (hd.groups.size() >= 3) {
+        CHECK(hd.groups[0].n == 60 + 12 * 16);
+        CHECK(hd.groups[1].n == 1 + 12 * qMin(21, hd.ownSlots - 16));
+        CHECK(hd.groups.last().n == 61);
+        // every numeral slot in exactly one atlas
+        Group num;
+        int inBoth = 0;
+        for (int i = 0; i + 1 < hd.groups.size(); i++)
+            for (int j : hd.groups[i].at.keys()) {
+                if (num.at.contains(j))
+                    inBoth++;
+                num.at.insert(j, hd.groups[i].at[j]);
+            }
+        CHECK(inBoth == 0);
+        CHECK(num.at.size() == hd.numeralSlots);
+        QPoint offset(INT_MIN, INT_MIN);
+        int withSprite = 0;
+        for (int j = 0; j < 60; j++) {
+            if (hd.numeralTopLeft[j].x() == -1 && hd.numeralTopLeft[j].y() == -1)
+                continue;
+            if (!num.at.contains(j)) {
+                // no sprite: the numeral is off the panel or under the disk
+                const QPoint p = hd.numeralTopLeft[j];
+                const QPointF c = QPointF(p) + QPointF(13, 10) - hd.covers.value(0).center();
+                const bool off = p.x() < -10 || p.y() < -10 || p.x() > 384 - 16 || p.y() > 384 - 10;
+                CHECK(off || std::hypot(c.x(), c.y()) <= hd.covers.value(0).width() / 2);
+                continue;
+            }
+            withSprite++;
+            const QPoint d = num.at[j] - hd.numeralTopLeft[j];
+            if (offset.x() == INT_MIN)
+                offset = d;
+            CHECK(d == offset);
+        }
+        CHECK(withSprite >= 5);
+        // the AP's long ticks: under the vignette darker by its alpha (black of a ramp from 151.2 to 201.6 px
+        // from the screen's middle, on its left half), outside it as bright as on Dial I
+        int shaded = 0, clear = 0;
+        for (int j = 0; j < 60; j++) {
+            const QRect r = hd.tickRect[j].intersected(QRect(0, 0, 384, 384));
+            if (r.isEmpty())
+                continue;
+            int peak = 0;
+            for (int y = r.top(); y <= r.bottom(); y++)
+                for (int x = r.left(); x <= r.right(); x++)
+                    peak = qMax(peak, qMax(qRed(hd.ap.pixel(x, y)), qMax(qGreen(hd.ap.pixel(x, y)), qBlue(hd.ap.pixel(x, y)))));
+            const QPointF c = QRectF(r).center() - QPointF(192, 192);
+            // only what the round panel shows (the square's corners lie outside the vignette's disc)
+            if (std::hypot(c.x(), c.y()) > 188)
+                continue;
+            const qreal a = c.x() > 0 ? 0 : qBound(0.0, (std::hypot(c.x(), c.y()) / 201.6 - 0.75) / 0.25, 1.0);
+            if (a == 0) {
+                clear++;
+                CHECK(peak >= 80);
+            } else if (a >= 0.4) {
+                shaded++;
+                if (peak > (1 - a) * 104 + 16)
+                    fprintf(stderr, "  tick slot %d: peak %d under a vignette of %.2f\n", j, peak, a);
+                CHECK(peak <= (1 - a) * 104 + 16);
+            }
+        }
+        CHECK(clear >= 4);
+        CHECK(shaded >= 1);
     }
 
     // a dial that is not at the minute of the layout: refused, no layout

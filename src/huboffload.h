@@ -44,7 +44,9 @@ class QQuickItem;
  * short ticks) and the Rectangles named eosHubCover that the face draws over
  * the dial (the black under Concentric's circle, the circle) are the
  * background; their part is cut out of the slots' cells, so the hub draws
- * the dial's sprites over black only, as it draws the digits.
+ * the dial's sprites over black only, as it draws the digits. An item named
+ * eosHubShade (Half Dial's vignette: a ramp to black over half a disc) is a
+ * cover of partial alpha: the cells under it are darkened as the AP draws it.
  *
  * The layout is rebuilt only when something in it changes (face, date, item
  * geometry) and is valid until the background changes: the next local

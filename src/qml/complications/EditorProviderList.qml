@@ -16,6 +16,8 @@ import "faceeditor.js" as FE
  * complications page (the editor does that on `chosen`). World clock, Countdown to
  * date and App shortcut are listed too: `chosen` gives their kind and the editor
  * opens their second page (watchface-catalogue-20, -21).
+ * Only the sources that can fill the slot are listed (A-14): stock asks for the data
+ * sources of the slot's supported types (faceeditor.js slotTypes, accepts).
  */
 EditorSheet {
     id: chooser
@@ -27,6 +29,8 @@ EditorSheet {
     property var appNames: ({})
     // the source in the slot being edited
     property string currentSource: "empty"
+    // the data types the slot takes (null: every source)
+    property var slotTypes: null
     // a source was tapped
     signal chosen(string source)
 
@@ -37,9 +41,12 @@ EditorSheet {
             order = []
             return
         }
-        order = FE.chooserOrder(sources.all.concat(sources.parameterised), function (id) { return sources.name(id) })
+        order = FE.chooserOrder(sources.all.concat(sources.parameterised), function (id) { return sources.name(id) },
+                                slotTypes)
     }
-    function openFor(source) {
+    // slot: the face's slot item (its shape and, when it names them, its supportedTypes)
+    function openFor(source, slot) {
+        slotTypes = slot ? FE.slotTypes(String(slot.shape), slot.supportedTypes) : null
         refresh()
         currentSource = source
         open(FE.chooserIndex(order, source))

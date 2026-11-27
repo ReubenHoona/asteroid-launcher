@@ -314,9 +314,10 @@ function idleAction(view, centred) {
 // (modular, bold-numerals, classic, large, list, stacked), and the user's rule is "do what
 // stock does" (stock's favourites include the analog Analog Bold and Classic).
 // The order of stock Wear OS 6's fresh carousel (S15: Concentric, Utility, Classic, ..., Big Time last):
-// Concentric, the default face, leads, Modular stands in for Utility, Large for Big Time.
+// Concentric, the default face, leads, Modular stands in for Utility; Analog Arcs (A-08), a CP3A favourite, takes
+// the place 010-analog-aviator held for it; Big Time (A-07) is last.
 var DEFAULT_FACES = ["concentric", "modular", "classic", "bold-numerals", "list", "stacked",
-                     "default-digital", "analog-aviator", "large"]
+                     "default-digital", "analog-arcs", "big-time"]
 
 function stemOf(file) {
     return String(file).split("/").pop().replace(/\.qml$/, "")
@@ -483,7 +484,13 @@ function upstreamFace(file) {
 
 // The faces of the image. A face this table does not know gets its file
 // name's words, in title case ("020-modular-grid" is "Modular Grid").
+// The eos faces built on a stock face's layout carry the stock face's name (A-11,
+// watchface-catalogue-11; RWF strings.xml *_watch_face_name; the Wear OS 6 picker S15-b
+// shows "Utility"); the file names stay, so the favourites and their styles keep their keys.
 var NAMES = {
+    "018-modular": "Utility", "019-list": "Index", "020-stacked": "Everyday", "021-classic": "Classic",
+    "022-large": "Large Scale", "023-bold-numerals": "Analog Bold", "024-step-ring": "Track",
+    "025-words": "Prime", "026-photo": "Photos", "027-concentric": "Concentric",
     "000-default-digital": "Digital", "001-words-worte-palabras-mots": "Words",
     "002-analog-70s-classic": "Seventies", "003-alternative-digital-2": "Split",
     "004-alternative-scifi": "Sci-fi", "005-analog-circle-shades": "Bubbles",

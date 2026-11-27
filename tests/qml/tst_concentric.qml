@@ -37,6 +37,8 @@ Item {
 
     Rectangle { anchors.fill: parent; color: "black" }
     Loader { id: ld; anchors.fill: parent }
+    // the digits' advances (A-21)
+    FontMetrics { id: digitProbe; font.family: "Roboto"; font.pixelSize: 90 }
 
     readonly property string shots: "/tmp/concentric-shots/"
 
@@ -351,24 +353,167 @@ Item {
             ld.source = ""
         }
 
+        // ---- A-06: Half Dial ----
+        function test_a06_half_numbers() {
+            compare(C.LAYOUTS, ["dial1", "dial2", "half"])
+            compare(C.LAYOUT_NAMES[2], "Half Dial")
+            compare(C.shiftOf("half"), -142)
+            compare(C.shiftOf("dial1"), 0)
+            // the pill: 70 + 66 px awake (circle centres 143 and 176 units), the 70 px circle always-on
+            compare(C.pillWidth(0, C.pillReach("half")), 136)
+            compare(C.pillWidth(1, C.pillReach("half")), 70)
+            compare(C.pillWidth(0, C.pillReach("dial1")), 170)
+            // the hour: 40 units of 44, its first digit's ink 0.7 px from the left edge after the shift
+            compare(C.HALF.hourPx, Math.round(C.HOUR.px * 40 / 44))
+            verify(near(C.HALF.hourInkLeft + C.HALF.shift, 0.727, 0.001))
+            // the vignette: the left half, nothing inside 151.2 px, black at 201.6 px; 81 % at the bezel
+            compare(C.vignetteAt(192, 192), 0)
+            compare(C.vignetteAt(192 - 151, 192), 0)
+            verify(near(C.vignetteAt(0, 192), (192 / 201.6 - 0.75) / 0.25, 1e-9))
+            verify(near(C.vignetteAt(192, 0), C.vignetteAt(0, 192), 1e-9))
+            compare(C.vignetteAt(300, 10), 0)
+            // the bulbs: 86 px at the stock bounds x 2
+            compare(C.HALF.bulbs.top.x, 222.4)
+            compare(C.HALF.bulbs.center.y, 150)
+            compare(C.HALF.bulbs.bottom.y, 262)
+            compare(C.HALF.defaults, { top: "weather", center: "datemonth", bottom: "heartrate" })
+        }
+        function test_a06_half_awake() {
+            var f = show(10, 9, 30, false, true, "half")
+            compare(f.half, true)
+            compare(f.ticksShown, true)
+            compare(find(f, "eosConcentricDialLayer").x, -142)
+            compare(find(f, "eosConcentricTimeLayer").x, -142)
+            // the dials round x 50: "30" of the seconds dial in the pill at 3 o'clock
+            var thirty = findAll(f, "eosConcentricSecond").filter(function (t) { return t.text === "30" })[0]
+            verify(near(middleOf(thirty).x, 50 + 160, 0.75) && near(middleOf(thirty).y, 192, 0.75))
+            var ten = findAll(f, "eosHubDialNumeral").filter(function (t) { return t.text === "10" })[0]
+            var want = C.pointAt(C.MINUTES_RADIUS, C.numeralAngle(10, 9.5))
+            verify(near(middleOf(ten).x, want.x - 142, 0.75) && near(middleOf(ten).y, want.y, 0.75))
+            // the pill: from x 109, 136 wide
+            var pill = findAll(f, "eosHubCover").filter(function (c) { return c.border.width > 0 })[0]
+            var pr = pill.mapToItem(top, 0, 0)
+            compare(pr.x, 109)
+            compare(pill.width, 136)
+            // the hour 82 px, its ink at the bezel; the minute in the pill
+            var hour = find(f, "eosConcentricHour")
+            compare(hour.px, 82)
+            verify(near(hour.mapToItem(top, hour.inkLeft, 0).x, 0.727, 0.01))
+            var minute = find(f, "eosConcentricMinute")
+            verify(near(minute.mapToItem(top, minute.inkLeft, 0).x, 266.5 - 142, 0.01))
+            // the three bulbs, active, where stock has them
+            var slots = findAll(f, "eosComplication")
+            compare(slots.length, 3)
+            var ids = ["top", "center", "bottom"]
+            for (var i = 0; i < 3; i++) {
+                var s = slots.filter(function (x) { return x.slotId === ids[i] })[0]
+                verify(s.visible && s.eosActive, ids[i])
+                var b = C.HALF.bulbs[ids[i]]
+                var p = s.mapToItem(top, 0, 0)
+                verify(near(p.x, b.x, 0.01) && near(p.y, b.y, 0.01), ids[i] + " " + p.x + "," + p.y)
+                compare(s.width, 86)
+                compare(s.shape, "bulb")
+                compare(s.defaultSource, C.HALF.defaults[ids[i]])
+            }
+            // the vignette over the dial, under the pill and the time
+            var shade = find(f, "eosHubShade")
+            verify(visibleIn(shade))
+            compare(shade.eosHubShadeRadius, 201.6)
+            compare(shade.eosHubShadeFrom, 0.75)
+            verify(shade.z <= pill.parent.z)
+            shoot("concentric-half-1009-awake.png")
+        }
+        function test_a06_half_ambient() {
+            var f = show(6, 42, 5, true, true, "half")
+            verify(!find(f, "eosConcentricSecondsDial").visible)
+            verify(find(f, "eosConcentricAmbientTicks").visible)
+            // the dial on the whole minute at the hub's slot origins (in the moved dial)
+            var dial = find(f, "eosHubDial")
+            var mins = findAll(f, "eosHubDialNumeral")
+            for (var i = 0; i < mins.length; i++) {
+                var o = dial.eosHubSlotOrigin(C.slotOf(parseInt(mins[i].text, 10), 42))
+                compare(mins[i].x, o.x, mins[i].text)
+                compare(mins[i].y, o.y, mins[i].text)
+            }
+            // the pill is the 70 px circle at x 109; both covers on
+            var covers = visibleAll(f, "eosHubCover")
+            compare(covers.length, 2)
+            var ring = covers.filter(function (c) { return c.border.width > 0 })[0]
+            compare(ring.width, 70)
+            compare(ring.mapToItem(top, 0, 0).x, 109)
+            // the hub's time items: the hour at 82 px, Light
+            compare(find(f, "eosHubHour").font.pixelSize, 82)
+            compare(find(f, "eosHubHour").text, "06")
+            // the bulbs dimmed (the slots' always-on opacity), the vignette still there
+            var slots = visibleAll(f, "eosComplication")
+            compare(slots.length, 3)
+            verify(near(slots[0].opacity, Kit.AMBIENT_SLOT_ALPHA, 1e-6))
+            verify(visibleIn(find(f, "eosHubShade")))
+            shoot("concentric-half-0642-ambient.png")
+        }
+        function test_a06_dial1_unchanged() {
+            var f = show(10, 9, 30, false, true)
+            compare(find(f, "eosConcentricDialLayer").x, 0)
+            verify(!find(f, "eosHubShade").visible)
+            compare(visibleAll(f, "eosComplication").length, 0)
+            compare(find(f, "eosConcentricHour").px, 90)
+            ld.source = ""
+        }
+
+        // ---- A-21: the font is Roboto (the user's choice: keep the current font), digits one advance wide ----
+        function allTexts(item, out) {
+            out = out || []
+            if (!item)
+                return out
+            if (item.font !== undefined && item.text !== undefined && item.horizontalAlignment !== undefined)
+                out.push(item)
+            var d = item.children
+            if (d)
+                for (var i = 0; i < d.length; i++)
+                    allTexts(d[i], out)
+            return out
+        }
+        function test_a21_roboto() {
+            compare(Kit.FONT, "Roboto")
+            var modes = [false, true]
+            for (var a = 0; a < modes.length; a++) {
+                var f = show(10, 9, 30, modes[a], true)
+                var texts = allTexts(f)
+                verify(texts.length >= 28, "numerals, hour and minute: " + texts.length)
+                for (var i = 0; i < texts.length; i++) {
+                    compare(texts[i].font.family, "Roboto", texts[i].objectName + " " + texts[i].text)
+                    compare(texts[i].renderType, Text.NativeRendering, texts[i].objectName)
+                }
+            }
+            // the hub's glyph cells: every digit one advance wide in the dial's and the time's weights
+            var weights = [Font.Light, Font.Normal, Font.Medium]
+            for (var w = 0; w < weights.length; w++) {
+                digitProbe.font.weight = weights[w]
+                var adv = digitProbe.advanceWidth("0")
+                for (var dgt = 1; dgt <= 9; dgt++)
+                    compare(digitProbe.advanceWidth(String(dgt)), adv, "weight " + weights[w] + " digit " + dgt)
+            }
+            ld.source = ""
+        }
+
         // ---- the fresh carousel (facepicker.js) ----
         function test_carousel_order() {
             // the faces of the image, in their folder's order
             var installed = ["000-default-digital.qml", "010-analog-aviator.qml", "018-modular.qml", "019-list.qml",
                              "020-stacked.qml", "021-classic.qml", "022-large.qml", "023-bold-numerals.qml",
-                             "027-concentric.qml"].map(function (f) {
+                             "027-concentric.qml", "028-big-time.qml", "029-analog-arcs.qml"].map(function (f) {
                 return "file:///usr/share/asteroid-launcher/watchfaces/" + f
             })
             var current = "file:///usr/share/asteroid-launcher/watchfaces/027-concentric.qml"
             var names = FP.defaults(installed, current).map(function (e) { return FP.plainName(e.file) })
-            // S15: Concentric, Utility, Classic, ..., Big Time (Large) last; the face on the watch once
+            // S15: Concentric, Utility, Classic, ..., Big Time last (A-07); the face on the watch once
             compare(names[0], "concentric")
             compare(names[1], "modular")
             compare(names[2], "classic")
-            compare(names[names.length - 1], "large")
+            compare(names[names.length - 1], "big-time")
             compare(names.length, 9)
             compare(names, ["concentric", "modular", "classic", "bold-numerals", "list", "stacked",
-                            "default-digital", "analog-aviator", "large"])
+                            "default-digital", "analog-arcs", "big-time"])
         }
     }
 }

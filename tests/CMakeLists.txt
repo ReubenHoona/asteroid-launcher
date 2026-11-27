@@ -219,6 +219,16 @@ set_target_properties(tst_huboffload_flip PROPERTIES AUTOMOC ON)
 target_include_directories(tst_huboffload_flip BEFORE PRIVATE stubs ../src)
 target_link_libraries(tst_huboffload_flip PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)
 
+# HubOffload::build for the eos digital faces always-on (R5 A-07): Big Time (028-big-time.qml, 167 px digits in two
+# colours, 12 and 24 h) and the other big-digit faces make a layout within the hub's atlas budget. The real face files
+# (they need the image's org.asteroid.controls for Motion) in software Qt Quick, the compositor stand-in:
+#   QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software ./tst_huboffload_faces
+add_executable(tst_huboffload_faces tst_huboffload_faces.cpp ../src/huboffload.cpp ../src/huboffload.h ../src/eoslayout.c)
+set_target_properties(tst_huboffload_faces PROPERTIES AUTOMOC ON)
+target_include_directories(tst_huboffload_faces BEFORE PRIVATE stubs ../src)
+target_compile_definitions(tst_huboffload_faces PRIVATE SRC_ROOT="${CMAKE_CURRENT_SOURCE_DIR}/..")
+target_link_libraries(tst_huboffload_faces PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)
+
 # The app icon keys of a .desktop file (src/applauncherbackground.*, D60-26): the disc, X-Eos-Glyph-Color and
 # X-Eos-Own-Icon on temporary files; Qt Core and Gui, no display
 add_executable(tst_launchericons tst_launchericons.cpp ../src/applauncherbackground.cpp ../src/applauncherbackground.h)

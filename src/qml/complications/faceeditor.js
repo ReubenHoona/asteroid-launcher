@@ -225,13 +225,74 @@ function appOf(kind) {
     return APPS.hasOwnProperty(kind) ? APPS[kind] : "settings"
 }
 
+/* The data types (A-14). Stock lists only the sources that can fill the slot: the chooser asks the
+ * system for getSupportedComplicationDataSources(the slot's supported types) (SysUI inn.java:110-126,
+ * WearSdkComplicationBackend.getComplicationProviderApps); a source is listed when one of the types it
+ * declares is one the slot takes. The types each source declares are its stock provider's
+ * (stock-providers.tsv; ICON is MONOCHROMATIC_IMAGE; Phone battery, ours only, as Battery). */
+var SOURCE_TYPES = {
+    date: ["SHORT_TEXT"], daymonth: ["SHORT_TEXT"], datemonth: ["SHORT_TEXT"], weekday: ["SHORT_TEXT"],
+    timedate: ["SHORT_TEXT"], worldclock: ["SHORT_TEXT"],
+    steps: ["RANGED_VALUE", "SHORT_TEXT", "GOAL_PROGRESS"], heartrate: ["RANGED_VALUE", "SHORT_TEXT"],
+    distance: ["RANGED_VALUE", "SHORT_TEXT", "GOAL_PROGRESS"], calories: ["GOAL_PROGRESS", "RANGED_VALUE", "SHORT_TEXT"],
+    floors: ["RANGED_VALUE", "SHORT_TEXT", "GOAL_PROGRESS"], azm: ["GOAL_PROGRESS", "RANGED_VALUE", "SHORT_TEXT"],
+    exercisedays: ["WEIGHTED_ELEMENTS"],
+    battery: ["RANGED_VALUE", "SHORT_TEXT", "LONG_TEXT", "MONOCHROMATIC_IMAGE"],
+    phonebattery: ["RANGED_VALUE", "SHORT_TEXT", "LONG_TEXT", "MONOCHROMATIC_IMAGE"],
+    notifications: ["SHORT_TEXT", "MONOCHROMATIC_IMAGE"], health: ["MONOCHROMATIC_IMAGE", "SHORT_TEXT"],
+    exercise: ["SHORT_TEXT", "MONOCHROMATIC_IMAGE"],
+    weather: ["SHORT_TEXT", "LONG_TEXT", "SMALL_IMAGE", "RANGED_VALUE"], uv: ["SHORT_TEXT", "RANGED_VALUE"],
+    precipitation: ["SHORT_TEXT", "RANGED_VALUE"], aqi: ["SHORT_TEXT", "RANGED_VALUE"],
+    sun: ["SHORT_TEXT", "MONOCHROMATIC_IMAGE"], moon: ["SHORT_TEXT", "LONG_TEXT"],
+    nextevent: ["SHORT_TEXT", "LONG_TEXT", "MONOCHROMATIC_IMAGE"],
+    alarm: ["SHORT_TEXT"], timer: ["SHORT_TEXT"], stopwatch: ["SHORT_TEXT"], countdown: ["SHORT_TEXT", "LONG_TEXT"],
+    media: ["LARGE_IMAGE", "SMALL_IMAGE", "LONG_TEXT"], assistant: ["MONOCHROMATIC_IMAGE", "SMALL_IMAGE", "LONG_TEXT"],
+    app: ["SMALL_IMAGE", "LONG_TEXT"]
+}
+/* The types a slot takes, by its shape, as the Pixel faces declare their slots (watch_face_*.xml, RWF
+ * strings.xml:86,100,172; watchface-catalogue AUDIT 2.5): a round bulb, a line, an edge arc, the long slot
+ * (Utility's bottom), Track's ring (watch_face_soloring.xml: RANGED_VALUE only). The older faces' "circle"
+ * is a bulb. A slot may name its own list (EosSlot supportedTypes). */
+var BULB_TYPES = ["WEIGHTED_ELEMENTS", "GOAL_PROGRESS", "RANGED_VALUE", "SHORT_TEXT", "MONOCHROMATIC_IMAGE", "SMALL_IMAGE"]
+var SLOT_TYPES = {
+    bulb: BULB_TYPES,
+    circle: BULB_TYPES,
+    text: ["SHORT_TEXT", "WEIGHTED_ELEMENTS", "GOAL_PROGRESS", "RANGED_VALUE", "MONOCHROMATIC_IMAGE"],
+    arc: ["WEIGHTED_ELEMENTS", "GOAL_PROGRESS", "RANGED_VALUE", "SHORT_TEXT"],
+    long: ["LONG_TEXT"],
+    ring: ["RANGED_VALUE"]
+}
+// the types of a slot: its own list when it names one, else its shape's (null: a shape we do not know)
+function slotTypes(shape, declared) {
+    if (declared && declared.length !== undefined && declared.length > 0)
+        return declared
+    return SLOT_TYPES.hasOwnProperty(shape) ? SLOT_TYPES[shape] : null
+}
+// whether a source (its kind, "app:x" is "app") can fill a slot that takes `types` (null: any); Empty always
+function accepts(kind, types) {
+    var k = String(kind)
+    var at = k.indexOf(":")
+    if (at >= 0)
+        k = k.slice(0, at)
+    if (k === "empty" || !types)
+        return true
+    var mine = SOURCE_TYPES.hasOwnProperty(k) ? SOURCE_TYPES[k] : null
+    if (!mine)
+        return true
+    for (var i = 0; i < mine.length; i++)
+        if (types.indexOf(mine[i]) >= 0)
+            return true
+    return false
+}
+
 /* The chooser's order: "Empty" first, then the sources alphabetically by their
  * (translated) name; the collator of the user's language decides (stock sorts the
- * flat list with Collator.getInstance(), iqm.java:73). `nameOf(id)` is the name. */
-function chooserOrder(ids, nameOf) {
+ * flat list with Collator.getInstance(), iqm.java:73). `nameOf(id)` is the name.
+ * `types` (optional): the slot's types; a source that fills none of them is left out. */
+function chooserOrder(ids, nameOf, types) {
     var rest = []
     for (var i = 0; i < ids.length; i++)
-        if (ids[i] !== "empty")
+        if (ids[i] !== "empty" && accepts(ids[i], types))
             rest.push(ids[i])
     rest.sort(function (a, b) {
         var x = String(nameOf(a))

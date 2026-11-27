@@ -19,6 +19,7 @@
 #include <QPainter>
 #include <QQuickItem>
 #include <QQuickWindow>
+#include <QRadialGradient>
 #include <QStandardPaths>
 #include <algorithm>
 #include <functional>
@@ -403,6 +404,10 @@ void collectNamed(QQuickItem *item, const QString &name, QList<QQuickItem *> *ou
 // ---- the dial and the covers (huboffload.h) ----
 
 const int kDialSlots = 60;
+// the numeral slots with cells of their own per atlas: with the 60 shared cells (60 + 12 x 16 = 252), and in each
+// further atlas (1 + 12 x 21 = 253); an atlas has at most 256 cells
+const int kOwnFirst = 16;
+const int kOwnMore = 21;
 
 // A row of A8 cells that are pictures, not digits: the dial's numerals (cell v = value v, blank
 // unless a multiple of 5, then 12 more for each slot a cover reaches) and its long ticks (cell j =
@@ -425,6 +430,7 @@ struct CellSprite {
     int slot = -1;
     int lo = 0, hi = 0;
     bool onBlack = false;       // a numeral: the background must be black under it
+    int base = -1;              // a numeral slot's own cells: the cells group of the shared ones (value 5 v)
 };
 
 int cellsBytes(const Cells &c)
@@ -549,7 +555,9 @@ struct Keep {
  * turns with no AP wake.
  * Everything else is the background, drawn once by the AP: what does not turn (the short ticks,
  * which stand still always-on) and what the face draws over the dial, the Rectangles named
- * eosHubCover (a fill or a border: the black disk, the circle). The hub never draws a sprite over
+ * eosHubCover (a fill or a border: the black disk, the circle) and the shades named eosHubShade (a
+ * radial ramp to black over half a disc: Half Dial's vignette), which cut the cells as a cover of
+ * partial alpha does. The hub never draws a sprite over
  * anything but black (2026-11-24 review: tinted cells over black are what the frame read-back on
  * the watch checked, aod91 REPORT-m1 T2, Z1, Z2; how the hub blends over colour is not known):
  *  - the covers' part is cut out of the cells: a numeral slot that a cover reaches has 12 cells of
@@ -611,6 +619,35 @@ bool buildDial(QQuickItem *face, const QDateTime &shown, bool turned, QList<Cell
                 p.drawRoundedRect(r.adjusted(bw / 2, bw / 2, -bw / 2, -bw / 2), radius - bw / 2, radius - bw / 2);
             }
         }
+    }
+    // the shades (Concentric's Half Dial vignette, R5 A-06): black of a radial ramp over one half of a disc,
+    // drawn over the dial, so they leave (1 - alpha) of it to be seen: a cover of partial alpha. An item named
+    // eosHubShade gives eosHubShadeCenter (its px), eosHubShadeRadius, eosHubShadeFrom (the fraction of the
+    // radius the black starts at) and eosHubShadeSide (a vector from the centre into the darkened half)
+    QList<QQuickItem *> shades;
+    collectNamed(face, QStringLiteral("eosHubShade"), &shades);
+    for (QQuickItem *sh : shades) {
+        const QPointF local = sh->property("eosHubShadeCenter").toPointF();
+        const QPointF c = sh->mapToScene(local);
+        const QPointF side = sh->mapToScene(local + sh->property("eosHubShadeSide").toPointF()) - c;
+        const qreal r = sh->property("eosHubShadeRadius").toReal();
+        const qreal from = sh->property("eosHubShadeFrom").toReal();
+        if (!(r > 0) || !(from >= 0 && from < 1) || side.isNull()) {
+            *why = "a shade has no geometry";
+            return false;
+        }
+        QRadialGradient g(c, r);
+        g.setColorAt(0, QColor(255, 255, 255, 0));
+        g.setColorAt(from, QColor(255, 255, 255, 0));
+        g.setColorAt(1, QColor(255, 255, 255, 255));
+        QPainter p(&keep.cov);
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setOpacity(effectiveOpacity(sh));
+        p.setPen(Qt::NoPen);
+        p.setBrush(g);
+        // the half centred on `side` (QPainter's angles: counter-clockwise from 3 o'clock, 1/16 degree)
+        const qreal deg = std::atan2(-side.y(), side.x()) * 180 / M_PI;
+        p.drawPie(QRectF(c.x() - r, c.y() - r, 2 * r, 2 * r), int(std::lround((deg - 90) * 16)), 180 * 16);
     }
     keep.grow();
 
@@ -734,30 +771,51 @@ bool buildDial(QQuickItem *face, const QDateTime &shown, bool turned, QList<Cell
                                           j, 0, kDialSlots - 1, true };
             continue;
         }
-        const int b = kDialSlots + 12 * own.size();
+        // an atlas has at most 256 cells (eoslayout.c el_glyph_atlas_a8): the first kOwnFirst slots of their own
+        // go with the shared cells (value v at b + v / 5, cell 1 blank: there is no numeral 1), the rest in
+        // atlases of kOwnMore slots each (cell 0 blank, the slot's 12 from 1 + 12 k) (R5 A-06: Half Dial's
+        // vignette gives many slots cells of their own)
+        const int i = own.size();
         own << Own{ j, at };
-        // value v at b + v / 5; cell 1 (there is no numeral 1) is blank
-        numeralSprites << CellSprite{ numeralCells, at,
-                                      QString("((({1} + %1) % 5) == 0 ? ((({1} + %1) % %2) / 5 + %3) : 1)")
-                                          .arg(j).arg(kDialSlots).arg(b),
-                                      j, b, b + 11, true };
+        const bool first = i < kOwnFirst;
+        const int group = first ? 0 : 1 + (i - kOwnFirst) / kOwnMore;
+        const int b = first ? kDialSlots + 12 * i : 1 + 12 * ((i - kOwnFirst) % kOwnMore);
+        numeralSprites << CellSprite{ numeralCells + group, at,
+                                      QString("((({1} + %1) % 5) == 0 ? ((({1} + %1) % %2) / 5 + %3) : %4)")
+                                          .arg(j).arg(kDialSlots).arg(b).arg(first ? 1 : 0),
+                                      j, b, b + 11, true, numeralCells };
     }
+    auto ownCells = [&](int i, Cells *into, int at) {
+        for (int v = 0; v < 12; v++)
+            for (int y = 0; y < into->ch; y++)
+                for (int x = 0; x < into->cw; x++) {
+                    const int k = keep.at(own[i].at.x() + x, own[i].at.y() + y);
+                    *cellPixel(into, at + v, x, y) = uchar((cellAt(base, v * 5, x, y) * k + 127) / 255);
+                }
+    };
     Cells nc;
     nc.cw = base.cw;
     nc.ch = base.ch;
-    nc.n = kDialSlots + 12 * own.size();
+    nc.n = kDialSlots + 12 * qMin(int(own.size()), kOwnFirst);
     nc.strip = QByteArray(nc.cw * nc.n * nc.ch, 0);
     nc.rgba = tint(color, opacity);
     for (int y = 0; y < nc.ch; y++)
         memcpy(nc.strip.data() + y * nc.cw * nc.n, base.strip.constData() + y * base.cw * base.n, base.cw * base.n);
-    for (int i = 0; i < own.size(); i++)
-        for (int v = 0; v < 12; v++)
-            for (int y = 0; y < nc.ch; y++)
-                for (int x = 0; x < nc.cw; x++) {
-                    const int k = keep.at(own[i].at.x() + x, own[i].at.y() + y);
-                    *cellPixel(&nc, kDialSlots + 12 * i + v, x, y) = uchar((cellAt(base, v * 5, x, y) * k + 127) / 255);
-                }
+    for (int i = 0; i < own.size() && i < kOwnFirst; i++)
+        ownCells(i, &nc, kDialSlots + 12 * i);
     *cells << nc;
+    for (int g = 0; kOwnFirst + g * kOwnMore < own.size(); g++) {
+        const int from = kOwnFirst + g * kOwnMore, count = qMin(kOwnMore, int(own.size()) - from);
+        Cells more;
+        more.cw = base.cw;
+        more.ch = base.ch;
+        more.n = 1 + 12 * count;
+        more.strip = QByteArray(more.cw * more.n * more.ch, 0);
+        more.rgba = nc.rgba;
+        for (int i = 0; i < count; i++)
+            ownCells(from + i, &more, 1 + 12 * i);
+        *cells << more;
+    }
 
     // the long ticks: cell j the tick of slot j as it lies on the panel, less the covers, cell 60 blank
     QList<QQuickItem *> ticks;
@@ -846,13 +904,14 @@ bool fitDial(const QImage &bg, const QImage &cover, QList<Cells> *cells, QList<C
                         *px = uchar(qMax(0, int(*px) - under));
                     }
         }
-        if (s.onBlack && s.lo >= kDialSlots) {
+        if (s.onBlack && s.base >= 0) {
             // value v's own cell, from the shared one of value 5 v
+            const Cells &shared = (*cells)[s.base];
             for (int i = s.lo; i <= s.hi; i++)
                 for (int y = 0; y < c.ch; y++)
                     for (int x = 0; x < c.cw; x++) {
                         uchar *px = cellPixel(&c, i, x, y);
-                        const int lit = (cellAt(c, (i - s.lo) * 5, x, y) * (255 - bgAt(s.at.x() + x, s.at.y() + y)) + 127) / 255;
+                        const int lit = (cellAt(shared, (i - s.lo) * 5, x, y) * (255 - bgAt(s.at.x() + x, s.at.y() + y)) + 127) / 255;
                         *px = uchar(qMin(int(*px), lit));
                     }
         }

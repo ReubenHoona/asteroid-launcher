@@ -68,6 +68,10 @@ Item {
     function opt(id) { return Kit.optionValue(eosOptions, eosStyle, id) }
     readonly property color accent: Kit.accentColor(opt("color"), "cloud")
     readonly property color accentAmbient: Kit.ambientColor(accent)
+    // the colourway's other roles (Kit.colorRole): the text colour, the second tone of a two-tone one ("c"),
+    // and the light ramp ("e")
+    readonly property color accent2: Kit.colorRole(opt("color"), "c", "cloud")
+    readonly property color accentLight: Kit.colorRole(opt("color"), "e", "cloud")
     readonly property color white: "#ffffff"
     readonly property color whiteAmbient: Kit.ambientColor("#ffffff")
     readonly property bool boldTime: opt("boldTime") === true

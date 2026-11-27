@@ -415,7 +415,7 @@ Item {
                     onSlotTapped: (slot) => {
                         editor.chosenSlot = slot
                         editor.poke()
-                        chooser.openFor(editor.sourceOf(slot))
+                        chooser.openFor(editor.sourceOf(slot), slot)
                     }
                 }
             }

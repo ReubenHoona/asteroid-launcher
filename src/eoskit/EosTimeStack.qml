@@ -23,6 +23,8 @@ Item {
     property color minuteColor: color
     property color ambientColor: owner ? owner.accentAmbient : "#b3b3b3"
     property color minuteAmbientColor: ambientColor
+    property int liveWeight: Kit.weight(bold, false)
+    property int ambientWeight: Kit.weight(bold, true)
 
     readonly property real k: owner ? owner.k : 1
     readonly property real px: size * k
@@ -39,6 +41,8 @@ Item {
         hubName: "eosHubHour"
         pixelSize: stack.px
         bold: stack.bold
+        liveWeight: stack.liveWeight
+        ambientWeight: stack.ambientWeight
         color: stack.color
         ambientColor: stack.ambientColor
         blend: stack.owner ? stack.owner.blend : 0
@@ -51,6 +55,8 @@ Item {
         hubName: "eosHubMinute"
         pixelSize: stack.px
         bold: stack.bold
+        liveWeight: stack.liveWeight
+        ambientWeight: stack.ambientWeight
         color: stack.minuteColor
         ambientColor: stack.minuteAmbientColor
         blend: stack.owner ? stack.owner.blend : 0
