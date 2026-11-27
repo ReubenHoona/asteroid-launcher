@@ -54,6 +54,14 @@ int main()
     CHECK(!remember("", other));
     CHECK(trim(boot) == "00000000-0000-4000-8000-000000000001");
 
+    // the quiet flag of a development reboot: it names the boot before this one (the last asked) only once
+    CHECK(quietBoot(other + "\n", other));
+    CHECK(quietBoot(" " + other, other + "\n"));
+    CHECK(!quietBoot(other, "00000000-0000-4000-8000-000000000003"));
+    CHECK(!quietBoot("", other));
+    CHECK(!quietBoot(" \n", ""));
+    CHECK(!quietBoot("", ""));
+
     if (failures)
         fprintf(stderr, "tst_bootfeedback: %d of %d checks failed\n", failures, checks);
     else

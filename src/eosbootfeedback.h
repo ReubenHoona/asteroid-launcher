@@ -63,6 +63,15 @@ inline bool due(const std::string &bootId, const std::string &lastBootId, bool s
     return true;
 }
 
+// A reboot made for development or tests stays quiet once: before it, root writes the running boot id to
+// /var/lib/eos/quiet-next-boot. In the next boot that id is the last boot the feedback was asked for, so the
+// file matches only then; later boots no longer match it (no clean-up needed). Not a user setting.
+inline bool quietBoot(const std::string &quietAfter, const std::string &lastBootId)
+{
+    const std::string id = trim(quietAfter);
+    return !id.empty() && id == trim(lastBootId);
+}
+
 // Whether the boot id is to be kept as played: every boot it was asked for once, even when it did not play
 // (a trial boot, the setup), so that a restart of the launcher later in that boot does not play it
 inline bool remember(const std::string &bootId, const std::string &lastBootId)

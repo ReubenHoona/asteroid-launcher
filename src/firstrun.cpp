@@ -93,7 +93,8 @@ bool FirstRun::bootFeedbackDue()
     const std::string bootId = readText("/proc/sys/kernel/random/boot_id");
     const std::string last = m_bootFeedbackBoot->value(QString()).toString().toStdString();
     const std::string phase = EosBootFeedback::updatePhase(readText("/var/lib/eos-update/state"));
-    const bool due = EosBootFeedback::due(bootId, last, !isFirstRun(), phase);
+    const bool quiet = EosBootFeedback::quietBoot(readText("/var/lib/eos/quiet-next-boot"), last);
+    const bool due = EosBootFeedback::due(bootId, last, !isFirstRun(), phase) && !quiet;
     if (EosBootFeedback::remember(bootId, last))
         m_bootFeedbackBoot->set(QString::fromStdString(EosBootFeedback::trim(bootId)));
     return due;
