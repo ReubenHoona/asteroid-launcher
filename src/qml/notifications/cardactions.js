@@ -18,6 +18,10 @@
  *    then asteroid-exercise is started. health-alert and celebration cards have no button of ours.
  *  - open page (health-fitness-26): a card with the hint x-eos-open-page and x-eos-app asteroid-health ("Start your
  *    day") gets the button "Open": it writes "<page>@<ms>" to /org/asteroidos/health/ui/open and starts Health.
+ *  - tutorial (R5 B-20): the launcher's own "Explore your new watch" card (x-eos-app eos-tutorial, hint
+ *    x-eos-start-tutorial true) gets "Start tutorial" (stock oobe_whats_new_start_tutorial, ACTION_RESTART_OOBE):
+ *    it writes "tutorial@<ms>" to /org/asteroidos/launcher/start-tutorial, the request Settings' Start tutorial
+ *    writes (HomeOverlays starts the coach over the face).
  */
 
 var EXERCISE_APP = "asteroid-exercise"
@@ -97,4 +101,18 @@ function openPage(hints) {
 
 function openRequest(page, nowMs) {
     return { key: HEALTH_OPEN_KEY, value: page + "@" + nowMs }
+}
+
+var TUTORIAL_APP = "eos-tutorial"
+var TUTORIAL_KEY = "/org/asteroidos/launcher/start-tutorial"
+// the card offers the tutorial (the launcher's own notice, both hints)
+function offersTutorial(hints) {
+    if (!hints)
+        return false
+    var app = String(hints["x-eos-app"] || "").replace(/\.desktop$/, "")
+    var h = hints["x-eos-start-tutorial"]
+    return app === TUTORIAL_APP && (h === true || String(h) === "true")
+}
+function tutorialRequest(nowMs) {
+    return { key: TUTORIAL_KEY, value: "tutorial@" + nowMs }
 }

@@ -13,7 +13,8 @@ import "cardactions.js" as CA
  * app's own actions): what the hints of the card make of it (cardactions.js).
  *  - "Start" / "End" on sensorlogd's exercise-detect cards (CR-38): writes the Exercise app's start or stop request
  *    and starts asteroid-exercise ("Start" for 'Start tracking?', "End" for 'Finished working out?');
- *  - "Open" on the "Start your day" card: opens the Health app's Morning Brief page.
+ *  - "Open" on the "Start your day" card: opens the Health app's Morning Brief page;
+ *  - "Start tutorial" on the launcher's "Explore your new watch" card (R5 B-20): asks for the tutorial.
  * sensorlogd posts the workout offers transient: they live as the banner and the detail view a tap on it opens (the
  * card there is expanded, so the buttons show); they are never in the stream. Running a button takes the card down.
  * Nothing runs until a button is tapped; nothing is polled.
@@ -29,8 +30,9 @@ Item {
 
     readonly property var offer: CA.exerciseOffer(hints)
     readonly property string page: CA.openPage(hints)
+    readonly property bool tutorial: CA.offersTutorial(hints)
 
-    // [{ kind: "exercise" | "open", label }], none for an ordinary card
+    // [{ kind: "exercise" | "open" | "tutorial", label }], none for an ordinary card
     readonly property var buttons: {
         var list = []
         if (offer !== null)
@@ -44,6 +46,10 @@ Item {
             list.push({ kind: "open",
                         //% "Open"
                         label: qsTrId("id-card-open") })
+        if (tutorial)
+            list.push({ kind: "tutorial",
+                        //% "Start tutorial"
+                        label: qsTrId("id-card-start-tutorial") })
         return list
     }
 
@@ -54,6 +60,7 @@ Item {
     ConfigurationValue { id: startRequest; key: "/org/asteroidos/exercise/start-request"; defaultValue: "" }
     ConfigurationValue { id: stopRequest; key: "/org/asteroidos/exercise/stop-request"; defaultValue: "" }
     ConfigurationValue { id: healthOpen; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
+    ConfigurationValue { id: tutorialStart; key: CA.TUTORIAL_KEY; defaultValue: "" }
 
     function launch(app) {
         if (Desktop.desktop && Desktop.desktop.launchByName)
@@ -72,6 +79,8 @@ Item {
         } else if (kind === "open" && page !== "") {
             healthOpen.value = CA.openRequest(page, now).value
             launch(CA.HEALTH_APP)
+        } else if (kind === "tutorial" && tutorial) {
+            tutorialStart.value = CA.tutorialRequest(now).value
         } else {
             return false
         }
