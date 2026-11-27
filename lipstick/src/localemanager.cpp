@@ -13,6 +13,7 @@
 ****************************************************************************/
 
 #include "localemanager.h"
+#include "eoscatalogues.h"
 
 #include <QLocale>
 #include <QDBusConnection>
@@ -42,7 +43,11 @@ LocaleManager::LocaleManager(HomeApplication *app) : QDBusAbstractAdaptor(app)
 void LocaleManager::loadLocaleCatalog()
 {
     if (!m_translator->load(QLocale(), "asteroid-launcher", ".", "/usr/share/translations", ".qm")) {
-        qDebug() << "asteroid-launcher: Failed to load" << QLocale().name() << "translations";
+        // a region the image has no catalogue for (the phone's de-AT, R5 C-04): the language's own (de_DE)
+        const QString nearest = EosCatalogues::nearest(QStringLiteral("asteroid-launcher"),
+                                                       QStringLiteral("/usr/share/translations"), QLocale());
+        if (nearest.isEmpty() || !m_translator->load(nearest))
+            qDebug() << "asteroid-launcher: Failed to load" << QLocale().name() << "translations";
     }
     m_app->installTranslator(m_translator);
 }
