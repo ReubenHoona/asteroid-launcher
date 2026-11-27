@@ -173,3 +173,9 @@ function cell(w, captionLine) {
 function hiddenOf(ids, shown) {
     return ids.filter(function (t) { return shown.indexOf(t) < 0 })
 }
+
+// R5 B-19: the ids of the registry the add list may offer (an entry with offered: false is not: the ours-only
+// Battery and Media tiles, DECISIONS Q27); the order of the registry
+function offeredIds(registry) {
+    return Object.keys(registry || {}).filter(function (t) { return !registry[t] || registry[t].offered !== false })
+}

@@ -360,5 +360,43 @@ Item {
                     }
             fuzzyCompare(first - (p0.y + rings[0].height), 29, 2)
         }
+
+        // ---- R5 B-19: the ours-only Battery and Media tiles are not offered (DECISIONS Q27, tiles-individual-30/31)
+
+        function test_r5_b19_not_offered() {
+            var reg = ({
+                timer: registry.timer, alarm: registry.alarm,
+                battery: { file: "tiles/BatteryTile.qml", name: "Battery", icon: "ios-battery-full", offered: false },
+                media: { file: "tiles/MediaTile.qml", name: "Media", icon: "ios-musical-notes-outline", offered: false }
+            })
+            compare(JSON.stringify(TE.offeredIds(reg)), '["timer","alarm"]')
+            compare(JSON.stringify(TE.offeredIds({})), "[]")
+            // a saved carousel that holds one keeps it, named; the add list offers neither
+            var ed = createTemporaryObject(editorComp, top, { registry: reg })
+            verify(ed)
+            ed.open(["battery", "timer"], 0)
+            tryCompare(ed, "arrived", true, 3000)
+            compare(JSON.stringify(tileIds(ed)), '["battery","timer"]')
+            compare(JSON.stringify(ed.hidden), '["alarm"]')
+            ed.addTapped()
+            tryCompare(ed.addList, "visible", true, 3000)
+            wait(300)
+            compare(findAll(ed.addList.grid, "eosTileListRing").length, 1)
+        }
+
+        // the launcher's own registry: Battery and Media are not offered, every other tile is
+        function test_r5_b19_launcher_registry() {
+            // the ring needs the home screen's ids: its registry is read from the staged file
+            var xhr = new XMLHttpRequest()
+            xhr.open("GET", Qt.resolvedUrl("LauncherQml/home/TilesRing.qml"), false)
+            xhr.send()
+            var text = xhr.responseText
+            verify(text.length > 1000, "TilesRing.qml read")
+            var lines = text.split("\n").filter(function (l) { return /^\s+"[a-z]+": \{ app:/.test(l) })
+            verify(lines.length >= 18, "registry lines: " + lines.length)
+            var off = lines.filter(function (l) { return l.indexOf("offered: false") >= 0 })
+                           .map(function (l) { return l.match(/"([a-z]+)"/)[1] })
+            compare(JSON.stringify(off), '["media","battery"]')
+        }
     }
 }

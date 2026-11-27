@@ -49,7 +49,10 @@ Item {
     z: 2
 
     // the tiles: id -> the app they belong to (its icon is the page indicator's),
-    // file, name and the icon of the tiles editor's list
+    // file, name and the icon of the tiles editor's list. offered: false keeps a tile out of the
+    // editor's add list (R5 B-19: Battery and Media are ours only, DECISIONS Q27 "no Battery/Media
+    // tiles", tiles-individual-30/31: stock has neither); a saved list that holds one still shows it,
+    // and the editor still names it, until the user removes it
     readonly property var tileRegistry: ({
         //% "Daily heart rate"
         "heartrate": { app: "asteroid-health", file: "tiles/HeartRateTile.qml", name: qsTrId("id-tile-label-heart-rate"), icon: "ios-heart-outline" },
@@ -62,13 +65,13 @@ Item {
         //% "Timer"
         "timer": { app: "asteroid-timer", file: "tiles/TimerTile.qml", name: qsTrId("id-tile-timer"), icon: "ios-timer-outline" },
         //% "Media"
-        "media": { app: "asteroid-music", file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media"), icon: "ios-musical-notes-outline" },
+        "media": { app: "asteroid-music", file: "tiles/MediaTile.qml", name: qsTrId("id-tile-media"), icon: "ios-musical-notes-outline", offered: false },
         //% "Assistant"
         "assistant": { app: "asteroid-assistant", file: "tiles/AssistantTile.qml", name: qsTrId("id-tile-assistant"), icon: "ios-microphone-outline" },
         //% "Next Alarm"
         "alarm": { app: "asteroid-alarmclock", file: "tiles/AlarmTile.qml", name: qsTrId("id-tile-label-alarm"), icon: "ios-alarm-outline" },
         //% "Battery"
-        "battery": { app: "asteroid-settings", file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full" },
+        "battery": { app: "asteroid-settings", file: "tiles/BatteryTile.qml", name: qsTrId("id-tile-battery"), icon: "ios-battery-full", offered: false },
         // W3-launcher-tiles-content-b: the rest of stock's widgets that this watch can show
         //% "Sleep"
         "sleep": { app: "asteroid-health", file: "tiles/SleepTile.qml", name: qsTrId("id-tile-sleep"), icon: "ms-bedtime" },
@@ -94,8 +97,8 @@ Item {
         id: tilesSetting
         key: "/org/asteroidos/ux/tiles"
         // stock's eos set and order (default_tiles of the eos overlay: Main goal, Daily heart rate, Quick start,
-        // Sleep, Next event, Assistant, Forecast, Maps). Alarm, timer, battery, media, Solar, UV Index, Favorites,
-        // Contact and Quick Add stay in the add list. A saved list wins.
+        // Sleep, Next event, Assistant, Forecast, Maps). Alarm, timer, Solar, UV Index, Favorites, Contact and
+        // Quick Add stay in the add list (battery and media are not offered: R5 B-19). A saved list wins.
         defaultValue: ["steps", "heartrate", "exercise", "sleep", "agenda", "assistant", "weather", "maps"]
         onValueChanged: if (desktop.wearLayout && grid.panels.size > 0) desktop.buildTiles()
     }

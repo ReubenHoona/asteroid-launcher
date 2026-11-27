@@ -68,7 +68,8 @@ Item {
     signal configureRequested(string tileId)
 
     property var shown: []
-    readonly property var hidden: TE.hiddenOf(Object.keys(registry), shown)
+    // what the add list offers: the registry's offered tiles that are not in the carousel (R5 B-19)
+    readonly property var hidden: TE.hiddenOf(TE.offeredIds(registry), shown)
     readonly property bool adding: addList.visible
     readonly property int maxTiles: TE.MAX_TILES
 
