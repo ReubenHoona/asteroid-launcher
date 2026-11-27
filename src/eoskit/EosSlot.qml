@@ -27,6 +27,8 @@ Item {
     property string defaultSource: "empty"
     property color tint: owner ? owner.accent : "white"
     property string fontFamily: Kit.FONT
+    // the data types the slot takes (the editor's chooser lists only sources of these); null: its shape's
+    property var supportedTypes: null
     // arc slots: the slot is the whole face (see ComplicationView)
     property real arcStart: 20
     property real arcSweep: 50

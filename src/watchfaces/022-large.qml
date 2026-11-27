@@ -55,5 +55,7 @@ EosFace {
     EosSlot {
         owner: face; slotId: "top"; shape: "text"; defaultSource: face.d.top
         spec: face.g.top; eosActive: face.g.top !== null
+        // stock's top line of Large Scale takes SHORT_TEXT only (watch_face_accessible.xml)
+        supportedTypes: ["SHORT_TEXT"]
     }
 }

@@ -21,11 +21,14 @@ import "complications.js" as C
  *         property string defaultSource: "steps" // see ComplicationSources.all
  *         property color tint: "white"           // the face's colour
  *         property string fontFamily: "Roboto"
+ *         property var supportedTypes: null      // optional: the data types it takes
  *         x: ...; y: ...; width: ...; height: ...
  *     }
  *
  * and nothing else: without the launcher (a preview elsewhere) the slot
- * stays empty. The shapes are the stock ones (the rwf watch face
+ * stays empty. The face editor lists only the sources that can fill the
+ * slot: those of its supportedTypes, else of its shape (faceeditor.js
+ * slotTypes; stock's types per slot kind). The shapes are the stock ones (the rwf watch face
  * renderers; the numbers are in complications.js):
  *  - "bulb": the round slot of the Wear OS faces, 86 px: a ring (track in
  *    the tint at alpha 30/255, the value as a progress arc with round caps
