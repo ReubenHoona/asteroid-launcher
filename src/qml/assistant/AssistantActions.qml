@@ -104,6 +104,14 @@ Item {
         signalsEnabled: true
         function rcActResult(id: int, json: string) { actions.actResult(id, json) }
     }
+    // the alarm presenter (asteroid-alarmclock): Snooze and Stop of the alarm that rings, Show to bring it back
+    DBusInterface {
+        id: presenter
+        bus: DBus.SessionBus
+        service: "org.asteroidos.alarmpresenter"
+        path: "/org/asteroidos/alarmpresenter"
+        iface: "org.asteroidos.alarmpresenter"
+    }
     ConfigurationValue { id: smsDryRun; key: "/org/asteroidos/assistant/sms-dry-run"; defaultValue: false }
     ConfigurationValue { id: callDryRun; key: "/org/asteroidos/assistant/call-dry-run"; defaultValue: false }
 
@@ -211,6 +219,7 @@ Item {
                                        [chipOpen(loc("id-asst-open-alarms", "Open Alarms"), "asteroid-alarmclock")], "#f6aea9"))
         case "alarm.cancel": return alarmCancel(s, done)
         case "alarm.query": return alarmQuery(done)
+        case "alarm.snooze": case "alarm.stop": return alarmRinging(intent === "alarm.snooze", done)
         case "stopwatch.start": return openApp("asteroid-stopwatch", done)
         case "reminder.set": return reminderSet(s.text, new Date(s.at * 1000), done)
         case "reminder.ask": return reminderAsk(s.text, done)
@@ -444,6 +453,45 @@ Item {
             text += " " + loc("id-asst-alarms-count", "You have %1 alarms on.").arg(on.length)
         done(card("ios-alarm-outline", clock(on[0].hour, on[0].minute), text,
                   [chipOpen(loc("id-asst-open-alarms", "Open Alarms"), "asteroid-alarmclock")], "#f6aea9"))
+    }
+
+    // The alarms that ring now: the presenter's "Ringing" notifications (asteroid-alarmclock alarmpresenter
+    // noticeFor, kind "ringing": resident, the default action the presenter's show; a snoozed one opens the
+    // alarm clock and has Stop). x-eos-alarm-kind says alarm or timer where the presenter gives it
+    function ringingAlarms() {
+        var list = []
+        for (var i = 0; i < notifications.itemCount; i++) {
+            var n = notifications.get(i)
+            if (!n || !n.hints || n.hints["x-eos-app"] !== "asteroid-alarmclock" || n.hints["x-nemo-remote-action-stop"])
+                continue
+            var def = String(n.hints["x-nemo-remote-action-default"] || "").split(" ")
+            if (def[0] !== presenter.service || def[3] !== "show")
+                continue
+            if ((n.hints["x-eos-alarm-kind"] || "alarm") === "alarm")
+                list.push(n)
+        }
+        return list
+    }
+    // Snooze or stop the ringing alarm, as Assistant (stock smt.java:459-531: only the alarms that are firing;
+    // none: no_alarms_to_snooze / no_alarms_to_stop). The presenter snoozes or dismisses every ringing alarm
+    // together, as its own buttons do. A presenter without these methods: the alarm screen comes back
+    function alarmRinging(snooze, done) {
+        var ringing = ringingAlarms()
+        var icon = "ios-alarm-outline"
+        if (ringing.length === 0)
+            return done(card(icon, "", snooze ? loc("id-asst-alarm-none-snooze", "I couldn't find any alarms to snooze.")
+                                              : loc("id-asst-alarm-none-stop", "I couldn't find any alarms to stop.")))
+        var title = String(ringing[0].body || "")
+        presenter.typedCall(snooze ? "snooze" : "dismiss", [], function () {
+            done(card(icon, title, snooze ? loc("id-asst-alarm-snoozed", "I have snoozed the alarm.")
+                                          : loc("id-asst-alarm-stopped", "I have stopped the alarm."), [], "#f6aea9"))
+        }, function () {
+            done(failure(card(icon, title, snooze ? loc("id-asst-alarm-snooze-there", "Snooze it on the alarm screen.")
+                                                  : loc("id-asst-alarm-stop-there", "Stop it on the alarm screen."),
+                              [{ label: loc("id-asst-show-alarm", "Show alarm"), icon: "", run: function (d) {
+                                  d({ close: true, then: function () { presenter.typedCall("show", []) } })
+                              } }], "#f6aea9")))
+        })
     }
 
     function reminderSet(text, when, done) {

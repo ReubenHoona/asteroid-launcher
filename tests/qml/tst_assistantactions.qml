@@ -13,11 +13,15 @@
 //    rate page ("heartrate@<ms>"), never the hidden asteroid-hrm.
 //  - R5 D-20: pause, resume and reset the timer by voice (Assistant's timer_paused/_resumed/_reset_confirmation),
 //    with the Timer app's edits of the countdown alarm, stock's answers when there is nothing to do.
+//  - R5 D-21: snooze or stop the ringing alarm (the presenter's "Ringing" notification) through the presenter's
+//    snooze / dismiss; nothing ringing (a snoozed alarm, a ringing timer): stock's no_alarms_to_snooze / _stop;
+//    a presenter without the methods: the alarm screen comes back.
 // MODE=st (the staged tree).
 import QtQuick
 import QtTest
 import Nemo.Alarms
 import LauncherTest
+import org.nemomobile.lipstick
 import "st/qml/desktop.js" as Desktop
 
 Item {
@@ -53,7 +57,30 @@ Item {
             AlarmsMock.creatable = true
             fakeDesktop.launched = []
             got = null
+            var m = Lipstick.notificationModel
+            while (m && m.itemCount > 0)
+                m.remove(m.get(0))
+            Backend.errors = {}
+            Backend.clearCalls()
         }
+        // the alarm presenter's notices (asteroid-alarmclock alarmpresenter noticeFor), invented times
+        readonly property string presenterService: "org.asteroidos.alarmpresenter"
+        function presenterNotice(kind, id, time, alarmKind) {
+            var hints = { "category": "x-nemo.alarm", "x-eos-app": "asteroid-alarmclock", "resident": true }
+            if (kind === "ringing")
+                hints["x-nemo-remote-action-default"] = presenterService + " /org/asteroidos/alarmpresenter " + presenterService + " show"
+            else {
+                hints["x-nemo-remote-action-default"] = "org.asteroidos.alarmclock /org/asteroidos/alarmclock org.asteroidos.alarmclock show"
+                hints["x-nemo-remote-action-stop"] = presenterService + " /org/asteroidos/alarmpresenter " + presenterService + " stop " + id
+            }
+            if (alarmKind)
+                hints["x-eos-alarm-kind"] = alarmKind
+            var n = { replacesId: id, summary: "Alarm", body: kind === "ringing" ? time : "Snoozing until " + time,
+                      hints: hints, timestamp: new Date() }
+            Lipstick.notificationModel.add(n)
+            return n
+        }
+        function presenterCall(method) { return Backend.find(presenterService, presenterService + "." + method) }
         function cleanup() {
             AlarmsMock.creatable = false
             AlarmsMock.alarms = []
@@ -194,6 +221,55 @@ Item {
             compare(c.text, "I have resumed the timer.")
             left = t.triggerTime - nowS()
             verify(left >= 298 && left <= 301, "left " + left)
+        }
+
+        // R5 D-21: nothing rings: stock's answers, nothing is asked of the presenter
+        function test_d21_nothing_rings() {
+            compare(ask("alarm.snooze", {}).text, "I couldn't find any alarms to snooze.")
+            compare(ask("alarm.stop", {}).text, "I couldn't find any alarms to stop.")
+            // a snoozed alarm is not ringing (stock: only the firing ones), nor is a ringing timer
+            presenterNotice("snoozed", 41, "06:50")
+            presenterNotice("ringing", 42, "0:00", "timer")
+            compare(ask("alarm.stop", {}).text, "I couldn't find any alarms to stop.")
+            compare(ask("alarm.snooze", {}).text, "I couldn't find any alarms to snooze.")
+            compare(presenterCall("snooze"), null)
+            compare(presenterCall("dismiss"), null)
+        }
+
+        // R5 D-21: an alarm rings: the presenter snoozes or dismisses it, the card says so with its time
+        function test_d21_snooze_and_stop() {
+            presenterNotice("ringing", 43, "06:45")
+            var c = ask("alarm.snooze", {})
+            compare(c.text, "I have snoozed the alarm.")
+            compare(c.title, "06:45")
+            verify(c.error !== true)
+            verify(presenterCall("snooze") !== null)
+            compare(presenterCall("dismiss"), null)
+            Backend.clearCalls()
+            // a presenter of before x-eos-alarm-kind: the ringing notice is an alarm
+            c = ask("alarm.stop", {})
+            compare(c.text, "I have stopped the alarm.")
+            verify(presenterCall("dismiss") !== null)
+            compare(presenterCall("snooze"), null)
+        }
+
+        // R5 D-21: a presenter without snooze / dismiss (image 72's): the card says where to do it, Show alarm
+        // brings the alarm screen back
+        function test_d21_presenter_without_the_methods() {
+            presenterNotice("ringing", 44, "07:10", "alarm")
+            Backend.errors = { "org.asteroidos.alarmpresenter.snooze": "org.freedesktop.DBus.Error.UnknownMethod",
+                               "org.asteroidos.alarmpresenter.dismiss": "org.freedesktop.DBus.Error.UnknownMethod" }
+            var c = ask("alarm.snooze", {})
+            compare(c.error, true)
+            compare(c.text, "Snooze it on the alarm screen.")
+            compare(c.chips.length, 1)
+            compare(c.chips[0].label, "Show alarm")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            verify(r !== null && r.close === true)
+            r.then()
+            verify(presenterCall("show") !== null)
+            compare(ask("alarm.stop", {}).text, "Stop it on the alarm screen.")
         }
 
         // R5 D-20: nothing to pause, resume or reset (stock's no_timers_alarms_running, no_timers_to_reset_message)
