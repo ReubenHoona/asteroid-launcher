@@ -106,6 +106,9 @@ signals:
     void userDataChanged();
     void titleChanged();
     void delayRemoveChanged();
+    /* eos (R5 B-05): the client destroyed its surface while delayRemove was set: the item keeps its last
+     * frame (bufferLocked) until QML sets delayRemove false (the exit animation), at most a second */
+    void closing();
     void committed();
     void focusOnTouchChanged();
     void windowFlagsChanged();
@@ -122,6 +125,7 @@ signals:
 private slots:
     void handleTouchCancel();
     void killProcess();
+    void handleSurfaceDestroyed();
 
 private:
     friend class LipstickCompositor;

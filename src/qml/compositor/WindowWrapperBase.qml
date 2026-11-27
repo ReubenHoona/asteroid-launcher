@@ -32,6 +32,7 @@
 import QtQuick
 import org.asteroid.controls
 import org.asteroid.utils
+import "windowmotion.js" as WM
 
 Item {
     id: wrapper
@@ -52,7 +53,47 @@ Item {
     property QtObject motion: null
     property bool opening: false
     readonly property real openScale: opening && motion ? motion.scale : 1
-    opacity: opening && motion ? motion.alpha : 1
+    opacity: (opening && motion ? motion.alpha : 1) * exitOpacity
+
+    /* R5 B-05: the application closed its window itself (lipstick keeps the last frame while the window's
+     * delayRemove is set and says closing()): the framework task close exit, motion A6
+     * (WearMixedTransitionHandler.java:110-131 hands it to the framework's taskCloseExitAnimation,
+     * anim-watch/rounded_window_exit.xml: scale 1 -> 0.75 about the centre and alpha 1 -> 0, both 250 ms on
+     * (0.4, 0, 0.2, 1); windowmotion.js EXIT), then the window goes (delayRemove false). AppLifecycle decides
+     * (lifecycle.js exitsWithMotion) and calls playExit() or finishExit(). */
+    signal closedByApp()
+    property bool exiting: false
+    property real exitScale: 1
+    property real exitOpacity: 1
+    readonly property alias exitAnimation: exitAnim
+    function playExit() {
+        exiting = true
+        exitAnim.restart()
+    }
+    function finishExit() {
+        exitAnim.stop()
+        if (window && window.delayRemove !== undefined)
+            window.delayRemove = false
+    }
+    Connections {
+        target: wrapper.window
+        ignoreUnknownSignals: true
+        function onClosing() { wrapper.closedByApp() }
+    }
+    ParallelAnimation {
+        id: exitAnim
+        NumberAnimation {
+            target: wrapper; property: "exitScale"; from: 1; to: WM.EXIT.toScale
+            duration: Motion.duration(WM.EXIT.durationMs)
+            easing.type: Easing.BezierSpline; easing.bezierCurve: WM.EXIT.bezier
+        }
+        NumberAnimation {
+            target: wrapper; property: "exitOpacity"; from: 1; to: 0
+            duration: Motion.duration(WM.EXIT.durationMs)
+            easing.type: Easing.BezierSpline; easing.bezierCurve: WM.EXIT.bezier
+        }
+        onFinished: wrapper.finishExit()
+    }
 
     // from a complication or the chip the window also moves out of the tapped
     // element (the origin launch, motion A2: AppOpen dx, dy)
@@ -60,8 +101,8 @@ Item {
         Scale {
             origin.x: wrapper.width / 2
             origin.y: wrapper.height / 2
-            xScale: wrapper.openScale
-            yScale: wrapper.openScale
+            xScale: wrapper.openScale * wrapper.exitScale
+            yScale: wrapper.openScale * wrapper.exitScale
         },
         Translate {
             x: wrapper.opening && wrapper.motion ? wrapper.motion.dx : 0

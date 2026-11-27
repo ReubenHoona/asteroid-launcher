@@ -43,7 +43,7 @@ LipstickCompositorWindow::LipstickCompositorWindow(int windowId, const QString &
     connect(this, SIGNAL(touchEventsEnabledChanged()), SLOT(handleTouchCancel()));
 
     if(surface) {
-        connect(surface, SIGNAL(surfaceDestroyed()), this, SLOT(deleteLater()));
+        connect(surface, SIGNAL(surfaceDestroyed()), this, SLOT(handleSurfaceDestroyed()));
         connect(surface, &QWaylandSurface::configure, this, &LipstickCompositorWindow::committed);
 
         m_processId = surface->client()->processId();
@@ -97,9 +97,28 @@ void LipstickCompositorWindow::setDelayRemove(bool delay)
     if (delay == m_delayRemove)
         return;
 
+    // eos (R5 B-05): the flag was never stored, so nothing could delay the removal
+    m_delayRemove = delay;
     emit delayRemoveChanged();
 
     tryRemove();
+}
+
+/* The client's surface is gone (it closed its window, or quit). Without delayRemove the item goes as before.
+ * With it (QML set it on the application in front: AppLifecycle) the item keeps the last frame it showed
+ * (QWaylandQuickItem::bufferLocked, the Qt compositor examples' destroy animation) and says closing();
+ * LipstickCompositor::onSurfaceDying marks it closed, and it is removed once QML clears delayRemove (the
+ * framework task close exit, 250 ms). A second at most: then it goes whatever QML did (one single shot, only
+ * at a close). */
+void LipstickCompositorWindow::handleSurfaceDestroyed()
+{
+    if (!m_delayRemove) {
+        deleteLater();
+        return;
+    }
+    setBufferLocked(true);
+    emit closing();
+    QTimer::singleShot(1000, this, [this]() { setDelayRemove(false); });
 }
 
 QString LipstickCompositorWindow::category() const

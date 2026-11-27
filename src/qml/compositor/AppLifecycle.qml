@@ -564,6 +564,22 @@ Compositor {
         }
     }
 
+    /* R5 B-05: the application in front closed its window itself: the face is shown under it (close-enter
+     * @null) and the window leaves with the task close exit (WindowWrapperBase.playExit); anything else goes
+     * at once (lifecycle.js exitsWithMotion) */
+    function appClosedItself(w) {
+        if (!w)
+            return
+        var moving = typeof transitions !== "undefined" && transitions !== null && transitions.windowMoving === true
+        if (Life.exitsWithMotion(topmostWindow === w, w.visible, displayIsOff || Lipstick.compositor.displayAmbient,
+                                 alertWindow === w, moving)) {
+            setCurrentWindow(null)
+            w.playExit()
+        } else {
+            w.finishExit()
+        }
+    }
+
     function windowToFront(winId) {
         var o = comp.windowForId(winId)
         setCurrentWindow(o ? o.userData : null)
@@ -675,6 +691,11 @@ Compositor {
         // under it stays (interruptions-02, -09)
         var w = windowWrapper.createObject(isAlert ? arbiter.alertLayer : appLayer, { window: window })
         window.userData = w
+        // R5 B-05: lipstick keeps the last frame of an application that closes itself, for its exit
+        if (!isAlert && window.delayRemove !== undefined) {
+            window.delayRemove = true
+            w.closedByApp.connect(function () { comp.appClosedItself(w) })
+        }
 
         if (isAlert) {
             alertWindow = w
