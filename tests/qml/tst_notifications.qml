@@ -1409,6 +1409,28 @@ Item {
             fuzzyCompare(row.height, c.height, 0.5, "at its own height")
         }
 
+        // the input row's debounce (W2-launcher-notif-detail gap 34: taps on it within 1000 ms are one) on the
+        // actions' own clock (NotificationActions.clock): the taps' times are given, so the time a page takes to
+        // be made (over 1000 ms with many tests at once) does not make a second tap 'a second later'
+        function test_input_row_debounce_on_its_clock() {
+            var remote = Qt.createQmlObject('import QtQuick; QtObject { property var asked: []; '
+                                            + 'function openKeyboard(host, id, page, emoji) { asked = asked.concat([page]) } }', top)
+            made.push(remote)
+            var a = make("NotificationActions.qml", { notification: notif({}), remote: remote })
+            compare(a.debounceMs, 1000)
+            var ms = 5000000
+            a.clock = function () { return ms }
+            a.keyboardPicked()
+            ms += 100
+            a.keyboardPicked()
+            ms += 899
+            a.emojiPicked()
+            compare(remote.asked, [""], "one page for taps within 1000 ms")
+            ms += 1
+            a.emojiPicked()
+            compare(remote.asked, ["", "emoji"], "1000 ms after the first: allowed")
+        }
+
         function test_d60_09_stream_empty() {
             var s = stream()
             tryVerify(function () { return s.modelEmpty }, 3000)

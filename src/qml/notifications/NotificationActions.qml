@@ -201,10 +201,11 @@ Item {
     readonly property real outerRadius: Theme.shape.large
     readonly property real innerRadius: Theme.shape.small * 1     // 8 dp: 16 px
 
-    // the debounce of the input row
+    // the debounce of the input row, on a clock in ms (tests replace it)
     property double lastInput: 0
+    property var clock: function () { return Date.now() }
     function inputAllowed() {
-        var now = Date.now()
+        var now = clock()
         if (now - lastInput < debounceMs)
             return false
         lastInput = now
