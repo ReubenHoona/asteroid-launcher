@@ -16,6 +16,7 @@
 //  - R5 D-21: snooze or stop the ringing alarm (the presenter's "Ringing" notification) through the presenter's
 //    snooze / dismiss; nothing ringing (a snoozed alarm, a ringing timer): stock's no_alarms_to_snooze / _stop;
 //    a presenter without the methods: the alarm screen comes back.
+//  - R5 D-22: "Start the stopwatch" writes the Stopwatch's start request ("<ms>") and opens the app.
 // MODE=st (the staged tree).
 import QtQuick
 import QtTest
@@ -270,6 +271,18 @@ Item {
             r.then()
             verify(presenterCall("show") !== null)
             compare(ask("alarm.stop", {}).text, "Stop it on the alarm screen.")
+        }
+
+        // R5 D-22: the overlay goes, the request is written, then the app starts
+        function test_d22_start_stopwatch() {
+            var before = Date.now()
+            var c = ask("stopwatch.start", {})
+            verify(c !== null && c.close === true)
+            compare(fakeDesktop.launched, [])
+            c.then()
+            compare(fakeDesktop.launched, ["asteroid-stopwatch"])
+            var req = Number(Backend.conf["/org/asteroidos/stopwatch/start-request"])
+            verify(req >= before && req <= Date.now() + 1, "request " + req)
         }
 
         // R5 D-20: nothing to pause, resume or reset (stock's no_timers_alarms_running, no_timers_to_reset_message)

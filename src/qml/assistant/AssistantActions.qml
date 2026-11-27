@@ -67,6 +67,8 @@ Item {
     ConfigurationValue { id: currentTemp; key: "/org/asteroidos/weather/current-temp"; defaultValue: 0 }
     // Health's page request, "<page>@<ms>" (the heart rate tile writes the same)
     ConfigurationValue { id: healthOpen; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
+    // the Stopwatch's start request, "<ms>": the app starts a stopwatch that is at zero (see stopwatchStart)
+    ConfigurationValue { id: stopwatchRequest; key: "/org/asteroidos/stopwatch/start-request"; defaultValue: "" }
 
     AlarmsModel { id: countdowns; onlyCountdown: true }
     AlarmsModel { id: alarms }
@@ -186,6 +188,18 @@ Item {
                 Desktop.desktop.launchByName("asteroid-health", null)
         } })
     }
+    // "Start the stopwatch": the Stopwatch, started. Stock: Assistant's START_STOPWATCH ("Starting stopwatch",
+    // snh.java:58-68) sends DeskClock's STOPWATCH action (rly.java:21-25), which starts a stopwatch that is at
+    // zero and leaves a running or paused one as it is (hvd.java:36-47). The request is written before the app
+    // starts or comes to the front, as the tiles' requests; the app reads it (asteroid-stopwatch: R5-assistant
+    // NOTES; until then it only opens)
+    function stopwatchStart(onDone) {
+        onDone({ close: true, then: function () {
+            stopwatchRequest.value = String(Date.now())
+            if (typeof Desktop !== "undefined" && Desktop.desktop)
+                Desktop.desktop.launchByName("asteroid-stopwatch", null)
+        } })
+    }
     function forEachAlarm(model, f) {
         for (var i = 0; i < model.rowCount(); i++) {
             var a = model.data(model.index(i, 0), 0x0100)
@@ -220,7 +234,7 @@ Item {
         case "alarm.cancel": return alarmCancel(s, done)
         case "alarm.query": return alarmQuery(done)
         case "alarm.snooze": case "alarm.stop": return alarmRinging(intent === "alarm.snooze", done)
-        case "stopwatch.start": return openApp("asteroid-stopwatch", done)
+        case "stopwatch.start": return stopwatchStart(done)
         case "reminder.set": return reminderSet(s.text, new Date(s.at * 1000), done)
         case "reminder.ask": return reminderAsk(s.text, done)
         case "app.open": return openApp(s.app, done)
