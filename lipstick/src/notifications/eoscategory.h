@@ -22,6 +22,10 @@
  *    alerts again, as a new post of stock's id does);
  *  - the HeartRateAlertInfoActivity started with it (acit.j: a full screen intent): the launcher's heart rate
  *    alert screen (src/qml/system/HrAlert.qml) instead of a banner.
+ * asteroid-sensorlogd's celebrations ("celebration": the main goal reached, a reminder to move, its hour's goal and
+ * every hour met; R5 E-05, E-06) are stock's CelebrationActivity, started directly (trj.java:115-185): full screen
+ * (src/qml/system/GoalCelebration.qml), no banner; not an alarm (stock shows none in Do Not Disturb, Theater or
+ * Bedtime: zit.a) and not one id (each is a transient post that leaves no card).
  * Plain C++: tests/tst_eoscategory.cpp.
  */
 namespace EosCategory {
@@ -54,7 +58,7 @@ inline bool oneId(const std::string &category)
 // shown full screen by the launcher, never as a banner (stock's full screen activity)
 inline bool fullScreen(const std::string &category)
 {
-    return category == "health-alert";
+    return category == "health-alert" || category == "celebration";
 }
 
 // a card in the notification server

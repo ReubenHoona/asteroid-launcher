@@ -302,8 +302,9 @@ Item {
     }
     function noteInput() { mediaAuto.userInput() }
 
-    /* The daily goal celebration (health-fitness-14): over the app and the face, under the pairing
-     * dialog, alarms and calls; not in the quiet modes or over a surface that must not be covered */
+    /* The celebrations (health-fitness-14, -15; R5 E-05, E-06: the main goal, the reminders to move), full
+     * screen as sensorlogd posts them: over the app and the face, under the pairing dialog, alarms and calls;
+     * not in the quiet modes or over a surface that must not be covered */
     GoalCelebration {
         id: goalCelebration
         z: arbiter.layers.celebration

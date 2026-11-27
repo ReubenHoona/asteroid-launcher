@@ -8,6 +8,8 @@ import QtQuick
 QtObject {
     property var workouts: []
     property var summaries: ({})
+    // R5 E-09: { "YYYY-MM-DD": HealthMetricsLoader.cardioLoad() map }
+    property var cardio: ({})
     property int alive: 0
     property int reads: 0
     signal changedSignal()
@@ -15,6 +17,7 @@ QtObject {
     function reset() {
         workouts = []
         summaries = ({})
+        cardio = ({})
         reads = 0
     }
     function dayKey(d) {
