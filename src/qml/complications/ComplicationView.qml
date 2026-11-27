@@ -135,11 +135,11 @@ Item {
         readonly property real endAngle: C.progressEnd(hasGap, progress)
         readonly property real valueSize: C.valueSize(view.info.short.length) * u
 
-        // the track: the colour at alpha 30/255
+        // the track: the colour at alpha 30/255 (a weighted ring draws its own, segment by segment)
         Shape {
             objectName: "eosTrack"
             anchors.fill: parent
-            visible: bulb.ring
+            visible: bulb.ring && !(bulb.type === "weighted" && bulb.elementsTotal > 0 && !view.ambient)
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
                 fillColor: "transparent"
@@ -189,6 +189,14 @@ Item {
         function segmentSweep(i) {
             return Math.max(0.5, sweep * elements[i].weight / elementsTotal - gapDegrees)
         }
+        // an element's colour: its own, the tint when it has none, the track's for one marked track (M4 WO-10:
+        // the Exercise days not done yet)
+        function segmentColor(i) {
+            var el = elements[i]
+            if (el.track === true)
+                return Qt.rgba(accent.r, accent.g, accent.b, C.DISC_ALPHA)
+            return el.color !== undefined && el.color !== "" ? el.color : accent
+        }
         Repeater {
             model: bulb.type === "weighted" && bulb.elementsTotal > 0 && !view.ambient ? bulb.elements.length : 0
             delegate: Shape {
@@ -199,7 +207,7 @@ Item {
                 readonly property real sweepAngle: bulb.segmentSweep(index)
                 ShapePath {
                     fillColor: "transparent"
-                    strokeColor: bulb.elements[index].color
+                    strokeColor: bulb.segmentColor(index)
                     strokeWidth: bulb.strokeW
                     capStyle: ShapePath.FlatCap
                     PathAngleArc {

@@ -10,7 +10,6 @@
 #include <QDateTime>
 #include <QFileSystemWatcher>
 #include <QObject>
-#include <QPointF>
 #include <QTimer>
 #include <QVariantList>
 
@@ -28,11 +27,13 @@
  * back on the user interface thread in one "changed" signal.
  *
  *   heartrateMonitor: value = bpm; buckets = the average of each bucket,
- *                     lows/highs = its lowest and highest reading; resting
- *                     = today's resting heart rate. As asteroid-health's
- *                     HealthStats.js (heartRateDay), so the tile and the app
- *                     agree: the readings of today (local midnight to
- *                     midnight) between 25 and 250 bpm (0 is off the wrist)
+ *                     lows/highs = its lowest and highest reading. As
+ *                     asteroid-health's HealthStats.js (heartRateDay), so the
+ *                     tile and the app agree: the readings of today (local
+ *                     midnight to midnight) between 25 and 250 bpm (0 is off
+ *                     the wrist). The resting heart rate is sensorlogd's one
+ *                     daily estimate (HealthMetricsLoader.restingHrOf), not
+ *                     this log's
  *   stepCounter:      value = steps so far today (the log is cumulative);
  *                     buckets = the steps taken in each bucket
  *
@@ -42,8 +43,8 @@
  * 2 h in 3 minute means, aapt.java:27-32). values = the mean of each part
  * (0: none), lows / highs its lowest and highest reading, minValue /
  * maxValue the lowest and highest of the means (stock labels the chart with
- * those), lastValue / lastTime the latest reading in the window, resting =
- * -1. windowStart / windowEnd are the ends of the window (the caption). The
+ * those), lastValue / lastTime the latest reading in the window.
+ * windowStart / windowEnd are the ends of the window (the caption). The
  * window is as old as the last read: nothing runs to slide it, the tile
  * reads again when it comes on screen and when the log changes. The window
  * may reach into yesterday's file.
@@ -62,7 +63,6 @@ class HealthLog : public QObject
     Q_PROPERTY(QVariantList values READ values NOTIFY changed)
     Q_PROPERTY(QVariantList lows READ lows NOTIFY changed)
     Q_PROPERTY(QVariantList highs READ highs NOTIFY changed)
-    Q_PROPERTY(int restingValue READ restingValue NOTIFY changed)
     Q_PROPERTY(int windowMinutes READ windowMinutes WRITE setWindowMinutes NOTIFY windowMinutesChanged)
     Q_PROPERTY(QDateTime windowStart READ windowStart NOTIFY changed)
     Q_PROPERTY(QDateTime windowEnd READ windowEnd NOTIFY changed)
@@ -85,7 +85,6 @@ public:
     QVariantList values() const { return m_values; }
     QVariantList lows() const { return m_lows; }
     QVariantList highs() const { return m_highs; }
-    int restingValue() const { return m_resting; }
     int windowMinutes() const { return m_windowMinutes; }
     void setWindowMinutes(int minutes);
     QDateTime windowStart() const { return m_windowStart; }
@@ -104,10 +103,6 @@ public:
      * fixed one; default QDateTime::currentDateTime) */
     void setClock(std::function<QDateTime()> clock) { m_clock = std::move(clock); }
 
-    /* The resting heart rate of readings (x: epoch, y: bpm), as
-     * asteroid-health's HealthStats.js restingRate(): the lowest average
-     * held for 30 minutes over at least 3 readings; -1 if none */
-    static int restingRate(QList<QPointF> points);
 
     /* The window summary of the log files `paths` (older first) as a map for
      * the host test: ok, last, lastTime (epoch), min, max, values, lows,
@@ -131,7 +126,6 @@ private:
         QVariantList values;
         QVariantList lows;
         QVariantList highs;
-        int resting = -1;
         QDateTime windowStart;
         QDateTime windowEnd;
     };
@@ -151,7 +145,6 @@ private:
     QVariantList m_values;
     QVariantList m_lows;
     QVariantList m_highs;
-    int m_resting = -1;
     int m_windowMinutes = 0;
     QDateTime m_windowStart;
     QDateTime m_windowEnd;

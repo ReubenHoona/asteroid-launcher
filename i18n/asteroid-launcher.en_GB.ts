@@ -3227,5 +3227,50 @@ for %1 seconds to</translation>
         <source>Back</source>
         <translation>Back</translation>
     </message>
+    <message id="id-tile-last-activity">
+        <location filename="../src/qml/home/TilesRing.qml"/>
+        <source>Last activity</source>
+        <translation>Last activity</translation>
+    </message>
+    <message id="id-tile-start">
+        <location filename="../src/qml/tiles/LastActivityTile.qml"/>
+        <source>Start</source>
+        <translation>Start</translation>
+    </message>
+    <message id="id-tile-yesterday">
+        <location filename="../src/qml/tiles/LastActivityTile.qml"/>
+        <source>Yesterday</source>
+        <translation>Yesterday</translation>
+    </message>
+    <message id="id-tile-last-activity-empty">
+        <location filename="../src/qml/tiles/LastActivityTile.qml"/>
+        <source>Track an exercise to see your achievements!</source>
+        <translation>Track an exercise to see your achievements!</translation>
+    </message>
+    <message id="id-comp-calories">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Calories</source>
+        <translation>Calories</translation>
+    </message>
+    <message id="id-comp-floors">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Floors</source>
+        <translation>Floors</translation>
+    </message>
+    <message id="id-comp-azm">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Active Zone Minutes</source>
+        <translation>Active Zone Minutes</translation>
+    </message>
+    <message id="id-comp-exercise-days">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Exercise days</source>
+        <translation>Exercise days</translation>
+    </message>
+    <message id="id-comp-days-of">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>%1 of %2 days</source>
+        <translation>%1 of %2 days</translation>
+    </message>
 </context>
 </TS>

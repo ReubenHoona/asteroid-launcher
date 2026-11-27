@@ -375,6 +375,61 @@ function exerciseRequest(key, nowMs) {
     return key + "@" + nowMs
 }
 
+/* ---- Last activity (tiles-individual-24, health-fitness E60, M4 WO-10) ---- */
+
+// tile_last_activity_preview.xml: the edge button and its label, the day line and the unit in the card
+var LAST_CHIP = "#A8C7FA"
+var LAST_CHIP_TEXT = "#041E49"
+var LAST_DAY = "#C2C6D2"
+var LAST_UNIT = "#EBF1FF"
+
+/* local midnight of the day of a time (ms) */
+function _midnight(ms) {
+    var d = new Date(ms)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+}
+
+/* local midnight of the Monday of a time's week (ms): the week of sensorlogd's Active Zone Minutes (stock: the
+ * account's first day of the week) */
+function weekStartMs(ms) {
+    var d = new Date(ms)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7).getTime()
+}
+
+/* The day word of a workout's start at nowMs, as stock's tile (acbe.java:1631-1645: the whole days from the start's
+ * day to now): "today", "yesterday", "weekday" in this week (the tile says the weekday's name), else "date" */
+function activityDay(startMs, nowMs) {
+    var days = Math.round((_midnight(nowMs) - _midnight(startMs)) / 86400000)
+    if (days <= 0)
+        return "today"
+    if (days === 1)
+        return "yesterday"
+    return startMs >= weekStartMs(nowMs) ? "weekday" : "date"
+}
+
+/* seconds as the Exercise app's elapsed time: m:ss, h:mm:ss from the first hour */
+function clockText(seconds) {
+    var s = Math.max(0, Math.floor(seconds))
+    var h = Math.floor(s / 3600)
+    var m = Math.floor(s / 60) % 60
+    var ss = s % 60
+    return (h > 0 ? h + ":" + (m < 10 ? "0" : "") + m : String(m)) + ":" + (ss < 10 ? "0" : "") + ss
+}
+
+/* What the Last activity tile shows of a workout (WorkoutLoader.last(): startMs, activeS, type, distanceM, ended;
+ * {} for none) at nowMs: { valid, type, day, distance, value, unit, clock }. The main number is the distance when
+ * the workout has one (value in km, or mi with `imperial`), else the active time (clock); ours, stock picks a stat
+ * per exercise type (ulu.A, not traced). A workout still on is none (last() skips it). */
+function lastActivity(w, nowMs, imperial) {
+    if (!w || !(Number(w.startMs) > 0) || w.ended === false)
+        return { valid: false, type: "", day: "", distance: false, value: 0, unit: "", clock: "" }
+    var dist = Number(w.distanceM) > 0
+    return { valid: true, type: String(w.type || ""), day: activityDay(Number(w.startMs), nowMs), distance: dist,
+             value: dist ? Number(w.distanceM) / (imperial ? 1609.344 : 1000) : 0,
+             unit: dist ? (imperial ? "mi" : "km") : "",
+             clock: dist ? "" : clockText(Number(w.activeS) || 0) }
+}
+
 /* ---- Maps ---- */
 
 /* The saved place with the name Home or Work (asteroid-map's /map/waypointList: [icon, [lat, lon], colour, name,

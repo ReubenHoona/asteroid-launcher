@@ -194,15 +194,16 @@ function offWristDeadline(now) { return now + OFFWRIST.DELAY_S * 1000 }
  * the AP's wakeups would mislead, so they show '--' (the developer guidance
  * for ambient). kinds: "static" (right for the whole day: the date, moon,
  * an app shortcut, the alarm's time, the hourly weather values), "stale"
- * (live data or the time: steps, heart rate, unread count, the next event's
- * countdown, clocks, timers, the media title). Hub-bound metrics (steps, heart rate)
+ * (live data or the time: steps, heart rate, today's calories, floors and
+ * Active Zone Minutes, unread count, the next event's countdown, clocks,
+ * timers, the media title). Hub-bound metrics (steps, heart rate)
  * are not available to the layout yet (the hub's metric ids are not known),
  * so they are "stale" too. The watch's and the phone's battery are neither:
  * stock Pixel faces keep their complications in the always-on screen, so
  * they are read there too and a new value rebuilds the hub's layout at the
  * next AP wakeup (ComplicationSources.hubValues, AmbientController; D60-03). */
 var STALE_KINDS = ["timedate", "worldclock", "steps", "heartrate", "notifications",
-                   "nextevent", "sun", "timer", "stopwatch", "media"]
+                   "nextevent", "sun", "timer", "stopwatch", "media", "calories", "floors", "azm"]
 
 function complicationStale(kind, hubDrawn) {
     return hubDrawn === true && STALE_KINDS.indexOf(kind) >= 0

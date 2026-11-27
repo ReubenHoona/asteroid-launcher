@@ -1,0 +1,5 @@
+module org.asteroid.sensorlogd
+singleton SensorlogdFixture 1.0 SensorlogdFixture.qml
+WorkoutLoader 1.0 WorkoutLoader.qml
+HealthMetricsLoader 1.0 HealthMetricsLoader.qml
+SleepDataLoader 1.0 SleepDataLoader.qml

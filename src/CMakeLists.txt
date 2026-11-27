@@ -121,6 +121,8 @@ set(QML_FILES
 	qml/tiles/WeatherSource.qml
 	qml/tiles/SleepTile.qml
 	qml/tiles/ExerciseTile.qml
+	qml/tiles/LastActivityTile.qml
+	qml/tiles/LastActivitySource.qml
 	qml/tiles/SolarTile.qml
 	qml/tiles/UvTile.qml
 	qml/tiles/FavoritesTile.qml
@@ -134,6 +136,7 @@ set(QML_FILES
 	qml/complications/AgendaSource.qml
 	qml/complications/ClockSource.qml
 	qml/complications/MediaSource.qml
+	qml/complications/HealthSource.qml
 	qml/complications/complications.js
 	qml/complications/FaceEditor.qml
 	qml/complications/EditorSelector.qml
@@ -346,6 +349,8 @@ set_source_files_properties(qml/tiles/BatteryTile.qml                PROPERTIES 
 set_source_files_properties(qml/tiles/WeatherSource.qml          PROPERTIES QT_RESOURCE_ALIAS tiles/WeatherSource.qml)
 set_source_files_properties(qml/tiles/SleepTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/SleepTile.qml)
 set_source_files_properties(qml/tiles/ExerciseTile.qml           PROPERTIES QT_RESOURCE_ALIAS tiles/ExerciseTile.qml)
+set_source_files_properties(qml/tiles/LastActivityTile.qml       PROPERTIES QT_RESOURCE_ALIAS tiles/LastActivityTile.qml)
+set_source_files_properties(qml/tiles/LastActivitySource.qml     PROPERTIES QT_RESOURCE_ALIAS tiles/LastActivitySource.qml)
 set_source_files_properties(qml/tiles/SolarTile.qml              PROPERTIES QT_RESOURCE_ALIAS tiles/SolarTile.qml)
 set_source_files_properties(qml/tiles/UvTile.qml                 PROPERTIES QT_RESOURCE_ALIAS tiles/UvTile.qml)
 set_source_files_properties(qml/tiles/FavoritesTile.qml          PROPERTIES QT_RESOURCE_ALIAS tiles/FavoritesTile.qml)
@@ -359,6 +364,7 @@ set_source_files_properties(qml/complications/ComplicationView.qml   PROPERTIES 
 set_source_files_properties(qml/complications/AgendaSource.qml       PROPERTIES QT_RESOURCE_ALIAS complications/AgendaSource.qml)
 set_source_files_properties(qml/complications/ClockSource.qml        PROPERTIES QT_RESOURCE_ALIAS complications/ClockSource.qml)
 set_source_files_properties(qml/complications/MediaSource.qml        PROPERTIES QT_RESOURCE_ALIAS complications/MediaSource.qml)
+set_source_files_properties(qml/complications/HealthSource.qml       PROPERTIES QT_RESOURCE_ALIAS complications/HealthSource.qml)
 set_source_files_properties(qml/complications/complications.js       PROPERTIES QT_RESOURCE_ALIAS complications/complications.js)
 set_source_files_properties(qml/complications/FaceEditor.qml         PROPERTIES QT_RESOURCE_ALIAS complications/FaceEditor.qml)
 set_source_files_properties(qml/complications/EditorSelector.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSelector.qml)

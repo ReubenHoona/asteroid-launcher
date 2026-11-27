@@ -141,7 +141,6 @@ static void objectTests(const QString &home, const QDateTime &now, int dayMin, i
     CHECK_EQ(log.minValue(), 72);
     CHECK_EQ(log.maxValue(), 95);
     CHECK_EQ(log.values().size(), 40);
-    CHECK_EQ(log.restingValue(), -1);
     CHECK(log.windowStart().isValid() && log.windowEnd().isValid());
     CHECK_EQ(log.windowStart().secsTo(log.windowEnd()), 7200);
     CHECK_EQ(log.windowEnd().toSecsSinceEpoch(), t);

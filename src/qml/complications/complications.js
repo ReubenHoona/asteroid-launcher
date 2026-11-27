@@ -61,6 +61,43 @@ function strideMetres(heightCm) {
     return h / 100 * STRIDE_PER_HEIGHT
 }
 function distanceKm(steps, heightCm) { return steps * strideMetres(heightCm) / 1000 }
+
+// ---- Calories, Floors, Active Zone Minutes, Exercise days (M4 WO-10; the Fitbit offloadable complications) ----
+// the rings go towards stock's default goals, which the account would replace: tuj.java 'new tub(2500, 5000.0, 10,
+// 10000, 22)' (calories, distance m, floors, steps, Active Zone Minutes a day) and ttd.java:168 'new tuk(0, 3)'
+// (Exercise days without the account's goal)
+var FIT_GOALS = { calories: 2500, floors: 10, azm: 22, exercisedays: 3 }
+// a local day as "YYYY-MM-DD"
+function dayKey(d) { return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate()) }
+// local midnight of the Monday of a time's week (ms): sensorlogd's Active Zone Minutes week (stock: the account's)
+function weekStartMs(ms) {
+    var d = new Date(ms)
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() - (d.getDay() + 6) % 7).getTime()
+}
+// how many days of a list of workouts (WorkoutLoader: startMs, ended) have one that ended
+function exerciseDays(list) {
+    var days = {}
+    var n = 0
+    for (var i = 0; list && i < list.length; i++) {
+        var w = list[i]
+        if (!w || w.ended === false || !(Number(w.startMs) > 0))
+            continue
+        var k = dayKey(new Date(Number(w.startMs)))
+        if (!days[k]) {
+            days[k] = true
+            n++
+        }
+    }
+    return n
+}
+// the Exercise days ring (stock WEIGHTED_ELEMENTS: an element a day of the goal, the days done coloured, the rest
+// the track): [{weight, color, track}], color "" = the face's tint
+function exerciseDayElements(done, goal) {
+    var out = []
+    for (var i = 0; i < goal; i++)
+        out.push({ weight: 1, color: "", track: i >= done })
+    return out
+}
 // "3.2" (one decimal, as the stock distance complication shows kilometres)
 function distanceText(steps, heightCm) { return distanceKm(steps, heightCm).toFixed(1) }
 

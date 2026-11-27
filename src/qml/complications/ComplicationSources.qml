@@ -59,6 +59,7 @@ Item {
 
     // the data sources, in the order of the face editor's list
     readonly property var all: ["empty", "date", "daymonth", "datemonth", "weekday", "timedate", "steps", "heartrate", "distance",
+                                "calories", "floors", "azm", "exercisedays",
                                 "battery", "phonebattery", "notifications", "health", "exercise", "weather", "uv", "precipitation",
                                 "aqi", "sun", "moon", "nextevent", "alarm", "timer", "stopwatch", "media", "assistant"]
     // the sources that need a choice first (the face editor's second page)
@@ -89,6 +90,14 @@ Item {
         case "heartrate": return qsTrId("id-tile-heart-rate")
         //% "Distance"
         case "distance": return qsTrId("id-comp-distance")
+        //% "Calories"
+        case "calories": return qsTrId("id-comp-calories")
+        //% "Floors"
+        case "floors": return qsTrId("id-comp-floors")
+        //% "Active Zone Minutes"
+        case "azm": return qsTrId("id-comp-azm")
+        //% "Exercise days"
+        case "exercisedays": return qsTrId("id-comp-exercise-days")
         //% "Battery"
         case "battery": return qsTrId("id-comp-battery")
         //% "Phone battery"
@@ -377,6 +386,12 @@ Item {
                           progress: steps.known && steps.goal > 0 ? Math.min(1, steps.count / steps.goal) : -1,
                           known: steps.known })
         }
+        case "calories":
+        case "floors":
+        case "azm":
+            return fitInfo(p.kind)
+        case "exercisedays":
+            return exerciseDaysInfo()
         case "exercise":
             return base({ type: "icon", icon: "ios-run", title: name("exercise"), text: name("exercise") })
         case "heartrate":
@@ -496,10 +511,58 @@ Item {
         return base({ known: false })
     }
 
+    /* Today's energy burned, floors and Active Zone Minutes (M4 WO-10), as the Fitbit offloadable Calories, Floors and
+     * AZM complications (OffloadableCaloriesComplicationDataSourceService, ...Floors..., ...AZM...: the number, a ring
+     * towards the day's goal, stock's default goals; their icons): the Health app's numbers (sensorlogd's day
+     * summary, HealthSource.qml); '- -' until read */
+    function fitInfo(kind) {
+        var nodata = "- -"
+        var h = healthLoader.item
+        var v = h ? h.valueOf(kind) : -1
+        var icon = kind === "calories" ? "eos-health-energy" : kind === "floors" ? "eos-health-floors" : "eos-health-azm"
+        if (!(v >= 0))
+            return base({ short: nodata, text: nodata, title: name(kind), icon: icon, known: false })
+        var t = Number(v).toLocaleString(Qt.locale(), "f", 0)
+        return base({ type: "ranged", text: t, short: t, title: name(kind), long: t, icon: icon,
+                      progress: Math.min(1, v / C.FIT_GOALS[kind]) })
+    }
+    /* The days of this week with a workout (M4 WO-10), as the Fitbit Exercise days complication (WEIGHTED_ELEMENTS:
+     * an element a day of the goal, the days done in the tint, the count in the middle; '%1$d of %2$d days') */
+    function exerciseDaysInfo() {
+        var nodata = "- -"
+        var h = healthLoader.item
+        var done = h ? h.exerciseDays : -1
+        var goal = C.FIT_GOALS.exercisedays
+        if (!(done >= 0))
+            return base({ short: nodata, text: nodata, title: name("exercisedays"), icon: "eos-exercise", known: false })
+        //% "%1 of %2 days"
+        var of = qsTrId("id-comp-days-of").arg(done).arg(goal)
+        return base({ type: "weighted", text: String(done), short: String(done), title: name("exercisedays"), long: of,
+                      icon: "eos-exercise", elements: C.exerciseDayElements(done, goal) })
+    }
+
     // where a tap on a slot goes, as the stock complications open their app
     function open(id, fromItem) {
         var p = C.split(id)
         switch (p.kind) {
+        // the Health app on the metric's page (stock: Today at its DETAILS route, as the steps one)
+        case "calories":
+            openRequest.value = "energy@" + Date.now()
+            desktop.launchByName("asteroid-health", fromItem)
+            break
+        case "floors":
+            openRequest.value = "floors@" + Date.now()
+            desktop.launchByName("asteroid-health", fromItem)
+            break
+        case "azm":
+            openRequest.value = "azm@" + Date.now()
+            desktop.launchByName("asteroid-health", fromItem)
+            break
+        case "exercisedays":
+            // stock: TodayRoute.Details("EXERCISE") (xnz.java), the Health app's Exercise days page
+            openRequest.value = "exercise@" + Date.now()
+            desktop.launchByName("asteroid-health", fromItem)
+            break
         case "steps":
             // Today at DETAILS for its own metric, as the heart rate one
             openRequest.value = "steps@" + Date.now()
@@ -594,6 +657,22 @@ Item {
     HealthLog { id: stepsLog; sensor: "stepCounter"; buckets: 1; active: sources.wants("steps") || sources.wants("distance") }
     ConfigurationValue { id: profileHeight; key: "/org/asteroidos/health/profile/height-cm"; defaultValue: 0 }
     ConfigurationValue { id: stepsGoal; key: "/org/asteroidos/ux/steps-goal"; defaultValue: 10000 }
+
+    // today's energy, floors and Active Zone Minutes and this week's Exercise days (sensorlogd's QML plugin),
+    // made while a slot shows one of them (M4 WO-10)
+    Loader {
+        id: healthLoader
+        active: sources.demand.calories === true || sources.demand.floors === true || sources.demand.azm === true
+                || sources.demand.exercisedays === true
+        source: "HealthSource.qml"
+    }
+    Binding { target: healthLoader.item; property: "now"; value: sources.now; when: healthLoader.item !== null }
+    Binding {
+        target: healthLoader.item; property: "wantsDay"; when: healthLoader.item !== null
+        value: sources.demand.calories === true || sources.demand.floors === true || sources.demand.azm === true
+    }
+    Binding { target: healthLoader.item; property: "wantsWeek"; value: sources.demand.exercisedays === true; when: healthLoader.item !== null }
+    Binding { target: healthLoader.item; property: "active"; value: sources.active; when: healthLoader.item !== null }
 
     // the latest heart rate logged today
     QtObject {

@@ -74,6 +74,9 @@ Item {
         "sleep": { app: "asteroid-health", file: "tiles/SleepTile.qml", name: qsTrId("id-tile-sleep"), icon: "ms-bedtime" },
         //% "Quick start"
         "exercise": { app: "asteroid-exercise", file: "tiles/ExerciseTile.qml", name: qsTrId("id-tile-quick-start"), icon: "ios-run" },
+        // M4 WO-10: stock's Last activity (TileLastActivityService, 0x7f140dba), in the add list
+        //% "Last activity"
+        "lastactivity": { app: "asteroid-exercise", file: "tiles/LastActivityTile.qml", name: qsTrId("id-tile-last-activity"), icon: "ios-run" },
         //% "Maps"
         "maps": { app: "asteroid-map", file: "tiles/MapsTile.qml", name: qsTrId("id-tile-maps"), icon: "ios-map-outline" },
         //% "Solar"

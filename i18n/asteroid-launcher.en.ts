@@ -2621,5 +2621,41 @@ for %1 seconds to</translation>
         <source>Back</source>
         <translation>Back</translation>
     </message>
+    <message id="id-tile-last-activity">
+        <source>Last activity</source>
+        <translation>Last activity</translation>
+    </message>
+    <message id="id-tile-start">
+        <source>Start</source>
+        <translation>Start</translation>
+    </message>
+    <message id="id-tile-yesterday">
+        <source>Yesterday</source>
+        <translation>Yesterday</translation>
+    </message>
+    <message id="id-tile-last-activity-empty">
+        <source>Track an exercise to see your achievements!</source>
+        <translation>Track an exercise to see your achievements!</translation>
+    </message>
+    <message id="id-comp-calories">
+        <source>Calories</source>
+        <translation>Calories</translation>
+    </message>
+    <message id="id-comp-floors">
+        <source>Floors</source>
+        <translation>Floors</translation>
+    </message>
+    <message id="id-comp-azm">
+        <source>Active Zone Minutes</source>
+        <translation>Active Zone Minutes</translation>
+    </message>
+    <message id="id-comp-exercise-days">
+        <source>Exercise days</source>
+        <translation>Exercise days</translation>
+    </message>
+    <message id="id-comp-days-of">
+        <source>%1 of %2 days</source>
+        <translation>%1 of %2 days</translation>
+    </message>
 </context>
 </TS>

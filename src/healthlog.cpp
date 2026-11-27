@@ -19,13 +19,10 @@
  * things are quiet */
 static const int DEBOUNCE_MS = 2000;
 
-/* A logged heart rate outside these is no reading, and the resting heart
- * rate: the lowest average held this long over at least this many readings
- * (as asteroid-health's HealthStats.js) */
+/* A logged heart rate outside these is no reading (as asteroid-health's
+ * HealthStats.js) */
 static const double HR_MIN_VALID = 25;
 static const double HR_MAX_VALID = 250;
-static const qint64 RESTING_WINDOW = 1800;
-static const int RESTING_MIN_READINGS = 3;
 
 HealthLog::HealthLog(QObject *parent) : QObject(parent)
 {
@@ -168,30 +165,6 @@ void HealthLog::reload()
     });
 }
 
-int HealthLog::restingRate(QList<QPointF> points)
-{
-    std::stable_sort(points.begin(), points.end(),
-                     [](const QPointF &a, const QPointF &b) { return a.x() < b.x(); });
-    double best = INFINITY;
-    double sum = 0;
-    qsizetype j = 0;
-    for (qsizetype i = 0; i < points.size(); i++) {
-        if (j < i) {
-            j = i;
-            sum = 0;
-        }
-        while (j < points.size() && points[j].x() < points[i].x() + RESTING_WINDOW) {
-            sum += points[j].y();
-            j++;
-        }
-        const qsizetype count = j - i;
-        if (count >= RESTING_MIN_READINGS)
-            best = qMin(best, sum / count);
-        sum -= points[i].y();
-    }
-    return std::isfinite(best) ? int(std::floor(best + 0.5)) : -1;
-}
-
 HealthLog::Result HealthLog::readWindow(const QStringList &paths, qint64 endEpoch, int minutes, int buckets)
 {
     Result r;
@@ -290,7 +263,6 @@ HealthLog::Result HealthLog::read(const QString &path, const QString &sensor, in
     QVector<int> top(buckets, -1);
     QVector<double> low(buckets, 0);
     QVector<double> high(buckets, 0);
-    QList<QPointF> readings;
     double minValue = 0, maxValue = 0, lastValue = 0;
     qint64 lastEpoch = -1;
     const QList<QByteArray> lines = file.readAll().split('\n');
@@ -309,7 +281,6 @@ HealthLog::Result HealthLog::read(const QString &path, const QString &sensor, in
                 continue;   /* no reading (0: off the wrist) */
             if (epoch < dayStart || epoch >= dayEnd)
                 continue;   /* not today's */
-            readings << QPointF(epoch, value);
         }
         /* the part of the day it falls in (records just past midnight, such
          * as a day's last step total, count in the last) */
@@ -339,8 +310,6 @@ HealthLog::Result HealthLog::read(const QString &path, const QString &sensor, in
     r.min = round(minValue);
     r.max = round(maxValue);
     r.lastTime = QDateTime::fromSecsSinceEpoch(lastEpoch);
-    if (!cumulative)
-        r.resting = restingRate(readings);
     int previous = 0;
     for (int b = 0; b < buckets; b++) {
         if (cumulative) {
@@ -370,7 +339,7 @@ void HealthLog::apply(const Result &r, quint64 generation)
         return;   /* a newer read is on its way */
     const QDateTime lastTime = r.ok ? r.lastTime : QDateTime();
     if (lastTime == m_lastTime && r.last == m_lastValue && r.values == m_values
-            && r.lows == m_lows && r.highs == m_highs && r.resting == m_resting
+            && r.lows == m_lows && r.highs == m_highs
             && r.windowStart == m_windowStart && r.windowEnd == m_windowEnd)
         return;   /* nothing new: nothing on screen changes */
     m_windowStart = r.windowStart;
@@ -382,6 +351,5 @@ void HealthLog::apply(const Result &r, quint64 generation)
     m_values = r.values;
     m_lows = r.lows;
     m_highs = r.highs;
-    m_resting = r.ok ? r.resting : -1;
     emit changed();
 }

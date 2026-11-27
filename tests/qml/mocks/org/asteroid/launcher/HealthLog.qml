@@ -13,6 +13,5 @@ QtObject {
     readonly property var values: []
     readonly property var lows: []
     readonly property var highs: []
-    readonly property int restingValue: 0
     signal changed()
 }
