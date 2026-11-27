@@ -49,13 +49,15 @@
 //
 // Shots go to /tmp/wo11-shots. Run by newlook-wt/l6h/run.sh fp (qmltestrunner under qemu-aarch64 on the image
 // rootfs; the picker staged as module LauncherQml at its resource paths, the repo's 384 px and 182 px pictures
-// as previews384/ and previews182/, the stand-in face stage/watchfaces/990-stub-1009.qml with src/eoskit as
+// as previews384/ and previews182/, the repo's watchfaces/ and watchfaces-preview/ (every size) as they are,
+// the stand-in face stage/watchfaces/990-stub-1009.qml with src/eoskit as
 // stage/eoskit, and in /tmp/wo11-prev the fixtures r1-1009.png (a picture of r1, transparent as the watch's GL
 // grabs are: the white block at x 172-212, y 100-140) and r2.png (a live snapshot of the earlier picker's
 // cache, which must not show)).
 import QtQuick
 import QtQuick.Shapes
 import QtTest
+import Qt.labs.folderlistmodel
 import org.asteroid.controls
 import LauncherQml
 import LauncherTest
@@ -659,6 +661,58 @@ Item {
                        "the ring")
             anim.resume()
             tryCompare(anim, "running", false, 5000)
+        }
+
+        // every face of the repo (src/watchfaces) has its picture in every size, size x size px: 112-182
+        // (Settings; the Add new list reads 182) and 384 (the carousel and the flyer), and no picture is left
+        // without its face; when the runner stages the repo's watchfaces/ and watchfaces-preview/ next to this
+        // file. (001 had only its 384 px picture: "Cannot open" of FaceAddList in the launcher's journal.)
+        function folderFiles(folder, filter) {
+            var m = Qt.createQmlObject("import Qt.labs.folderlistmodel; FolderListModel { showDirs: false; "
+                                       + "nameFilters: ['" + filter + "']; folder: '" + folder + "' }", top)
+            tryVerify(function () { return m.status === FolderListModel.Ready && m.count > 0 }, 5000,
+                      "listed " + folder)
+            var out = []
+            for (var i = 0; i < m.count; i++)
+                out.push(String(m.get(i, "fileName")))
+            m.destroy()
+            return out
+        }
+        function test_d60_28_every_size() {
+            var pv = Qt.resolvedUrl("watchfaces-preview/").toString()
+            if (!fileExists(pv + "384/027-concentric.png"))
+                skip("the repo's watchfaces/ and watchfaces-preview/ are not staged next to the test")
+            var faces = folderFiles(Qt.resolvedUrl("watchfaces/").toString(), "*.qml").map(function (f) {
+                return f.replace(/\.qml$/, "")
+            })
+            verify(faces.length >= 28, "the repo's faces: " + faces.length)
+            verify(faces.indexOf("001-words-worte-palabras-mots") >= 0, "001 among them")
+            var img = Qt.createQmlObject("import QtQuick; Image { asynchronous: false; cache: false }", top)
+            var sizes = [112, 128, 144, 160, 182, 384]
+            var gaps = [], orphans = [], wrong = []
+            for (var s = 0; s < sizes.length; s++) {
+                var have = folderFiles(pv + sizes[s] + "/", "*.png").map(function (f) {
+                    return f.replace(/\.png$/, "")
+                })
+                for (var i = 0; i < faces.length; i++) {
+                    if (have.indexOf(faces[i]) < 0) {
+                        gaps.push(sizes[s] + "/" + faces[i])
+                        continue
+                    }
+                    img.source = pv + sizes[s] + "/" + faces[i] + ".png"
+                    tryVerify(function () { return img.status === Image.Ready || img.status === Image.Error }, 5000)
+                    if (img.status !== Image.Ready || img.implicitWidth !== sizes[s] || img.implicitHeight !== sizes[s])
+                        wrong.push(sizes[s] + "/" + faces[i] + " " + img.implicitWidth + "x" + img.implicitHeight)
+                    img.source = ""
+                }
+                for (var j = 0; j < have.length; j++)
+                    if (faces.indexOf(have[j]) < 0)
+                        orphans.push(sizes[s] + "/" + have[j])
+            }
+            img.destroy()
+            compare(gaps.join(" "), "", "faces without a picture")
+            compare(wrong.join(" "), "", "pictures not size x size")
+            compare(orphans.join(" "), "", "pictures without a face")
         }
 
         // ---- D60-29 ----------------------------------------------------------------------------------------
