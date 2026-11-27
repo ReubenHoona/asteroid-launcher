@@ -99,11 +99,105 @@ var ACCENTS = [
 ]
 function accentIds() { return ACCENTS.map(function (a) { return a[0] }) }
 function accentNames() { return ACCENTS.map(function (a) { return a[1] }) }
-function accentColor(id, fallbackId) {
+
+/* The long list ("Color" of all_colorway.xml, A-19): the 35, then 16 two-tone colourways (rwf_color_pop01..16;
+ * Abstract, Analog, Large Scale and Big Time use it). RWF glo.java:191-206 makes each with d(id, first, second):
+ * the primary ("b") is the first tone, the text colour ("c", and "g") the second; no dark or light ramp. */
+var POP_ACCENTS = [
+    ["milkshake", "Milkshake", "#fff6e2", "#ffcaed"],
+    ["verbena", "Verbena", "#ffcaed", "#e4b0fd"],
+    ["salmon", "Salmon", "#fae7d5", "#f99586"],
+    ["amber", "Amber", "#ffd88a", "#fdb78f"],
+    ["cantaloupe", "Cantaloupe", "#f8efcd", "#ffc8a1"],
+    ["mustard", "Mustard", "#c4b575", "#fffa86"],
+    ["key-lime", "Key Lime", "#e4e4e4", "#dcf085"],
+    ["spring", "Spring", "#c7ff81", "#80fdd5"],
+    ["avocado", "Avocado", "#67887b", "#adf7b9"],
+    ["polar", "Polar", "#e4e4e4", "#99f3ff"],
+    ["arctic", "Arctic", "#a2c2f7", "#99f3ff"],
+    ["winter", "Winter", "#aeb4ff", "#b6daf1"],
+    ["macaron", "Macaron", "#e4b0fd", "#ffd4b6"],
+    ["sunset", "Sunset", "#b6daf1", "#ffcaed"],
+    ["seafoam", "Seafoam", "#cce4df", "#f4ffb4"],
+    ["charcoal", "Charcoal", "#616161", "#a0a3ab"]
+]
+// the 51 in stock order (all_colorway.xml: A02 ... A22, then pop01 ... pop16)
+var ALL_COLORS = accentIds().concat(POP_ACCENTS.map(function (a) { return a[0] }))
+/* The other roles of the 35 (glo.java gdm b, c, d, e; stock-colorways.tsv columns c, d, e): [c text, d dark,
+ * e light]. A face asks for a role as stock's colourway class does (gdo.java): "b" the primary, "c" the text
+ * colour (the second tone of a two-tone one), "d" the dark ramp (else "c"), "e" the light one (else "b"). */
+var COLOR_ROLES = {
+    "graphite": ["#9b9b9b", "#616161", "#b0b0b0"],
+    "cloud": ["#ffffff", "#b0b0b0", "#c5c5c5"],
+    "almond": ["#fff6e2", "#cac5bc", "#fcf7eb"],
+    "watermelon": ["#ff7572", "#e24a4a", "#ffa9a7"],
+    "coral": ["#f99181", "#eb6552", "#ffbaaf"],
+    "pomelo": ["#f8908b", "#d6524e", "#ffcbc9"],
+    "guava": ["#ffb2ad", "#d06a66", "#ffdcdb"],
+    "peach": ["#ffb891", "#d88455", "#ffdac6"],
+    "champagne": ["#ffc79f", "#e78d4e", "#ffe2cc"],
+    "chai": ["#d8a161", "#bd7015", "#dbbe9b"],
+    "sand": ["#cbbb75", "#9d915e", "#dfd3a0"],
+    "honey": ["#fac16e", "#bd7015", "#ffe2a8"],
+    "melon": ["#ffd786", "#e2963d", "#ffe5b2"],
+    "wheat": ["#ffe9b9", "#d1b475", "#fcf7eb"],
+    "dandelion": ["#fffa7a", "#d8bb53", "#fffcb7"],
+    "limoncello": ["#fcffb6", "#d7db55", "#feffe2"],
+    "lemongrass": ["#e8febb", "#b3e154", "#f9ffe2"],
+    "lime": ["#e6ff7b", "#b8cc62", "#f1ffb4"],
+    "pear": ["#c7ff81", "#96c75a", "#e5ffc5"],
+    "spearmint": ["#9df8ab", "#44b456", "#ceffd6"],
+    "fern": ["#73e1a5", "#209857", "#acffd2"],
+    "forest": ["#6a9685", "#37785f", "#accfc2"],
+    "mint": ["#80fdd5", "#50cd9d", "#ccffed"],
+    "jade": ["#b0f1d9", "#859a8f", "#dbfaee"],
+    "sage": ["#b2dcd3", "#9ecec4", "#e5fffa"],
+    "stream": ["#9fe2ec", "#00bcd6", "#ddfaff"],
+    "aqua": ["#99f3ff", "#7abfff", "#c4f8ff"],
+    "sky": ["#aedfff", "#8cc5ea", "#dff2ff"],
+    "ocean": ["#94bafa", "#2e5fb0", "#c0d8ff"],
+    "sapphire": ["#75a5f4", "#0f53c6", "#afcdff"],
+    "amethyst": ["#a0a7ff", "#7a52ea", "#caceff"],
+    "lilac": ["#d0baff", "#947acc", "#e2d4ff"],
+    "lavender": ["#d593fe", "#b952ea", "#e5b9ff"],
+    "flamingo": ["#f9b0ff", "#dd56e9", "#fcd1ff"],
+    "bubble-gum": ["#ffbae8", "#ef8fbd", "#ffdcf3"]
+}
+// the entry [id, name, primary(, second)] of an id of either list, or null
+function accentEntry(id) {
     for (var i = 0; i < ACCENTS.length; i++)
         if (ACCENTS[i][0] === id)
-            return ACCENTS[i][2]
+            return ACCENTS[i]
+    for (var j = 0; j < POP_ACCENTS.length; j++)
+        if (POP_ACCENTS[j][0] === id)
+            return POP_ACCENTS[j]
+    return null
+}
+function accentName(id) {
+    var a = accentEntry(id)
+    return a ? a[1] : id
+}
+function accentColor(id, fallbackId) {
+    var a = accentEntry(id)
+    if (a)
+        return a[2]
     return fallbackId !== undefined && fallbackId !== id ? accentColor(fallbackId) : "#ffffff"
+}
+// a role ("b", "c", "d", "e") of a colourway, as gdo.java answers it (see COLOR_ROLES)
+function colorRole(id, role, fallbackId) {
+    var a = accentEntry(id)
+    if (!a)
+        return fallbackId !== undefined && fallbackId !== id ? colorRole(fallbackId, role) : "#ffffff"
+    var r = COLOR_ROLES.hasOwnProperty(id) ? COLOR_ROLES[id] : null
+    switch (role) {
+    case "c":
+        return r ? r[0] : a[3]
+    case "d":
+        return r ? r[1] : a[3]
+    case "e":
+        return r ? r[2] : a[2]
+    }
+    return a[2]
 }
 
 // ---- the option schema (watchface-catalogue-10) -----------------------------------------
@@ -115,16 +209,11 @@ function listOption(id, values, labels, def) {
 }
 function boolOption(id, def) { return { id: id, kind: "bool", def: def } }
 function colorOption(def, ids) {
-    // ids: a face with a colour list of its own (Track: SOLORING_COLORS), in stock order; else the 35
+    // ids: a face with a colour list of its own (Track: SOLORING_COLORS; the long list: ALL_COLORS), in stock
+    // order; else the 35
     if (!ids)
         return listOption("color", accentIds(), accentNames(), def)
-    var names = ids.map(function (id) {
-        for (var i = 0; i < ACCENTS.length; i++)
-            if (ACCENTS[i][0] === id)
-                return ACCENTS[i][1]
-        return id
-    })
-    return listOption("color", ids, names, def)
+    return listOption("color", ids, ids.map(accentName), def)
 }
 // Track (watch_face_soloring.xml, soloring_colorway): five colours, default index 0 = Mint
 // (audit/watchface-catalogue/stock-faces-extract.md, soloring)

@@ -88,14 +88,16 @@ var SCRIM_DISK = { cx: 288, cy: 192, r: 34 }
 var LAYOUTS = ["dial1", "dial2"]
 var LAYOUT_NAMES = ["Dial I", "Dial II"]
 
-// the colorways' text colour ("c" of stock-colorways.tsv), what NumberWheel and the pill take
+// the colorways' text colour ("c" of stock-colorways.tsv, the A rows that four_colorway.xml lists: Jade is
+// A13, Lemongrass A37, not the C05/C06 rows of the same names), what NumberWheel and the pill take; the
+// same as facekit.js colorRole(id, "c")
 var TEXT_COLORS = {
     "graphite": "#9b9b9b", "cloud": "#ffffff", "almond": "#fff6e2", "watermelon": "#ff7572",
     "coral": "#f99181", "pomelo": "#f8908b", "guava": "#ffb2ad", "peach": "#ffb891",
     "champagne": "#ffc79f", "chai": "#d8a161", "sand": "#cbbb75", "honey": "#fac16e",
     "melon": "#ffd786", "wheat": "#ffe9b9", "dandelion": "#fffa7a", "limoncello": "#fcffb6",
-    "lemongrass": "#e7ef9b", "lime": "#e6ff7b", "pear": "#c7ff81", "spearmint": "#9df8ab",
-    "fern": "#73e1a5", "forest": "#6a9685", "mint": "#80fdd5", "jade": "#cadba2",
+    "lemongrass": "#e8febb", "lime": "#e6ff7b", "pear": "#c7ff81", "spearmint": "#9df8ab",
+    "fern": "#73e1a5", "forest": "#6a9685", "mint": "#80fdd5", "jade": "#b0f1d9",
     "sage": "#b2dcd3", "stream": "#9fe2ec", "aqua": "#99f3ff", "sky": "#aedfff",
     "ocean": "#94bafa", "sapphire": "#75a5f4", "amethyst": "#a0a7ff", "lilac": "#d0baff",
     "lavender": "#d593fe", "flamingo": "#f9b0ff", "bubble-gum": "#ffbae8"
