@@ -61,7 +61,16 @@ Item {
     readonly property bool isGoal: kind === "goal"
     readonly property bool isReminder: kind === "rtm" || kind === "rtm-done"
     readonly property var metric: isGoal ? Goals.metric(current.metric) : null
-    readonly property bool imperial: Qt.locale().measurementSystem !== Locale.MetricSystem
+    // a distance goal in miles or kilometres: the phone's unit system (asteroid-btsyncd's
+    // /org/asteroidos/settings/imperial-units, R5 E-35; stock takes the account's units), else the locale's
+    ConfigurationValue {
+        id: units
+        key: "/org/asteroidos/settings/imperial-units"
+        defaultValue: cel.localeImperial(localeManager.localeRevision)
+    }
+    // the locale's measurement system (evaluated again after a language change: the revision is its argument)
+    function localeImperial(revision) { return Qt.locale().measurementSystem !== Locale.MetricSystem }
+    readonly property bool imperial: units.value === true || units.value === "true"
 
     ConfigurationValue { id: switchValue; key: "/org/asteroidos/health/celebrations"; defaultValue: true }
     ConfigurationValue { id: offBody; key: "/org/asteroidos/sensors/off-body"; defaultValue: false }

@@ -267,6 +267,25 @@ Item {
         }
 
         // R5 E-09: today's cardio load, a ring towards the top of its target once there is one; '--' hub-drawn
+        // R5-fu: the distance complication in the phone's unit system, as stock's (vsv.java t()/u(): the account's
+        // UnitType, US = miles): asteroid-btsyncd's settings/imperial-units, the locale's while it is unset
+        function test_10_distance_units() {
+            // 10000 steps at 170 cm: 7021 m
+            compare(C.distanceText(10000, 170, false), "7.0")
+            compare(C.distanceText(10000, 170, true), "4.4")
+            compare(C.distanceText(10000, 170), "7.0")
+            var key = "/org/asteroidos/settings/imperial-units"
+            show("distance")
+            compare(sources.imperial, Qt.locale().measurementSystem !== Locale.MetricSystem)
+            Backend.confSet(key, true)
+            tryCompare(sources, "imperial", true)
+            compare(sources.info("distance").caption, "mi")
+            compare(sources.info("distance").text, "0.0")
+            Backend.confSet(key, false)
+            tryCompare(sources, "imperial", false)
+            compare(sources.info("distance").caption, "km")
+        }
+
         function test_09_cardio_load() {
             verify(sources.all.indexOf("cardioload") > sources.all.indexOf("exercisedays"))
             verify(sources.isSource("cardioload"))

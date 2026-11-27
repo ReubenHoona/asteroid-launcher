@@ -384,9 +384,11 @@ Item {
                           progress: steps.known && steps.goal > 0 ? Math.min(1, steps.count / steps.goal) : -1,
                           known: steps.known })
         case "distance": {
-            // steps x stride (the profile's height): the km towards the km of the step goal
-            var km = steps.known ? C.distanceText(steps.count, profileHeight.value) : "--"
-            return base({ type: steps.known && steps.goal > 0 ? "ranged" : "short", text: km, short: km, caption: steps.known ? "km" : "",
+            // steps x stride (the profile's height): the distance towards the distance of the step goal, in miles
+            // or kilometres as stock's (vsv.java t()/u(): the account's UnitType, US = miles): the phone's unit system
+            var dist = steps.known ? C.distanceText(steps.count, profileHeight.value, sources.imperial) : "--"
+            return base({ type: steps.known && steps.goal > 0 ? "ranged" : "short", text: dist, short: dist,
+                          caption: steps.known ? (sources.imperial ? "mi" : "km") : "",
                           title: name("distance"), icon: "ios-navigate",
                           progress: steps.known && steps.goal > 0 ? Math.min(1, steps.count / steps.goal) : -1,
                           known: steps.known })
@@ -773,6 +775,13 @@ Item {
     }
     HealthLog { id: stepsLog; sensor: "stepCounter"; buckets: 1; active: sources.wants("steps") || sources.wants("distance") }
     ConfigurationValue { id: profileHeight; key: "/org/asteroidos/health/profile/height-cm"; defaultValue: 0 }
+    // miles or kilometres: the phone's unit system (asteroid-btsyncd, R5 E-35), else the locale's (Exercise, Health)
+    ConfigurationValue {
+        id: units
+        key: "/org/asteroidos/settings/imperial-units"
+        defaultValue: Qt.locale().measurementSystem !== Locale.MetricSystem
+    }
+    readonly property bool imperial: units.value === true || units.value === "true"
     ConfigurationValue { id: stepsGoal; key: "/org/asteroidos/ux/steps-goal"; defaultValue: 10000 }
 
     // today's energy, floors and Active Zone Minutes and this week's Exercise days (sensorlogd's QML plugin),
