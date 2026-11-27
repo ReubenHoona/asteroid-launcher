@@ -196,6 +196,32 @@ QtObject {
         return typeof touchLock !== "undefined" && touchLock !== null && touchLock.locked === true
     }
 
+    /* ---- "Hey Assistant" (assistant/HotwordArm.qml) ------------------- */
+
+    // Armed while the display is fully on and the side button's hold would open the assistant (not in setup,
+    // over a firing alarm, SOS, the power menu, the cooldown screens or the lock screen; the Assistant on; the
+    // Press & hold switch is the hold's alone), and the assistant, a call or touch lock is not up. The phrase
+    // opens the assistant as the hold does (stock: hotword, raise to talk and the hold open the plate with no
+    // transition, MainActivity.java:107-113).
+    property Loader hotwordLoader: Loader {
+        source: "../assistant/HotwordArm.qml"
+        onLoaded: {
+            item.awake = Qt.binding(function () {
+                return typeof comp !== "undefined" && comp !== null && comp.displayIsOff !== true
+                       && Lipstick.compositor.displayAmbient !== true && Lipstick.compositor.displayDimmed !== true
+            })
+            item.blocked = Qt.binding(function () {
+                var c = keyRouter.context()
+                c.assistantHold = true
+                return KeyMap.sideHold(c) !== "assistant" || c.assistantShown || c.callShown || c.touchLocked
+            })
+        }
+    }
+    property Connections hotwordConnection: Connections {
+        target: keyRouter.hotwordLoader.item
+        function onHeard() { root.openAssistant("", true) }
+    }
+
     /* ---- the side button ---------------------------------------------- */
 
     property var sideCounter: KeyMap.newCounter()

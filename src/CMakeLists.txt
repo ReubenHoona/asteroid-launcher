@@ -158,6 +158,7 @@ set(QML_FILES
 	qml/assistant/AssistantActions.qml
 	qml/assistant/AssistantAgenda.qml
 	qml/assistant/AssistantHealth.qml
+	qml/assistant/HotwordArm.qml
 	qml/assistant/AssistantGlow.qml
 	qml/assistant/AssistantSpark.qml
 	qml/notifications/NotificationActions.qml
@@ -390,6 +391,7 @@ set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES 
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
 set_source_files_properties(qml/assistant/AssistantAgenda.qml        PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantAgenda.qml)
 set_source_files_properties(qml/assistant/AssistantHealth.qml        PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantHealth.qml)
+set_source_files_properties(qml/assistant/HotwordArm.qml             PROPERTIES QT_RESOURCE_ALIAS assistant/HotwordArm.qml)
 set_source_files_properties(qml/assistant/AssistantGlow.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantGlow.qml)
 set_source_files_properties(qml/assistant/AssistantSpark.qml         PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantSpark.qml)
 set_source_files_properties(qml/notifications/NotificationActions.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationActions.qml)

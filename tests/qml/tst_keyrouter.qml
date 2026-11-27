@@ -8,8 +8,12 @@
 // send close_keyboard (no keyboard, or its last close went unanswered: closeKeyboard() false) lets the
 // press go Home; the wake press from the always-on display does the same. compositor.qml's parts are
 // stand-ins with its ids (arbiter, comp, root, launchSplash, homeLoader). MODE=st (the staged tree).
+// R5 D-10: the router arms "Hey Assistant" (assistant/HotwordArm.qml) from the screen's state and opens the
+// assistant on the phrase.
 import QtQuick
 import QtTest
+import LauncherTest
+import org.nemomobile.lipstick
 
 Item {
     id: top
@@ -40,6 +44,7 @@ Item {
         property bool alertShown: false
         property var alertWindow: ({})
         property bool wakeFromAmbient: false
+        property bool displayIsOff: false
         property int left: 0
         function leaveApp(w) { left++ }
     }
@@ -48,7 +53,9 @@ Item {
         property bool assistantShown: false
         property bool chargingShown: false
         property int closed: 0
+        property var opened: []
         function closeTopmost() { closed++ }
+        function openAssistant(text, instant) { opened = opened.concat([{ text: text, instant: instant }]) }
     }
     QtObject { id: launchSplash; property bool active: false }
     QtObject {
@@ -101,6 +108,43 @@ Item {
             arbiter.headsUpShown = false
             homeLoader.item.crown = 0
             homeLoader.item.face = 0
+        }
+
+        // R5 D-10: armed only with a detector, the display fully on and the hold's rules met; the phrase opens
+        // the assistant as the hold does (instant)
+        function test_10_hotword() {
+            var hw = kr.hotwordLoader.item
+            verify(hw !== null)
+            compare(hw.armed, false)             // image 72: no detector
+            Backend.confSet("/org/asteroidos/assistant/hotword-supported", true)
+            compare(hw.armed, true)
+            comp.displayIsOff = true
+            compare(hw.armed, false)
+            comp.displayIsOff = false
+            Lipstick.compositor.displayAmbient = true
+            compare(hw.armed, false)
+            Lipstick.compositor.displayAmbient = false
+            compare(hw.armed, true)
+            comp.alertShown = true               // a firing alarm (interruptions-09)
+            compare(hw.armed, false)
+            comp.alertShown = false
+            arbiter.callShown = true
+            compare(hw.armed, false)
+            arbiter.callShown = false
+            root.assistantShown = true
+            compare(hw.armed, false)
+            root.assistantShown = false
+            // the hold's own switch is not the hotword's
+            Backend.confSet("/org/asteroidos/assistant/press-and-hold", false)
+            compare(hw.armed, true)
+            root.opened = []
+            compare(Backend.emitSignal("org.asteroidos.assistant", "org.asteroidos.assistant", "HotwordHeard", []), 1)
+            compare(root.opened.length, 1)
+            compare(root.opened[0].instant, true)
+            compare(root.opened[0].text, "")
+            Backend.confSet("/org/asteroidos/assistant/press-and-hold", true)
+            Backend.confSet("/org/asteroidos/assistant/hotword-supported", false)
+            tryCompare(hw, "armed", false)
         }
 
         function test_00_context_reads_the_window() {
