@@ -184,7 +184,9 @@ Item {
             Accessible.name: text
         }
 
-        // the PIN: digits only
+        // the PIN: digits only. A tap opens the full screen keyboard's PIN pad (qml-asteroid
+        // TextField -> WearKeyboard with Qt.ImhDigitsOnly), as every digits-only field of the watch:
+        // CP3A has no handwriting keyboard (text-input-24, R5 B-14)
         Item {
             id: entryRow
             objectName: "bluetoothEntry"
@@ -207,15 +209,6 @@ Item {
         target: dialog.confirmButton
         property: "enabled"
         value: !btAgent.entry || btAgent.inputValid
-    }
-
-    // Only while a pairing dialog with an entry shows: made at start, the keyboard's
-    // style animated its hidden space key (32 frames after every launcher start)
-    Loader {
-        anchors.fill: parent
-        z: 2
-        active: btAgent.entry && dialog.shown
-        sourceComponent: Component { HandWritingKeyboard { } }
     }
 
     // the agent's state ends the window: it is Idle after an answer or a remote cancel
