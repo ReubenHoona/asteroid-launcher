@@ -511,8 +511,14 @@ Item {
             objectName: "eosFaceList"
             anchors.fill: parent
             orientation: ListView.Horizontal
-            // one face at a time, the current one in the middle; the crown steps through them (RotaryInput)
+            // one face at a time, the current one in the middle
             snapMode: ListView.SnapOneItem
+            // R5 K-08: the crown scrolls the carousel freely and it snaps once the crown rests (RotaryInput's
+            // crown-speed mode: a scroll tick every 42 px, the limit at the ends, the glide to the nearest face
+            // 80 ms after the last turn), as stock's RecyclerView with its snap helper (face-interaction-22, -32:
+            // AXIS_SCROLL x 64 dp, ScrollFeedbackProvider tick every config_rotaryEncoderAxisScrollTickInterval
+            // 21 dp). The speed follows Settings > Buttons > Faster crown scrolling (RotaryInput's crown-fast).
+            property bool rotaryCrownSpeed: true
             highlightRangeMode: ListView.StrictlyEnforceRange
             preferredHighlightBegin: (width - picker.pitch) / 2
             preferredHighlightEnd: (width + picker.pitch) / 2
