@@ -172,14 +172,15 @@ Item {
         function onWatchfaceReloadRequested() { hubOffload.invalidate() }
     }
 
-    // The face fades to its always-on look in 500 ms when the display enters
-    // the always-on screen (FaceLayer, ambient-aod-19); the layout goes to the
-    // hub, and the AP back to sleep, after that, inside mce's LPM_ON window.
-    // Later updates (the minute) wait 200 ms as before.
+    // The face changes to its always-on look in one frame when the display enters
+    // the always-on screen (FaceLayer; the Wear OS 6 emulator steps, motion M13,
+    // A-02): nothing to wait for, so the layout goes to the hub 200 ms after the
+    // entry, as after every later update (the minute), and the AP goes back to
+    // sleep 500 ms sooner than with the old fade.
     property bool entryPending: false
     // how long the hub's layout waits after an update (for the tests)
     readonly property int hubDelayMs: wallClockAmbientTimeout.interval
-    readonly property int entryHoldMs: Motion.animationScale > 0 ? 500 : 0
+    readonly property int entryHoldMs: 0
     Timer {
         id: wallClockAmbientTimeout
         interval: 200 + (ambientController.entryPending ? ambientController.entryHoldMs : 0)
@@ -266,7 +267,7 @@ Item {
         }
         function onDisplayAmbientEntered() {
             ambientController.scheduleAmbientMinute()
-            // the face takes 500 ms to change over (FaceLayer): the layout goes to the hub after it
+            // the face changes over in one frame (FaceLayer): no hold before the hub hand-off
             ambientController.entryPending = true
             desktop.setAmbientDarken(1)
             grid.hideOffscreen();

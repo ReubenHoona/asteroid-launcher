@@ -234,6 +234,17 @@ target_compile_definitions(tst_huboffload_faces PRIVATE SRC_ROOT="${CMAKE_CURREN
 target_link_libraries(tst_huboffload_faces PRIVATE Qt6::Core Qt6::Gui Qt6::Quick Qt6::Qml)
 
 # The app icon keys of a .desktop file (src/applauncherbackground.*, D60-26): the disc, X-Eos-Glyph-Color and
+# The hub layout encoder's functions, rotation groups and health metric properties (R5 A-05, K-03; src/eoslayout.c);
+# EL_PROBE_DIR=dir also writes the on-watch probe layouts. No Qt.
+add_executable(tst_eoslayout tst_eoslayout.cpp ../src/eoslayout.c ../src/eoslayout.h)
+target_include_directories(tst_eoslayout PRIVATE ../src)
+
+# The World clock's time zones (A-13, src/worldzones.h): zone.tab regions and codes, offsets with summer time; Qt Core
+add_executable(tst_worldzones tst_worldzones.cpp ../src/worldzones.cpp ../src/worldzones.h)
+set_target_properties(tst_worldzones PROPERTIES AUTOMOC ON)
+target_include_directories(tst_worldzones PRIVATE ../src)
+target_link_libraries(tst_worldzones PRIVATE Qt6::Core)
+
 # X-Eos-Own-Icon on temporary files; Qt Core and Gui, no display
 add_executable(tst_launchericons tst_launchericons.cpp ../src/applauncherbackground.cpp ../src/applauncherbackground.h)
 set_target_properties(tst_launchericons PROPERTIES AUTOMOC ON)

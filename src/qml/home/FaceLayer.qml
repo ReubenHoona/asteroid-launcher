@@ -227,36 +227,20 @@ Item {
             id: panelRoot
             property bool nightstandWatchfaceActive: nightstandMode.active && nightstandMode.useCustomWatchface && nightstandMode.watchfaceSource != watchFaceSource.value
             /* always-on: the face in grey, not full white. Going to the always-on
-             * screen it changes over in 500 ms, linear (the watch face's own ambient
-             * transition, WFF runtime_ambient_transition_ms, whose Variant
-             * interpolation is LINEAR by default, motion J1; stock allows up to
-             * 1500 ms), before the hub draws the panel; the wake
-             * is at once, with no brightness ramp (ambient-aod-19, motion-transitions-32).
-             * Nothing runs unless the display changes state. */
+             * screen it changes over in one frame, as the Wear OS 6 emulator (motion
+             * M13: no frame between the awake and the always-on face; D60-04, A-02),
+             * and the wake is at once, with no brightness ramp (ambient-aod-19,
+             * motion-transitions-32). Nothing runs unless the display changes state. */
             property real ambientOpacity: 1.0
             opacity: ambientOpacity
-            // a face with its own always-on look (ambientOwnStyle: thinner time weight, its own colours,
-            // its own 300 ms change over: watchface-catalogue-25) is not dimmed as a whole; the others are 55 %
+            // a face with its own always-on look (ambientOwnStyle: thinner time weight, its own colours:
+            // watchface-catalogue-25) is not dimmed as a whole; the others are 55 %
             readonly property real dimLevel: activeFace && activeFace.ambientOwnStyle === true ? 1.0 : 0.55
-            onDimLevelChanged: if (ambientNow) { ambientFade.stop(); ambientOpacity = dimLevel }
-            // (no binding: a binding would jump with displayAmbient)
+            onDimLevelChanged: if (ambientNow) ambientOpacity = dimLevel
+            // (no binding: the level is set when the display changes state)
             Component.onCompleted: ambientOpacity = displayAmbient ? dimLevel : 1.0
             readonly property bool ambientNow: displayAmbient
-            onAmbientNowChanged: {
-                ambientFade.stop()
-                if (ambientNow && Motion.animationScale > 0)
-                    ambientFade.restart()
-                else
-                    ambientOpacity = ambientNow ? dimLevel : 1.0
-            }
-            NumberAnimation {
-                id: ambientFade
-                target: panelRoot
-                property: "ambientOpacity"
-                to: panelRoot.dimLevel
-                duration: 500
-                easing.type: Easing.Linear
-            }
+            onAmbientNowChanged: ambientOpacity = ambientNow ? dimLevel : 1.0
             /* Wear OS: a long press on the watchface opens the face picker. As stock
              * (SysUI's recognizer sees every touch before the face and takes the
              * gesture when it fires, hun.java:33-49): 400 ms (face-interaction-01),

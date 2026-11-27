@@ -3322,5 +3322,75 @@ for %1 seconds to</translation>
         <source>%1m ago</source>
         <translation>%1m ago</translation>
     </message>
+    <message id="id-comp-region-africa">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Africa</source>
+        <translation>Africa</translation>
+    </message>
+    <message id="id-comp-region-asia">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Asia</source>
+        <translation>Asia</translation>
+    </message>
+    <message id="id-comp-region-atlantic">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Atlantic</source>
+        <translation>Atlantic</translation>
+    </message>
+    <message id="id-comp-region-australia">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Australia</source>
+        <translation>Australia</translation>
+    </message>
+    <message id="id-comp-region-europe">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Europe</source>
+        <translation>Europe</translation>
+    </message>
+    <message id="id-comp-region-indian">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Indian Ocean</source>
+        <translation>Indian Ocean</translation>
+    </message>
+    <message id="id-comp-region-north-america">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>North America</source>
+        <translation>North America</translation>
+    </message>
+    <message id="id-comp-region-pacific">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Pacific</source>
+        <translation>Pacific</translation>
+    </message>
+    <message id="id-comp-region-south-america">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>South America</source>
+        <translation>South America</translation>
+    </message>
+    <message id="id-comp-region-universal">
+        <location filename="../src/qml/complications/WorldClockChooser.qml"/>
+        <source>Universal</source>
+        <translation>Universal</translation>
+    </message>
+    <message id="id-comp-show-map">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Show map</source>
+        <translation>Show map</translation>
+    </message>
+    <message id="id-comp-favorite-contact">
+        <location filename="../src/qml/complications/ComplicationSources.qml"/>
+        <source>Favorite contact</source>
+        <translation>Favorite contact</translation>
+    </message>
+    <message id="id-face-app-maps">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Maps</source>
+        <translation>Maps</translation>
+    </message>
+    <message id="id-face-app-contacts">
+        <location filename="../src/qml/complications/FaceEditor.qml"/>
+        <source>Contacts</source>
+        <translation>Contacts</translation>
+    </message>
 </context>
 </TS>

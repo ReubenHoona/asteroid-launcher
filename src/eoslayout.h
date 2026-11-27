@@ -34,6 +34,26 @@
 #define EL_PROP_HOUR24	0	/* 0..23 */
 #define EL_PROP_MINUTE	1
 #define EL_PROP_SECOND	2
+/*
+ * The health metrics (R5 K-03), the rest of the stock HAL's map (ESkiaExpressionGenerator::
+ * GetExpressionForMetric 0x27030: OffloadMetric key -> "{N}", read from the stock image's HAL
+ * 2026-11-28) with the hub's getter (FUN_003cb5e0: the field of its ui data and its type; a
+ * metric the hub does not have is "not present"):
+ *   3 whs.hr.bpm (u8)     4 whs.elevation.m (float)     5 whs.day.steps (u32)
+ *   6 whs.day.distance.m (float)   7 whs.day.cals.total (float)   8 whs.day.cals.active (float)
+ *   9 whs.day.cals.bmr (float)    10 whs.day.elevation.gain.m    25 whs.hr.lkg.bpm
+ *  30 whs.day.flights_of_stairs   29 time.msec   37 time.epoch.sec   38 time.epoch.ms
+ *  (11..22, 26, 31: the workout's; 27, 28: tilt)
+ * Whether the hub fills them on eos (stock: the hub's own health data) is checked on the watch
+ * (wearimpl/pkg/R5-aod/TEST.txt, the probe layout).
+ */
+#define EL_PROP_HR_BPM		3
+#define EL_PROP_DAY_STEPS	5
+#define EL_PROP_DAY_DISTANCE_M	6
+#define EL_PROP_DAY_CALS_TOTAL	7
+#define EL_PROP_DAY_CALS_ACTIVE	8
+#define EL_PROP_HR_LKG_BPM	25
+#define EL_PROP_DAY_FLOORS	30
 
 /* eSkia PropertyType (stock HAL table 0x18248: BindingPtr type -> PropertyType) */
 #define EL_PT_UINT32	3
@@ -95,6 +115,18 @@ int el_sprite_text_at(el_layout *L, int typeface, float x, float y, const char *
 		      const char *y_expr, uint32_t rgba, int n, const char *const *glyph_expr,
 		      const uint16_t *const_glyphs);
 
+/*
+ * A rotation group (R5 A-05; the stock HAL's RotationGroup, ESkiaLayoutBuilder 0x228f8): what is
+ * drawn until el_group_end turns by angle_deg degrees, clockwise on the panel, about (px, py).
+ * angle_deg is an expression (a float, e.g. "(({0} % 12) * 30.0 + {1} * 0.5)") or NULL for 0.
+ * As stock with a bound angle: one concat op whose matrix elements 0, 1, 2, 4, 3, 5 are bound to
+ * float expressions of the angle: [cos, -sin, px(1-cos) + py sin; sin, cos, py(1-cos) - px sin]
+ * with cos()/sin() of angle * PI() / 180 (hub functions 1, 2, 3). Groups may nest; each
+ * el_rotation_begin needs its el_group_end before el_finish.
+ */
+int el_rotation_begin(el_layout *L, float px, float py, const char *angle_deg);
+int el_group_end(el_layout *L);
+
 /* Layout annotation (op 36), e.g. "render_trigger.min_data_period.sec" "60". */
 int el_kv(el_layout *L, const char *key, const char *value);
 
@@ -120,5 +152,10 @@ int el_msg_sync_time(uint8_t *b, int64_t unix_minus_boot_ms, uint32_t local_ms_o
 #define EL_EXPR_MIN_D2		"({1}%10)"
 /* the hour of a 12 h clock, 1..12 (the inner part of the stock hour12 expressions) */
 #define EL_EXPR_HOUR12		"(({0} + 11)%12 + 1)"
+/* hand angles from 12 o'clock, clockwise (stock time.hour12.deg / time.min.deg / time.sec.deg
+ * without their -90: those turn a hand drawn towards 3 o'clock) */
+#define EL_EXPR_HOUR_HAND_DEG	"((({0} % 12) + {1}/60.0)*30.0)"
+#define EL_EXPR_MINUTE_HAND_DEG	"(({1} + {2}/60.0)*6.0)"
+#define EL_EXPR_MINUTE_ONLY_DEG	"({1}*6.0)"
 
 #endif

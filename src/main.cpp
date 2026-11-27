@@ -64,6 +64,7 @@
 #include "facepreviews.h"
 #include "eosquietpolicy.h"
 #include "wristorientation.h"
+#include "worldzones.h"
 #include <eoswrist.h>
 
 int main(int argc, char **argv)
@@ -145,6 +146,9 @@ int main(int argc, char **argv)
     // the cached previews of the watch face picker (~/.cache/asteroid-launcher/face-previews)
     FacePreviews *facePreviews = new FacePreviews(QString(), &app);
     app.engine()->rootContext()->setContextProperty("facePreviews", facePreviews);
+    // the World clock complication's time zones (A-13): offsets with summer time, the zone chooser's list
+    WorldZones *worldZones = new WorldZones(&app);
+    app.engine()->rootContext()->setContextProperty("worldZones", worldZones);
 
     qmlRegisterType<AppLauncherBackground>("org.asteroid.launcher", 1, 0, "AppLauncherBackground");
     qmlRegisterType<GestureFilterArea>("org.asteroid.launcher", 1, 0, "GestureFilterArea");

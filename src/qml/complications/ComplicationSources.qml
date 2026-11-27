@@ -23,9 +23,11 @@ import "../home/ambient.js" as Ambient
  * /org/asteroidos/watchface/complications/<face file name> as a list of
  * "slotId=source" strings (missing: the face's default; "empty": nothing).
  * A source is one of `all`, or "kind:parameter" for the three that need a
- * choice (`parameterised`): "worldclock:+0530" (a UTC offset), "countdown:
- * 2026-12-25" and "app:asteroid-music" (a desktop file); the face editor
- * asks for the parameter.
+ * choice (`parameterised`): "worldclock:<zone>" (a time zone id of the tz
+ * database: summer time included, A-13; a UTC offset such as "+0530" kept
+ * from before still reads as a fixed offset), "countdown:2026-12-25" and
+ * "app:asteroid-music" (a desktop file); the face editor asks for the
+ * parameter.
  *
  * Power, as the tiles: the sources read and follow their data only while
  * "active" (the face, or the face editor, on the awake screen) and only
@@ -56,14 +58,18 @@ Item {
     // launcher's apps (the app shortcut's name and icon)
     property int unread: 0
     property var apps: null
+    // the World clock's time zones (src/worldzones.h, the context property worldZones; a test sets its own)
+    property var zones: typeof worldZones !== "undefined" ? worldZones : null
+    // a tap on a World clock slot (stock: the zone chooser of that complication, ACTION_CHOOSE_TIMEZONE)
+    signal worldClockChooserRequested(string faceName, string slotId, string current)
 
     // the data sources, in the order of the face editor's list
     readonly property var all: ["empty", "date", "daymonth", "datemonth", "weekday", "timedate", "steps", "heartrate", "distance",
                                 "calories", "floors", "azm", "exercisedays",
                                 "battery", "phonebattery", "notifications", "health", "exercise", "weather", "uv", "precipitation",
-                                "aqi", "sun", "moon", "nextevent", "alarm", "timer", "stopwatch", "media", "assistant"]
+                                "aqi", "sun", "moon", "nextevent", "alarm", "timer", "stopwatch", "media", "assistant", "map"]
     // the sources that need a choice first (the face editor's second page)
-    readonly property var parameterised: ["worldclock", "countdown", "app"]
+    readonly property var parameterised: ["worldclock", "countdown", "app", "contact"]
     function kindOf(id) { return C.split(id).kind }
     function isSource(id) {
         var p = C.split(id)
@@ -138,6 +144,10 @@ Item {
         case "countdown": return qsTrId("id-comp-countdown")
         //% "App shortcut"
         case "app": return qsTrId("id-comp-app-shortcut")
+        //% "Show map"
+        case "map": return qsTrId("id-comp-show-map")
+        //% "Favorite contact"
+        case "contact": return qsTrId("id-comp-favorite-contact")
         }
         return id
     }
@@ -258,7 +268,7 @@ Item {
     // always-on screen (only the date)
     function base(o) {
         var d = { type: "short", text: "", short: "", caption: "", lead: "", title: "", long: "", icon: "", iconTop: false,
-                  progress: -1, color: "", elements: [], image: "", known: true, ambient: false }
+                  progress: -1, color: "", elements: [], image: "", letter: "", tileColor: "", known: true, ambient: false }
         for (var k in o)
             d[k] = o[k]
         return d
@@ -353,15 +363,8 @@ Item {
                           short: t.time, caption: t.marker, title: name("timedate"),
                           long: sources.now.toLocaleString(Qt.locale(), "ddd d MMM"), icon: "ios-time-outline" })
         }
-        case "worldclock": {
-            var off = C.offsetMinutes(p.param)
-            if (off === null)
-                return base({ short: nodata, text: nodata, icon: "ios-globe-outline", title: name("worldclock"), known: false })
-            var wc = C.inOffset(sources.now, off)
-            var wp = C.timeParts(wc, sources.use12h)
-            return base({ text: C.fmtTime(wc, sources.use12h), short: wp.time, caption: wp.marker, title: name("worldclock"),
-                          long: C.fmtTime(wc, sources.use12h), icon: "ios-globe-outline" })
-        }
+        case "worldclock":
+            return worldClockInfo(p.param)
         case "countdown": {
             var days = C.daysTo(sources.now, p.param)
             if (days === null)
@@ -507,8 +510,44 @@ Item {
                           text: ap2 && ap2.title ? ap2.title : name("app"), long: ap2 && ap2.title ? ap2.title : name("app"),
                           known: ap2 !== null })
         }
+        case "map": {
+            // stock Maps' "Show map" (MapsLocationComplicationDataSourceService): an icon, the map at the watch's place
+            var mp = appItem("asteroid-map")
+            return base({ type: "icon", icon: mp && mp.iconId ? mp.iconId : "ios-map", title: name("map"), text: name("map"),
+                          long: name("map") })
+        }
+        case "contact":
+            return contactInfo(p.param)
         }
         return base({ known: false })
+    }
+
+    /* Favorite contact (A-16), as Google Contacts' ContactsComplicationProviderService: SMALL_IMAGE (PHOTO) of the
+     * chosen contact, the photo when the Contacts module has it cached, else the letter on its colour (the Contacts
+     * app's monogram); the content description is the name. The slot keeps the contact as
+     * "contact:<JSON { k: key, n: name }>" (the Contact tile's way, tile-contact): the face needs no list to draw it. */
+    function contactOf(param) {
+        try {
+            var o = JSON.parse(decodeURIComponent(String(param)))
+            return o && o.k ? { key: String(o.k), name: String(o.n || "") } : null
+        } catch (e) {
+            return null
+        }
+    }
+    function contactParam(key, contactName) {
+        return encodeURIComponent(JSON.stringify({ k: String(key), n: String(contactName || "") }))
+    }
+    function contactInfo(param) {
+        var c = contactOf(param)
+        if (!c)
+            return base({ type: "icon", icon: "ios-contact", title: name("contact"), text: name("contact"), known: false })
+        var cs = contactLoader.item
+        var photo = cs ? cs.photoOf(c.key, cs.photoRevision) : ""
+        var letter = cs ? cs.letterOf(c.name) : ""
+        if (photo === "" && letter === "")
+            return base({ type: "icon", icon: "ios-contact", title: c.name, text: c.name, long: c.name })
+        return base({ type: "smallimage", image: photo, letter: letter, tileColor: cs ? cs.colorOf(c.name) : "",
+                      title: c.name, text: c.name, long: c.name, icon: "ios-contact" })
     }
 
     /* Today's energy burned, floors and Active Zone Minutes (M4 WO-10), as the Fitbit offloadable Calories, Floors and
@@ -541,10 +580,44 @@ Item {
                       icon: "eos-exercise", elements: C.exerciseDayElements(done, goal) })
     }
 
+    /* World clock (A-13), as stock's WorldClockProviderService (SHORT_TEXT): the text is the zone's time
+     * now (its offset at this moment: summer time included), "10:10AM" in 12 h when it fits, "10:10" in
+     * 24 h; the title (our caption) the zone's short code; the content description "World clock London"
+     * (our long slot: the city over the time). A UTC offset kept from before reads as a fixed offset. */
+    function worldClockInfo(param) {
+        var nodata = "- -"
+        var off = null, code = "", city = ""
+        var z = sources.zones
+        if (z && z.isZone(param)) {
+            var m = z.offsetMinutes(param, sources.now.getTime())
+            if (m > -100000) {
+                off = m
+                code = z.code(param)
+                city = z.city(param)
+            }
+        } else {
+            off = C.offsetMinutes(param)
+            if (off !== null)
+                code = C.offsetCode(off)
+        }
+        if (off === null)
+            return base({ short: nodata, text: nodata, icon: "ms-language", title: name("worldclock"), known: false })
+        var wc = C.inOffset(sources.now, off)
+        var loc = Qt.locale()
+        var t = C.worldClockText(wc, sources.use12h, loc.amText, loc.pmText)
+        return base({ text: t + " " + code, short: t, caption: code, title: city !== "" ? city : name("worldclock"),
+                      long: t, icon: "ms-language" })
+    }
+
     // where a tap on a slot goes, as the stock complications open their app
     function open(id, fromItem) {
         var p = C.split(id)
         switch (p.kind) {
+        case "worldclock":
+            // stock: no world clock app here, so the zone chooser of this complication (ACTION_CHOOSE_TIMEZONE)
+            worldClockChooserRequested(fromItem && fromItem.faceName !== undefined ? String(fromItem.faceName) : "",
+                                       fromItem && fromItem.slotItem ? String(fromItem.slotItem.slotId) : "", p.param)
+            break
         // the Health app on the metric's page (stock: Today at its DETAILS route, as the steps one)
         case "calories":
             openRequest.value = "energy@" + Date.now()
@@ -637,8 +710,29 @@ Item {
         case "app":
             desktop.launchByName(p.param, fromItem)
             break
+        case "map":
+            // stock: the map at the watch's place (Maps' dispatch, user-action 12): the Map app's start page
+            desktop.launchByName("asteroid-map", fromItem)
+            break
+        case "contact": {
+            // stock: the contact (ContactComplicationTapActivity): the Contacts app on it, as the Contact tile does
+            var ct = contactOf(p.param)
+            if (ct)
+                contactsRequest.value = "contact:" + ct.key + "@" + Date.now()
+            desktop.launchByName("asteroid-contacts", fromItem)
+            break
+        }
         }
     }
+    ConfigurationValue { id: contactsRequest; key: "/org/asteroidos/contacts/ui/open"; defaultValue: "" }
+    // the Favorite contact's photo cache and the editor's list (only while a slot shows a contact or the editor lists them)
+    property bool contactsListed: false
+    Loader {
+        id: contactLoader
+        active: sources.demand.contact === true || sources.contactsListed
+        source: "ContactSource.qml"
+    }
+    readonly property var contactSource: contactLoader.item
     ConfigurationValue { id: openRequest; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
     ConfigurationValue { id: calendarRequest; key: "/org/asteroidos/calendar/ui/open"; defaultValue: "" }
     ConfigurationValue { id: settingsRequest; key: "/org/asteroidos/settings/ui/open"; defaultValue: "" }

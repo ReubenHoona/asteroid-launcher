@@ -369,6 +369,25 @@ function daysTo(now, ymd) {
     var b = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
     return Math.round((a - b) / 86400000)
 }
+/* The World clock's time (A-13): stock WorldClockProviderService formats the zone's time with
+ * gyp.h(): "HH:mm" in 24 h; in 12 h the locale's "h:mma" with the spaces taken out ("10:10AM") when
+ * every hour fits in 7 characters, else "h:mm" without the marker. am / pm: the locale's markers. */
+function worldClockText(d, use12h, am, pm) {
+    var h = d.getHours(), m = d.getMinutes()
+    if (!use12h)
+        return pad2(h) + ":" + pad2(m)
+    var t = ((h % 12) || 12) + ":" + pad2(m)
+    var a = String(am || "").replace(/\s/g, ""), p = String(pm || "").replace(/\s/g, "")
+    // stock checks every hour: "12:mm" plus the longer marker
+    return 5 + Math.max(a.length, p.length) <= 7 ? t + (h < 12 ? a : p) : t
+}
+// a fixed offset's short code, for a slot kept from before the zones ("+5:30", "-8", "UTC")
+function offsetCode(minutes) {
+    if (minutes === 0)
+        return "UTC"
+    var a = Math.abs(minutes)
+    return (minutes < 0 ? "-" : "+") + Math.floor(a / 60) + (a % 60 ? ":" + pad2(a % 60) : "")
+}
 // a UTC offset ("+0530", "-0800", "0") -> minutes, null if invalid
 function offsetMinutes(s) {
     var m = /^([+-]?)(\d{1,2})(\d{2})?$/.exec(String(s))

@@ -4,7 +4,6 @@
  */
 
 import QtQuick
-import org.asteroid.controls
 import "facekit.js" as Kit
 
 /*
@@ -25,11 +24,10 @@ import "facekit.js" as Kit
  *    launcher draws each favourite once at 10:09 (FacePreviewRenderer).
  *  - The always-on look (watchface-catalogue-25, ambient-aod-21): the face owns
  *    it (`ambientOwnStyle`: the launcher does not dim the whole panel), a
- *    thinner time weight and dimmer colours through `blend`, which runs 0 to 1
- *    in 300 ms when the display goes always-on (the interactive side only: the
- *    sensor hub's layout is made from the final frame, and the way back to the
- *    interactive face is at once). The animation runs once per change and only
- *    while the display shows the face; nothing here has a timer.
+ *    thinner time weight and dimmer colours through `blend`, which steps 0 to 1
+ *    in one frame when the display goes always-on and back at once at the wake
+ *    (the Wear OS 6 emulator, motion M13: no frame in between; A-02). Nothing
+ *    here animates or has a timer.
  *  - The sensor hub (M1): a digital face names its time Text items eosHubHour
  *    and eosHubMinute (EosNumber does) so the hub draws the always-on time;
  *    `eosHubDrawn` says so. An analog or word face sets it false: the AP draws
@@ -79,23 +77,8 @@ Item {
     readonly property real k: width / Kit.BASE
 
     // ---- the always-on blend: 0 interactive, 1 always-on ----
-    // into always-on it runs over 300 ms; out of it, at once (the wake has no transition)
+    // both ways in one frame (Kit.AMBIENT_MS 0: the Wear OS 6 emulator steps, motion M13; A-02)
     property real blend: 0
     Component.onCompleted: blend = ambient ? 1 : 0
-    onAmbientChanged: {
-        blendAnim.stop()
-        if (ambient) {
-            blendAnim.from = blend
-            blendAnim.to = 1
-            blendAnim.restart()
-        } else {
-            blend = 0
-        }
-    }
-    NumberAnimation {
-        id: blendAnim
-        target: face
-        property: "blend"
-        duration: Motion.duration(Kit.AMBIENT_MS)
-    }
+    onAmbientChanged: blend = ambient ? 1 : 0
 }

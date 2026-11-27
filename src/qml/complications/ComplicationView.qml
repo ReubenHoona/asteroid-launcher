@@ -272,6 +272,24 @@ Item {
                 asynchronous: true
             }
         }
+        // a small image with no picture but a letter (A-16: a contact without a photo): the letter on its
+        // colour in the circle, as the Contacts app's monogram
+        Rectangle {
+            objectName: "eosMonogram"
+            visible: bulb.imageOnly && view.info.image === "" && view.info.letter !== undefined && view.info.letter !== ""
+            anchors.fill: parent
+            radius: width / 2
+            color: view.info.tileColor ? view.info.tileColor : "#8AB4F8"
+            Text {
+                anchors.centerIn: parent
+                text: view.info.letter !== undefined ? view.info.letter : ""
+                color: "#000000"
+                renderType: Text.NativeRendering
+                font.family: view.family
+                font.weight: Font.Medium
+                font.pixelSize: Math.round(parent.height * 0.5)
+            }
+        }
 
         // the icon in the ring's gap, at 74/86 of the height
         Icon {

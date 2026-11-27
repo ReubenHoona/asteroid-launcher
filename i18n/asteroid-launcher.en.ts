@@ -2701,5 +2701,61 @@ for %1 seconds to</translation>
         <source>%1m ago</source>
         <translation>%1m ago</translation>
     </message>
+    <message id="id-comp-region-africa">
+        <source>Africa</source>
+        <translation>Africa</translation>
+    </message>
+    <message id="id-comp-region-asia">
+        <source>Asia</source>
+        <translation>Asia</translation>
+    </message>
+    <message id="id-comp-region-atlantic">
+        <source>Atlantic</source>
+        <translation>Atlantic</translation>
+    </message>
+    <message id="id-comp-region-australia">
+        <source>Australia</source>
+        <translation>Australia</translation>
+    </message>
+    <message id="id-comp-region-europe">
+        <source>Europe</source>
+        <translation>Europe</translation>
+    </message>
+    <message id="id-comp-region-indian">
+        <source>Indian Ocean</source>
+        <translation>Indian Ocean</translation>
+    </message>
+    <message id="id-comp-region-north-america">
+        <source>North America</source>
+        <translation>North America</translation>
+    </message>
+    <message id="id-comp-region-pacific">
+        <source>Pacific</source>
+        <translation>Pacific</translation>
+    </message>
+    <message id="id-comp-region-south-america">
+        <source>South America</source>
+        <translation>South America</translation>
+    </message>
+    <message id="id-comp-region-universal">
+        <source>Universal</source>
+        <translation>Universal</translation>
+    </message>
+    <message id="id-comp-show-map">
+        <source>Show map</source>
+        <translation>Show map</translation>
+    </message>
+    <message id="id-comp-favorite-contact">
+        <source>Favorite contact</source>
+        <translation>Favorite contact</translation>
+    </message>
+    <message id="id-face-app-maps">
+        <source>Maps</source>
+        <translation>Maps</translation>
+    </message>
+    <message id="id-face-app-contacts">
+        <source>Contacts</source>
+        <translation>Contacts</translation>
+    </message>
 </context>
 </TS>

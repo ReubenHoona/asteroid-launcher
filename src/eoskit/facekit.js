@@ -39,8 +39,10 @@ var WEIGHT = { normal: 300, bold: 500, ambientNormal: 100, ambientBold: 300 }
 function weight(bold, ambient) {
     return ambient ? (bold ? WEIGHT.ambientBold : WEIGHT.ambientNormal) : (bold ? WEIGHT.bold : WEIGHT.normal)
 }
-// interactive to ambient: 300 ms (fuv.java:84-95, TRANSITION_TO_AMBIENT); the other way is at once
-var AMBIENT_MS = 300
+// interactive to ambient: in one frame, as the Wear OS 6 emulator (motion M13: no frame between
+// the awake and the always-on face; CP3A fuv.java:84-95 animated it over 300 ms, the new look
+// follows the emulator: A-02); the other way is at once too
+var AMBIENT_MS = 0
 // the always-on colours are the interactive ones at this brightness (fewer lit pixels)
 var AMBIENT_DIM = 0.7
 // complications and other furniture in the always-on screen

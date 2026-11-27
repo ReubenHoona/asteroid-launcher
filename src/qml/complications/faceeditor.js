@@ -219,7 +219,7 @@ var APPS = {
     weather: "weather", uv: "weather", precipitation: "weather", aqi: "weather", sun: "weather",
     nextevent: "calendar",
     alarm: "clock", timer: "clock", stopwatch: "clock", moon: "clock", countdown: "clock",
-    media: "media", assistant: "assistant"
+    media: "media", assistant: "assistant", map: "maps", contact: "contacts"
 }
 function appOf(kind) {
     return APPS.hasOwnProperty(kind) ? APPS[kind] : "settings"
@@ -315,42 +315,45 @@ function chooserIndex(order, current) {
 //
 // World clock, Countdown to date and App shortcut (ComplicationSources.parameterised) are in
 // the chooser with the others; a tap opens their second page, whose choice is the source
-// stored for the slot: "worldclock:<UTC offset>", "countdown:<YYYY-MM-DD>", "app:<desktop>".
-
-/* The World clock's time zones as UTC offsets in minutes, west to east: every offset in use
- * (the tz database, summer times included). QML's JS has no zone database, so the slot keeps
- * a fixed offset (no daylight saving change; complications.js inOffset). */
-var WORLD_OFFSETS = [-720, -660, -600, -570, -540, -480, -420, -360, -300, -240, -210, -180, -150, -120, -60,
-                     0, 60, 120, 180, 210, 240, 270, 300, 330, 345, 360, 390, 420, 480, 525, 540, 570, 600,
-                     630, 660, 720, 765, 780, 825, 840]
+// stored for the slot: "worldclock:<zone id>", "countdown:<YYYY-MM-DD>", "app:<desktop>".
 
 function pad2(n) {
     return (n < 10 ? "0" : "") + n
 }
-// minutes -> the source's parameter: "+0530", "-0800", "+0000"
-function offsetParam(minutes) {
-    var a = Math.abs(minutes)
-    return (minutes < 0 ? "-" : "+") + pad2(Math.floor(a / 60)) + pad2(a % 60)
+
+/* The World clock's zone chooser (A-13), as stock's WorldClockProviderConfigActivity: a list of the
+ * regions (isn.java: sorted by their names with the locale's collator), then the zones of the region
+ * as "City (CODE)" (iqj: sorted by their offset now, then by name; WorldZones.zones gives that order).
+ * keys: the regions the zone list has; names: key -> the region's name. */
+var REGION_PREFIX = "worldregion:"
+function regionRows(keys, names) {
+    var rows = (keys || []).map(function (k) {
+        return { value: REGION_PREFIX + k, title: names && names[k] ? names[k] : k, icon: "ms-language" }
+    })
+    rows.sort(function (a, b) { return a.title.localeCompare(b.title) })
+    return rows
 }
-// minutes -> the row's name: "UTC+05:30", "UTC-08:00", "UTC"
-function offsetLabel(minutes) {
-    if (minutes === 0)
-        return "UTC"
-    var a = Math.abs(minutes)
-    return "UTC" + (minutes < 0 ? "-" : "+") + pad2(Math.floor(a / 60)) + ":" + pad2(a % 60)
-}
-function worldClockRows() {
-    return WORLD_OFFSETS.map(function (m) {
-        return { value: "worldclock:" + offsetParam(m), title: offsetLabel(m), icon: "ios-globe-outline" }
+function isRegionRow(value) { return String(value).indexOf(REGION_PREFIX) === 0 }
+function regionOfRow(value) { return String(value).slice(REGION_PREFIX.length) }
+/* The Favorite contact's choice (A-16, stock ACTION_CHOOSE_CONTACTS_COMPLICATION): the contacts of the
+ * Contacts module (cached list [{ key, name, starred }]), starred first, then by name.
+ * param(key, name) -> the source's parameter (ComplicationSources.contactParam). */
+function contactRows(contacts, param) {
+    var l = (contacts || []).filter(function (c) { return c && c.key && c.name })
+    l.sort(function (a, b) {
+        if ((a.starred === true) !== (b.starred === true))
+            return a.starred === true ? -1 : 1
+        return String(a.name).localeCompare(String(b.name))
+    })
+    return l.map(function (c) {
+        return { value: "contact:" + param(c.key, c.name), title: String(c.name), icon: "ios-contact" }
     })
 }
-// the row of the offset nearest to `minutes` (the slot's, else the watch's own)
-function offsetIndex(minutes) {
-    var best = 0
-    for (var i = 1; i < WORLD_OFFSETS.length; i++)
-        if (Math.abs(WORLD_OFFSETS[i] - minutes) < Math.abs(WORLD_OFFSETS[best] - minutes))
-            best = i
-    return best
+// zones: [{ id, city, code }] (WorldZones.zones)
+function zoneRows(zones) {
+    return (zones || []).map(function (z) {
+        return { value: "worldclock:" + z.id, title: z.city + " (" + z.code + ")", icon: "ms-language" }
+    })
 }
 
 // the day -> the source: "countdown:2026-12-25" (month 1-12)

@@ -21,6 +21,7 @@ set(SRC
 	touchobserver.cpp
 	facepreviews.cpp
 	wristorientation.cpp
+	worldzones.cpp
 	eoslayout.c)
 set(HEADERS
 	applauncherbackground.h
@@ -48,6 +49,7 @@ set(HEADERS
 	eostouch.h
 	facepreviews.h
 	wristorientation.h
+	worldzones.h
 	eoshubdigits.h
 	eoslayout.h)
 
@@ -141,6 +143,7 @@ set(QML_FILES
 	qml/complications/ClockSource.qml
 	qml/complications/MediaSource.qml
 	qml/complications/HealthSource.qml
+	qml/complications/ContactSource.qml
 	qml/complications/complications.js
 	qml/complications/FaceEditor.qml
 	qml/complications/EditorSelector.qml
@@ -153,6 +156,7 @@ set(QML_FILES
 	qml/complications/EditorSlotsPage.qml
 	qml/complications/EditorBoolPage.qml
 	qml/complications/EditorDots.qml
+	qml/complications/WorldClockChooser.qml
 	qml/complications/faceeditor.js
 	qml/home/FaceColors.qml
 	qml/home/SimpleFace.qml
@@ -372,6 +376,7 @@ set_source_files_properties(qml/complications/AgendaSource.qml       PROPERTIES 
 set_source_files_properties(qml/complications/ClockSource.qml        PROPERTIES QT_RESOURCE_ALIAS complications/ClockSource.qml)
 set_source_files_properties(qml/complications/MediaSource.qml        PROPERTIES QT_RESOURCE_ALIAS complications/MediaSource.qml)
 set_source_files_properties(qml/complications/HealthSource.qml       PROPERTIES QT_RESOURCE_ALIAS complications/HealthSource.qml)
+set_source_files_properties(qml/complications/ContactSource.qml      PROPERTIES QT_RESOURCE_ALIAS complications/ContactSource.qml)
 set_source_files_properties(qml/complications/complications.js       PROPERTIES QT_RESOURCE_ALIAS complications/complications.js)
 set_source_files_properties(qml/complications/FaceEditor.qml         PROPERTIES QT_RESOURCE_ALIAS complications/FaceEditor.qml)
 set_source_files_properties(qml/complications/EditorSelector.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSelector.qml)
@@ -384,6 +389,7 @@ set_source_files_properties(qml/complications/EditorDatePage.qml PROPERTIES QT_R
 set_source_files_properties(qml/complications/EditorSlotsPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorSlotsPage.qml)
 set_source_files_properties(qml/complications/EditorBoolPage.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorBoolPage.qml)
 set_source_files_properties(qml/complications/EditorDots.qml PROPERTIES QT_RESOURCE_ALIAS complications/EditorDots.qml)
+set_source_files_properties(qml/complications/WorldClockChooser.qml PROPERTIES QT_RESOURCE_ALIAS complications/WorldClockChooser.qml)
 set_source_files_properties(qml/complications/faceeditor.js PROPERTIES QT_RESOURCE_ALIAS complications/faceeditor.js)
 set_source_files_properties(qml/home/FaceColors.qml PROPERTIES QT_RESOURCE_ALIAS home/FaceColors.qml)
 set_source_files_properties(qml/home/SimpleFace.qml PROPERTIES QT_RESOURCE_ALIAS home/SimpleFace.qml)

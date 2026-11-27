@@ -114,33 +114,19 @@ Item {
      *    nor moved (the trays have their own background, PanelsGrid), and the
      *    tiles slide over a face that zooms behind a black layer of the
      *    grid's (PanelsGrid.faceDistance), so nothing here darkens.
-     *  - ambientDarken is toggled by the ambient signals (AmbientController)
-     *    and fades over 300ms. */
+     *  - ambientDarken is toggled by the ambient signals (AmbientController),
+     *    in one frame. */
     property real scrollDarken: displayAmbient ? 0.0
                               : (grid.normalizedVerOffset > 0 && !launcherColorOverride) ? 0.0
                               : wearLayout ? 0
                               : Math.max(Math.abs(grid.normalizedHorOffset), Math.abs(grid.normalizedVerOffset)) * 0.4
     property real ambientDarken: 0.0
     /* Going to the always-on screen the wallpaper darkens together with the
-     * face's own change (500 ms, linear: the watch face's ambient transition,
-     * WFF runtime_ambient_transition_ms, LINEAR by default; ambient-aod-19, motion J1);
+     * face, in one frame (the Wear OS 6 emulator steps, motion M13; D60-04, A-02);
      * the wake is at once (no brightness ramp at screen on, stock
      * config_skipScreenOnBrightnessRamp, motion-transitions-32). */
     function setAmbientDarken(v) {
-        ambientFade.stop()
-        if (v > ambientDarken && Motion.animationScale > 0) {
-            ambientFade.to = v
-            ambientFade.restart()
-        } else {
-            ambientDarken = v
-        }
-    }
-    NumberAnimation {
-        id: ambientFade
-        target: desktop
-        property: "ambientDarken"
-        duration: 500
-        easing.type: Easing.Linear
+        ambientDarken = v
     }
 
     property var compositor: Lipstick.compositor

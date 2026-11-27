@@ -34,7 +34,7 @@ import "../eoskit/concentric.js" as C
  *                               inner 0.1 degree/s; always-on: whole minute       the wall clock (ends when the clock
  *                                                                                 stops); always-on: the whole minute
  *   always-on (S02)             outer numerals gone, outer ticks still (at 0),   the same; the switch over EosFace's
- *                               thin digits, circle; the switch is a cut (M13)    blend (300 ms in, at once out)
+ *                               thin digits, circle; the switch is a cut (M13)    blend (a cut both ways, A-02)
  *
  * Options: Color (default Cloud: white dial and pill), Layout: Dial I (default), Dial II (no tick
  * rings) and Half Dial (A-06; stock's numbers in eoskit/concentric.js HALF): the dial 142 px to the
