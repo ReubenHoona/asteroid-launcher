@@ -22,8 +22,17 @@ enum {
 	OP_CONCAT = 8, OP_SAVE = 9, OP_RESTORE = 10, OP_NAMES = 11,
 	OP_BITMAP_TEXT = 15, OP_BITMAP_TYPEFACE = 16, OP_BACKGROUND = 17,
 	OP_HEADER = 18, OP_BINDING = 19, OP_EXPR_PROPERTY = 20, OP_EXP1 = 21,
-	OP_EXP2 = 22, OP_EXP3 = 23, OP_FLOAT = 29, OP_INT64 = 30,
+	OP_EXP2 = 22, OP_EXP3 = 23, OP_FUNC0 = 24, OP_FLOAT = 29, OP_INT64 = 30,
 	OP_PROPERTY = 32, OP_LOCALE = 34, OP_TEXT_BINDING = 35, OP_KV = 36,
+};
+
+/* The expression functions (eskia ParserContext name table 0xb2820: id, name, arguments; the hub
+ * evaluates them in FUN_003d318c, angles in radians). A call node is op 24 + its argument count
+ * (newFunc1 0x4b120 writes 0x1099: op 25, 16 bytes), +4 the id, the argument node references at
+ * +8, +0x10, ... each followed by a zero word. */
+static const struct { const char *name; int id, nargs; } el_funcs[] = {
+	{ "cos", 1, 1 }, { "sin", 2, 1 }, { "PI", 3, 0 }, { "floor", 15, 1 }, { "ceil", 16, 1 },
+	{ "toIntS32", 19, 1 },
 };
 
 /* SkExpressionType: expr_parse rule actions + byacc tables simulated (re/byacc_sim.py);
@@ -38,6 +47,7 @@ enum {
 #define BT_TEXT_GLYPHS	14	/* SkBindingType of a bitmap-text glyph binding (op 35) */
 #define BT_MATRIX_TX	2	/* op 19 types 0..8: element of a concat op's SkMatrix (hub 0x3d2b3c) */
 #define BT_MATRIX_TY	5
+#define MAX_GROUP_DEPTH	8
 #define MAX_ITEMS	256	/* sprites with a bound glyph: Concentric's dial has 120 */
 
 typedef struct {
@@ -67,6 +77,7 @@ struct el_layout {
 	struct typeface tf[16]; int ntf;
 	uint16_t next_prop;
 	uint32_t next_op;
+	int group_depth;	/* open rotation groups */
 	uint32_t next_bitmap_id, next_typeface_id;
 	int finished;
 	char err[160];
@@ -497,6 +508,71 @@ int el_sprite_text_at(el_layout *L, int typeface, float x, float y, const char *
 	return 0;
 }
 
+int el_rotation_begin(el_layout *L, float px, float py, const char *angle_deg)
+{
+	/* stock AddCustomExprBinding order: elements 0, 1, 2, 4, 3, 5 */
+	static const uint16_t order[6] = { 0, 1, 2, 4, 3, 5 };
+	char cname[16], a[160], e[6][400];
+	uint8_t *p;
+	int64_t off;
+	int pid;
+
+	if (L->finished)
+		return fail(L, "layout finished");
+	if (L->group_depth >= MAX_GROUP_DEPTH)
+		return fail(L, "rotation groups nested too deep");
+	if (angle_deg && strlen(angle_deg) > 100)
+		return fail(L, "angle expression too long");
+	if (op_add(L, 1, OP_SAVE, 4, &p) < 0)
+		return -1;
+	if ((off = op_add(L, 1, OP_CONCAT, 40, &p)) < 0)
+		return -1;
+	putf(p + 4, 1.0f);	/* angle 0 until the hub evaluates the bindings */
+	putf(p + 20, 1.0f);
+	putf(p + 36, 1.0f);
+	L->group_depth++;
+	if (!angle_deg)
+		return 0;
+	snprintf(cname, sizeof(cname), "op%u", ++L->next_op);
+	if (add_name(L, cname, (uint32_t)off) < 0)
+		return -1;
+	snprintf(a, sizeof(a), "((%s)*PI()/180.0)", angle_deg);
+	snprintf(e[0], sizeof(e[0]), "cos%s", a);
+	snprintf(e[1], sizeof(e[1]), "(0.0-sin%s)", a);
+	snprintf(e[2], sizeof(e[2]), "(%.4f*(1.0-cos%s)+%.4f*sin%s)", px, a, py, a);
+	snprintf(e[3], sizeof(e[3]), "sin%s", a);
+	snprintf(e[4], sizeof(e[4]), "cos%s", a);
+	snprintf(e[5], sizeof(e[5]), "(%.4f*(1.0-cos%s)-%.4f*sin%s)", py, a, px, a);
+	for (int k = 0; k < 6; k++) {
+		const uint16_t el = order[k];
+
+		if (L->nbind >= MAX_ITEMS)
+			return fail(L, "too many bindings");
+		if ((pid = new_prop(L, e[el], EL_PT_FLOAT)) < 0)
+			return -1;
+		snprintf(L->bind[L->nbind].name, sizeof(L->bind[0].name), "%s", cname);
+		L->bind[L->nbind].type = el;
+		L->bind[L->nbind].prop = pid;
+		L->bind[L->nbind].vec = -1;
+		L->nbind++;
+	}
+	return 0;
+}
+
+int el_group_end(el_layout *L)
+{
+	uint8_t *p;
+
+	if (L->finished)
+		return fail(L, "layout finished");
+	if (L->group_depth <= 0)
+		return fail(L, "no open group");
+	if (op_add(L, 1, OP_RESTORE, 4, &p) < 0)
+		return -1;
+	L->group_depth--;
+	return 0;
+}
+
 int el_kv(el_layout *L, const char *key, const char *value)
 {
 	size_t kl = strlen(key), vl = strlen(value);
@@ -599,6 +675,53 @@ static int64_t ex_primary(struct ex_ctx *c)
 				put64(p + 4, (uint64_t)v);
 		}
 		c->s = q;
+		return o;
+	}
+	if ((*c->s >= 'a' && *c->s <= 'z') || (*c->s >= 'A' && *c->s <= 'Z')) {
+		/* a function call NAME(args): the arguments' nodes first, then the call node */
+		const char *q = c->s;
+		uint32_t args[4];
+		int n = 0, f = -1;
+		size_t len;
+
+		while ((*q >= 'a' && *q <= 'z') || (*q >= 'A' && *q <= 'Z') || (*q >= '0' && *q <= '9'))
+			q++;
+		len = (size_t)(q - c->s);
+		for (int i = 0; i < (int)(sizeof(el_funcs) / sizeof(el_funcs[0])); i++)
+			if (strlen(el_funcs[i].name) == len && !strncmp(el_funcs[i].name, c->s, len))
+				f = i;
+		if (f < 0)
+			return fail(c->L, "unknown function %.*s", (int)len, c->s);
+		c->s = q;
+		ex_ws(c);
+		if (*c->s != '(')
+			return fail(c->L, "expected ( after %s", el_funcs[f].name);
+		c->s++;
+		ex_ws(c);
+		while (*c->s != ')') {
+			if (n == 4)
+				return fail(c->L, "too many arguments");
+			o = ex_cond(c);
+			if (o < 0)
+				return o;
+			args[n++] = (uint32_t)o;
+			ex_ws(c);
+			if (*c->s == ',') {
+				c->s++;
+				continue;
+			}
+			if (*c->s != ')')
+				return fail(c->L, "expected , or )");
+		}
+		c->s++;
+		if (n != el_funcs[f].nargs)
+			return fail(c->L, "%s takes %d argument(s)", el_funcs[f].name, el_funcs[f].nargs);
+		o = op_add(c->L, 2, OP_FUNC0 + n, 8 + 8 * n, &p);
+		if (o >= 0) {
+			put32(p + 4, el_funcs[f].id);
+			for (int i = 0; i < n; i++)
+				put32(p + 8 + 8 * i, args[i]);
+		}
 		return o;
 	}
 	return fail(c->L, "unexpected '%c' in expression", *c->s ? *c->s : '?');
@@ -891,6 +1014,8 @@ int el_finish(el_layout *L, el_msgs *out)
 
 	if (L->finished)
 		return fail(L, "already finished");
+	if (L->group_depth)
+		return fail(L, "%d rotation group(s) not ended", L->group_depth);
 	/* BuildExpressions (HAL 0x26a40): nodes + op 20 per generated property */
 	for (int i = 0; i < L->nex; i++)
 		if (write_expr(L, &L->ex[i]) < 0)
