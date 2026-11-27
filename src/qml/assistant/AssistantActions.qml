@@ -18,6 +18,7 @@ import org.asteroid.settings
 import org.asteroid.launcher
 import "../desktop.js" as Desktop
 import "../tiles/clocklogic.js" as Clock
+import "../tiles/exercisetypes.js" as ExerciseTypes
 
 /*
  * What the assistant does for an intent (asteroid-assistant's Result), the
@@ -67,6 +68,8 @@ Item {
     ConfigurationValue { id: currentTemp; key: "/org/asteroidos/weather/current-temp"; defaultValue: 0 }
     // Health's page request, "<page>@<ms>" (the heart rate tile writes the same)
     ConfigurationValue { id: healthOpen; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
+    // the Exercise app's start request, "<exercise key>@<ms>" (the Exercise tile and the workout offer write it)
+    ConfigurationValue { id: exerciseRequest; key: "/org/asteroidos/exercise/start-request"; defaultValue: "" }
     // the Stopwatch's start request, "<ms>": the app starts a stopwatch that is at zero (see stopwatchStart)
     ConfigurationValue { id: stopwatchRequest; key: "/org/asteroidos/stopwatch/start-request"; defaultValue: "" }
 
@@ -200,6 +203,22 @@ Item {
                 Desktop.desktop.launchByName("asteroid-stopwatch", null)
         } })
     }
+    // "Start a run": the Exercise app on that exercise. Stock: Assistant's FITNESS_START_EXERCISE sends Fitbit's
+    // actions.intent.START_EXERCISE with the exercise type (sbv.java:195; Fitbit AppActionsViewModel.java:243-244,
+    // the workout screen with the start action). Ours: the app's start request, as the Exercise tile's buttons
+    // (the app opens that exercise; one that is on stays on); no type ("start a workout"): the app's list.
+    // "... and play music" (gemini_suggestion_start_run_music): the phone's player resumes too
+    function exerciseStart(s, onDone) {
+        var type = s.type ? ExerciseTypes.find(s.type) : null
+        onDone({ close: true, then: function () {
+            if (type)
+                exerciseRequest.value = type.key + "@" + Date.now()
+            if (typeof Desktop !== "undefined" && Desktop.desktop)
+                Desktop.desktop.launchByName("asteroid-exercise", null)
+            if (s.music && mediaPresent && mpris.canPlay)
+                mpris.play()
+        } })
+    }
     function forEachAlarm(model, f) {
         for (var i = 0; i < model.rowCount(); i++) {
             var a = model.data(model.index(i, 0), 0x0100)
@@ -235,6 +254,7 @@ Item {
         case "alarm.query": return alarmQuery(done)
         case "alarm.snooze": case "alarm.stop": return alarmRinging(intent === "alarm.snooze", done)
         case "stopwatch.start": return stopwatchStart(done)
+        case "exercise.start": return exerciseStart(s, done)
         case "reminder.set": return reminderSet(s.text, new Date(s.at * 1000), done)
         case "reminder.ask": return reminderAsk(s.text, done)
         case "app.open": return openApp(s.app, done)

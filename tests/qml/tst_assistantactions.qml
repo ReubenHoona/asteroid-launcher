@@ -17,6 +17,8 @@
 //    snooze / dismiss; nothing ringing (a snoozed alarm, a ringing timer): stock's no_alarms_to_snooze / _stop;
 //    a presenter without the methods: the alarm screen comes back.
 //  - R5 D-22: "Start the stopwatch" writes the Stopwatch's start request ("<ms>") and opens the app.
+//  - R5 D-11: "Start a run" writes the Exercise app's start request ("Run@<ms>", as the Exercise tile) and opens
+//    the app; no type or one the app does not have: the app's list, no request.
 // MODE=st (the staged tree).
 import QtQuick
 import QtTest
@@ -283,6 +285,33 @@ Item {
             compare(fakeDesktop.launched, ["asteroid-stopwatch"])
             var req = Number(Backend.conf["/org/asteroidos/stopwatch/start-request"])
             verify(req >= before && req <= Date.now() + 1, "request " + req)
+        }
+
+        // R5 D-11: a run, then a workout with no type, then a type the app does not know
+        function test_d11_start_exercise() {
+            var key = "/org/asteroidos/exercise/start-request"
+            Backend.confSet(key, "")
+            var before = Date.now()
+            var c = ask("exercise.start", { type: "Run" })
+            verify(c !== null && c.close === true)
+            compare(fakeDesktop.launched, [])
+            c.then()
+            compare(fakeDesktop.launched, ["asteroid-exercise"])
+            var req = String(Backend.conf[key])
+            compare(req.split("@")[0], "Run")
+            var ms = Number(req.split("@")[1])
+            verify(ms >= before && ms <= Date.now() + 1, req)
+            // "start a workout": the app's list, the request is not written again
+            Backend.confSet(key, "")
+            fakeDesktop.launched = []
+            ask("exercise.start", {}).then()
+            compare(fakeDesktop.launched, ["asteroid-exercise"])
+            compare(Backend.conf[key], "")
+            ask("exercise.start", { type: "Juggling" }).then()
+            compare(Backend.conf[key], "")
+            // the app's keys as they are: a yoga session
+            ask("exercise.start", { type: "Yoga" }).then()
+            compare(String(Backend.conf[key]).split("@")[0], "Yoga")
         }
 
         // R5 D-20: nothing to pause, resume or reset (stock's no_timers_alarms_running, no_timers_to_reset_message)
