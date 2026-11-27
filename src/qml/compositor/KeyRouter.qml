@@ -141,6 +141,8 @@ QtObject {
         return {
             setup: setupActive(),
             callRinging: arbiter.callRinging,
+            // the find-my-watch page (D-29); an arbiter without it (a test's stand-in) has none
+            findWatchRinging: arbiter.findWatchRinging === true,
             callShown: arbiter.callShown,
             claimSide: claimed("side"),
             claimCrown: claimed("crown"),
@@ -222,6 +224,9 @@ QtObject {
             break
         case "silenceCall":
             arbiter.silenceCall()
+            break
+        case "stopFindWatch":
+            arbiter.stopFindWatch()
             break
         case "showBouncer":
             keyguard.requestBouncer(false)
@@ -351,6 +356,9 @@ QtObject {
         case "silenceCall":
             arbiter.silenceCall()
             break
+        case "stopFindWatch":
+            arbiter.stopFindWatch()
+            break
         case "closeHeadsUp":
             // a new notification's view ends (alpha and scale to 0 in 300 ms); the
             // notification stays in the list, the face or the app is under it
@@ -426,6 +434,10 @@ QtObject {
         }
         if (wake === "showBouncer") {
             keyguard.requestBouncer(false)
+            return
+        }
+        if (wake === "stopFindWatch") {
+            arbiter.stopFindWatch()
             return
         }
         if (wake !== "face")
