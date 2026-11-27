@@ -156,6 +156,7 @@ set(QML_FILES
 	qml/home/SimpleFace.qml
 	qml/assistant/AssistantOverlay.qml
 	qml/assistant/AssistantActions.qml
+	qml/assistant/AssistantAgenda.qml
 	qml/assistant/AssistantGlow.qml
 	qml/assistant/AssistantSpark.qml
 	qml/notifications/NotificationActions.qml
@@ -386,6 +387,7 @@ set_source_files_properties(qml/home/FaceColors.qml PROPERTIES QT_RESOURCE_ALIAS
 set_source_files_properties(qml/home/SimpleFace.qml PROPERTIES QT_RESOURCE_ALIAS home/SimpleFace.qml)
 set_source_files_properties(qml/assistant/AssistantOverlay.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantOverlay.qml)
 set_source_files_properties(qml/assistant/AssistantActions.qml       PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantActions.qml)
+set_source_files_properties(qml/assistant/AssistantAgenda.qml        PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantAgenda.qml)
 set_source_files_properties(qml/assistant/AssistantGlow.qml          PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantGlow.qml)
 set_source_files_properties(qml/assistant/AssistantSpark.qml         PROPERTIES QT_RESOURCE_ALIAS assistant/AssistantSpark.qml)
 set_source_files_properties(qml/notifications/NotificationActions.qml   PROPERTIES QT_RESOURCE_ALIAS NotificationActions.qml)

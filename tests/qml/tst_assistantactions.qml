@@ -19,6 +19,8 @@
 //  - R5 D-22: "Start the stopwatch" writes the Stopwatch's start request ("<ms>") and opens the app.
 //  - R5 D-11: "Start a run" writes the Exercise app's start request ("Run@<ms>", as the Exercise tile) and opens
 //    the app; no type or one the app does not have: the app's list, no request.
+//  - R5 D-12: "What's on my calendar?" from the calendar (a reader double with invented events): the day's events
+//    that have not ended, the next one of the week, a clear day; the card opens the Calendar (on the event it names).
 // MODE=st (the staged tree).
 import QtQuick
 import QtTest
@@ -41,6 +43,26 @@ Item {
 
     Loader { id: al; active: false; source: Qt.resolvedUrl("st/qml/assistant/AssistantActions.qml") }
 
+    // R5 D-12: the calendar reader (AssistantAgenda.qml's interface) on invented events, read a moment later
+    property var agendaEvents: []
+    property int agendaReaders: 0
+    Component {
+        id: fakeAgenda
+        QtObject {
+            id: fa
+            property date startDate
+            property date endDate
+            signal updated()
+            function list() {
+                var a = startDate.getTime(), b = endDate.getTime()
+                return top.agendaEvents.filter(function (e) { return e.end > a && e.start < b })
+            }
+            property Timer later: Timer { interval: 20; running: true; onTriggered: fa.updated() }
+            Component.onCompleted: top.agendaReaders++
+            Component.onDestruction: top.agendaReaders--
+        }
+    }
+
     TestCase {
         name: "AssistantActions"
         when: windowShown
@@ -54,6 +76,7 @@ Item {
             al.active = true
             tryCompare(al, "status", Loader.Ready, 30000)
             aa = al.item
+            aa.agendaReader = fakeAgenda
         }
         function init() {
             AlarmsMock.alarms = []
@@ -95,6 +118,18 @@ Item {
             return got
         }
         function nowS() { return Math.floor(Date.now() / 1000) }
+        // an answer that comes later (a reader, a log)
+        function askLater(intent, slots) {
+            got = null
+            aa.run(intent, slots, "", function (c) { got = c })
+            tryVerify(function () { return got !== null }, 4000)
+            return got
+        }
+        // ms of a time of the day `offset` days from today
+        function at(offset, h, m) {
+            var n = new Date()
+            return new Date(n.getFullYear(), n.getMonth(), n.getDate() + offset, h, m).getTime()
+        }
         function countdowns() { return AlarmsMock.alarms.filter(function (a) { return a.countdown === true }) }
 
         function test_00_no_timer_starts_one() {
@@ -312,6 +347,96 @@ Item {
             // the app's keys as they are: a yoga session
             ask("exercise.start", { type: "Yoga" }).then()
             compare(String(Backend.conf[key]).split("@")[0], "Yoga")
+        }
+
+        // R5 D-12: tomorrow's events in order (an all-day one first), the next day's left out; the chip opens the app
+        function test_d12_day_list() {
+            top.agendaEvents = [
+                { start: at(1, 13, 30), end: at(1, 14, 0), title: "Dentist", allDay: false },
+                { start: at(1, 9, 0), end: at(1, 10, 0), title: "Design review", allDay: false },
+                { start: at(1, 0, 0), end: at(2, 0, 0), title: "Market day", allDay: true },
+                { start: at(2, 9, 0), end: at(2, 10, 0), title: "Book club", allDay: false }
+            ]
+            var c = askLater("calendar.query", { day: 1 })
+            compare(c.text, "You have 3 events tomorrow: Market day (all day), Design review at 09:00 and Dentist at 13:30.")
+            compare(c.title, "All day")
+            compare(c.chips.length, 1)
+            compare(c.chips[0].label, "Open Calendar")
+            Backend.confSet("/org/asteroidos/calendar/ui/open", "")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            verify(r !== null && r.close === true)
+            r.then()
+            compare(fakeDesktop.launched, ["asteroid-calendar"])
+            compare(Backend.conf["/org/asteroidos/calendar/ui/open"], "")
+            // the reader is made for the question and dropped after it
+            tryCompare(top, "agendaReaders", 0)
+            // four events: three named, the rest counted
+            top.agendaEvents = top.agendaEvents.concat([{ start: at(1, 18, 0), end: at(1, 19, 0), title: "Choir", allDay: false }])
+            compare(askLater("calendar.query", { day: 1 }).text,
+                    "You have 4 events tomorrow: Market day (all day), Design review at 09:00 and Dentist at 13:30. And 1 more.")
+        }
+
+        // R5 D-12: one event: the card names it and the chip opens the Calendar on it (the agenda tile's request)
+        function test_d12_one_event() {
+            var start = at(1, 9, 0)
+            top.agendaEvents = [{ start: start, end: at(1, 10, 0), title: "Design review", allDay: false }]
+            var c = askLater("calendar.query", { day: 1 })
+            compare(c.text, "You have 1 event tomorrow: Design review at 09:00.")
+            compare(c.title, "09:00")
+            var r = null
+            c.chips[0].run(function (x) { r = x })
+            r.then()
+            compare(fakeDesktop.launched, ["asteroid-calendar"])
+            var req = String(Backend.conf["/org/asteroidos/calendar/ui/open"])
+            compare(req.split("@")[0], "event:" + start)
+        }
+
+        // R5 D-12: the next event of the week, one that is on now, none
+        function test_d12_next() {
+            var start = at(3, 10, 0)
+            top.agendaEvents = [{ start: start, end: at(3, 11, 0), title: "Book club", allDay: false }]
+            var day = Qt.locale("en_GB").dayName(new Date(start).getDay(), Locale.LongFormat)
+            var c = askLater("calendar.query", { day: 0, next: true })
+            compare(c.text, "Your next event is Book club, on " + day + " at 10:00.")
+            compare(c.title, "10:00")
+            // one on now comes first
+            var n = Date.now()
+            var end = new Date(n + 20 * 60000)
+            top.agendaEvents = top.agendaEvents.concat([{ start: n - 10 * 60000, end: end.getTime(), title: "Stand-up", allDay: false }])
+            c = askLater("calendar.query", { day: 0, next: true })
+            compare(c.text, "Stand-up is on now, until " + Qt.formatTime(end, "HH:mm") + ".")
+            // nothing in the coming week (the window ends a week ahead)
+            top.agendaEvents = [{ start: at(9, 10, 0), end: at(9, 11, 0), title: "Far away", allDay: false }]
+            c = askLater("calendar.query", { day: 0, next: true })
+            compare(c.text, "There's nothing on your calendar for the next 7 days.")
+            compare(c.title, "")
+        }
+
+        // R5 D-12: the real reader (org.nemomobile.calendar of the image) loads, reads its window and gives a list
+        function test_d12_real_reader() {
+            var comp = Qt.createComponent(Qt.resolvedUrl("st/qml/assistant/AssistantAgenda.qml"))
+            compare(comp.status, Component.Ready, comp.errorString())
+            var n = new Date()
+            var r = comp.createObject(top, { "startDate": new Date(n.getFullYear(), n.getMonth(), n.getDate()),
+                                             "endDate": new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1) })
+            verify(r !== null)
+            var l = r.list()
+            verify(Array.isArray(l))
+            r.destroy()
+        }
+
+        // R5 D-12: a clear day, a day whose events have ended, an empty tomorrow
+        function test_d12_clear() {
+            top.agendaEvents = []
+            compare(askLater("calendar.query", { day: 0 }).text, "Your day is clear.")
+            compare(askLater("calendar.query", { day: 1 }).text, "There's nothing on your calendar tomorrow.")
+            var n = new Date()
+            var earlier = new Date(n.getTime() - 40 * 60000)
+            if (earlier.getDate() === n.getDate()) {
+                top.agendaEvents = [{ start: earlier.getTime(), end: n.getTime() - 10 * 60000, title: "Breakfast", allDay: false }]
+                compare(askLater("calendar.query", { day: 0 }).text, "There's nothing else on your calendar today.")
+            }
         }
 
         // R5 D-20: nothing to pause, resume or reset (stock's no_timers_alarms_running, no_timers_to_reset_message)

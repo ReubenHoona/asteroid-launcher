@@ -19,6 +19,7 @@ import org.asteroid.launcher
 import "../desktop.js" as Desktop
 import "../tiles/clocklogic.js" as Clock
 import "../tiles/exercisetypes.js" as ExerciseTypes
+import "../tiles/tilecontent.js" as TC
 
 /*
  * What the assistant does for an intent (asteroid-assistant's Result), the
@@ -68,6 +69,10 @@ Item {
     ConfigurationValue { id: currentTemp; key: "/org/asteroidos/weather/current-temp"; defaultValue: 0 }
     // Health's page request, "<page>@<ms>" (the heart rate tile writes the same)
     ConfigurationValue { id: healthOpen; key: "/org/asteroidos/health/ui/open"; defaultValue: "" }
+    // the Calendar app's open request, "event:<start ms>@<ms>" (the agenda tile and the next event complication)
+    ConfigurationValue { id: calendarRequest; key: "/org/asteroidos/calendar/ui/open"; defaultValue: "" }
+    // the reader of the calendar's events, made for one question (tests give their own)
+    property Component agendaReader: Component { AssistantAgenda {} }
     // the Exercise app's start request, "<exercise key>@<ms>" (the Exercise tile and the workout offer write it)
     ConfigurationValue { id: exerciseRequest; key: "/org/asteroidos/exercise/start-request"; defaultValue: "" }
     // the Stopwatch's start request, "<ms>": the app starts a stopwatch that is at zero (see stopwatchStart)
@@ -255,6 +260,7 @@ Item {
         case "alarm.snooze": case "alarm.stop": return alarmRinging(intent === "alarm.snooze", done)
         case "stopwatch.start": return stopwatchStart(done)
         case "exercise.start": return exerciseStart(s, done)
+        case "calendar.query": return calendarQuery(s, done)
         case "reminder.set": return reminderSet(s.text, new Date(s.at * 1000), done)
         case "reminder.ask": return reminderAsk(s.text, done)
         case "app.open": return openApp(s.app, done)
@@ -557,6 +563,111 @@ Item {
                   [{ label: loc("id-asst-in-1-hour", "In 1 hour"), run: function (d) { reminderSet(text, inHour, d) } },
                    { label: loc("id-asst-at-6pm", "At %1").arg(clock(18, 0)), run: function (d) { reminderSet(text, evening, d) } },
                    { label: loc("id-asst-tomorrow-9", "Tomorrow"), run: function (d) { reminderSet(text, morning, d) } }], "#7fcfff"))
+    }
+
+    /* ---- the calendar ---------------------------------------------------------------------------------------- */
+
+    // One window of the calendar read by a reader made for it (AssistantAgenda.qml): cb(list) when the model has
+    // read it, or after 1.5 s (a model that had nothing to read); one question at a time
+    property var agendaWait: null
+    Timer { id: agendaTimeout; interval: 1500; onTriggered: if (actions.agendaWait) actions.agendaWait.finish() }
+    function readAgenda(from, to, cb) {
+        if (agendaWait)
+            agendaWait.finish()
+        var r = agendaReader ? agendaReader.createObject(actions, { "startDate": from, "endDate": to }) : null
+        if (!r)
+            return cb([])
+        var w = { done: false }
+        w.finish = function () {
+            if (w.done)
+                return
+            w.done = true
+            if (agendaWait === w) {
+                agendaWait = null
+                agendaTimeout.stop()
+            }
+            var list = []
+            try { list = r.list() } catch (e) { list = [] }
+            r.destroy()
+            cb(list)
+        }
+        agendaWait = w
+        r.updated.connect(w.finish)
+        agendaTimeout.restart()
+    }
+    function eventTime(e) {
+        var d = new Date(e.start)
+        return clock(d.getHours(), d.getMinutes())
+    }
+    // an event in a list: "Team sync at 10:00", "Market day (all day)", "Team sync (until 11:00)" when it is on
+    function eventPhrase(e, now) {
+        if (e.allDay)
+            return loc("id-asst-cal-item-all-day", "%1 (all day)").arg(e.title)
+        if (e.start <= now) {
+            var end = new Date(e.end)
+            return loc("id-asst-cal-item-on", "%1 (until %2)").arg(e.title).arg(clock(end.getHours(), end.getMinutes()))
+        }
+        return loc("id-asst-cal-item", "%1 at %2").arg(e.title).arg(eventTime(e))
+    }
+    // "What's on my calendar?": the day's events that have not ended; "What's next?": the first event of the
+    // coming week that has not ended (the agenda tile's choice: tilecontent.js pickEvent). Stock answers these
+    // from the phone's calendar (suggestion_whats_on_my_calendar, no_speech_suggestion_3); ours from the
+    // watch's calendar, where the phone's arrives. The card opens the Calendar, on the event when it names one
+    function calendarQuery(s, done) {
+        var now = Date.now()
+        var t = new Date(now)
+        var dayIndex = Math.max(0, s.day || 0)
+        var from = new Date(t.getFullYear(), t.getMonth(), t.getDate() + (s.next ? 0 : dayIndex))
+        var to = new Date(t.getFullYear(), t.getMonth(), t.getDate() + (s.next ? 8 : dayIndex + 1))
+        var icon = "ios-calendar-outline", accent = "#7fcfff"
+        var openChip = function (ev) {
+            return { label: loc("id-asst-open-calendar", "Open Calendar"), icon: "", run: function (d) {
+                d({ close: true, then: function () {
+                    if (ev)
+                        calendarRequest.value = "event:" + ev.start + "@" + Date.now()
+                    if (typeof Desktop !== "undefined" && Desktop.desktop)
+                        Desktop.desktop.launchByName("asteroid-calendar", null)
+                } })
+            } }
+        }
+        readAgenda(from, to, function (all) {
+            var left = all.filter(function (e) { return e.end > now || (e.end === e.start && e.start >= now) })
+            if (s.next) {
+                var ev = TC.pickEvent(left, now)
+                if (!ev)
+                    return done(card(icon, "", loc("id-asst-cal-next-none", "There's nothing on your calendar for the next 7 days."),
+                                     [openChip(null)], accent))
+                var text
+                if (!ev.allDay && ev.start <= now) {
+                    var end = new Date(ev.end)
+                    text = loc("id-asst-cal-next-now", "%1 is on now, until %2.").arg(ev.title).arg(clock(end.getHours(), end.getMinutes()))
+                } else if (ev.allDay) {
+                    text = loc("id-asst-cal-next-all-day", "Your next event is %1, %2, all day.").arg(ev.title).arg(dayWord(new Date(ev.start)))
+                } else {
+                    text = loc("id-asst-cal-next", "Your next event is %1, %2 at %3.").arg(ev.title).arg(dayWord(new Date(ev.start))).arg(eventTime(ev))
+                }
+                return done(card(icon, ev.allDay ? loc("id-asst-cal-all-day", "All day") : eventTime(ev), text, [openChip(ev)], accent))
+            }
+            // the day's events by start, an all-day one before a timed one that starts with it
+            left.sort(function (a, b) { return a.start !== b.start ? a.start - b.start : (a.allDay ? -1 : b.allDay ? 1 : 0) })
+            var when = dayWord(from)
+            if (left.length === 0) {
+                var none = dayIndex === 0
+                    ? (all.length > 0 ? loc("id-asst-cal-none-left", "There's nothing else on your calendar today.")
+                                      : loc("id-asst-cal-clear", "Your day is clear."))
+                    : loc("id-asst-cal-none", "There's nothing on your calendar %1.").arg(when)
+                return done(card(icon, "", none, [openChip(null)], accent))
+            }
+            var shown = left.slice(0, 3).map(function (e) { return eventPhrase(e, now) })
+            var items = shown.length === 1 ? shown[0]
+                      : shown.slice(0, -1).join(", ") + " " + loc("id-asst-and", "and") + " " + shown[shown.length - 1]
+            var head = left.length === 1 ? loc("id-asst-cal-one", "You have 1 event %1:").arg(when)
+                                         : loc("id-asst-cal-many", "You have %1 events %2:").arg(left.length).arg(when)
+            var more = left.length > 3 ? " " + loc("id-asst-cal-more", "And %1 more.").arg(left.length - 3) : ""
+            var first = left[0]
+            done(card(icon, first.allDay ? loc("id-asst-cal-all-day", "All day") : eventTime(first), head + " " + items + "." + more,
+                      [openChip(left.length === 1 ? first : null)], accent))
+        })
     }
 
     function weather(s, done) {
