@@ -106,22 +106,29 @@ static bool waitChanged(HealthLog &log, int ms)
     return got;
 }
 
-static void objectTests(const QString &home)
+/* readings (seconds, value) each in the file of its own day, as sensorlogd writes them */
+static void writeReadings(const QString &dir, const QList<QPair<qint64, int>> &readings)
 {
-    const QDateTime now = QDateTime::currentDateTime();
-    if (now.time().msecsSinceStartOfDay() < (3 * 3600 + 120) * 1000) {
-        /* the readings below are placed up to 3 hours back inside today's file */
-        puts("object tests skipped: less than 3 hours after midnight");
-        return;
-    }
+    QMap<QString, QStringList> files;
+    for (const auto &r : readings)
+        files[QDateTime::fromSecsSinceEpoch(r.first).date().toString("yyyy-MM-dd")] << QString("%1:%2").arg(r.first).arg(r.second);
+    for (auto it = files.cbegin(); it != files.cend(); ++it)
+        write(dir + it.key() + ".log", it.value());
+}
+
+/* The object at a fixed clock (HealthLog::setClock): a reading 10 minutes before it, one 50 minutes before and
+ * one 3 hours before (outside the window), each in its own day's file. At midday all three are today's; just
+ * after midnight the window reaches into yesterday's file and today's mode has the newest only. (On the wall
+ * clock this part was skipped in the first 3 hours of a day.) dayMin, dayMax: today's mode. */
+static void objectTests(const QString &home, const QDateTime &now, int dayMin, int dayMax)
+{
     const QString dir = home + "/.asteroid-sensorlogd/heartrateMonitor/";
+    QDir(dir).removeRecursively();
     const qint64 t = now.toSecsSinceEpoch();
-    QStringList lines;
-    /* a reading 10 minutes ago, one 50 minutes ago, one 3 hours ago (outside the window) */
-    lines << QString("%1:72").arg(t - 600) << QString("%1:95").arg(t - 3000) << QString("%1:50").arg(t - 3 * 3600);
-    write(dir + now.date().toString("yyyy-MM-dd") + ".log", lines);
+    writeReadings(dir, { { t - 600, 72 }, { t - 3000, 95 }, { t - 3 * 3600, 50 } });
 
     HealthLog log;
+    log.setClock([now]() { return now; });
     log.setSensor("heartrateMonitor");
     log.setBuckets(40);
     log.setWindowMinutes(120);
@@ -137,19 +144,20 @@ static void objectTests(const QString &home)
     CHECK_EQ(log.restingValue(), -1);
     CHECK(log.windowStart().isValid() && log.windowEnd().isValid());
     CHECK_EQ(log.windowStart().secsTo(log.windowEnd()), 7200);
-    CHECK(qAbs(log.windowEnd().toSecsSinceEpoch() - QDateTime::currentSecsSinceEpoch()) < 10);
+    CHECK_EQ(log.windowEnd().toSecsSinceEpoch(), t);
     /* no timer of its own in window mode (the midnight one is today's mode) */
     CHECK(!log.timersArmed());
     log.setActive(false);
     CHECK(!log.timersArmed());
 
-    /* the day's mode again: today's readings, the 3 hour old one counts, the midnight timer is armed */
+    /* the day's mode again: today's readings (the 3 hour old one counts when it is today's), the midnight
+     * timer is armed */
     log.setWindowMinutes(0);
     log.setBuckets(24);
     log.setActive(true);
     CHECK(waitChanged(log, 5000));
-    CHECK_EQ(log.minValue(), 50);
-    CHECK_EQ(log.maxValue(), 95);
+    CHECK_EQ(log.minValue(), dayMin);
+    CHECK_EQ(log.maxValue(), dayMax);
     CHECK(log.timersArmed());
     log.setActive(false);
 }
@@ -163,7 +171,8 @@ int main(int argc, char **argv)
     qputenv("XDG_CONFIG_HOME", (tmp.path() + "/cfg").toUtf8());
     QCoreApplication app(argc, argv);
     summaryTests(tmp.path());
-    objectTests(tmp.path());
+    objectTests(tmp.path(), QDateTime(QDate(2026, 3, 10), QTime(12, 0)), 50, 95);
+    objectTests(tmp.path(), QDateTime(QDate(2026, 3, 10), QTime(0, 30)), 72, 72);
     printf("%d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;
 }

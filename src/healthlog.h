@@ -14,6 +14,8 @@
 #include <QTimer>
 #include <QVariantList>
 
+#include <functional>
+
 /*
  * Today's records of one asteroid-sensorlogd sensor, for the tiles: the
  * latest value and when it was taken, and the day in buckets for a small
@@ -98,6 +100,10 @@ public:
     /* The directory of a sensor's logs */
     static QString sensorDir(const QString &sensor);
 
+    /* The wall clock the day and the window are read from (tests set a
+     * fixed one; default QDateTime::currentDateTime) */
+    void setClock(std::function<QDateTime()> clock) { m_clock = std::move(clock); }
+
     /* The resting heart rate of readings (x: epoch, y: bpm), as
      * asteroid-health's HealthStats.js restingRate(): the lowest average
      * held for 30 minutes over at least 3 readings; -1 if none */
@@ -133,6 +139,7 @@ private:
     static Result readWindow(const QStringList &paths, qint64 endEpoch, int minutes, int buckets);
     void apply(const Result &r, quint64 generation);
     void watch();
+    QDateTime clockNow() const { return m_clock ? m_clock() : QDateTime::currentDateTime(); }
 
     QString m_sensor;
     int m_buckets = 24;
@@ -153,6 +160,7 @@ private:
     QFileSystemWatcher *m_watcher = nullptr;
     QTimer m_debounce;
     QTimer m_midnight;
+    std::function<QDateTime()> m_clock;
 };
 
 #endif // HEALTHLOG_H

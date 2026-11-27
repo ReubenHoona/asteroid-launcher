@@ -103,7 +103,7 @@ void HealthLog::watch()
     const QString dir = sensorDir(m_sensor);
     if (QDir(dir).exists())
         m_watcher->addPath(dir);
-    const QString today = dir + QDate::currentDate().toString(QStringLiteral("yyyy-MM-dd")) + QStringLiteral(".log");
+    const QString today = dir + clockNow().date().toString(QStringLiteral("yyyy-MM-dd")) + QStringLiteral(".log");
     if (QFile::exists(today))
         m_watcher->addPath(today);
     connect(m_watcher, &QFileSystemWatcher::directoryChanged, &m_debounce, qOverload<>(&QTimer::start));
@@ -114,12 +114,13 @@ void HealthLog::reload()
 {
     if (!m_active || m_sensor.isEmpty())
         return;
-    const QDate day = QDate::currentDate();
+    /* one reading of the clock: the day and the window end agree at midnight */
+    const QDateTime now = clockNow();
+    const QDate day = now.date();
     if (day != m_day) {
         m_day = day;
         watch();   /* the new day's file */
     }
-    const QDateTime now = QDateTime::currentDateTime();
     const bool windowed = m_windowMinutes > 0 && m_sensor == QLatin1String("heartrateMonitor");
     /* again just after midnight: the day's graph starts over (a window has no
      * day and never needs it: no timer) */
