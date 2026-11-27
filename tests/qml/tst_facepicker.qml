@@ -284,6 +284,28 @@ Item {
         }
         property var renderer: null
 
+        // ---- R5 K-08: the crown scrolls the carousel freely and it snaps (RotaryInput's crown-speed mode), as
+        // stock's RecyclerView with its snap helper (face-interaction-22, -32) --------------------------------
+        function test_r5_k08_crown_speed() {
+            setup([["k1", "018-modular"], ["k2", "021-classic"], ["k3", "022-large"]], "k1")
+            openPicker()
+            var list = find(picker, "eosFaceList")
+            verify(list !== null)
+            compare(list.rotaryCrownSpeed, true)
+            wait(200)
+            var x0 = list.contentX
+            var i0 = list.currentIndex
+            // a third of a detent (8 counts): the carousel moves by pixels (stepping would need 24 counts)
+            for (var i = 0; i < 8; i++) {
+                mouseWheel(top, 192, 192, 0, -120)
+                wait(10)
+            }
+            tryVerify(function () { return Math.abs(list.contentX - x0) > 4 }, 1000, "moved with the crown")
+            // the crown rests: back to the nearest face
+            tryVerify(function () { return Math.abs(list.contentX - x0) < 0.5 }, 3000, "snapped back")
+            compare(list.currentIndex, i0)
+        }
+
         // ---- N61-35 ----------------------------------------------------------------------------------------
         // r1 has its picture in the cache (/tmp/wo11-prev/r1-1009.png from the runner: 384 px, transparent, the
         // white block); r2, the face on the watch, has none, only an old live snapshot (r2.png), which must not

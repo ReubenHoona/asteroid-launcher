@@ -118,3 +118,20 @@ function dimAlpha(snap) { return isFace(snap) ? dim.face : dim.panel }
 /* The example notification's title (stock tutorial_notification_primary) goes through the notification
  * service; its app is the setup's own and it is removed at the end. */
 var exampleApp = "eos-setup"
+
+/* R5 B-20: the tutorial skipped (Skip on the splash, or a step that timed out, which ends as Skip does) leaves
+ * stock's "Explore your new watch" notification (sysui one.java c(): fv.java case 18 is the welcome screen's
+ * skip_tutorial; channel oobe_channel, importance 2 = no sound, no heads-up; autoCancel; one action that starts
+ * the tutorial again, ACTION_RESTART_OOBE). Stock's sub text is the Pixel Tips app and its text "Learn about
+ * Wear OS"; without the brand names here: the app "Tips" and the Pixel Tips body "Try the tutorial on watch"
+ * (pixel_tips_notification_action_body). The card's button "Start tutorial" (oobe_whats_new_start_tutorial) is
+ * the launcher's own (cardactions.js tutorial): it asks for the tutorial as Settings does. A tutorial that
+ * starts takes the notice away (stock cancels it at the tutorial's end, jgu.java case 15). Its id is kept in
+ * exploreIdKey for that. */
+var exploreApp = "eos-tutorial"
+var exploreIcon = "ios-watch"
+var exploreIdKey = "/org/asteroidos/launcher/explore-notice-id"
+// the hints of the notice: no preview (no banner), no feedback (no sound or vibration), the card's button
+function exploreHints() {
+    return { "x-eos-app": exploreApp, "x-eos-start-tutorial": true }
+}

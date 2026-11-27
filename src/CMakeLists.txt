@@ -24,6 +24,7 @@ set(SRC
 	eoslayout.c)
 set(HEADERS
 	applauncherbackground.h
+	eosbootfeedback.h
 	firstrun.h
 	gesturefilterarea.h
 	swipevelocity.h
@@ -65,6 +66,7 @@ set(QML_FILES
 	qml/misc/ShutdownScreen.qml
 	qml/misc/ModeScreen.qml
 	qml/misc/BluetoothAgent.qml
+	qml/misc/BootFeedback.qml
 	qml/system/FindPhone.qml
 	qml/system/PhoneAway.qml
 	qml/system/SmartLinks.qml
@@ -276,6 +278,7 @@ set_source_files_properties(qml/misc/PanelsGrid.qml                  PROPERTIES 
 set_source_files_properties(qml/misc/ShutdownScreen.qml              PROPERTIES QT_RESOURCE_ALIAS system/ShutdownScreen.qml)
 set_source_files_properties(qml/misc/ModeScreen.qml                  PROPERTIES QT_RESOURCE_ALIAS system/ModeScreen.qml)
 set_source_files_properties(qml/misc/BluetoothAgent.qml              PROPERTIES QT_RESOURCE_ALIAS connectivity/BluetoothAgent.qml)
+set_source_files_properties(qml/misc/BootFeedback.qml               PROPERTIES QT_RESOURCE_ALIAS BootFeedback.qml)
 set_source_files_properties(qml/system/FindPhone.qml                 PROPERTIES QT_RESOURCE_ALIAS system/FindPhone.qml)
 set_source_files_properties(qml/system/PhoneAway.qml                 PROPERTIES QT_RESOURCE_ALIAS system/PhoneAway.qml)
 set_source_files_properties(qml/system/SmartLinks.qml                PROPERTIES QT_RESOURCE_ALIAS system/SmartLinks.qml)

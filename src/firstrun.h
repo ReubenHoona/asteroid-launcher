@@ -52,6 +52,10 @@ public:
     Q_INVOKABLE bool tutorialPending();
     Q_INVOKABLE void finishTutorial();
 
+    // The boot-complete feedback is due (R5 B-09, eosbootfeedback.h): true once per boot, at the launcher's
+    // first face of a boot with setup done that is not the trial boot of an update. Asking marks the boot.
+    Q_INVOKABLE bool bootFeedbackDue();
+
     // Hold the display on (mce inhibit_blank_mode 3) or let mce's normal timeout run again (0). One call
     // when the hold starts or ends; the QML side keeps the 360 s single shot timer.
     Q_INVOKABLE void keepScreenOn(bool on);
@@ -83,6 +87,7 @@ private:
     QDBusInterface *m_mceDbus;
     MDConfItem *firstRunDone;
     MDConfItem *m_tutorialPending;
+    MDConfItem *m_bootFeedbackBoot;
 };
 
 #endif // FIRSTRUN_H

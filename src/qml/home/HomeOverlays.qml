@@ -73,6 +73,11 @@ Item {
         ready: desktop.faceShown || (typeof firstRun !== "undefined" && firstRun !== null && firstRun.isFirstRun())
         displayOn: !Lipstick.compositor.displayAmbient
     }
+    // the boot-complete feedback once the boot screen has gone (R5 B-09)
+    BootFeedback {
+        objectName: "bootFeedback"
+        splashDone: splashItem.done
+    }
 
     // the setup wizard (firstrun/FirstRunConfig.qml); an ambient display keeps showing its last frame, which
     // would be a frozen-looking wizard: the ambient watchface below shows instead

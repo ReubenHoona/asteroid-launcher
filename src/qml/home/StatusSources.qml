@@ -4,6 +4,7 @@
  */
 
 import QtQuick
+import Nemo.Configuration
 import Nemo.Mce
 import Nemo.DBus
 import Connman
@@ -17,8 +18,13 @@ import "status.js" as Status
  * timer, no polling. The rules are status.js'; `current` is the one type the
  * face shows, `active` the 16 booleans.
  *
+ * Thermal mode (R5 K-06) is eos-thermal's /org/asteroidos/thermal/state
+ * (dconf, written on the kernel's thermal events) at "cooldown": stock's
+ * THERMAL_MODE status is on for ThermalStatusEvent 5 only (jqf.java:
+ * THERMAL_STATUS_EMERGENCY, the level eos-thermal maps to the cooldown);
+ * "warning" (CRITICAL) shows no icon.
  * Not built, no source on this watch yet (the inputs exist, false, for the
- * package that adds each): thermal mode, water lock, safety signal, screen
+ * package that adds each): water lock, safety signal, screen
  * lock (PIN/pattern, W3), LTE disconnected (the modem is off until M7).
  * Touch lock, microphone and location come from the registry's claims
  * (compositor.qml sets the touch lock and the assistant's microphone; an app
@@ -53,7 +59,7 @@ Item {
     property bool mic: registry !== null && registry.micInUse === true
     property bool location: registry !== null && registry.locationInUse === true
     property bool waterLock: false
-    property bool thermal: false
+    property bool thermal: String(thermalState.value) === "cooldown"
     property bool safety: false
     // the screen lock (lock/Keyguard.qml): the face says "Device is locked"
     property bool screenLock: typeof lockService !== "undefined" && lockService !== null && lockService.locked === true
@@ -71,6 +77,7 @@ Item {
     readonly property string slotKey: Status.slotKey(current, wetKind)
 
     NetworkManager { id: connman }
+    ConfigurationValue { id: thermalState; key: "/org/asteroidos/thermal/state"; defaultValue: "none" }
     NetworkTechnology { id: wifi; path: "/net/connman/technology/wifi" }
     BluetoothStatus { id: btStatus }
 

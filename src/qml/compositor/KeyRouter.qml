@@ -32,6 +32,7 @@
 
 import QtQuick
 import Nemo.Configuration
+import Nemo.DBus
 import org.asteroid.controls
 import org.asteroid.utils
 import org.nemomobile.lipstick
@@ -68,6 +69,8 @@ import "../system/system.js" as Sys
  * crown hold and the side button's press only show its exit view
  * (keymap.js touchLocked); mce's crown down and up edges drive its 2 s exit
  * ring.
+ * A palm over the screen (mce 0014, "palm-cover", display on or dimmed: R5 B-03, keymap.js palmCover)
+ * silences a ringing call, else sends the display to ambient (always-on) or off.
  * A ringing call is silenced by either key. A firing alarm or timer: the
  * crown sends its window away to the face and the alarm keeps ringing (no
  * snooze, DECISIONS.md Q49); the side button is the presenter's, by a claim
@@ -169,6 +172,7 @@ QtObject {
             bouncerShown: typeof keyguard !== "undefined" && keyguard !== null && keyguard.bouncerShown === true,
             endCallOnPower: endCallSetting.value === true || endCallSetting.value === "true",
             callInProgress: arbiter.callInProgress,
+            callOngoing: arbiter.callOngoing === true,
             holdConsumed: false
         }
     }
@@ -454,6 +458,28 @@ QtObject {
         }
     }
 
+    /* A palm over the screen (mce 0014): as stock's KEYCODE_SLEEP. The sleep is mce's
+     * req_display_state_lpm: ambient when the low power mode is allowed (the always-on screen on, no
+     * call or alarm exception), else off at once (mce dbus-names.h). One call per palm, no timer. */
+    property DBusInterface mceRequest: DBusInterface {
+        bus: DBus.SystemBus
+        service: "com.nokia.mce"
+        path: "/com/nokia/mce/request"
+        iface: "com.nokia.mce.request"
+    }
+    function palmCover() {
+        switch (KeyMap.palmCover(context())) {
+        case "silenceCall":
+            arbiter.silenceCall()
+            break
+        case "sleep":
+            mceRequest.call("req_display_state_lpm", undefined)
+            break
+        default:
+            break
+        }
+    }
+
     property Connections crownButtonConnection: Connections {
         target: typeof crownButton !== "undefined" ? crownButton : null
         ignoreUnknownSignals: true
@@ -473,6 +499,11 @@ QtObject {
         }
         // mce's chord of the crown and the side button within 150 ms
         function onScreenshotRequested() { keyRouter.screenshot() }
+        // any other power_button_trigger: the palm cover (mce 0014)
+        function onTriggered(action) {
+            if (action === "palm-cover")
+                keyRouter.palmCover()
+        }
     }
 
     // Settings > Buttons > Chord press > Screenshot (default on, stock screenshot_enabled)

@@ -52,7 +52,9 @@ import "tutorial.js" as Tut
  * step ends when the home screen shows that the gesture was done (the grid's position, the app list, Recents,
  * the assistant). A step that is not done times out after 15 minutes (an hour for the first two): the tutorial
  * then ends as Skip does. Finishing, Skip and a timeout write the end (firstRun.finishTutorial) and take the
- * example notification away.
+ * example notification away. Skip and a timeout leave stock's "Explore your new watch" notification, whose
+ * "Start tutorial" brings the coach back (R5 B-20, tutorial.js exploreApp); a tutorial that starts takes it
+ * away.
  *
  * Power (M1): the steps are driven by the home screen's own changes; the timers are single shots and the hint
  * animations stop with the display. */
@@ -102,7 +104,10 @@ Item {
     readonly property bool buttonShown: welcomeT >= Tut.welcome.buttonDelayMs
     readonly property alias welcomeAnim: welcomeAnim
 
-    Component.onCompleted: enter("welcome")
+    Component.onCompleted: {
+        closeExplore()
+        enter("welcome")
+    }
     Component.onDestruction: closeExample()
 
     function enter(id) {
@@ -159,6 +164,14 @@ Item {
             enter(n)
     }
 
+    // Skip, or a step that timed out: the end, and the notice that offers the tutorial again (R5 B-20)
+    function skip() {
+        if (finished)
+            return
+        postExplore()
+        finish()
+    }
+
     function finish() {
         if (finished)
             return
@@ -194,6 +207,31 @@ Item {
             { "type": "i", "value": -1 }
         ], function (id) { tuto.exampleId = id }, function () { tuto.exampleId = 0 })
     }
+    // ---- R5 B-20: stock's "Explore your new watch" (sysui one.java), after a skipped tutorial ----
+    ConfigurationValue { id: exploreId; key: Tut.exploreIdKey; defaultValue: 0 }
+    function postExplore() {
+        notifier.typedCall("Notify", [
+            //% "Tips"
+            { "type": "s", "value": qsTrId("id-tutorial-explore-app") },
+            { "type": "u", "value": 0 },
+            { "type": "s", "value": Tut.exploreIcon },
+            //% "Explore your new watch"
+            { "type": "s", "value": qsTrId("id-tutorial-explore-title") },
+            //% "Try the tutorial on watch"
+            { "type": "s", "value": qsTrId("id-tutorial-explore-body") },
+            { "type": "as", "value": [] },
+            { "type": "a{sv}", "value": Tut.exploreHints() },
+            { "type": "i", "value": -1 }
+        ], function (id) { exploreId.value = Number(id) || 0 }, function () {})
+    }
+    function closeExplore() {
+        var id = Number(exploreId.value) || 0
+        if (id <= 0)
+            return
+        notifier.typedCall("CloseNotification", [{ "type": "u", "value": id }])
+        exploreId.value = 0
+    }
+
     function closeExample() {
         if (exampleId === 0)
             return
@@ -205,7 +243,7 @@ Item {
     Timer {
         id: stepTimeout
         objectName: "tutorialStepTimeout"
-        onTriggered: tuto.finish()
+        onTriggered: tuto.skip()
     }
     Timer {
         id: holdTimer
@@ -340,7 +378,7 @@ Item {
             y: continueButton.y - height - Theme.dp(Tut.hints.splash.gapDp)
             //% "Skip"
             text: qsTrId("id-tutorial-skip") + localeManager.changesObserver
-            onClicked: tuto.finish()
+            onClicked: tuto.skip()
         }
         EdgeButton {
             id: continueButton

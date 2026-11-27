@@ -149,6 +149,7 @@ Item {
             Backend.reset()
             Backend.replies["org.asteroidos.btsyncd.Notifications.FindingPhone"] = false
             Backend.confSet("/desktop/asteroid/pre-mute-level", 0)
+            Backend.confSet("/org/asteroidos/sound/mute-ring-notifications", false)
             modes.bedtime = false; modes.theater = false; modes.batterySaver = false
             modes.extraDim = false; modes.charging = false; modes.autoSaverOn = false
             volume.volume = 70
@@ -1002,25 +1003,24 @@ Item {
             compare(fl.glyph, QS.GLYPH_TORCH)
             fl.checked = false
             compare(fl.glyph, QS.GLYPH_TORCH_OFF)
-            // the bell follows the mute state: muted by a tap, struck (S11); unmuted, the bell again
+            // the bell follows the ring mute (R5 B-01): muted by a tap, struck (S11); unmuted, the bell again
             var s = tile("soundToggle")
             verify(s.checked)
             tap(s)
             verify(!s.checked)
-            compare(volume.volume, 0)
             compare(s.glyph, QS.GLYPH_BELL_OFF)
             wait(200)
             tap(s)
             verify(s.checked)
             compare(s.glyph, QS.GLYPH_BELL)
-            // muted by the level kept for unmuting, or at volume 0: struck too
-            Backend.confSet("/desktop/asteroid/pre-mute-level", 60)
+            // Settings' switch (the same key) strikes it too; the media volume does not
+            Backend.confSet("/org/asteroidos/sound/mute-ring-notifications", true)
             wait(60)
             compare(tile("soundToggle").glyph, QS.GLYPH_BELL_OFF)
-            Backend.confSet("/desktop/asteroid/pre-mute-level", 0)
+            Backend.confSet("/org/asteroidos/sound/mute-ring-notifications", false)
             volume.volume = 0
             wait(60)
-            compare(tile("soundToggle").glyph, QS.GLYPH_BELL_OFF)
+            compare(tile("soundToggle").glyph, QS.GLYPH_BELL)
             volume.volume = 70
             wait(60)
             compare(tile("soundToggle").glyph, QS.GLYPH_BELL)
@@ -1086,6 +1086,7 @@ Item {
             compare(launched(), "asteroid-settings")
             compare(String(request()).split("@")[0], "sound")
             // no mute from the long press
+            compare(Backend.confGet("/org/asteroidos/sound/mute-ring-notifications"), false)
             compare(volume.volume, 70)
         }
 
@@ -1378,44 +1379,61 @@ Item {
 
         // ---- Notifications and ring --------------------------------------------------
 
+        // R5 B-01: the tile is stock's ringer mode (CSUI SoundTileUserActionInteractor$handleClick$2:
+        // setRingerModeInternal(on ? NORMAL : VIBRATE)), the key of Settings > Sound's "Mute ring &
+        // notifications" (/org/asteroidos/sound/mute-ring-notifications, which ngfd reads); the media
+        // volume is not touched
         function test_50_sound_tile() {
             var s = tile("soundToggle")
             verify(s.checked, "not muted")
             tap(s)
-            compare(volume.volume, 0)
+            compare(Backend.confGet("/org/asteroidos/sound/mute-ring-notifications"), true)
+            compare(volume.volume, 70, "the media volume is not the tile's")
             verify(!s.checked)
             compare(find(panel(), "qsCaptionText").text, "Ring & notifications off")
             compare(s.label, "Notifications and ring")
             wait(200)
             tap(s)
+            compare(Backend.confGet("/org/asteroidos/sound/mute-ring-notifications"), false)
             compare(volume.volume, 70)
             captionIs("Ring & notifications on")
-            // no volume slider, no scrub: a drag does not change the volume
+            // no volume slider, no scrub: a hold opens Settings > Sound and mutes nothing
             hold(s, 520)
+            compare(Backend.confGet("/org/asteroidos/sound/mute-ring-notifications"), false)
             compare(volume.volume, 70)
         }
 
-        // FP-L2 (CR-56): turning the sound on again plays the sample of a volume step, as Settings plays it
-        function test_50b_unmute_plays_volume_step() {
+        // stock's handler plays nothing (no ngfd event: neither the old volume step nor a notification)
+        function test_50b_toggle_plays_nothing() {
             var s = tile("soundToggle")
-            tap(s)
-            compare(volume.volume, 0)
             Backend.clearCalls()
+            tap(s)
             wait(200)
             tap(s)
-            compare(volume.volume, 70)
-            tryVerify(function () { return Backend.find("ngfd", "volume_step") !== null }, 2000)
-            compare(Backend.find("ngfd", "notification"), null, "no more the notification sound")
-            compare(Backend.find("ngfd", "volume_step_max"), null)
-        }
-        function test_50c_unmute_to_the_top_plays_volume_step_max() {
-            var s = tile("soundToggle")
-            Backend.confSet("/desktop/asteroid/pre-mute-level", 100)
-            Backend.clearCalls()
-            tap(s)
-            compare(volume.volume, 100)
-            tryVerify(function () { return Backend.find("ngfd", "volume_step_max") !== null }, 2000)
+            wait(400)
             compare(Backend.find("ngfd", "volume_step"), null)
+            compare(Backend.find("ngfd", "volume_step_max"), null)
+            compare(Backend.find("ngfd", "notification"), null)
+        }
+
+        // the image default (00-eos-defaults mute-ring-notifications=true, stock def_ringer_mode 1 =
+        // VIBRATE): the tile shows off, the struck bell, as Settings shows the switch on
+        function test_50c_default_is_muted() {
+            Backend.confSet("/org/asteroidos/sound/mute-ring-notifications", true)
+            wait(60)
+            var s = tile("soundToggle")
+            verify(!s.checked)
+            compare(s.glyph, QS.GLYPH_BELL_OFF)
+            // a muted media volume (the old pre-mute level) no longer decides the tile
+            Backend.confSet("/org/asteroidos/sound/mute-ring-notifications", false)
+            Backend.confSet("/desktop/asteroid/pre-mute-level", 60)
+            volume.volume = 0
+            wait(60)
+            verify(tile("soundToggle").checked)
+            // a string "true" from dconf counts as muted
+            Backend.confSet("/org/asteroidos/sound/mute-ring-notifications", "true")
+            wait(60)
+            verify(!tile("soundToggle").checked)
         }
 
         // ---- Airplane mode -----------------------------------------------------------

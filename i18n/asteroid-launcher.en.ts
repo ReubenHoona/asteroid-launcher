@@ -2681,5 +2681,25 @@ for %1 seconds to</translation>
         <source>Dismiss</source>
         <translation>Dismiss</translation>
     </message>
+    <message id="id-tutorial-explore-app">
+        <source>Tips</source>
+        <translation>Tips</translation>
+    </message>
+    <message id="id-tutorial-explore-title">
+        <source>Explore your new watch</source>
+        <translation>Explore your new watch</translation>
+    </message>
+    <message id="id-tutorial-explore-body">
+        <source>Try the tutorial on watch</source>
+        <translation>Try the tutorial on watch</translation>
+    </message>
+    <message id="id-card-start-tutorial">
+        <source>Start tutorial</source>
+        <translation>Start tutorial</translation>
+    </message>
+    <message id="id-conversation-minutes-ago">
+        <source>%1m ago</source>
+        <translation>%1m ago</translation>
+    </message>
 </context>
 </TS>

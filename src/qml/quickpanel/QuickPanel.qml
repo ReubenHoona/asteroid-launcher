@@ -100,12 +100,6 @@ Item {
     MceBatteryLevel { id: batteryChargePercentage }
     MceChargerType { id: mceChargerType }
 
-    readonly property int volume: volumeControl ? (volumeControl.maximumVolume ? Math.round((volumeControl.volume / volumeControl.maximumVolume) * 100) : 0) : 0
-
-    function setVolume(volume) {
-        volumeControl.volume = Math.round((volume / 100) * volumeControl.maximumVolume);
-    }
-
     readonly property bool isCharging: mceChargerType.type != MceChargerType.None
     readonly property bool modesReady: typeof modes !== "undefined" && modes !== null
     // the charger, as the modes engine sees it (it turns the saver off there)
@@ -117,11 +111,15 @@ Item {
 
     AppLauncher { id: appLauncher }
 
+    // Notifications and ring: stock's ringer mode (NORMAL / VIBRATE), the key Settings > Sound's
+    // "Mute ring & notifications" and ngfd's profile plug-in share (default true = VIBRATE, as stock's
+    // def_ringer_mode 1). It is not the media volume (haptics-sounds E52).
     ConfigurationValue {
-        id: preMuteLevel
-        key: "/desktop/asteroid/pre-mute-level"
-        defaultValue: 80
+        id: muteRing
+        key: "/org/asteroidos/sound/mute-ring-notifications"
+        defaultValue: true
     }
+    readonly property bool ringMuted: muteRing.value === true || String(muteRing.value) === "true"
 
     ConfigurationValue {
         id: tilesValue
@@ -191,13 +189,6 @@ Item {
         id: vibrationEnabled
         key: "/desktop/asteroid/vibration"
         defaultValue: true
-    }
-
-    // the sample of the unmute: the volume step the volume now has, as Settings plays it (haptics-sounds-14,
-    // CR-56: volume_step, or volume_step_max at the top; the media stream: the tile is the main volume)
-    NonGraphicalFeedback {
-        id: unmuteSound
-        objectName: "unmuteSound"
     }
 
     NetworkTechnology {
@@ -755,7 +746,10 @@ Item {
         }
     }
 
-    // Notifications and ring (kxx.java:358-369, 704-730): checked = not muted
+    // Notifications and ring (kxx.java:358-369, 704-730; CSUI SoundTileUserActionInteractor$handleClick$2:
+    // setRingerModeInternal(on ? NORMAL : VIBRATE)): checked = ring and notifications not muted. A tap
+    // flips /org/asteroidos/sound/mute-ring-notifications, as Settings > Sound's switch; the media volume
+    // is not touched and nothing is played (stock's handler plays nothing either).
     Component {
         id: soundToggleComponent
         QuickPanelToggle {
@@ -768,34 +762,18 @@ Item {
             // the emulator's bell, struck while muted (S11: notifications / notifications_off, fill 1)
             glyph: QS.bellGlyph(!checked)
 
-            // checked reflects mute state only: volume at 0% while unmuted
-            // is silent but not muted and should not deactivate the toggle
-            checked: !(preMuteLevel.value > 0 || volume === 0)
+            checked: !rootitem.ringMuted
 
             onActivated: {
-                const tempVolume = volume
-                let targetVolume = preMuteLevel.value
-                if (tempVolume === 0 && targetVolume === 0) targetVolume = 100
-                setVolume(targetVolume)
-                preMuteLevel.value = tempVolume
-                if (targetVolume > 0) soundDelayTimer.start()
-                rootitem.showCaption(targetVolume > 0
-                    //% "Ring & notifications on"
-                    ? qsTrId("id-qs-sound-on")
+                const mute = !rootitem.ringMuted
+                muteRing.value = mute
+                rootitem.showCaption(mute
                     //% "Ring & notifications off"
-                    : qsTrId("id-qs-sound-off"))
+                    ? qsTrId("id-qs-sound-off")
+                    //% "Ring & notifications on"
+                    : qsTrId("id-qs-sound-on"))
             }
             onLongPressed: rootitem.openSettings("sound")
-
-            Timer {
-                id: soundDelayTimer
-                interval: 150
-                repeat: false
-                onTriggered: {
-                    unmuteSound.event = QS.volumeStepEvent("media", rootitem.volume >= 100)
-                    unmuteSound.play()
-                }
-            }
         }
     }
 

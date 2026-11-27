@@ -158,6 +158,15 @@ function evictions(hidden, max) {
  * still close sensor-holding apps"). An app with an ongoing activity is
  * never closed or frozen. Remove a name when the app stops its sensors on
  * hide. */
+/* R5 B-05: an application that closes its window itself (finish(), a quit) leaves with the framework task close
+ * exit (motion A6: scale 1 -> 0.75 and alpha 1 -> 0, 250 ms, windowmotion.js EXIT; close-enter @null: the face
+ * below is simply shown), when it is the window in front and seen: not hidden in the background, not with the
+ * display off or in ambient, not a system alert (its own end), not while a transition moves it (the user's close
+ * is already animated). Else it goes at once. */
+function exitsWithMotion(isFront, visible, displayOff, alert, moving) {
+    return isFront === true && visible === true && displayOff !== true && alert !== true && moving !== true
+}
+
 var CLOSE_WHEN_HIDDEN = ["asteroid-hrm", "asteroid-compass", "asteroid-map"]
 
 function closesWhenHidden(key) {

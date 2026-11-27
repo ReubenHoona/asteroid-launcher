@@ -68,7 +68,8 @@ Item {
     signal configureRequested(string tileId)
 
     property var shown: []
-    readonly property var hidden: TE.hiddenOf(Object.keys(registry), shown)
+    // what the add list offers: the registry's offered tiles that are not in the carousel (R5 B-19)
+    readonly property var hidden: TE.hiddenOf(TE.offeredIds(registry), shown)
     readonly property bool adding: addList.visible
     readonly property int maxTiles: TE.MAX_TILES
 
@@ -407,7 +408,12 @@ Item {
                     cacheBuffer: 2.5 * editor.pitch
                     model: cards
                     interactive: editor.visible && editor.arrived && !editor.closing && !addList.visible
-                    onCurrentIndexChanged: if (editor.visible) Haptics.tick()
+                    // R5 K-08: the crown scrolls the cards freely and they snap once it rests (RotaryInput's
+                    // crown-speed mode), as stock's ManagementView RecyclerView with its snap helper (ian,
+                    // ManagementView.n(); tiles-framework E38 and its crown row; face-interaction-32). Its
+                    // feedback is RotaryInput's tick every 42 px (stock's ScrollFeedbackProvider, rotary
+                    // only): no tick of our own when the middle card changes, by the crown or a swipe
+                    property bool rotaryCrownSpeed: true
                     onMovementStarted: tapTimer.stop()
 
                     delegate: Item {
