@@ -95,19 +95,28 @@ void DiskSpaceNotifier::handleDisplayStatus(const QString &status)
 
 void DiskSpaceNotifier::look(int reason)
 {
+    const int64_t now = bootSeconds();
+    if (!m_monitor.due(EosStorage::Reason(reason), now))
+        return;
     int64_t freeBytes = -1, totalBytes = -1;
-    const EosStorage::Action action = m_monitor.look(EosStorage::Reason(reason), bootSeconds(),
-                                                     [&](int64_t &f, int64_t &t) {
+    const EosStorage::Action action = m_monitor.look(EosStorage::Reason(reason), now, [&](int64_t &f, int64_t &t) {
         const bool ok = dataPartition(f, t);
         freeBytes = f;
         totalBytes = t;
         return ok;
     });
+    // one line a look (the start, a screen on at most once an hour, an update state, dsme): the free space
+    // and the limit, no path or name
+    static const char *const reasons[] = { "start", "display on", "update", "dsme" };
+    const qint64 mib = 1024 * 1024;
+    qInfo().noquote() << QStringLiteral("DiskSpaceNotifier: look (") + QLatin1String(reasons[qBound(0, reason, 3)])
+                             + QStringLiteral("):")
+                      << (totalBytes > 0 ? qint64(freeBytes) / mib : -1) << "MiB free, the limit"
+                      << (totalBytes > 0 ? qint64(EosStorage::lowBytes(uint64_t(totalBytes))) / mib : -1) << "MiB"
+                      << (action == EosStorage::Show ? "- low: notice posted"
+                          : action == EosStorage::Clear ? "- room again: notice removed" : "");
     if (action == EosStorage::None)
         return;
-    const qint64 mib = 1024 * 1024;
-    qInfo() << "DiskSpaceNotifier: storage" << (action == EosStorage::Show ? "low" : "no longer low") << freeBytes / mib
-            << "MiB free, the limit" << qint64(EosStorage::lowBytes(uint64_t(totalBytes))) / mib << "MiB";
     if (action == EosStorage::Clear) {
         removeDiskSpaceNotifications();
         notificationId = 0;
