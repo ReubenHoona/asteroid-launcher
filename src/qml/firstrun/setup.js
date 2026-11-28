@@ -113,7 +113,8 @@ function languageList(rows, preferred) {
  * cleared: nothing goes back to the pairing screens. */
 var pages = {
     charge: "charge", first: "first", language: "language", instructions: "instructions", help: "help",
-    connecting: "connecting", place: "place", region: "region", city: "city", time: "time", date: "date", complete: "complete"
+    connecting: "connecting", place: "place", region: "region", city: "city", time: "time", date: "date",
+    update: "update", complete: "complete"
 }
 
 /* the page the stack goes back to from its top, or "" when back is ignored (an empty history) */
@@ -151,9 +152,21 @@ function zoneUnknown(tz) {
            || tz === "Etc/Zulu" || tz === "Universal" || tz === "Etc/Universal" || tz === "Etc/Unknown" || tz === "Factory"
 }
 
+/* The System update step (C-23; stock wizard step 9 system_update, setup AUDIT 2.1 row 9): stock's status step
+ * goes there only when an update is pending (StatusController.handleNextAction: SystemUpdateManager's status is
+ * neither unknown nor idle), else straight to Setup complete. Pending here: eos-update's state (dconf
+ * /org/asteroidos/eos-update/state) "staged" (downloaded, ready to install) or "installing"; not "current",
+ * "trial" (the new version being confirmed after its restart), "failed", "broken" or unknown. */
+function updatePending(state) {
+    return state === "staged" || state === "installing"
+}
+// ours: when Settings has not come on top this long after the step asked for it, the setup goes on
+var update = { settingsWaitMs: 10000 }
+
 /* After the bond: the pages the phone could not fill in. `clockFromPhone` is the key btsyncd writes when the
- * phone set the clock; the time zone page is asked while the zone is unknown. */
-function pagesAfterBond(tz, clockFromPhone) {
+ * phone set the clock; the time zone page is asked while the zone is unknown; the System update step comes last,
+ * before Setup complete, when an update is pending (`updateState`: eos-update's state). */
+function pagesAfterBond(tz, clockFromPhone, updateState) {
     var p = []
     if (zoneUnknown(tz))
         p.push(pages.place)
@@ -161,6 +174,8 @@ function pagesAfterBond(tz, clockFromPhone) {
         p.push(pages.time)
         p.push(pages.date)
     }
+    if (updatePending(updateState))
+        p.push(pages.update)
     p.push(pages.complete)
     return p
 }

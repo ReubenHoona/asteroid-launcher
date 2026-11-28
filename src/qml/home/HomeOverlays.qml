@@ -89,6 +89,8 @@ Item {
             // awake: the display is on, not off and not the always-on screen (the setup restarts at the first
             // screen on each wake, the animations stop with the display)
             displayOn: desktop.displayAwake && !Lipstick.compositor.displayAmbient
+            // no app over the home (the System update step waits for Settings to go)
+            homeOnTop: Lipstick.compositor.homeActive
         }
     }
     // the navigation tutorial, an interactive coach over the home screen (firstrun/Tutorial.qml)

@@ -4,3 +4,5 @@ VolumeControl 1.0 VolumeControl.qml
 TiltToWake 1.0 TiltToWake.qml
 TapToWake 1.0 TapToWake.qml
 MceConfigValue 1.0 MceConfigValue.qml
+LanguageModel 1.0 LanguageModel.qml
+DateTimeSettings 1.0 DateTimeSettings.qml

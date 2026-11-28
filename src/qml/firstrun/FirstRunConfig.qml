@@ -44,7 +44,7 @@ import "setup.js" as Setup
  *   [low battery gate] -> first screen -> language list -> instructions (-> help)
  *     -> (the phone bonds) code screen -> connecting
  *     -> place and time zone (only while the zone is unknown) -> time and date (only when the phone did not
- *        set the clock) -> Setup complete -> the tutorial
+ *        set the clock) -> System update (only when an update is pending) -> Setup complete -> the tutorial
  *
  * The pages are in a stack: a swipe right goes back (setup.js: backAllowed), back is ignored on the first
  * screen. The pages cross-fade (250 ms after 150 ms in, 150 ms out) on a black background.
@@ -60,6 +60,13 @@ import "setup.js" as Setup
  * a consent is accepted, a code the watch displays is shown, anything that needs typing and every request
  * after the first bond is refused. A failed bond closes the code screen and the page before it is back.
  *
+ * System update (C-23; stock step 9 system_update, SystemUpdateWrapperActivity:43-45): only when eos-update has
+ * an update pending (setup.js updatePending). The step does what stock's does: it asks for a check (stock's forced
+ * checkin: eos-update-check-request.service, the user unit Settings' UpdatesPage starts) and opens the system
+ * update screen (stock SYSTEM_UPDATE_SETTINGS: Settings' route "updates", the ui/open request the launcher's
+ * watcher opens); its own screen is black, as stock's empty layout. When the home is on top again after Settings
+ * (stock: the activity's result), Setup complete follows; also when Settings did not come up within 10 s.
+ *
  * Power (M1): no polling here (battery and charger by signal, GPS only on the place page), all timers are
  * single shots. */
 Item {
@@ -69,6 +76,9 @@ Item {
 
     // the display is on and not in the always-on screen (the compositor's state)
     property bool displayOn: true
+    // no app window is over the home screen (the compositor's homeActive): the System update step goes on when
+    // the home is back on top after Settings
+    property bool homeOnTop: true
     // the name the phone app lists (the BlueZ alias)
     property string watchName: typeof firstRun !== "undefined" && firstRun !== null ? firstRun.bluetoothName() : ""
     // the setup is over: the host removes it and may start the tutorial
@@ -103,6 +113,7 @@ Item {
     readonly property alias fadeIn: fadeInObj
     readonly property alias bondTimer: bondTimerObj
     readonly property alias linkTimer: linkTimerObj
+    readonly property alias updateTimer: updateTimerObj
     readonly property alias screenTimer: screenTimerObj
     readonly property alias pageLoader: pageLoaderObj
     readonly property alias codeLoader: codeLoaderObj
@@ -140,6 +151,25 @@ Item {
         id: orientation
         key: "/org/asteroidos/settings/wrist-orientation-mode"
         defaultValue: 0
+    }
+    // eos-update's state (current, staged, installing, trial, failed, broken), as Settings > System update reads it
+    ConfigurationValue {
+        id: updateState
+        key: "/org/asteroidos/eos-update/state"
+        defaultValue: ""
+    }
+    // a Settings page: "<route>@<ms>" (MainScreen.handleSettingsRequest starts Settings for it)
+    ConfigurationValue {
+        id: settingsRequest
+        key: "/org/asteroidos/settings/ui/open"
+        defaultValue: ""
+    }
+    DBusInterface {
+        id: userSystemd
+        bus: DBus.SessionBus
+        service: "org.freedesktop.systemd1"
+        path: "/org/freedesktop/systemd1"
+        iface: "org.freedesktop.systemd1.Manager"
     }
     readonly property alias clockFromPhone: clockFromPhoneObj
 
@@ -308,6 +338,7 @@ Item {
         case Setup.pages.city: return cityPage
         case Setup.pages.time: return timePage
         case Setup.pages.date: return datePage
+        case Setup.pages.update: return updatePage
         case Setup.pages.complete: return completePage
         }
         return null
@@ -400,6 +431,13 @@ Item {
         SetupDate {
             date: config.startDate()
             onPicked: (y, m, d) => config.chooseDate(y, m, d)
+        }
+    }
+    // stock's step shows nothing of its own (an empty layout) while the system update screen is over it
+    Component {
+        id: updatePage
+        Item {
+            objectName: "setupUpdatePage"
         }
     }
     Component {
@@ -546,7 +584,7 @@ Item {
 
     // the connecting page has run: the pages the phone could not fill in
     function afterConnecting() {
-        queue = Setup.pagesAfterBond(zoneNow(), clockFromPhoneObj.value === true)
+        queue = Setup.pagesAfterBond(zoneNow(), clockFromPhoneObj.value === true, String(updateState.value || ""))
         advance()
     }
     function advance() {
@@ -555,6 +593,35 @@ Item {
         var p = queue[0]
         queue = queue.slice(1)
         replaceAll(p)
+        if (p === Setup.pages.update)
+            startUpdateStep()
+    }
+
+    // ---- System update (C-23) ----
+    // Settings came on top for the step (the home went away after it asked)
+    property bool updateLeft: false
+    function startUpdateStep() {
+        updateLeft = false
+        // stock: the forced check, then the system update screen
+        userSystemd.call("StartUnit", ["eos-update-check-request.service", "replace"])
+        settingsRequest.value = "updates@" + Date.now()
+        updateTimerObj.restart()
+    }
+    onHomeOnTopChanged: {
+        if (page !== Setup.pages.update)
+            return
+        if (!homeOnTop) {
+            updateLeft = true
+            updateTimerObj.stop()
+        } else if (updateLeft) {
+            advance()
+        }
+    }
+    // Settings did not come up: the setup goes on
+    Timer {
+        id: updateTimerObj
+        interval: Setup.update.settingsWaitMs
+        onTriggered: if (config.page === Setup.pages.update && config.homeOnTop) config.advance()
     }
 
     // ---- place, time zone, time, date (setup-wizard-04) ----
