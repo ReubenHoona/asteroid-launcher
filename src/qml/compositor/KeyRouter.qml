@@ -186,9 +186,9 @@ QtObject {
     }
 
     // the window of the application in front while it shows its full screen
-    // keyboard (LipstickCompositorWindow.keyboardOpen, CR-45), else null
+    // keyboard (LipstickCompositorWindow.keyboardOpen, CR-45), else null (null too while the compositor goes: context() asks during shutdown)
     function keyboardWindow() {
-        var w = comp.appActive && comp.topmostWindow ? comp.topmostWindow.window : null
+        var w = comp && comp.appActive && comp.topmostWindow ? comp.topmostWindow.window : null
         return w && w.keyboardOpen === true ? w : null
     }
 
