@@ -389,6 +389,8 @@ Item {
         id: touchLock
         z: arbiter.layers.touchLock
         displayOn: comp ? !comp.displayIsOff : true
+        // a firing alarm or timer ends it (stock END_WET_MODE, D-19); SOS keeps its own unlock above
+        alertShown: arbiter.alertShown
         onEngaged: {
             arbiter.closePowerMenu()
             if (comp.appActive)
