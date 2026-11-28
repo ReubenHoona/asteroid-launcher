@@ -82,12 +82,32 @@ function nextRing(a, nowMs) {
     return 0
 }
 
-/* A snoozed alarm (hnv.java:76-104): it is on, timed holds a trigger time
- * ahead (the alarm presenter re-armed it with the snooze trigger) and that
- * time is not the alarm's own hour:minute. Returns the time it rings again
- * (ms), or 0. */
-function snoozedUntil(a, nowMs) {
-    if (!a.enabled || !(a.triggerTime > 0))
+/* The alarm presenter's snooze ends (dconf /org/asteroidos/alarmclock/snoozed-until, JSON
+ * { "<alarm id>": ms }); {} when unset or not an object. */
+function snoozeMap(value) {
+    try {
+        var m = JSON.parse(String(value))
+        return m !== null && typeof m === "object" && !Array.isArray(m) ? m : {}
+    } catch (e) {
+        return {}
+    }
+}
+
+/* A snoozed alarm (hnv.java:76-104): it is on and the alarm presenter's
+ * snooze end for it (snoozes, snoozeMap) is ahead; else timed holds a trigger
+ * time ahead (the alarm presenter re-armed it with the snooze trigger) and
+ * that time is not the alarm's own hour:minute. The alarms plugin keeps no
+ * trigger time for clock alarms, so for them only the presenter's record
+ * tells. Returns the time it rings again (ms), or 0. */
+function snoozedUntil(a, nowMs, snoozes) {
+    if (!a.enabled)
+        return 0
+    if (snoozes && a.id !== undefined && snoozes.hasOwnProperty(String(a.id))) {
+        var s = Number(snoozes[String(a.id)])
+        if (s > nowMs)
+            return s
+    }
+    if (!(a.triggerTime > 0))
         return 0
     var at = a.triggerTime * 1000
     if (at <= nowMs)
@@ -103,14 +123,15 @@ function snoozedUntil(a, nowMs) {
  * minute, daysOfWeek, triggerTime, countdown). Returns
  *   { state: "none" }   no alarm is on (the 'Set new alarm' button)
  *   { state: "next", alarm, at }
- *   { state: "snoozed", alarm, at, until }   (the alarm is snoozed and rings first) */
-function pick(alarms, nowMs) {
+ *   { state: "snoozed", alarm, at, until }   (the alarm is snoozed and rings first)
+ * snoozes: the presenter's snooze ends (snoozeMap), optional. */
+function pick(alarms, nowMs, snoozes) {
     var best = null
     for (var i = 0; i < alarms.length; i++) {
         var a = alarms[i]
         if (!a || a.countdown || !a.enabled)
             continue
-        var until = snoozedUntil(a, nowMs)
+        var until = snoozedUntil(a, nowMs, snoozes)
         var at = until > 0 ? until : nextRing(a, nowMs)
         if (!at)
             continue

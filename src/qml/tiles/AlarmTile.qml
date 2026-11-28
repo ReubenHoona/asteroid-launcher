@@ -34,8 +34,10 @@ import "clocklogic.js" as Clock
  * black does nothing. N61-28
  *
  * The alarms are timed's, as the alarm clock sets them. The tile reads them
- * when it comes on screen and when they change (the snooze is read from the
- * trigger time that timed holds). Battery: the time to go is re-drawn by ONE
+ * when it comes on screen and when they change. The snooze end is the alarm
+ * presenter's (/org/asteroidos/alarmclock/snoozed-until, by alarm id; the
+ * alarms plugin keeps no snooze time for clock alarms), else timed's trigger
+ * time. Battery: the time to go is re-drawn by ONE
  * single shot at the next whole minute, only while the tile is on screen and
  * awake (TileBase.awake) and an alarm is next; nothing otherwise.
  *
@@ -66,6 +68,13 @@ TileBase {
     readonly property color gradientTo: "#FFEBAE"
 
     ConfigurationValue { id: openRequest; key: "/org/asteroidos/alarmclock/open"; defaultValue: "" }
+    // when each snoozed alarm rings again, by alarm id (the alarm presenter writes it with its Snoozed notice)
+    ConfigurationValue {
+        id: snoozedUntil
+        key: "/org/asteroidos/alarmclock/snoozed-until"
+        defaultValue: "{}"
+        onValueChanged: if (tile.live) tile.refresh()
+    }
 
     AlarmsModel {
         id: alarms
@@ -93,7 +102,7 @@ TileBase {
                 list.push(a)
         }
         nowMs = clock()
-        pick = Clock.pick(list, nowMs)
+        pick = Clock.pick(list, nowMs, Clock.snoozeMap(snoozedUntil.value))
     }
 
     readonly property alias minuteTick: minuteTimer
