@@ -33,6 +33,16 @@ import "system.js" as Sys
  *  - The status icon "Touch lock on" shows on the watch face while it is on:
  *    the face's bottom row draws it (home/FaceOverlayRow, status key
  *    'wet-touch', N61-17), a bare glyph like the other status icons.
+ *  - A firing alarm or timer of the watch ends it (AUDIT-72 D-19): stock's
+ *    DeskClock broadcasts END_WET_MODE when an alarm starts firing
+ *    (FiringAlarmUiImpl.updateUI, hrz.java:389), when a timer does
+ *    (hsp.java:543) and before the firing timer screen opens (htg.java:53),
+ *    so Stop and Snooze take taps. Here: alertShown (compositor.qml binds
+ *    arbiter.alertShown, the alarm presenter's window in front) becoming
+ *    true calls end(). The water ejection tone is for a manual exit only
+ *    (TouchLockKeyInterceptorClient.java:296-303, the pending flag of the
+ *    crown hold), so end() plays nothing. Nothing new runs: the binding is
+ *    evaluated when the alert window comes or goes.
  * Nothing here polls or runs a timer while the lock is off; the hint's
  * timer runs only while the view is up with the display on. */
 Item {
@@ -47,6 +57,10 @@ Item {
     property bool displayRotated: false
     // a clock in ms (tests replace it)
     property var clock: function () { return Date.now() }
+    /* a firing alarm or timer of the watch is in front (compositor.qml: arbiter.alertShown) */
+    property bool alertShown: false
+    // the manual exit's tone (tests replace it: nothing may sound in a test)
+    property var exitTone: function () { Haptics.play("eos_touchlock_exit") }
 
     readonly property bool locked: store.value === true || store.value === "true"
     readonly property bool hintShown: hintOn
@@ -85,6 +99,22 @@ Item {
     function unlock() {
         if (!locked)
             return
+        _off()
+        // stock: a manual exit plays the water ejection tone to the speaker (haptics-sounds-20): ours,
+        // the ngfd event eos_touchlock_exit (an original low tone, the ini is a meta-eos64 draft)
+        exitTone()
+        exited()
+    }
+
+    /* End it without the manual exit's tone (stock END_WET_MODE: a firing alarm or timer). */
+    function end() {
+        if (!locked)
+            return
+        _off()
+        exited()
+    }
+
+    function _off() {
         fill.stop()
         spring.stop()
         downAt = -1
@@ -93,11 +123,9 @@ Item {
         hideTimer.stop()
         exitedAt = clock()
         store.value = false
-        // stock: a manual exit plays the water ejection tone to the speaker (haptics-sounds-20): ours,
-        // the ngfd event eos_touchlock_exit (an original low tone, the ini is a meta-eos64 draft)
-        Haptics.play("eos_touchlock_exit")
-        exited()
     }
+
+    onAlertShownChanged: if (alertShown) end()
 
     /* The exit view: a filtered key was pressed */
     function showHint() {
