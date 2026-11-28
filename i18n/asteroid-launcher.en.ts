@@ -2851,5 +2851,9 @@ for %1 seconds to</translation>
         <source>Poor</source>
         <translation>Poor</translation>
     </message>
+    <message id="id-card-open-app">
+        <source>Open app</source>
+        <translation>Open app</translation>
+    </message>
 </context>
 </TS>

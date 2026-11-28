@@ -22,6 +22,10 @@
  *    x-eos-start-tutorial true) gets "Start tutorial" (stock oobe_whats_new_start_tutorial, ACTION_RESTART_OOBE):
  *    it writes "tutorial@<ms>" to /org/asteroidos/launcher/start-tutorial, the request Settings' Start tutorial
  *    writes (HomeOverlays starts the coach over the face).
+ *  - Settings page (C-17): a system notice with the hint x-eos-ui-open (a Settings route: the low storage notice's
+ *    "app_storage") gets "Open app" (stock sysui full_view_open_app, the expanded view's button of a content
+ *    intent): it invokes the card's default action, which the notification server turns into the Settings
+ *    request (NotificationManager::invokeAction, AppWatcher::openSettings: ui/open = "<route>@<ms>").
  */
 
 var EXERCISE_APP = "asteroid-exercise"
@@ -115,4 +119,12 @@ function offersTutorial(hints) {
 }
 function tutorialRequest(nowMs) {
     return { key: TUTORIAL_KEY, value: "tutorial@" + nowMs }
+}
+
+// the Settings route a system notice opens (x-eos-ui-open), or ""
+function settingsRoute(hints) {
+    if (!hints)
+        return ""
+    var r = hints["x-eos-ui-open"]
+    return r === undefined || r === null ? "" : String(r)
 }

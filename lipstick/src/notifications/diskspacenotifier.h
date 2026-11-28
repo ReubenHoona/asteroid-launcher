@@ -18,11 +18,16 @@
 #define DISKSPACENOTIFIER_H_
 
 #include <QObject>
-#include <QMap>
-#include <QPair>
+
+#include "eosstorage.h"
+
+class MDConfItem;
 
 /*!
- * Disk space notifier sends disk space notifications when the disk is full.
+ * Disk space notifier sends the low storage notification ("Storage space running out" / "Some system
+ * functions may not work", resident, Open app opens Settings > Apps > Storage) while the data partition
+ * is low (eosstorage.h: stock's min(5 %, 250 MiB)), looking at the start, when the screen comes on (at
+ * most once an hour), when eos-update's state changes and on dsme's signal; no timer of its own.
  */
 class DiskSpaceNotifier : public QObject
 {
@@ -41,25 +46,32 @@ public:
 
 private slots:
     /*!
-     * Handles the disk space change by sending a notification if necessary.
+     * dsme's diskmonitor signalled a change of its state (disk_space_state_ind): a look.
      *
-     * \param path the path for which disk space has changed
-     * \param percentage the new usage percentage
+     * \param path the mount point dsme checked
+     * \param state its state (dsme's diskspace_state_t)
      */
-    void handleDiskSpaceChange(const QString &path, int percentage);
+    void handleDiskSpaceState(const QString &path, int state);
 
-    //! Initializes the disk space notifier by removing any previous notifications
+    //! mce's display state: "on" is a look when the last one is an hour old
+    void handleDisplayStatus(const QString &status);
+
+    //! Removes the low storage notification (the start, and when there is room again)
     void removeDiskSpaceNotifications();
 
 private:
-    //! Notifications sent for each path. The first bool in the pair is whether the threshold notification was sent, second whether the 100% notification was sent.
-    QMap<QString, QPair<bool, bool> > notificationsSentForPath;
+    //! A look at the data partition for an EosStorage::Reason
+    void look(int reason);
+    void showNotification();
 
     //! The disk space notification
     uint notificationId;
 
-    //! The low storage notification is up
-    bool m_lowShown = false;
+    //! When it looked last and whether the notification is up
+    EosStorage::Monitor m_monitor;
+
+    //! eos-update's state (/org/asteroidos/eos-update/state)
+    MDConfItem *m_updateState = nullptr;
 
 #ifdef UNIT_TEST
     friend class Ut_DiskSpaceNotifier;

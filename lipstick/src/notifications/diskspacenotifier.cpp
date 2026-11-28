@@ -15,47 +15,109 @@
 ****************************************************************************/
 
 #include <QDBusConnection>
-#include <QStorageInfo>
+#include <QDebug>
 #include <QTimer>
+#include <MDConfItem>
+#include <sys/statvfs.h>
+#include <time.h>
 #include "homeapplication.h"
 #include "lipsticknotification.h"
 #include "notificationmanager.h"
 #include "diskspacenotifier.h"
 #include "eosstorage.h"
 
+// The data partition: on this watch the root is the userdata partition, /home is on it
+static const char DATA_PATH[] = "/";
+
+// seconds since the boot, the time asleep included: "an hour since the last look" is an hour of the clock
+static int64_t bootSeconds()
+{
+    struct timespec ts;
+    if (clock_gettime(CLOCK_BOOTTIME, &ts) != 0)
+        return 0;
+    return int64_t(ts.tv_sec);
+}
+
+// what an app may still write (stock File.getUsableSpace: f_bavail) and the size of the partition
+static bool dataPartition(int64_t &freeBytes, int64_t &totalBytes)
+{
+    struct statvfs st;
+    if (statvfs(DATA_PATH, &st) != 0)
+        return false;
+    freeBytes = int64_t(st.f_bavail) * int64_t(st.f_frsize);
+    totalBytes = int64_t(st.f_blocks) * int64_t(st.f_frsize);
+    return true;
+}
+
+/* The low storage notification (C-17, connectivity-system-ux-20): the rule and when to look are
+ * EosStorage's (eosstorage.h). The looks come with events the watch has anyway, never from a timer of
+ * this one: the start, the screen coming on (at most once an hour), eos-update's state changing (a
+ * download staged, an install) and dsme's diskmonitor signal. */
 DiskSpaceNotifier::DiskSpaceNotifier(QObject *parent) : QObject(parent),
     notificationId(0)
 {
-    QDBusConnection::systemBus().connect(QString(), "/com/nokia/diskmonitor/signal", "com.nokia.diskmonitor.signal", "disk_space_change_ind", this, SLOT(handleDiskSpaceChange(QString, int)));
+    QDBusConnection system = QDBusConnection::systemBus();
+    // dsme's diskmonitor: it checks on its own schedule and signals a change of its state (its limits
+    // are not stock's: the signal only asks for a look)
+    system.connect(QString(), "/com/nokia/diskmonitor/signal", "com.nokia.diskmonitor.signal", "disk_space_state_ind",
+                   this, SLOT(handleDiskSpaceState(QString, int)));
+    // the screen comes on
+    system.connect("com.nokia.mce", "/com/nokia/mce/signal", "com.nokia.mce.signal", "display_status_ind",
+                   this, SLOT(handleDisplayStatus(QString)));
+    // eos-update's state (current, staged, installing, trial, failed, broken): a download or an install
+    m_updateState = new MDConfItem(QStringLiteral("/org/asteroidos/eos-update/state"), this);
+    connect(m_updateState, &MDConfItem::valueChanged, this, [this] { look(EosStorage::Update); });
 
-    QTimer::singleShot(0, this, SLOT(removeDiskSpaceNotifications()));
+    // the notification database keeps a notification over a restart: the old one goes, then the first look
+    QTimer::singleShot(0, this, [this] {
+        removeDiskSpaceNotifications();
+        look(EosStorage::Start);
+    });
 }
 
 DiskSpaceNotifier::~DiskSpaceNotifier()
 {
 }
 
-void DiskSpaceNotifier::handleDiskSpaceChange(const QString &path, int percentage)
+void DiskSpaceNotifier::handleDiskSpaceState(const QString &path, int state)
 {
-    Q_UNUSED(percentage)
+    Q_UNUSED(path)
+    Q_UNUSED(state)
+    // whatever mount point dsme names (it also watches /tmp and /run): the data partition is looked at
+    look(EosStorage::Dsme);
+}
 
-    // dsme's signal only says that something changed (it fires on its own thresholds, so no
-    // polling is needed); what is low is stock's rule: free space under the smaller of 5 % of
-    // the partition and 250 MiB (DeviceStorageMonitorService.java:279-360)
-    const QStorageInfo info(path.isEmpty() ? QStringLiteral("/") : path);
-    const bool low = info.isValid() && EosStorage::isLow(info.bytesAvailable(), info.bytesTotal());
+void DiskSpaceNotifier::handleDisplayStatus(const QString &status)
+{
+    if (status == QLatin1String("on"))
+        look(EosStorage::DisplayOn);
+}
 
-    if (!low) {
-        if (m_lowShown) {
-            m_lowShown = false;
-            removeDiskSpaceNotifications();
-        }
+void DiskSpaceNotifier::look(int reason)
+{
+    int64_t freeBytes = -1, totalBytes = -1;
+    const EosStorage::Action action = m_monitor.look(EosStorage::Reason(reason), bootSeconds(),
+                                                     [&](int64_t &f, int64_t &t) {
+        const bool ok = dataPartition(f, t);
+        freeBytes = f;
+        totalBytes = t;
+        return ok;
+    });
+    if (action == EosStorage::None)
+        return;
+    const qint64 mib = 1024 * 1024;
+    qInfo() << "DiskSpaceNotifier: storage" << (action == EosStorage::Show ? "low" : "no longer low") << freeBytes / mib
+            << "MiB free, the limit" << qint64(EosStorage::lowBytes(uint64_t(totalBytes))) / mib << "MiB";
+    if (action == EosStorage::Clear) {
+        removeDiskSpaceNotifications();
+        notificationId = 0;
         return;
     }
-    if (m_lowShown)
-        return;
-    m_lowShown = true;
+    showNotification();
+}
 
+void DiskSpaceNotifier::showNotification()
+{
     //% "Storage space running out"
     const QString title = qtTrId("id-storage-low-title");
     //% "Some system functions may not work"
@@ -69,7 +131,10 @@ void DiskSpaceNotifier::handleDiskSpaceChange(const QString &path, int percentag
     hints.insert(NotificationManager::HINT_PREVIEW_BODY, text);
     hints.insert(NotificationManager::HINT_RESIDENT, true);
     hints.insert(NotificationManager::HINT_USER_REMOVABLE, false);
+    // the card's Open app opens Settings > Apps > Storage (stock: ACTION_MANAGE_STORAGE)
     hints.insert(QStringLiteral("x-eos-ui-open"), QStringLiteral("app_storage"));
+    // a system notice of its own (stock: the Android System's ALERTS channel); no per-app switch names it
+    hints.insert(QStringLiteral("x-eos-app"), QStringLiteral("storage"));
 
     NotificationManager *manager = NotificationManager::instance();
     notificationId = manager->Notify(qApp->applicationName(), notificationId, QString(), title, text,

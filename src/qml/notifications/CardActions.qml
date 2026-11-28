@@ -14,7 +14,9 @@ import "cardactions.js" as CA
  *  - "Start" / "End" on sensorlogd's exercise-detect cards (CR-38): writes the Exercise app's start or stop request
  *    and starts asteroid-exercise ("Start" for 'Start tracking?', "End" for 'Finished working out?');
  *  - "Open" on the "Start your day" card: opens the Health app's Morning Brief page;
- *  - "Start tutorial" on the launcher's "Explore your new watch" card (R5 B-20): asks for the tutorial.
+ *  - "Start tutorial" on the launcher's "Explore your new watch" card (R5 B-20): asks for the tutorial;
+ *  - "Open app" on a system notice that names a Settings page (C-17: the low storage notice): the card's default
+ *    action, which the notification server turns into the Settings request (the card stays when it is resident).
  * sensorlogd posts the workout offers transient: they live as the banner and the detail view a tap on it opens (the
  * card there is expanded, so the buttons show); they are never in the stream. Running a button takes the card down.
  * Nothing runs until a button is tapped; nothing is polled.
@@ -31,8 +33,9 @@ Item {
     readonly property var offer: CA.exerciseOffer(hints)
     readonly property string page: CA.openPage(hints)
     readonly property bool tutorial: CA.offersTutorial(hints)
+    readonly property string settingsRoute: CA.settingsRoute(hints)
 
-    // [{ kind: "exercise" | "open" | "tutorial", label }], none for an ordinary card
+    // [{ kind: "exercise" | "open" | "tutorial" | "settings", label }], none for an ordinary card
     readonly property var buttons: {
         var list = []
         if (offer !== null)
@@ -50,6 +53,10 @@ Item {
             list.push({ kind: "tutorial",
                         //% "Start tutorial"
                         label: qsTrId("id-card-start-tutorial") })
+        if (settingsRoute !== "")
+            list.push({ kind: "settings",
+                        //% "Open app"
+                        label: qsTrId("id-card-open-app") })
         return list
     }
 
@@ -81,6 +88,8 @@ Item {
             launch(CA.HEALTH_APP)
         } else if (kind === "tutorial" && tutorial) {
             tutorialStart.value = CA.tutorialRequest(now).value
+        } else if (kind === "settings" && settingsRoute !== "") {
+            // the default action below: the notification server opens Settings on the route
         } else {
             return false
         }
