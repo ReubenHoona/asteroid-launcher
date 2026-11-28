@@ -4,6 +4,7 @@
  */
 
 #include "modes.h"
+#include "mediamute.h"
 
 #include <QCoreApplication>
 #include <QDateTime>
@@ -107,6 +108,18 @@ ModesEngine::ModesEngine(QObject *parent) : QObject(parent)
             mAlarmPrefs.insert(name, item);
         }
     }
+    // Customize > Media sounds: the media streams muted while a mode on does not allow them (C-11)
+    for (const QString &mode : AlarmModes) {
+        const QString name = mode + QStringLiteral("/media");
+        auto *item = new MDConfItem(confKey(name), this);
+        connect(item, &MDConfItem::valueChanged, this, &ModesEngine::mediaPrefsChanged);
+        mMediaPrefs.insert(name, item);
+    }
+    mMediaMute = new MediaMute(this);
+    // Settings shows the Media sounds switch once its reader is there (the gate of ModeCustomizePage)
+    MDConfItem mediaSupported(confKey(QStringLiteral("media-supported")));
+    if (!mediaSupported.value(false).toBool())
+        mediaSupported.set(true);
     // Settings > Battery > Battery Saver (stock: on at 15 %, off when charged above 25 %)
     mAutoOnConf = new MDConfItem(confKey(QStringLiteral("battery-saver-auto-on")), this);
     mAutoOnLevelConf = new MDConfItem(confKey(QStringLiteral("battery-saver-auto-on-level")), this);
@@ -161,6 +174,7 @@ ModesEngine::ModesEngine(QObject *parent) : QObject(parent)
                    this, SLOT(mceBatteryLevel(int)));
     loadMce();
     publishAlarmFeedback();
+    publishMediaMute();
     // after the notification server is up: the "Theater mode off" card of
     // a theater mode that ran out while the watch was off
     QTimer::singleShot(5000, this, &ModesEngine::checkTheater);
@@ -221,6 +235,28 @@ void ModesEngine::publishAlarmFeedback()
 void ModesEngine::alarmPrefsChanged()
 {
     publishAlarmFeedback();
+    emit changed();
+}
+
+// the media streams of PulseAudio follow the modes on and their Customize > Media sounds (C-11)
+void ModesEngine::publishMediaMute()
+{
+    QHash<QString, QVariant> prefs;
+    for (auto it = mMediaPrefs.constBegin(); it != mMediaPrefs.constEnd(); ++it) {
+        const QVariant v = it.value()->value();
+        if (v.isValid())
+            prefs.insert(it.key(), v);
+    }
+    const bool muted = ModesCore::mediaMuted(mModes, mDnd, prefs);
+    if (muted != mMediaMuted)
+        qInfo() << "Modes: media sounds" << (muted ? "muted" : "on");
+    mMediaMuted = muted;
+    mMediaMute->setWanted(muted);
+}
+
+void ModesEngine::mediaPrefsChanged()
+{
+    publishMediaMute();
     emit changed();
 }
 
@@ -358,6 +394,7 @@ void ModesEngine::modesChanged(int before, bool dndBefore)
     mEnforced = 0;
     apply();
     publishAlarmFeedback();
+    publishMediaMute();
     syncRotaryHold(false);
 }
 

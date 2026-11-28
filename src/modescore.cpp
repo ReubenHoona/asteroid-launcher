@@ -290,6 +290,34 @@ ModesCore::ResumeAction ModesCore::afterCharging(const AutoSaver &cfg, bool resu
     return ResumeSaver;
 }
 
+bool ModesCore::mediaDefault(const QString &mode)
+{
+    // Bedtime and Theater: disallowAllSounds (FocusModeConstants.createZenPolicyFor); Do Not Disturb: media allowed
+    return mode == QLatin1String("do-not-disturb");
+}
+
+bool ModesCore::mediaMuted(int modes, bool dnd, const QHash<QString, QVariant> &prefs)
+{
+    QStringList on;
+    if (dnd)
+        on << QStringLiteral("do-not-disturb");
+    if (modes & Bedtime)
+        on << name(Bedtime);
+    if (modes & Theater)
+        on << name(Theater);
+    for (const QString &mode : on) {
+        const QVariant v = prefs.value(mode + QStringLiteral("/media"));
+        if (!(v.isValid() ? v.toBool() : mediaDefault(mode)))
+            return true;
+    }
+    return false;
+}
+
+bool ModesCore::isMediaRole(const QString &role)
+{
+    return role == QLatin1String("music") || role == QLatin1String("video") || role == QLatin1String("game");
+}
+
 ModesCore::AlarmAllowed ModesCore::alarmDefault(const QString &mode)
 {
     AlarmAllowed a;

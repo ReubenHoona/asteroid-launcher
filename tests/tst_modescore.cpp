@@ -500,6 +500,39 @@ static void autoSaver()
     CHECK(C::afterCharging(s, true, 49) == C::ResumeSaver && C::afterCharging(s, true, 50) == C::ResumeDropped);
 }
 
+// Customize > Media sounds (C-11, settings-a-38): stock's zen policies (Do Not Disturb allows media, Bedtime and
+// Theater do not: FocusModeConstants.createZenPolicyFor disallowAllSounds); one mode on that does not is enough
+static void media()
+{
+    typedef QHash<QString, QVariant> Prefs;
+    CHECK(C::mediaDefault("do-not-disturb"));
+    CHECK(!C::mediaDefault("bedtime"));
+    CHECK(!C::mediaDefault("theater"));
+    CHECK(!C::mediaMuted(0, false, Prefs()));
+    CHECK(!C::mediaMuted(0, true, Prefs()));
+    CHECK(C::mediaMuted(C::Bedtime, false, Prefs()));
+    CHECK(C::mediaMuted(C::Theater, false, Prefs()));
+    // the modes without a Customize page leave media alone
+    CHECK(!C::mediaMuted(C::BatterySaver | C::ExtraDim | C::TouchLock, false, Prefs()));
+    Prefs bed;
+    bed.insert("bedtime/media", true);
+    CHECK(!C::mediaMuted(C::Bedtime, false, bed));
+    CHECK(C::mediaMuted(C::Bedtime | C::Theater, false, bed));
+    CHECK(!C::mediaMuted(C::Bedtime, true, bed));
+    Prefs dnd;
+    dnd.insert("do-not-disturb/media", false);
+    CHECK(C::mediaMuted(0, true, dnd));
+    CHECK(!C::mediaMuted(0, false, dnd));   // a mode that is off counts for nothing
+    Prefs theater;
+    theater.insert("theater/media", true);
+    CHECK(!C::mediaMuted(C::Theater, false, theater));
+    // the media streams' roles (USAGE_MEDIA, USAGE_GAME); the watch's own sounds are none of them
+    CHECK(C::isMediaRole("music") && C::isMediaRole("video") && C::isMediaRole("game"));
+    for (const char *role : { "", "x-maemo", "event", "alarm", "phone", "ringtone", "notification", "a11y", "test",
+                              "x-eos-volume-ring", "x-eos-volume-notification", "x-eos-volume-alarm", "Music" })
+        CHECK(!C::isMediaRole(QString::fromLatin1(role)));
+}
+
 static void alarms()
 {
     typedef QHash<QString, QVariant> Prefs;
@@ -575,6 +608,7 @@ int main()
     nightLight();
     autoSaver();
     alarms();
+    media();
     names();
     onAndOff();
     touchLock();

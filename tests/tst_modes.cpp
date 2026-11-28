@@ -20,6 +20,8 @@
  *   - Theater: the overlay and the screen off at 450 ms; 24 hours later off
  *     with its card and the screen on, also by the timed event's dconf key
  *   - alarms: the event they may play follows the modes and Customize
+ *   - media sounds (C-11): muted in Bedtime and Theater, not in Do Not Disturb, as Customize > Media sounds says;
+ *     the engine announces the switch (media-supported true)
  *   - a launcher restart: Bedtime ended meanwhile puts the user's settings
  *     back; Extra dim ends after a reboot
  * cmake -DLAUNCHER_TESTS=ON.
@@ -245,7 +247,8 @@ int main(int argc, char **argv)
                            "alarm-feedback", "bedtime/display-filter", "theater/alarm-sound", "theater/alarm-vibrate",
                            "bedtime/alarm-sound", "bedtime/alarm-vibrate", "do-not-disturb/alarm-sound",
                            "do-not-disturb/alarm-vibrate", "battery-saver-auto-on", "battery-saver-auto-off",
-                           "battery-saver-auto-on-level", "battery-saver-auto-off-level" })
+                           "battery-saver-auto-on-level", "battery-saver-auto-off-level", "bedtime/media",
+                           "theater/media", "do-not-disturb/media", "media-supported" })
         setConf(M + k, QVariant());
     setConf(DND, false);
 
@@ -267,10 +270,19 @@ int main(int argc, char **argv)
     CHECK(engine->alarmFeedback() == "alarm" && engine->alarmMask() == 3);
     CHECK(waitFor([&] { return confValue(M + "alarm-feedback").toString() == "alarm"; }, ConfMs));
     CHECK(engine->displayFilter().isEmpty());
+    // C-11: media plays as ever; Settings' Media sounds switch is announced
+    CHECK(!engine->mediaMuted());
+    CHECK(waitFor([&] { return confValue(M + "media-supported") == QVariant(true); }, ConfMs));
 
     // --- Bedtime from Do Not Disturb (the quick panel): the latest wins
     engine->setDoNotDisturb(true);
     CHECK(waitFor([&] { return engine->doNotDisturb(); }));
+    // Do Not Disturb lets media through (stock's default policy); with its Media sounds off it does not
+    CHECK(!engine->mediaMuted());
+    setConf(M + "do-not-disturb/media", false);
+    CHECK(waitFor([&] { return engine->mediaMuted(); }, ConfMs));
+    setConf(M + "do-not-disturb/media", QVariant());
+    CHECK(waitFor([&] { return !engine->mediaMuted(); }, ConfMs));
     engine->setBedtime(true);
     CHECK(waitFor([&] { return !mce.get(TILT).toBool() && mce.get(BRIGHTNESS).toInt() == 8; }));
     CHECK(waitFor([&] { return mce.get(TOUCH).toString().isEmpty(); }));
@@ -287,6 +299,8 @@ int main(int argc, char **argv)
     CHECK(engine->tiltHolder() == "bedtime" && engine->touchHolder() == "bedtime" && engine->brightnessHolder() == "bedtime");
     // the notification server goes quiet with it (main.cpp)
     CHECK(engine->quiet());
+    // no media sounds in Bedtime (its Media sounds is off by default)
+    CHECK(waitFor([&] { return engine->mediaMuted(); }));
     // the user's values, kept in dconf
     CHECK(waitFor([&] { return confValue(M + "saved/tilt-to-wake") == QVariant(true); }, ConfMs));
     CHECK(waitFor([&] { return confValue(M + "saved/touch-to-wake").toString() == "unblank"; }, ConfMs));
@@ -470,6 +484,12 @@ int main(int argc, char **argv)
     CHECK(waitFor([&] { return confValue(M + "theater-since").toDouble() > 0; }, ConfMs));
     CHECK(engine->alarmFeedback() == "alarm_vibra" && engine->alarmMask() == 2);
     CHECK(waitFor([&] { return confValue(M + "alarm-feedback").toString() == "alarm_vibra"; }, ConfMs));
+    // no media sounds in Theater either, unless its Customize page allows them
+    CHECK(engine->mediaMuted());
+    setConf(M + "theater/media", true);
+    CHECK(waitFor([&] { return !engine->mediaMuted(); }, ConfMs));
+    setConf(M + "theater/media", QVariant());
+    CHECK(waitFor([&] { return engine->mediaMuted(); }, ConfMs));
     // Settings > Theater > Customize > Alarms and Timers > Sound on: both; off again: vibration
     setConf(M + "theater/alarm-sound", true);
     CHECK(waitFor([&] { return engine->alarmFeedback() == "alarm"; }, ConfMs));
@@ -491,6 +511,7 @@ int main(int argc, char **argv)
     setConf(M + "theater", false);
     engine = new ModesEngine;
     CHECK(waitFor([&] { return userSettings(mce); }));
+    CHECK(!engine->mediaMuted());
     // the new launcher releases the hold the old one left behind (CR-47: false at the launcher start)
     CHECK(waitFor([&] { return mce.get(ROTARY) == QVariant(false); }));
     CHECK(waitFor([&] { return !confValue(M + "saved/tilt-to-wake").isValid(); }, ConfMs));

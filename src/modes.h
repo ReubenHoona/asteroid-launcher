@@ -17,6 +17,7 @@
 #include "modescore.h"
 
 class MDConfItem;
+class MediaMute;
 class QDBusObjectPath;
 class QDBusVariant;
 class QTimer;
@@ -55,6 +56,12 @@ class QTimer;
  *     modes' Customize pages allow: the event they may play is published
  *     as dconf /org/asteroidos/modes/alarm-feedback and alarmFeedback
  *     (the notification server's feedback follows it too);
+ *   - media sounds: while Do Not Disturb, Bedtime or Theater is on and its
+ *     Customize > Media sounds is off (/org/asteroidos/modes/<mode>/media;
+ *     stock's default: on in Do Not Disturb, off in Bedtime and Theater),
+ *     the media streams play muted (mediaMuted; MediaMute mutes them in
+ *     PulseAudio). The engine announces the switch to Settings with
+ *     /org/asteroidos/modes/media-supported true at its start;
  *   - Battery saver goes off on the charger and comes back when unplugged
  *     (unless "Turn off when charged" is on and the level is 25 % or more:
  *     a notice says so); it turns on by itself at 15 % off the charger and
@@ -99,6 +106,8 @@ class ModesEngine : public QObject, private ModesCore::Store
     // the ngfd event an alarm may play now: "alarm", "alarm_sound",
     // "alarm_vibra" or "" (modes-dnd-05)
     Q_PROPERTY(QString alarmFeedback READ alarmFeedback NOTIFY changed)
+    // the media streams play muted now (a mode on whose Customize > Media sounds is off)
+    Q_PROPERTY(bool mediaMuted READ mediaMuted NOTIFY changed)
     // Settings > Battery > Battery Saver: "Turn on at N%"
     Q_PROPERTY(bool autoSaverOn READ autoSaverOn NOTIFY changed)
     Q_PROPERTY(int autoSaverOnLevel READ autoSaverOnLevel NOTIFY changed)
@@ -142,6 +151,7 @@ public:
     QString alarmFeedback() const;
     // 1 sound, 2 vibration (what an alarm may play now)
     int alarmMask() const { return mAlarmMask; }
+    bool mediaMuted() const { return mMediaMuted; }
     bool autoSaverOn() const { return autoSaverConfig().autoOn; }
     int autoSaverOnLevel() const { return autoSaverConfig().onLevel; }
     int batteryLevel() const { return mLevel; }
@@ -190,6 +200,7 @@ private slots:
     void checkTheater();
     void theaterExpiredByTimed();
     void alarmPrefsChanged();
+    void mediaPrefsChanged();
     void bedtimeSkipTimeout();
 
 private:
@@ -209,6 +220,7 @@ private:
     void armTheaterWake();
     void cancelTheaterWake();
     void publishAlarmFeedback();
+    void publishMediaMute();
     void evaluateSaver();
     ModesCore::AutoSaver autoSaverConfig() const;
     void postNotice(const QString &title, const QString &body, const QString &mode, bool replaceLast);
@@ -236,6 +248,10 @@ private:
     QHash<QString, MDConfItem *> mAlarmPrefs;
     QString mAlarmFeedback;
     int mAlarmMask = 3;
+    // Customize > Media sounds of each mode ("<mode>/media"), and what it makes of the media streams
+    QHash<QString, MDConfItem *> mMediaPrefs;
+    bool mMediaMuted = false;
+    MediaMute *mMediaMute;
     int mModes = 0;
     bool mDnd = false;
     bool mCharging = false;

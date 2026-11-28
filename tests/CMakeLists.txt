@@ -5,10 +5,18 @@ add_executable(tst_modescore tst_modescore.cpp ../src/modescore.cpp)
 target_include_directories(tst_modescore PRIVATE ../src)
 target_link_libraries(tst_modescore PRIVATE Qt6::Core)
 
-add_executable(tst_modes tst_modes.cpp ../src/modes.cpp ../src/modescore.cpp ../src/modes.h)
+add_executable(tst_modes tst_modes.cpp ../src/modes.cpp ../src/modescore.cpp ../src/mediamute.cpp ../src/modes.h ../src/mediamute.h)
 set_target_properties(tst_modes PROPERTIES AUTOMOC ON)
 target_include_directories(tst_modes PRIVATE ../src)
 target_link_libraries(tst_modes PRIVATE Qt6::Core Qt6::DBus PkgConfig::mlite6 Timed::Timed)
+
+# Media sounds off in a mode (src/mediamute.h, C-11): the media streams of a fake PulseAudio D-Bus server (a peer
+# server in the test, found by $PULSE_DBUS_SERVER or the session bus lookup name), on a private bus:
+#   dbus-run-session -- tst_mediamute
+add_executable(tst_mediamute tst_mediamute.cpp ../src/mediamute.cpp ../src/modescore.cpp ../src/mediamute.h)
+set_target_properties(tst_mediamute PROPERTIES AUTOMOC ON)
+target_include_directories(tst_mediamute PRIVATE ../src)
+target_link_libraries(tst_mediamute PRIVATE Qt6::Core Qt6::DBus)
 
 # The display offload decisions (lipstick/src/compositor/eosoffloadpolicy.h), plain C++
 add_executable(tst_offloadpolicy tst_offloadpolicy.cpp)

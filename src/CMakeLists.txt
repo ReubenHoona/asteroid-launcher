@@ -11,6 +11,7 @@ set(SRC
 	aodbrightness.cpp
 	modescore.cpp
 	modes.cpp
+	mediamute.cpp
 	assistantkey.cpp
 	keyclaims.cpp
 	callstate.cpp
@@ -37,6 +38,7 @@ set(HEADERS
 	aodbrightness.h
 	modescore.h
 	modes.h
+	mediamute.h
 	assistantkey.h
 	keyclaims.h
 	callstate.h

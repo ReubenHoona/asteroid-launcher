@@ -227,6 +227,23 @@ public:
     static QString alarmEvent(const AlarmAllowed &a);
     // 1 sound, 2 vibration (what NotificationManager and eosquietpolicy.h take)
     static int alarmMask(const AlarmAllowed &a) { return (a.sound ? 1 : 0) | (a.vibrate ? 2 : 0); }
+
+    /*
+     * Media sounds in a mode (Settings > <mode> > Customize > What can notify
+     * you > Media sounds, settings-a-38). Stock: each mode's zen policy
+     * (FocusModeConstants.createZenPolicyFor: disallowAllSounds, so Bedtime
+     * and Theater allow no media; Do Not Disturb's default policy allows it)
+     * and ZenModeHelper.applyRestrictions: while a priority mode that does not
+     * allow media is on, the media usages (AudioAttributes SUPPRESSIBLE_MEDIA:
+     * USAGE_MEDIA, USAGE_GAME) are muted and play on silently. With several
+     * modes on, one that does not allow media is enough.
+     */
+    static bool mediaDefault(const QString &mode);   // "do-not-disturb" true, "bedtime" and "theater" false
+    // prefs: "<mode>/media" (bool) where set; true: the media streams are muted now
+    static bool mediaMuted(int modes, bool dnd, const QHash<QString, QVariant> &prefs);
+    // a PulseAudio media.role of a media stream: music, video (USAGE_MEDIA) and game (USAGE_GAME);
+    // not the watch's own sounds (event, alarm, phone, the x-eos-volume-* and x-maemo streams)
+    static bool isMediaRole(const QString &role);
 };
 
 #endif // MODESCORE_H
