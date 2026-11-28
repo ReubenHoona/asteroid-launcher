@@ -93,21 +93,20 @@ function snoozeMap(value) {
     }
 }
 
-/* A snoozed alarm (hnv.java:76-104): it is on and the alarm presenter's
- * snooze end for it (snoozes, snoozeMap) is ahead; else timed holds a trigger
+/* A snoozed alarm (hnv.java:76-104): the alarm presenter's snooze end for it
+ * (snoozes, snoozeMap) is ahead, whatever timed's state says (seen on the
+ * watch: a snoozed one-time alarm reads as off); else it is on, timed holds a trigger
  * time ahead (the alarm presenter re-armed it with the snooze trigger) and
  * that time is not the alarm's own hour:minute. The alarms plugin keeps no
  * trigger time for clock alarms, so for them only the presenter's record
  * tells. Returns the time it rings again (ms), or 0. */
 function snoozedUntil(a, nowMs, snoozes) {
-    if (!a.enabled)
-        return 0
     if (snoozes && a.id !== undefined && snoozes.hasOwnProperty(String(a.id))) {
         var s = Number(snoozes[String(a.id)])
         if (s > nowMs)
             return s
     }
-    if (!(a.triggerTime > 0))
+    if (!a.enabled || !(a.triggerTime > 0))
         return 0
     var at = a.triggerTime * 1000
     if (at <= nowMs)
@@ -129,9 +128,12 @@ function pick(alarms, nowMs, snoozes) {
     var best = null
     for (var i = 0; i < alarms.length; i++) {
         var a = alarms[i]
-        if (!a || a.countdown || !a.enabled)
+        if (!a || a.countdown)
             continue
+        // a snoozed alarm rings again even when timed reports it off
         var until = snoozedUntil(a, nowMs, snoozes)
+        if (until === 0 && !a.enabled)
+            continue
         var at = until > 0 ? until : nextRing(a, nowMs)
         if (!at)
             continue
